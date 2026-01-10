@@ -18,7 +18,7 @@ const Intro = () => (
 			<p>
 				If I can be of help or you just want to say hi, you can drop me at{" "}
 				<Link
-					href="mailto:roland+hi@hey.com"
+					href="mailto:roland+hi@leth.ro"
 					title="Shoot me an email"
 					text="an email"
 				/>
