@@ -8,11 +8,12 @@ const Intro = () => (
 	<Container>
 		<Greeting>Hello, I'm Roland Leth.</Greeting>
 		<p>
-			I’m an iOS developer since 2011, with extensive full-stack knowledge and
-			highly focused on user experience. I'm also an entrepreneur, amateur
-			designer and occasional blogger. Lately, I've been fascinated more and
-			more about the human brain, our behaviour and how we can improve
-			ourselves. Naturally, the two sections of this blog are about:
+			I’m an iOS developer since 2011, with extensive full-stack knowledge,
+			placing myself at the crossroads of product, business, and user
+			experience, balancing all three to create successful products. I'm also an
+			entrepreneur, amateur designer and occasional blogger. Lately, I've been
+			fascinated more and more about the human brain, our behaviour and how we
+			can improve ourselves. Naturally, the two sections of this blog are about:
 		</p>
 		<List>
 			<ListItem className="tech">

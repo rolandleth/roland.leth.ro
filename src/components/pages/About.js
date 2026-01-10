@@ -9,10 +9,11 @@ const About = () => (
 	<Container>
 		<Image src="/images/misc/mypic.jpg" alt="My Picture" />
 		<FirstParagraph>
-			Since 2011, my main expertise has been iOS development, but I've also been
-			involved in many Frontend and Backend projects, personal and
-			professionally. I've worked on my own projects, on remote teams, as a
-			freelancer and contractor, or lead teams at big companies like{" "}
+			I’m an iOS developer since 2011, with extensive full-stack knowledge,
+			placing myself at the crossroads of product, business, and user
+			experience, balancing all three to create successful products. I've worked
+			on my own projects, on remote teams, as a freelancer and contractor, or
+			lead teams at big companies like{" "}
 			<Link href="https://deindeal.ch" title="DeinDeal" text="DeinDeal" />
 			—part of <Link href="https://ringier.ch" title="Ringier" text="Ringier" />
 			—or{" "}
@@ -39,8 +40,7 @@ const About = () => (
 			.
 		</FirstParagraph>
 		<p>
-			If you'd like to know more about my software development history, please
-			check out{" "}
+			If you'd like to know more about my past experience, please check out{" "}
 			<Link
 				href="https://rolandleth.com/assets/resume.pdf"
 				title="Roland Leth's resume"
@@ -48,7 +48,7 @@ const About = () => (
 			/>
 			. If I can be of help or you just want to say hi, you can drop me{" "}
 			<Link
-				href="mailto:roland+hi@hey.com"
+				href="mailto:roland+hi@leth.ro"
 				title="Shoot me an email"
 				text="an email"
 			/>
