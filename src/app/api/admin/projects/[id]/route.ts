@@ -113,6 +113,38 @@ export async function PUT(
 
 	try {
 		const project = await prisma.$transaction(async (tx) => {
+			if (data.sortOrder != null) {
+				const current = await tx.project.findUnique({
+					where: { id: numericId },
+					select: { sortOrder: true },
+				})
+
+				if (current != null && current.sortOrder !== data.sortOrder) {
+					const oldOrder = current.sortOrder
+					const newOrder = data.sortOrder as number
+
+					if (newOrder < oldOrder) {
+						// Moving up: shift the range [new, old) down to make room.
+						await tx.project.updateMany({
+							where: {
+								id: { not: numericId },
+								sortOrder: { gte: newOrder, lt: oldOrder },
+							},
+							data: { sortOrder: { increment: 1 } },
+						})
+					} else {
+						// Moving down: shift the range (old, new] up to fill the gap.
+						await tx.project.updateMany({
+							where: {
+								id: { not: numericId },
+								sortOrder: { gt: oldOrder, lte: newOrder },
+							},
+							data: { sortOrder: { decrement: 1 } },
+						})
+					}
+				}
+			}
+
 			if (sections != null) {
 				// Delete all existing sections (cascade removes images).
 				await tx.projectSection.deleteMany({ where: { projectId: numericId } })
@@ -163,7 +195,15 @@ export async function DELETE(
 	}
 
 	try {
-		await prisma.project.delete({ where: { id: projectId } })
+		await prisma.$transaction(async (tx) => {
+			const deleted = await tx.project.delete({ where: { id: projectId } })
+
+			// Close the gap left by the deleted project.
+			await tx.project.updateMany({
+				where: { sortOrder: { gt: deleted.sortOrder } },
+				data: { sortOrder: { decrement: 1 } },
+			})
+		})
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
 			return new Response(JSON.stringify({ error: "Not found" }), {

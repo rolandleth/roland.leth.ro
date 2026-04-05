@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { GET, POST } from "./route"
+import type { Prisma } from "@/generated/prisma/client"
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
+		$transaction: vi.fn(),
 		project: {
 			findMany: vi.fn(),
 			create: vi.fn(),
+			count: vi.fn(),
+			updateMany: vi.fn(),
 		},
 	},
 }))
@@ -38,7 +42,7 @@ const createdProject = {
 	isFeatured: false,
 	isDiscontinued: false,
 	date: null,
-	sortOrder: 0,
+	sortOrder: 1,
 	createdAt: new Date(),
 	updatedAt: new Date(),
 	sections: [],
@@ -71,6 +75,24 @@ describe("GET /api/admin/projects", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/admin/projects", () => {
+	function makeTx(updateMany = vi.fn()) {
+		return {
+			project: {
+				create: vi.mocked(prisma.project.create),
+				count: vi.mocked(prisma.project.count),
+				updateMany,
+			},
+		} as unknown as Prisma.TransactionClient
+	}
+
+	beforeEach(() => {
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx())
+		)
+		vi.mocked(prisma.project.count).mockResolvedValue(0)
+	})
+
 	it("returns 201 with the created project on a valid payload", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
@@ -87,6 +109,40 @@ describe("POST /api/admin/projects", () => {
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
 		expect(data.slug).toBe("my-app")
+	})
+
+	it("appends after the last project when no sortOrder is provided", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		vi.mocked(prisma.project.count).mockResolvedValue(5)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await POST(makeRequest(validPayload))
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.sortOrder).toBe(6)
+		expect(updateMany).not.toHaveBeenCalled()
+	})
+
+	it("shifts projects at or after the target position when sortOrder is provided", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await POST(makeRequest({ ...validPayload, sortOrder: 3 }))
+
+		expect(updateMany).toHaveBeenCalledWith({
+			where: { sortOrder: { gte: 3 } },
+			data: { sortOrder: { increment: 1 } },
+		})
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.sortOrder).toBe(3)
 	})
 
 	it("accepts optional sections and links", async () => {
@@ -154,7 +210,7 @@ describe("POST /api/admin/projects", () => {
 	})
 
 	it("returns 500 when prisma throws an unexpected error", async () => {
-		vi.mocked(prisma.project.create).mockRejectedValue(new Error("DB failure"))
+		vi.mocked(prisma.$transaction).mockRejectedValue(new Error("DB failure"))
 
 		const response = await POST(makeRequest(validPayload))
 		expect(response.status).toBe(500)

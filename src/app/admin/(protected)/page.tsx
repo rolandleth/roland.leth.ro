@@ -1,5 +1,6 @@
 import Link from "next/link"
 import AdminSearch from "@/components/admin/AdminSearch"
+import ProjectSortOrderInput from "@/components/admin/ProjectSortOrderInput"
 import { prisma } from "@/lib/db"
 import { formatDate } from "@/lib/format"
 
@@ -38,13 +39,13 @@ function fetchProjects(isSearching: boolean, query: string, skip: number) {
 	if (isSearching) {
 		return prisma.project.findMany({
 			where: { name: { contains: query, mode: "insensitive" } },
-			select: { id: true, name: true, platform: true, isFeatured: true },
+			select: { id: true, name: true, platform: true, isFeatured: true, sortOrder: true },
 			orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
 		})
 	}
 
 	return prisma.project.findMany({
-		select: { id: true, name: true, platform: true, isFeatured: true },
+		select: { id: true, name: true, platform: true, isFeatured: true, sortOrder: true },
 		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
 		take: PAGE_SIZE,
 		skip,
@@ -212,12 +213,22 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 										{project.isFeatured && " · Featured"}
 									</p>
 								</div>
-								<Link
-									href={`/admin/projects/${project.id}/edit`}
-									className="text-secondary hover:text-primary text-xs transition-colors"
-								>
-									Edit
-								</Link>
+								<div className="flex items-center gap-4">
+									{!isSearching && (
+										<ProjectSortOrderInput
+											key={`${project.id}-${project.sortOrder}`}
+											projectId={project.id}
+											initialSortOrder={project.sortOrder}
+											totalCount={projectCount}
+										/>
+									)}
+									<Link
+										href={`/admin/projects/${project.id}/edit`}
+										className="text-secondary hover:text-primary text-xs transition-colors"
+									>
+										Edit
+									</Link>
+								</div>
 							</div>
 						))}
 

@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
 			findUnique: vi.fn(),
 			update: vi.fn(),
 			delete: vi.fn(),
+			updateMany: vi.fn(),
 		},
 		$transaction: vi.fn(),
 	},
@@ -44,7 +45,7 @@ const existingProject = {
 	isFeatured: false,
 	isDiscontinued: false,
 	date: null,
-	sortOrder: 0,
+	sortOrder: 3,
 	createdAt: new Date(),
 	updatedAt: new Date(),
 	sections: [],
@@ -89,16 +90,22 @@ describe("GET /api/admin/projects/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("PUT /api/admin/projects/[id]", () => {
+	function makeTx(updateMany = vi.fn()) {
+		return {
+			project: {
+				findUnique: vi.mocked(prisma.project.findUnique),
+				update: vi.mocked(prisma.project.update),
+				updateMany,
+			},
+			projectSection: { deleteMany: vi.fn() },
+			projectLink: { deleteMany: vi.fn() },
+		} as unknown as Prisma.TransactionClient
+	}
+
 	beforeEach(() => {
-		// The PUT handler wraps everything in a $transaction; mock it to call
-		// through to prisma.project.update so we can assert on update args.
 		vi.mocked(prisma.$transaction).mockImplementation(
 			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
-				fn({
-					project: { update: vi.mocked(prisma.project.update) },
-					projectSection: { deleteMany: vi.fn() },
-					projectLink: { deleteMany: vi.fn() },
-				} as unknown as Prisma.TransactionClient)
+				fn(makeTx())
 		)
 	})
 
@@ -136,6 +143,54 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(data.slug).toBeUndefined()
 	})
 
+	it("shifts projects in [new, old) up when moving to a lower position", async () => {
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // sortOrder: 3
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await PUT(putRequest("1", { sortOrder: 1 }), params("1"))
+
+		expect(updateMany).toHaveBeenCalledWith({
+			where: { id: { not: 1 }, sortOrder: { gte: 1, lt: 3 } },
+			data: { sortOrder: { increment: 1 } },
+		})
+	})
+
+	it("shifts projects in (old, new] down when moving to a higher position", async () => {
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // sortOrder: 3
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await PUT(putRequest("1", { sortOrder: 6 }), params("1"))
+
+		expect(updateMany).toHaveBeenCalledWith({
+			where: { id: { not: 1 }, sortOrder: { gt: 3, lte: 6 } },
+			data: { sortOrder: { decrement: 1 } },
+		})
+	})
+
+	it("does not shift when sortOrder is unchanged", async () => {
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // sortOrder: 3
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await PUT(putRequest("1", { sortOrder: 3 }), params("1"))
+
+		expect(updateMany).not.toHaveBeenCalled()
+	})
+
 	it("returns 400 for a non-numeric id", async () => {
 		const response = await PUT(putRequest("abc", { name: "X" }), params("abc"))
 		expect(response.status).toBe(400)
@@ -170,11 +225,34 @@ describe("PUT /api/admin/projects/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("DELETE /api/admin/projects/[id]", () => {
+	beforeEach(() => {
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn({
+					project: {
+						delete: vi.mocked(prisma.project.delete),
+						updateMany: vi.mocked(prisma.project.updateMany),
+					},
+				} as unknown as Prisma.TransactionClient)
+		)
+	})
+
 	it("returns 204 on successful deletion", async () => {
 		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject)
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(204)
+	})
+
+	it("shifts remaining projects down after deletion", async () => {
+		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject) // sortOrder: 3
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(vi.mocked(prisma.project.updateMany)).toHaveBeenCalledWith({
+			where: { sortOrder: { gt: 3 } },
+			data: { sortOrder: { decrement: 1 } },
+		})
 	})
 
 	it("returns 400 for a non-numeric id", async () => {
@@ -187,14 +265,14 @@ describe("DELETE /api/admin/projects/[id]", () => {
 
 	it("returns 404 when the project does not exist", async () => {
 		vi.mocked(isPrismaNotFound).mockReturnValue(true)
-		vi.mocked(prisma.project.delete).mockRejectedValue({ code: "P2025" })
+		vi.mocked(prisma.$transaction).mockRejectedValue({ code: "P2025" })
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(404)
 	})
 
 	it("returns 500 on an unexpected error", async () => {
-		vi.mocked(prisma.project.delete).mockRejectedValue(new Error("DB failure"))
+		vi.mocked(prisma.$transaction).mockRejectedValue(new Error("DB failure"))
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(500)

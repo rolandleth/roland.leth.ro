@@ -35,55 +35,72 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} = parsed.data
 
 	try {
-		const project = await prisma.project.create({
-			data: {
-				name,
-				slug: createSlug(name),
-				summary,
-				platform,
-				role: role ?? null,
-				accentColor: accentColor ?? null,
-				icon: icon ?? null,
-				heroImage: heroImage ?? null,
-				isFeatured: isFeatured ?? false,
-				isDiscontinued: isDiscontinued ?? false,
-				date: date ?? null,
-				sortOrder: sortOrder ?? 0,
-				sections: sections
-					? {
-							create: sections.map((s) => ({
-								title: s.title,
-								description: s.description,
-								sortOrder: s.sortOrder ?? 0,
-								images: s.images
-									? {
-											create: s.images.map((img) => ({
-												url: img.url,
-												caption: img.caption ?? null,
-												sortOrder: img.sortOrder ?? 0,
-											})),
-										}
-									: undefined,
-							})),
-						}
-					: undefined,
-				links: links
-					? {
-							create: links.map((l) => ({
-								label: l.label,
-								url: l.url,
-								sortOrder: l.sortOrder ?? 0,
-							})),
-						}
-					: undefined,
-			},
-			include: {
-				sections: {
-					orderBy: { sortOrder: "asc" },
-					include: { images: { orderBy: { sortOrder: "asc" } } },
+		const project = await prisma.$transaction(async (tx) => {
+			let targetOrder: number
+
+			if (sortOrder != null) {
+				// Shift everything at or after the target position down to make room.
+				await tx.project.updateMany({
+					where: { sortOrder: { gte: sortOrder } },
+					data: { sortOrder: { increment: 1 } },
+				})
+				targetOrder = sortOrder
+			} else {
+				// No position given — append after the last project.
+				const count = await tx.project.count()
+				targetOrder = count + 1
+			}
+
+			return tx.project.create({
+				data: {
+					name,
+					slug: createSlug(name),
+					summary,
+					platform,
+					role: role ?? null,
+					accentColor: accentColor ?? null,
+					icon: icon ?? null,
+					heroImage: heroImage ?? null,
+					isFeatured: isFeatured ?? false,
+					isDiscontinued: isDiscontinued ?? false,
+					date: date ?? null,
+					sortOrder: targetOrder,
+					sections: sections
+						? {
+								create: sections.map((s) => ({
+									title: s.title,
+									description: s.description,
+									sortOrder: s.sortOrder ?? 0,
+									images: s.images
+										? {
+												create: s.images.map((img) => ({
+													url: img.url,
+													caption: img.caption ?? null,
+													sortOrder: img.sortOrder ?? 0,
+												})),
+											}
+										: undefined,
+								})),
+							}
+						: undefined,
+					links: links
+						? {
+								create: links.map((l) => ({
+									label: l.label,
+									url: l.url,
+									sortOrder: l.sortOrder ?? 0,
+								})),
+							}
+						: undefined,
 				},
-				links: { orderBy: { sortOrder: "asc" } },
-			},
+				include: {
+					sections: {
+						orderBy: { sortOrder: "asc" },
+						include: { images: { orderBy: { sortOrder: "asc" } } },
+					},
+					links: { orderBy: { sortOrder: "asc" } },
+				},
+			})
 		})
 
 		return NextResponse.json(project, { status: 201 })
