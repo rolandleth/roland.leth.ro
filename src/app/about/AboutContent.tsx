@@ -1,0 +1,147 @@
+"use client"
+
+import { motion } from "framer-motion"
+import Image from "next/image"
+import Link from "next/link"
+import { fadeUp } from "@/lib/motion"
+
+const chips = [
+	"15+ years",
+	"Product & UX focused",
+	"Business-driven",
+	"Engineering leader",
+]
+
+const sections = [
+	{
+		heading: "Background",
+		paragraphs: [
+			`Software development has been my craft for over a decade. I started
+			with iOS and gradually expanded into full-stack web development, always
+			with a strong focus on product quality and user experience.`,
+			`Beyond writing code, I care about building things that matter — apps
+			and tools that solve real problems in ways that feel effortless to use.`,
+		],
+	},
+	{
+		heading: "This blog",
+		paragraphs: [
+			`The tech section is where I write about software development, iOS, Swift,
+			web technologies, and the craft of building products.`,
+			`The life section is about personal development — habits, identity change,
+			motivation, and improving ourselves. Most of it comes from my own experiences
+			or from the books I read.`,
+		],
+	},
+]
+
+const contactLinks = [
+	{
+		label: "Email",
+		href: "mailto:roland+hi@leth.ro",
+	},
+	{
+		label: "Twitter",
+		href: "https://twitter.com/rolandleth",
+	},
+	{
+		label: "Résumé",
+		href: "/resume.pdf",
+		download: true,
+	},
+]
+
+export default function AboutContent() {
+	return (
+		<div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:gap-12">
+			{/* Sidebar */}
+			<motion.aside
+				{...fadeUp(0)}
+				className="flex shrink-0 flex-col items-center gap-5 text-center sm:sticky sm:top-8 sm:w-48 sm:items-start sm:text-left"
+			>
+				<Image
+					src="/images/mypic.jpg"
+					alt="Roland Leth"
+					width={96}
+					height={96}
+					className="rounded-full object-cover ring-2 ring-(--color-border)"
+					priority
+				/>
+
+				<div>
+					<p className="text-primary font-semibold">Roland Leth</p>
+					<p className="text-secondary mt-0.5 text-sm">
+						iOS developer &amp; <br />
+						full-stack engineer
+					</p>
+				</div>
+
+				<div className="flex flex-col items-center gap-2 sm:items-start">
+					{chips.map((chip) => (
+						<span
+							key={chip}
+							className="rounded-full bg-(--color-border) px-2.5 py-0.5 text-xs font-medium text-(--color-accent)"
+						>
+							{chip}
+						</span>
+					))}
+				</div>
+
+				<div className="flex flex-col gap-2">
+					{contactLinks.map(({ label, href, download }) => (
+						<Link
+							key={label}
+							href={href}
+							download={download}
+							className="text-secondary hover:text-accent text-sm transition-colors duration-300"
+						>
+							{label} →
+						</Link>
+					))}
+				</div>
+			</motion.aside>
+
+			{/* Main content */}
+			<div className="min-w-0 flex-1 space-y-10">
+				<motion.h1 className="text-3xl font-bold" {...fadeUp(0.06)}>
+					About
+				</motion.h1>
+
+				<motion.section {...fadeUp(0.1)}>
+					<div className="space-y-4">
+						<p className="text-secondary leading-relaxed">
+							I&apos;m an iOS developer since 2011, with extensive full-stack
+							knowledge, placing myself at the crossroads of product, business,
+							and user experience, balancing all three to create successful
+							products.
+						</p>
+						<p className="text-secondary leading-relaxed">
+							I&apos;ve worked on my own projects, on remote teams, as a
+							freelancer and contractor, or led teams at big companies like
+							DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
+							also started my own software company, Runtime Sharks, and
+							co-founded startups like Eventa and Qality Tech.
+						</p>
+					</div>
+				</motion.section>
+
+				{sections.map((section, i) => (
+					<motion.section
+						key={section.heading}
+						{...fadeUp((i + 2) * 0.06 + 0.1)}
+					>
+						<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
+
+						<div className="space-y-4">
+							{section.paragraphs.map((paragraph, j) => (
+								<p key={j} className="text-secondary leading-relaxed">
+									{paragraph}
+								</p>
+							))}
+						</div>
+					</motion.section>
+				))}
+			</div>
+		</div>
+	)
+}

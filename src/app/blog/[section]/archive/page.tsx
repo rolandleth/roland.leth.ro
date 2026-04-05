@@ -1,0 +1,74 @@
+import Link from "next/link"
+import { notFound } from "next/navigation"
+import { formatDate } from "@/lib/format"
+import { getPostsGroupedByYear } from "@/lib/posts"
+import { isValidSection } from "@/lib/sections"
+import type { Metadata } from "next"
+
+interface Props {
+	params: Promise<{ section: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+	const { section } = await params
+
+	if (!isValidSection(section)) {
+		return {}
+	}
+
+	const label = section.charAt(0).toUpperCase() + section.slice(1)
+
+	return {
+		title: `${label} archive`,
+		description: `All ${section} posts, grouped by year.`,
+	}
+}
+
+export default async function ArchivePage({ params }: Props) {
+	const { section } = await params
+
+	if (!isValidSection(section)) {
+		notFound()
+	}
+
+	const grouped = await getPostsGroupedByYear(section)
+	const years = Object.keys(grouped).sort((a, b) => Number(b) - Number(a))
+
+	return (
+		<main className="mx-auto max-w-4xl px-4 py-12">
+			<h1 className="mb-8 text-3xl font-bold">Archive</h1>
+
+			{years.length === 0 ? (
+				<p className="text-(--color-secondary)">No posts yet.</p>
+			) : (
+				<div className="space-y-10">
+					{years.map((year) => (
+						<section key={year}>
+							<h2 className="border-border mb-3 border-l-2 pl-3 text-xl font-semibold">
+								{year}
+							</h2>
+
+							<ul className="divide-border divide-y">
+								{grouped[year].map((post) => (
+									<li key={post.slug} className="py-3">
+										<Link
+											href={`/blog/${post.section}/${post.slug}`}
+											className="group flex items-baseline justify-between gap-4"
+										>
+											<span className="font-medium transition-colors duration-300 group-hover:text-(--color-accent)">
+												{post.title}
+											</span>
+											<span className="shrink-0 text-sm text-(--color-secondary)">
+												{formatDate(post.datetime)}
+											</span>
+										</Link>
+									</li>
+								))}
+							</ul>
+						</section>
+					))}
+				</div>
+			)}
+		</main>
+	)
+}

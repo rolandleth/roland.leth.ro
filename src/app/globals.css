@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+	--color-primary: var(--color-primary-value);
+	--color-secondary: var(--color-secondary-value);
+	--color-background: var(--color-background-value);
+	--color-border: var(--color-border-value);
+	--color-accent: var(--color-accent-value);
+	--font-sans: var(--font-body);
+	--font-serif: var(--font-heading);
+	--font-mono: var(--font-code);
+}
+
+:root {
+	--color-primary-value: #030712;
+	--color-secondary-value: #565d6b;
+	--color-background-value: #f9fafb;
+	--color-border-value: #e5e7eb;
+	--color-accent-value: #0d8fb5;
+	--color-header-accent: var(--color-accent-value);
+	--color-header-bg: color-mix(
+		in srgb,
+		var(--color-background-value) 97.5%,
+		var(--color-header-accent)
+	);
+}
+
+.dark {
+	--color-primary-value: #f5f5f5;
+	--color-secondary-value: #9ca3af;
+	--color-background-value: #030712;
+	--color-border-value: #1f2937;
+	--color-accent-value: #12a8da;
+	--color-header-bg: color-mix(
+		in srgb,
+		var(--color-background-value) 94%,
+		var(--color-header-accent)
+	);
+}
+
+body {
+	-webkit-font-smoothing: antialiased;
+	background-color: var(--color-background-value);
+	color: var(--color-primary-value);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--font-heading);
+}
+
+html:not(.dark):not(.light) {
+	visibility: hidden;
+}
+
+a {
+	transition:
+		color 0.4s ease,
+		text-decoration-color 0.2s ease;
+}
+
+/* rehype-pretty-code: match pre background to shiki's theme, overriding prose */
+figure[data-rehype-pretty-code-figure] pre {
+	background-color: var(--shiki-light-bg);
+	border: 1px solid var(--color-border-value);
+}
+
+.dark figure[data-rehype-pretty-code-figure] pre {
+	background-color: var(--shiki-dark-bg);
+	border: 1px solid var(--color-border-value);
+}
+
+/* rehype-pretty-code: apply shiki light/dark themes via CSS vars */
+code[data-theme*=" "],
+code[data-theme*=" "] span {
+	color: var(--shiki-light);
+	background-color: var(--shiki-light-bg);
+}
+
+.dark code[data-theme*=" "],
+.dark code[data-theme*=" "] span {
+	color: var(--shiki-dark);
+	background-color: var(--shiki-dark-bg);
+}
+
+.prose code::before,
+.prose code::after {
+	content: none;
+}
+
+.prose :not(pre) > code {
+	background-color: color-mix(
+		in srgb,
+		var(--color-border-value) 60%,
+		transparent
+	);
+	color: var(--color-accent-value);
+	padding: 0.15em 0.35em;
+	border-radius: 0.25rem;
+	font-size: 0.875em;
+	font-weight: normal;
+}

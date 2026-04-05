@@ -1,0 +1,258 @@
+import { describe, expect, it } from "vitest"
+import {
+	postCreateSchema,
+	postUpdateSchema,
+	projectCreateSchema,
+	projectUpdateSchema,
+} from "@/lib/schemas"
+
+// ---------------------------------------------------------------------------
+// httpUrl (tested indirectly through schema fields that use it)
+// ---------------------------------------------------------------------------
+
+describe("httpUrl validator (via imageUrl)", () => {
+	const base = { title: "T", body: "B", datetime: "2025-01-01-1200" }
+
+	it("accepts http:// URLs", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "http://example.com/img.png",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("accepts https:// URLs", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "https://example.com/img.png",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects javascript: URLs", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "javascript:alert(1)",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects data: URLs", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "data:text/html,<h1>hi</h1>",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects ftp:// URLs", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "ftp://files.example.com/file.txt",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a plain string with no protocol", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			imageUrl: "example.com/img.png",
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// postCreateSchema
+// ---------------------------------------------------------------------------
+
+describe("postCreateSchema", () => {
+	const valid = {
+		title: "My Post",
+		body: "Some content here.",
+		datetime: "2025-06-01-0900",
+	}
+
+	it("accepts a minimal valid payload", () => {
+		expect(postCreateSchema.safeParse(valid).success).toBe(true)
+	})
+
+	it("accepts a fully-populated payload", () => {
+		const result = postCreateSchema.safeParse({
+			...valid,
+			summary: "A short summary.",
+			imageUrl: "https://example.com/hero.png",
+			section: "life",
+			published: false,
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects when title is missing", () => {
+		const { title: _, ...rest } = valid
+		expect(postCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when body is missing", () => {
+		const { body: _, ...rest } = valid
+		expect(postCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when datetime is missing", () => {
+		const { datetime: _, ...rest } = valid
+		expect(postCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects an empty title", () => {
+		expect(postCreateSchema.safeParse({ ...valid, title: "" }).success).toBe(
+			false
+		)
+	})
+
+	it("rejects an empty body", () => {
+		expect(postCreateSchema.safeParse({ ...valid, body: "" }).success).toBe(
+			false
+		)
+	})
+
+	it("rejects an invalid section value", () => {
+		expect(
+			postCreateSchema.safeParse({ ...valid, section: "food" }).success
+		).toBe(false)
+	})
+
+	it("accepts imageUrl as null", () => {
+		expect(
+			postCreateSchema.safeParse({ ...valid, imageUrl: null }).success
+		).toBe(true)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// postUpdateSchema
+// ---------------------------------------------------------------------------
+
+describe("postUpdateSchema", () => {
+	it("accepts an empty object (all fields optional)", () => {
+		expect(postUpdateSchema.safeParse({}).success).toBe(true)
+	})
+
+	it("accepts a partial update with only title", () => {
+		expect(postUpdateSchema.safeParse({ title: "New title" }).success).toBe(
+			true
+		)
+	})
+
+	it("still rejects an invalid imageUrl in a partial update", () => {
+		expect(
+			postUpdateSchema.safeParse({ imageUrl: "javascript:void(0)" }).success
+		).toBe(false)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// projectCreateSchema
+// ---------------------------------------------------------------------------
+
+describe("projectCreateSchema", () => {
+	const valid = {
+		name: "My App",
+		summary: "An app that does things.",
+		platform: "iOS",
+	}
+
+	it("accepts a minimal valid payload", () => {
+		expect(projectCreateSchema.safeParse(valid).success).toBe(true)
+	})
+
+	it("accepts a fully-populated payload with sections and links", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			role: "Developer",
+			accentColor: "#6366f1",
+			icon: "https://example.com/icon.png",
+			heroImage: "https://example.com/hero.png",
+			isFeatured: true,
+			isDiscontinued: false,
+			date: "2024",
+			sortOrder: 1,
+			sections: [
+				{
+					title: "Overview",
+					description: "The main overview section.",
+					sortOrder: 0,
+					images: [
+						{
+							url: "https://example.com/screenshot.png",
+							caption: "Main screen",
+							sortOrder: 0,
+						},
+					],
+				},
+			],
+			links: [
+				{ label: "App Store", url: "https://apps.apple.com/app", sortOrder: 0 },
+			],
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects when name is missing", () => {
+		const { name: _, ...rest } = valid
+		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when summary is missing", () => {
+		const { summary: _, ...rest } = valid
+		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when platform is missing", () => {
+		const { platform: _, ...rest } = valid
+		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects a link with an invalid URL", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			links: [{ label: "Bad link", url: "not-a-url" }],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a section image with an invalid URL", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			sections: [
+				{
+					title: "Section",
+					description: "Desc",
+					images: [{ url: "ftp://bad.example.com/img.png" }],
+				},
+			],
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// projectUpdateSchema
+// ---------------------------------------------------------------------------
+
+describe("projectUpdateSchema", () => {
+	it("accepts an empty object (all fields optional)", () => {
+		expect(projectUpdateSchema.safeParse({}).success).toBe(true)
+	})
+
+	it("accepts a partial update with only name", () => {
+		expect(projectUpdateSchema.safeParse({ name: "Renamed App" }).success).toBe(
+			true
+		)
+	})
+
+	it("still rejects an invalid icon URL in a partial update", () => {
+		expect(
+			projectUpdateSchema.safeParse({ icon: "javascript:evil()" }).success
+		).toBe(false)
+	})
+})
