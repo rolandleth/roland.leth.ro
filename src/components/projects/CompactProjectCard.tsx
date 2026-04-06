@@ -1,16 +1,19 @@
 import Image from "next/image"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import type { ProjectGalleryItem } from "@/lib/projects"
 
 interface Props {
 	project: ProjectGalleryItem
+	href?: string
+	children?: ReactNode
 }
 
-export default function CompactProjectCard({ project }: Props) {
+export default function CompactProjectCard({ project, href: hrefProp, children }: Props) {
 	const { name, slug, icon, accentColor, isDiscontinued } = project
 	const accent = accentColor ?? "var(--color-accent)"
 	// Featured projects link to their detail page; others link externally if needed, but we still use the detail route as a fallback.
-	const href = `/projects/${slug}`
+	const href = hrefProp ?? `/projects/${slug}`
 
 	return (
 		<div
@@ -58,6 +61,8 @@ export default function CompactProjectCard({ project }: Props) {
 					{name}
 				</span>
 			</Link>
+
+			{children}
 		</div>
 	)
 }

@@ -1,15 +1,20 @@
 import Image from "next/image"
 import Link from "next/link"
+import type { ReactNode } from "react"
 import type { ProjectGalleryItem } from "@/lib/projects"
 
 interface Props {
 	project: ProjectGalleryItem
+	href?: string
 	isPriority?: boolean
+	children?: ReactNode
 }
 
 export default function FeaturedProjectCard({
 	project,
+	href: hrefProp,
 	isPriority = false,
+	children,
 }: Props) {
 	const {
 		name,
@@ -22,7 +27,7 @@ export default function FeaturedProjectCard({
 		accentColor,
 		isDiscontinued,
 	} = project
-	const href = `/projects/${slug}`
+	const href = hrefProp ?? `/projects/${slug}`
 	const accent = accentColor ?? "var(--color-accent)"
 
 	return (
@@ -108,6 +113,8 @@ export default function FeaturedProjectCard({
 					</span>
 				</div>
 			</Link>
+
+			{children}
 		</div>
 	)
 }

@@ -2,8 +2,8 @@ import PageGlow from "@/components/PageGlow"
 import AnimatedProjectCard from "@/components/projects/AnimatedProjectCard"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
+import { groupByPlatform } from "@/lib/platforms"
 import { getAllProjectsForGallery } from "@/lib/projects"
-import type { ProjectGalleryItem } from "@/lib/projects"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -14,44 +14,6 @@ export const metadata: Metadata = {
 		description: "Apps and tools built or led by Roland Leth.",
 		url: "/projects",
 	},
-}
-
-// Platform bucket labels and their match keywords
-const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
-	{ label: "Mobile", keywords: ["ios", "android", "mobile", "iphone", "ipad"] },
-	{ label: "Mac", keywords: ["mac", "macos", "desktop"] },
-	{ label: "Web", keywords: ["web", "website", "react", "next"] },
-]
-
-function platformBucket(platform: string): string {
-	const lower = platform.toLowerCase()
-
-	for (const bucket of PLATFORM_BUCKETS) {
-		if (bucket.keywords.some((kw) => lower.includes(kw))) {
-			return bucket.label
-		}
-	}
-
-	return "Other"
-}
-
-function groupByPlatform(
-	projects: ProjectGalleryItem[]
-): { label: string; projects: ProjectGalleryItem[] }[] {
-	const buckets = new Map<string, ProjectGalleryItem[]>()
-
-	for (const project of projects) {
-		const label = platformBucket(project.platform)
-		const existing = buckets.get(label) ?? []
-		buckets.set(label, [...existing, project])
-	}
-
-	// Preserve canonical order: Mobile → Mac → Web → Other
-	const order = ["Mobile", "Mac", "Web", "Other"]
-
-	return order
-		.filter((label) => buckets.has(label))
-		.map((label) => ({ label, projects: buckets.get(label) ?? [] }))
 }
 
 export default async function ProjectsPage() {

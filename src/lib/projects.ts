@@ -58,9 +58,9 @@ export interface ProjectDetail {
 }
 
 /** Returns all projects with gallery fields ordered by sortOrder ascending then name. */
-export async function getAllProjectsForGallery(): Promise<
-	ProjectGalleryItem[]
-> {
+export async function getAllProjectsForGallery({
+	sortDiscontinued = true,
+}: { sortDiscontinued?: boolean } = {}): Promise<ProjectGalleryItem[]> {
 	return prisma.project.findMany({
 		select: {
 			id: true,
@@ -76,7 +76,11 @@ export async function getAllProjectsForGallery(): Promise<
 			icon: true,
 			heroImage: true,
 		},
-		orderBy: [{ isDiscontinued: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+		orderBy: [
+			...(sortDiscontinued ? [{ isDiscontinued: "asc" as const }] : []),
+			{ sortOrder: "asc" },
+			{ name: "asc" },
+		],
 	})
 }
 
