@@ -1,6 +1,5 @@
 import { defineConfig, globalIgnores } from "eslint/config"
 import nextVitals from "eslint-config-next/core-web-vitals"
-import nextTs from "eslint-config-next/typescript"
 import importPlugin from "eslint-plugin-import"
 import prettier from "eslint-plugin-prettier/recommended"
 import sonarjs from "eslint-plugin-sonarjs"
@@ -12,8 +11,9 @@ const sonarRecommended = /** @type {import("eslint").Linter.Config} */ (
 )
 
 const eslintConfig = defineConfig([
-	...nextVitals,
-	...nextTs,
+	// Filter out next/typescript which registers @typescript-eslint plugin;
+	// tseslint.configs.strict below owns that registration.
+	...nextVitals.filter((c) => c.name !== "next/typescript"),
 	...tseslint.configs.strict,
 	sonarRecommended,
 	{

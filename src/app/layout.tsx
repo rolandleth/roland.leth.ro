@@ -1,7 +1,7 @@
-import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google"
 import { cookies } from "next/headers"
 import AnalyticsWithFilter from "@/app/AnalyticsWithFilter"
+import SpeedInsightsWithFilter from "@/app/SpeedInsightsWithFilter"
 import Footer from "@/components/Footer"
 import SiteChrome from "@/components/SiteChrome"
 import ThemeProvider, { type Theme } from "@/components/ThemeProvider"
@@ -84,7 +84,7 @@ export default async function RootLayout({
 				<ThemeProvider initialTheme={initialTheme}>
 					<SiteChrome />
 					{children}
-					<SpeedInsights />
+					<SpeedInsightsWithFilter />
 					<AnalyticsWithFilter />
 					<Footer />
 				</ThemeProvider>
