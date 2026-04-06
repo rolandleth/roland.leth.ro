@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
-import type { ReactNode } from "react"
 import type { ProjectGalleryItem } from "@/lib/projects"
+import type { ReactNode } from "react"
 
 interface Props {
 	project: ProjectGalleryItem

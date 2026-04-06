@@ -13,8 +13,7 @@ async function renderMarkdown(content: string): Promise<ReactNode> {
 	const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype)
 	const hast = await processor.run(processor.parse(content))
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	return toJsxRuntime(hast as any, { Fragment, jsx, jsxs } as any)
+	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
 }
 
 interface Props {

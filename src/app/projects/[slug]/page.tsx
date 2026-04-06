@@ -46,7 +46,9 @@ export default async function ProjectPage({ params }: Props) {
 	}
 
 	const renderedDescriptions = await Promise.all(
-		project.sections.map((s) => markdownToReact(s.description))
+		project.sections.map(async (s) => (
+			<div key={s.id}>{await markdownToReact(s.description)}</div>
+		))
 	)
 
 	return (

@@ -39,7 +39,7 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 	return (
 		<div>
 			{/* Image area — fixed height so layout never shifts between slides */}
-			<div className="group relative h-80 overflow-hidden rounded-xl border border-(--color-border)">
+			<div className="group relative h-120 overflow-hidden rounded-xl">
 				<AnimatePresence initial={false} custom={direction}>
 					<motion.div
 						key={currentIndex}
@@ -55,8 +55,9 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 							src={current.url}
 							alt={current.caption ?? `${altPrefix} screenshot`}
 							fill
+							loading="eager"
 							sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
-							className="object-cover"
+							className="object-contain"
 						/>
 					</motion.div>
 				</AnimatePresence>
@@ -68,7 +69,7 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 							type="button"
 							onClick={() => paginate(-1)}
 							aria-label="Previous image"
-							className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+							className="absolute top-1/2 left-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
 						>
 							<ChevronLeft size={18} />
 						</button>
@@ -77,7 +78,7 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 							type="button"
 							onClick={() => paginate(1)}
 							aria-label="Next image"
-							className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+							className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
 						>
 							<ChevronRight size={18} />
 						</button>

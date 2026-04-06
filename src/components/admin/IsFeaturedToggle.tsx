@@ -8,7 +8,10 @@ interface Props {
 	initialIsFeatured: boolean
 }
 
-export default function IsFeaturedToggle({ projectId, initialIsFeatured }: Props) {
+export default function IsFeaturedToggle({
+	projectId,
+	initialIsFeatured,
+}: Props) {
 	const router = useRouter()
 	const [isFeatured, setIsFeatured] = useState(initialIsFeatured)
 	const [isSaving, setIsSaving] = useState(false)

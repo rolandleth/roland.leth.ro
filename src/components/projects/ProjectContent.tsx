@@ -142,18 +142,18 @@ export default function ProjectContent({
 							<div
 								role="tablist"
 								aria-label="Project sections"
-								className="mb-6 flex gap-1 border-b border-(--color-border)"
+								className="flex gap-1 border-b border-(--color-border)"
 							>
 								{sections.map((section, i) => (
 									<button
-										key={section.id}
+										key={`tab-${section.id}`}
 										type="button"
 										role="tab"
 										id={`tab-${section.id}`}
 										aria-selected={i === activeTab}
 										aria-controls={`panel-${section.id}`}
 										onClick={() => setActiveTab(i)}
-										className="relative px-4 py-2 text-sm font-medium transition-colors duration-300"
+										className="relative cursor-pointer px-4 py-2 text-sm font-medium transition-colors duration-300"
 										style={{
 											color:
 												i === activeTab ? accent : "var(--color-secondary)",
