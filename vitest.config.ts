@@ -16,7 +16,7 @@ export default defineConfig({
 				extends: true,
 				test: {
 					include: ["src/components/**/*.test.tsx"],
-					environment: "jsdom",
+					environment: "happy-dom",
 					setupFiles: ["./src/test/setup.dom.ts"],
 				},
 			},

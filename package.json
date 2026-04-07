@@ -8,7 +8,6 @@
 		"start": "next start",
 		"lint": "eslint",
 		"test": "vitest",
-		"test:ui": "vitest --ui",
 		"db:push": "prisma db push",
 		"db:migrate": "prisma migrate dev"
 	},
@@ -57,7 +56,7 @@
 		"eslint-plugin-import": "^2.32.0",
 		"eslint-plugin-prettier": "^5.5.5",
 		"eslint-plugin-sonarjs": "^4.0.2",
-		"jsdom": "^29.0.1",
+		"happy-dom": "^20.8.9",
 		"prettier": "^3.8.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
 		"prisma": "^7.6.0",

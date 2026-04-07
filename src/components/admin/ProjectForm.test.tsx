@@ -204,7 +204,7 @@ describe("ProjectForm — edit mode", () => {
 		const { push } = mockRouter()
 		// DELETE returns 204 (no body), ok=true
 		global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 })
-		vi.spyOn(window, "confirm").mockReturnValue(true)
+		vi.stubGlobal("confirm", vi.fn().mockReturnValue(true))
 
 		render(<ProjectForm initialData={initialData} />)
 		await userEvent.click(screen.getByRole("button", { name: /delete/i }))
@@ -215,7 +215,7 @@ describe("ProjectForm — edit mode", () => {
 	it("does not delete when the user cancels the confirm dialog", async () => {
 		mockRouter()
 		mockFetch(true)
-		vi.spyOn(window, "confirm").mockReturnValue(false)
+		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
 
 		render(<ProjectForm initialData={initialData} />)
 		await userEvent.click(screen.getByRole("button", { name: /delete/i }))

@@ -178,7 +178,7 @@ describe("PostForm — edit mode", () => {
 	it("navigates to /admin after a successful delete", async () => {
 		const { push } = mockRouter()
 		mockFetch(true)
-		vi.spyOn(window, "confirm").mockReturnValue(true)
+		vi.stubGlobal("confirm", vi.fn().mockReturnValue(true))
 
 		render(<PostForm initialData={initialData} />)
 		await userEvent.click(screen.getByRole("button", { name: /delete/i }))
@@ -189,7 +189,7 @@ describe("PostForm — edit mode", () => {
 	it("does not delete when the user cancels the confirm dialog", async () => {
 		mockRouter()
 		mockFetch(true)
-		vi.spyOn(window, "confirm").mockReturnValue(false)
+		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
 
 		render(<PostForm initialData={initialData} />)
 		await userEvent.click(screen.getByRole("button", { name: /delete/i }))
