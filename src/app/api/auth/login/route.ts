@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { verifyCredentials, createSession } from "@/lib/auth"
 
-const hasRedis = process.env.UPSTASH_REDIS_URL
+const hasRedis = process.env.UPSTASH_REDIS_REDIS_URL
 
 const ratelimit = hasRedis
 	? new Ratelimit({
