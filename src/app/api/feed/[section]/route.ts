@@ -39,7 +39,7 @@ function escapeXml(text: string): string {
 }
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ section: string }> }
 ): Promise<Response> {
 	const { section } = await params
@@ -63,7 +63,7 @@ export async function GET(
 		take: 20,
 	})
 
-	const SITE_URL = process.env.NEXTAUTH_URL
+	const { origin: SITE_URL } = new URL(request.url)
 
 	const feedTitle = `Roland Leth — ${section.charAt(0).toUpperCase() + section.slice(1)} blog`
 	const feedUrl = `${SITE_URL}/api/feed/${section}`

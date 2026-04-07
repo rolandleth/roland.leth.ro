@@ -12,7 +12,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		}
 	}
 
-	if (!process.env.REDIS_URL) {
+	if (!process.env.KV_REST_API_TOKEN) {
 		return NextResponse.json({ ok: true })
 	}
 
