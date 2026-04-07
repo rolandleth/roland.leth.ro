@@ -19,14 +19,19 @@ async function main() {
 	const projectRoot = path.resolve(__dirname, "../..")
 	const run = (args) => {
 		try {
-			execFileSync("yarn", args, { cwd: projectRoot, stdio: "pipe" })
-		} catch {}
+			execFileSync("npm", args, {
+				cwd: projectRoot, stdio: "pipe", env: {
+					...process.env,
+					PATH: `${path.dirname(process.execPath)}:${process.env.PATH}`,
+				}
+			})
+		} catch (e) {
+			process.stderr.write(e.message)
+		}
 	}
 
-	run(["prettier", "--write", filePath])
-
 	if (/\.(js|jsx|ts|tsx|mjs|cjs|css|json)$/.test(filePath)) {
-		run(["eslint", "--fix", filePath])
+		run(["run", "lint", "--", "--fix", filePath])
 	}
 }
 
