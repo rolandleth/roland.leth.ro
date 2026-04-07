@@ -26,6 +26,10 @@
 		var(--color-background-value) 97.5%,
 		var(--color-header-accent)
 	);
+	--blob2-opacity-from: 0.11;
+	--blob2-opacity-to: 0.18;
+	--blob3-opacity-from: 0.1;
+	--blob3-opacity-to: 0.26;
 }
 
 .dark {
@@ -39,6 +43,9 @@
 		var(--color-background-value) 94%,
 		var(--color-header-accent)
 	);
+	--blob2-opacity-from: 0.08;
+	--blob2-opacity-to: 0.1;
+	--blob3-opacity-from: 0.08;
 }
 
 body {
@@ -58,6 +65,42 @@ h6 {
 
 html:not(.dark):not(.light) {
 	visibility: hidden;
+}
+
+@keyframes blob1 {
+	0%,
+	100% {
+		transform: translate(0, 0) scale(1);
+		opacity: 0.14;
+	}
+	50% {
+		transform: translate(50px, 58px) scale(1.28);
+		opacity: 0.1;
+	}
+}
+
+@keyframes blob2 {
+	0%,
+	100% {
+		transform: translate(0, 0) scale(1);
+		opacity: var(--blob2-opacity-from);
+	}
+	50% {
+		transform: translate(-46px, -32px) scale(1.25);
+		opacity: var(--blob2-opacity-to);
+	}
+}
+
+@keyframes blob3 {
+	0%,
+	100% {
+		transform: translate(0, 0) scale(1);
+		opacity: var(--blob3-opacity-from);
+	}
+	50% {
+		transform: translate(-44px, -40px) scale(1.28);
+		opacity: var(--blob3-opacity-to);
+	}
 }
 
 a {

@@ -92,8 +92,8 @@ export default function Typewriter({
 		<span className={className} aria-label={currentPhrase}>
 			<AnimatePresence mode="wait">
 				<motion.span
-					key={displayedText}
-					initial={{ opacity: 0.8 }}
+					key={phraseIndex}
+					initial={{ opacity: 0.3 }}
 					animate={{ opacity: 1 }}
 					transition={{ duration: 0.05 }}
 				>

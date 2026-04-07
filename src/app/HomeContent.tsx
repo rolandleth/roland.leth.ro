@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useTheme } from "@/components/ThemeProvider"
 import Typewriter from "@/components/Typewriter"
 import { fadeUp } from "@/lib/motion"
 
@@ -21,42 +20,28 @@ const navLinks = [
 ]
 
 function LandingBackground() {
-	const { isThemeDark } = useTheme()
-
 	return (
 		<div aria-hidden className="pointer-events-none fixed inset-0">
-			<motion.div
-				className="absolute -top-32 -left-32 h-80 w-80 rounded-full opacity-[0.13] blur-[100px] dark:opacity-[0.16]"
-				style={{ backgroundColor: "var(--color-accent-value)" }}
-				animate={{
-					x: [0, 50, 0],
-					y: [0, 58, 0],
-					scale: [1, 1.28, 1],
-					opacity: [0.14, 0.1, 0.14],
+			<div
+				className="bg-accent absolute -top-32 -left-32 h-80 w-80 rounded-full blur-[100px]"
+				style={{
+					animation: "blob1 32s ease-in-out infinite",
+					willChange: "transform",
 				}}
-				transition={{ duration: 32, repeat: Infinity, ease: "easeInOut" }}
 			/>
-			<motion.div
-				className="absolute top-1/4 right-2/7 h-72 w-72 rounded-full opacity-[0.10] blur-[80px] dark:opacity-[0.11]"
-				style={{ backgroundColor: "var(--color-accent-value)" }}
-				animate={{
-					x: [0, -46, 0],
-					y: [0, -32, 0],
-					scale: [1, 1.25, 1],
-					opacity: isThemeDark ? [0.08, 0.1, 0.08] : [0.11, 0.18, 0.11],
+			<div
+				className="bg-accent absolute top-1/4 right-2/7 h-72 w-72 rounded-full blur-[80px]"
+				style={{
+					animation: "blob2 24s ease-in-out infinite",
+					willChange: "transform",
 				}}
-				transition={{ duration: 24, repeat: Infinity, ease: "easeInOut" }}
 			/>
-			<motion.div
-				className="absolute -right-32 -bottom-32 h-108 w-108 rounded-full opacity-[0.11] blur-[120px] dark:opacity-[0.14]"
-				style={{ backgroundColor: "var(--color-accent-value)" }}
-				animate={{
-					x: [0, -44, 0],
-					y: [0, -40, 0],
-					scale: [1, 1.28, 1],
-					opacity: isThemeDark ? [0.08, 0.26, 0.08] : [0.1, 0.26, 0.1],
+			<div
+				className="bg-accent absolute -right-32 -bottom-32 h-108 w-108 rounded-full blur-[120px]"
+				style={{
+					animation: "blob3 36s ease-in-out infinite",
+					willChange: "transform",
 				}}
-				transition={{ duration: 36, repeat: Infinity, ease: "easeInOut" }}
 			/>
 		</div>
 	)
