@@ -12,7 +12,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		}
 	}
 
-	if (!process.env.UPSTASH_REDIS_REDIS_URL) {
+	if (!process.env.REDIS_URL) {
 		return NextResponse.json({ ok: true })
 	}
 
