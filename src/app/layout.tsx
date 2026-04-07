@@ -5,6 +5,7 @@ import SpeedInsightsWithFilter from "@/app/SpeedInsightsWithFilter"
 import Footer from "@/components/Footer"
 import SiteChrome from "@/components/SiteChrome"
 import ThemeProvider, { type Theme } from "@/components/ThemeProvider"
+import { siteBase } from "@/lib/request"
 import type { Metadata } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
@@ -25,24 +26,24 @@ const jetBrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
 })
 
-const siteUrl = process.env.NEXTAUTH_URL
-
-export const metadata: Metadata = {
-	metadataBase: siteUrl ? new URL(siteUrl) : undefined,
-	title: {
-		template: "%s | Roland Leth",
-		default: "Roland Leth",
-	},
-	description: "iOS developer & full-stack engineer",
-	openGraph: {
-		siteName: "Roland Leth",
-		locale: "en_US",
-		type: "website",
-	},
-	twitter: {
-		card: "summary_large_image",
-		creator: "@rolandleth",
-	},
+export async function generateMetadata(): Promise<Metadata> {
+	return {
+		metadataBase: new URL(await siteBase()),
+		title: {
+			template: "%s | Roland Leth",
+			default: "Roland Leth",
+		},
+		description: "iOS developer & full-stack engineer",
+		openGraph: {
+			siteName: "Roland Leth",
+			locale: "en_US",
+			type: "website",
+		},
+		twitter: {
+			card: "summary_large_image",
+			creator: "@rolandleth",
+		},
+	}
 }
 
 // Valid cookie values — "system" is encoded with its resolved dark/light suffix.

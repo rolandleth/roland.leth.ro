@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import sitemap from "@/app/sitemap"
 import { prisma } from "@/lib/db"
+import { siteBase } from "@/lib/request"
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -12,6 +13,10 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/format", () => ({
 	currentDatetimeString: vi.fn().mockReturnValue("2025-06-01-1200"),
+}))
+
+vi.mock("@/lib/request", () => ({
+	siteBase: vi.fn(),
 }))
 
 const BASE = "https://localhost:3000"
@@ -28,8 +33,8 @@ function postStub(
 }
 
 beforeEach(() => {
-	vi.stubEnv("NEXTAUTH_URL", BASE)
 	vi.resetAllMocks()
+	vi.mocked(siteBase).mockResolvedValue(BASE)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 })
 

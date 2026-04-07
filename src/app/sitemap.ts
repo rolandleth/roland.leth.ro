@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/db"
 import { currentDatetimeString } from "@/lib/format"
+import { siteBase } from "@/lib/request"
 import { SECTIONS } from "@/lib/sections"
 import type { MetadataRoute } from "next"
 
-function url(path: string): string {
-	const siteUrl = process.env.NEXTAUTH_URL
-	return `${siteUrl}${path}`
+function url(base: string, path: string): string {
+	return `${base}${path}`
 }
 
 /**
@@ -17,24 +17,26 @@ function parsePostDate(datetime: string): Date {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+	const base = await siteBase()
+
 	const staticRoutes: MetadataRoute.Sitemap = [
 		{
-			url: url("/"),
+			url: url(base, "/"),
 			changeFrequency: "weekly",
 			priority: 1.0,
 		},
 		{
-			url: url("/about"),
+			url: url(base, "/about"),
 			changeFrequency: "weekly",
 			priority: 0.7,
 		},
 		...SECTIONS.map((section) => ({
-			url: url(`/blog/${section}`),
+			url: url(base, `/blog/${section}`),
 			changeFrequency: "weekly" as const,
 			priority: 0.8,
 		})),
 		...SECTIONS.map((section) => ({
-			url: url(`/blog/${section}/archive`),
+			url: url(base, `/blog/${section}/archive`),
 			changeFrequency: "weekly" as const,
 			priority: 0.5,
 		})),
@@ -47,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	})
 
 	const postRoutes: MetadataRoute.Sitemap = posts.map((post) => ({
-		url: url(`/blog/${post.section}/${post.slug}`),
+		url: url(base, `/blog/${post.section}/${post.slug}`),
 		lastModified: parsePostDate(post.datetime),
 		changeFrequency: "never",
 		priority: 0.6,
