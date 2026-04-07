@@ -53,51 +53,55 @@ const contactLinks = [
 
 export default function AboutContent() {
 	return (
-		<div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:gap-12">
+		<div className="flex flex-col items-center gap-10 sm:flex-row sm:items-start sm:gap-12">
 			{/* Sidebar */}
 			<motion.aside
 				{...fadeUp(0)}
-				className="flex shrink-0 flex-col items-center gap-5 text-center sm:sticky sm:top-8 sm:w-48 sm:items-start sm:text-left"
+				className="flex shrink-0 gap-16 text-center sm:sticky sm:top-8 sm:w-48 sm:flex-col sm:items-start sm:gap-5 sm:text-left"
 			>
-				<Image
-					src="/images/mypic.jpg"
-					alt="Roland Leth"
-					width={96}
-					height={96}
-					className="rounded-full object-cover ring-2 ring-(--color-border)"
-					priority
-				/>
+				<div className="flex flex-col items-center gap-5 sm:items-start">
+					<Image
+						src="/images/mypic.jpg"
+						alt="Roland Leth"
+						width={96}
+						height={96}
+						className="rounded-full object-cover ring-2 ring-(--color-border)"
+						priority
+					/>
 
-				<div>
-					<p className="text-primary font-semibold">Roland Leth</p>
-					<p className="text-secondary mt-0.5 text-sm">
-						iOS developer &amp; <br />
-						full-stack engineer
-					</p>
+					<div>
+						<p className="text-primary font-semibold">Roland Leth</p>
+						<p className="text-secondary mt-0.5 text-sm">
+							iOS developer &amp; <br />
+							full-stack engineer
+						</p>
+					</div>
 				</div>
 
-				<div className="flex flex-col items-center gap-2 sm:items-start">
-					{chips.map((chip) => (
-						<span
-							key={chip}
-							className="rounded-full bg-(--color-border) px-2.5 py-0.5 text-xs font-medium text-(--color-accent)"
-						>
-							{chip}
-						</span>
-					))}
-				</div>
+				<div className="flex flex-col items-center gap-5 sm:items-start">
+					<div className="flex flex-col items-center gap-2 sm:items-start">
+						{chips.map((chip) => (
+							<span
+								key={chip}
+								className="rounded-full bg-(--color-border) px-2.5 py-0.5 text-xs font-medium text-(--color-accent)"
+							>
+								{chip}
+							</span>
+						))}
+					</div>
 
-				<div className="flex flex-col gap-2">
-					{contactLinks.map(({ label, href, download }) => (
-						<Link
-							key={label}
-							href={href}
-							download={download}
-							className="text-secondary hover:text-accent text-sm transition-colors duration-300"
-						>
-							{label} →
-						</Link>
-					))}
+					<div className="flex flex-col gap-2">
+						{contactLinks.map(({ label, href, download }) => (
+							<Link
+								key={label}
+								href={href}
+								download={download}
+								className="text-secondary hover:text-accent text-sm transition-colors duration-300"
+							>
+								{label} →
+							</Link>
+						))}
+					</div>
 				</div>
 			</motion.aside>
 
