@@ -6,7 +6,7 @@ import Footer from "@/components/Footer"
 import SiteChrome from "@/components/SiteChrome"
 import ThemeProvider, { type Theme } from "@/components/ThemeProvider"
 import { siteBase } from "@/lib/request"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
 
@@ -25,6 +25,10 @@ const jetBrainsMono = JetBrains_Mono({
 	variable: "--font-code",
 	subsets: ["latin"],
 })
+
+export const viewport: Viewport = {
+	viewportFit: "cover",
+}
 
 export async function generateMetadata(): Promise<Metadata> {
 	return {

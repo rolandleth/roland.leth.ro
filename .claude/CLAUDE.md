@@ -1,4 +1,4 @@
-# rolandleth.com
+# roland.leth.ro
 
 Personal website for Roland Leth: landing page, blog, and projects portfolio.
 

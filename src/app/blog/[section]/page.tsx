@@ -46,7 +46,7 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 	const label = section.charAt(0).toUpperCase() + section.slice(1)
 
 	return (
-		<main className="relative mx-auto max-w-3xl px-4 py-12">
+		<main className="relative mx-auto w-full max-w-3xl px-4 py-12">
 			<PageGlow />
 			<BlogSectionHeader section={section} label={label} />
 

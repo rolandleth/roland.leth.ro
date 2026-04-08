@@ -1,6 +1,6 @@
 {
-	"name": "rolandleth.com",
-	"version": "0.1.0",
+	"name": "roland.leth.ro",
+	"version": "1.0.0",
 	"private": true,
 	"scripts": {
 		"dev": "next dev",
