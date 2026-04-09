@@ -166,8 +166,8 @@ export async function PUT(
 			})
 		})
 
-		revalidateTag("projects")
-		revalidateTag(`project-${project.slug}`)
+		revalidateTag("projects", "max")
+		revalidateTag(`project-${project.slug}`, "max")
 
 		return NextResponse.json(project)
 	} catch (error) {
@@ -211,8 +211,8 @@ export async function DELETE(
 			return project
 		})
 
-		revalidateTag("projects")
-		revalidateTag(`project-${deleted.slug}`)
+		revalidateTag("projects", "max")
+		revalidateTag(`project-${deleted.slug}`, "max")
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
 			return new Response(JSON.stringify({ error: "Not found" }), {

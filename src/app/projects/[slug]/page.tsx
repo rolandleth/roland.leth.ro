@@ -1,11 +1,17 @@
 import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { markdownToReact } from "@/lib/markdown"
-import { getProjectBySlug } from "@/lib/projects"
+import { getAllProjectsForGallery, getProjectBySlug } from "@/lib/projects"
 import type { Metadata } from "next"
 
 interface Props {
 	params: Promise<{ slug: string }>
+}
+
+export async function generateStaticParams() {
+	const projects = await getAllProjectsForGallery()
+
+	return projects.map((p) => ({ slug: p.slug }))
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -104,8 +104,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 			})
 		})
 
-		revalidateTag("projects")
-		revalidateTag(`project-${project.slug}`)
+		revalidateTag("projects", "max")
+		revalidateTag(`project-${project.slug}`, "max")
 
 		return NextResponse.json(project, { status: 201 })
 	} catch (error) {
