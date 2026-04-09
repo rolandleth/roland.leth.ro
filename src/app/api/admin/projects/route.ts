@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
@@ -102,6 +103,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 				},
 			})
 		})
+
+		revalidateTag("projects")
+		revalidateTag(`project-${project.slug}`)
 
 		return NextResponse.json(project, { status: 201 })
 	} catch (error) {

@@ -2,8 +2,12 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { formatDate } from "@/lib/format"
 import { getPostsGroupedByYear } from "@/lib/posts"
-import { isValidSection } from "@/lib/sections"
+import { isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
+
+export function generateStaticParams() {
+	return SECTIONS.map((section) => ({ section }))
+}
 
 interface Props {
 	params: Promise<{ section: string }>

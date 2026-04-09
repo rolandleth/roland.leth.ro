@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 
 export interface ProjectListItem {
@@ -57,30 +58,54 @@ export interface ProjectDetail {
 	}[]
 }
 
-/** Returns all projects with gallery fields ordered by sortOrder ascending then name. */
+const gallerySelect = {
+	id: true,
+	name: true,
+	slug: true,
+	summary: true,
+	platform: true,
+	role: true,
+	accentColor: true,
+	isFeatured: true,
+	isDiscontinued: true,
+	sortOrder: true,
+	icon: true,
+	heroImage: true,
+} as const
+
+/**
+ * Cached fetcher for the public projects gallery (discontinued projects sorted last).
+ * Tagged with `projects` so any project mutation busts this cache.
+ */
+const projectsGalleryCache = unstable_cache(
+	() =>
+		prisma.project.findMany({
+			select: gallerySelect,
+			orderBy: [
+				{ isDiscontinued: "asc" },
+				{ sortOrder: "asc" },
+				{ name: "asc" },
+			],
+		}),
+	["projects-gallery"],
+	{ tags: ["projects"] }
+)
+
+/**
+ * Returns all projects with gallery fields.
+ * The default (public) call is cached; passing `sortDiscontinued: false` (admin use)
+ * bypasses the cache and hits the DB directly.
+ */
 export async function getAllProjectsForGallery({
 	sortDiscontinued = true,
 }: { sortDiscontinued?: boolean } = {}): Promise<ProjectGalleryItem[]> {
+	if (sortDiscontinued) {
+		return projectsGalleryCache()
+	}
+
 	return prisma.project.findMany({
-		select: {
-			id: true,
-			name: true,
-			slug: true,
-			summary: true,
-			platform: true,
-			role: true,
-			accentColor: true,
-			isFeatured: true,
-			isDiscontinued: true,
-			sortOrder: true,
-			icon: true,
-			heroImage: true,
-		},
-		orderBy: [
-			...(sortDiscontinued ? [{ isDiscontinued: "asc" as const }] : []),
-			{ sortOrder: "asc" },
-			{ name: "asc" },
-		],
+		select: gallerySelect,
+		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
 	})
 }
 
@@ -102,23 +127,26 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 }
 
 /** Returns a project with its sections (and section images) and links, or null if not found. */
-export async function getProjectBySlug(
-	slug: string
-): Promise<ProjectDetail | null> {
-	return prisma.project.findUnique({
-		where: { slug },
-		include: {
-			sections: {
-				orderBy: { sortOrder: "asc" },
+export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
+	return unstable_cache(
+		() =>
+			prisma.project.findUnique({
+				where: { slug },
 				include: {
-					images: {
+					sections: {
+						orderBy: { sortOrder: "asc" },
+						include: {
+							images: {
+								orderBy: { sortOrder: "asc" },
+							},
+						},
+					},
+					links: {
 						orderBy: { sortOrder: "asc" },
 					},
 				},
-			},
-			links: {
-				orderBy: { sortOrder: "asc" },
-			},
-		},
-	})
+			}),
+		[`project-${slug}`],
+		{ tags: [`project-${slug}`, "projects"] }
+	)()
 }

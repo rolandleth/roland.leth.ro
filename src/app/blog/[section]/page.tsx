@@ -5,8 +5,12 @@ import Pagination from "@/components/blog/Pagination"
 import PostCard from "@/components/blog/PostCard"
 import PageGlow from "@/components/PageGlow"
 import { getPostsBySection } from "@/lib/posts"
-import { isValidSection } from "@/lib/sections"
+import { isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
+
+export function generateStaticParams() {
+	return SECTIONS.map((section) => ({ section }))
+}
 
 interface Props {
 	params: Promise<{ section: string }>

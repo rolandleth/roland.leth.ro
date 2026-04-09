@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation"
-import { cache } from "react"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { markdownToReact } from "@/lib/markdown"
 import { getProjectBySlug } from "@/lib/projects"
@@ -9,12 +8,9 @@ interface Props {
 	params: Promise<{ slug: string }>
 }
 
-// Deduplicate DB calls between generateMetadata and the page render.
-const getCachedProject = cache(getProjectBySlug)
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { slug } = await params
-	const project = await getCachedProject(slug)
+	const project = await getProjectBySlug(slug)
 
 	if (!project) {
 		return {}
@@ -39,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProjectPage({ params }: Props) {
 	const { slug } = await params
-	const project = await getCachedProject(slug)
+	const project = await getProjectBySlug(slug)
 
 	if (!project) {
 		notFound()

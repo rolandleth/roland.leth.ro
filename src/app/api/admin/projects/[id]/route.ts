@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { createSlug, parseIntId } from "@/lib/format"
@@ -165,6 +166,9 @@ export async function PUT(
 			})
 		})
 
+		revalidateTag("projects")
+		revalidateTag(`project-${project.slug}`)
+
 		return NextResponse.json(project)
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
@@ -195,15 +199,20 @@ export async function DELETE(
 	}
 
 	try {
-		await prisma.$transaction(async (tx) => {
-			const deleted = await tx.project.delete({ where: { id: projectId } })
+		const deleted = await prisma.$transaction(async (tx) => {
+			const project = await tx.project.delete({ where: { id: projectId } })
 
 			// Close the gap left by the deleted project.
 			await tx.project.updateMany({
-				where: { sortOrder: { gt: deleted.sortOrder } },
+				where: { sortOrder: { gt: project.sortOrder } },
 				data: { sortOrder: { decrement: 1 } },
 			})
+
+			return project
 		})
+
+		revalidateTag("projects")
+		revalidateTag(`project-${deleted.slug}`)
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
 			return new Response(JSON.stringify({ error: "Not found" }), {

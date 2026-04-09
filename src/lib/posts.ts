@@ -109,24 +109,29 @@ export async function getPostsBySection(
 	}
 }
 
-export async function getPostBySlug(
+export function getPostBySlug(
 	section: string,
 	slug: string
 ): Promise<PostDetail | null> {
-	return prisma.post.findUnique({
-		where: { section_slug: { section, slug } },
-		select: {
-			id: true,
-			title: true,
-			slug: true,
-			section: true,
-			datetime: true,
-			body: true,
-			summary: true,
-			imageUrl: true,
-			readingTime: true,
-		},
-	})
+	return unstable_cache(
+		() =>
+			prisma.post.findUnique({
+				where: { section_slug: { section, slug } },
+				select: {
+					id: true,
+					title: true,
+					slug: true,
+					section: true,
+					datetime: true,
+					body: true,
+					summary: true,
+					imageUrl: true,
+					readingTime: true,
+				},
+			}),
+		[`post-${section}-${slug}`],
+		{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
+	)()
 }
 
 export interface PostArchiveItem {
@@ -136,31 +141,54 @@ export interface PostArchiveItem {
 	datetime: string
 }
 
+/**
+ * Creates a cached fetcher for the archive page scoped to a single section.
+ * Tagged with both `blog-archive-{section}` and `blog-{section}` so that any
+ * post mutation (which revalidates `blog-{section}`) also busts the archive.
+ */
+function makeArchiveCache(section: string) {
+	return unstable_cache(
+		async () => {
+			const now = currentDatetimeString()
+
+			const posts = await prisma.post.findMany({
+				where: { section, published: true, datetime: { lte: now } },
+				select: { title: true, slug: true, section: true, datetime: true },
+				orderBy: { datetime: "desc" },
+			})
+
+			const groups: Record<string, PostArchiveItem[]> = {}
+
+			for (const post of posts) {
+				const year = post.datetime.slice(0, 4)
+
+				if (!groups[year]) {
+					groups[year] = []
+				}
+
+				groups[year].push(post)
+			}
+
+			return groups
+		},
+		[`blog-archive-${section}`],
+		{ tags: [`blog-archive-${section}`, `blog-${section}`] }
+	)
+}
+
+const archiveCache = Object.fromEntries(
+	SECTIONS.map((section) => [section, makeArchiveCache(section)])
+) as Record<string, ReturnType<typeof makeArchiveCache>>
+
 /** Returns all published posts for a section grouped by year, newest year first. */
-export async function getPostsGroupedByYear(
+export function getPostsGroupedByYear(
 	section: string
 ): Promise<Record<string, PostArchiveItem[]>> {
-	const now = currentDatetimeString()
-
-	const posts = await prisma.post.findMany({
-		where: { section, published: true, datetime: { lte: now } },
-		select: { title: true, slug: true, section: true, datetime: true },
-		orderBy: { datetime: "desc" },
-	})
-
-	const groups: Record<string, PostArchiveItem[]> = {}
-
-	for (const post of posts) {
-		const year = post.datetime.slice(0, 4)
-
-		if (!groups[year]) {
-			groups[year] = []
-		}
-
-		groups[year].push(post)
+	if (section in archiveCache) {
+		return archiveCache[section]()
 	}
 
-	return groups
+	return makeArchiveCache(section)()
 }
 
 export interface PostSearchResult {
