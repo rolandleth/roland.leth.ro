@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug, parseIntId } from "@/lib/format"
@@ -61,6 +62,9 @@ export async function PUT(
 			data,
 		})
 
+		revalidateTag(`feed-${post.section}`, "max")
+		revalidateTag(`blog-${post.section}`, "max")
+
 		return NextResponse.json(post)
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
@@ -90,8 +94,15 @@ export async function DELETE(
 		})
 	}
 
+	let section: string | null = null
+
 	try {
-		await prisma.post.delete({ where: { id: postId } })
+		const post = await prisma.post.delete({
+			where: { id: postId },
+			select: { section: true },
+		})
+
+		section = post.section
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
 			return new Response(JSON.stringify({ error: "Not found" }), {
@@ -106,6 +117,9 @@ export async function DELETE(
 			status: 500,
 		})
 	}
+
+	revalidateTag(`feed-${section}`, "max")
+	revalidateTag(`blog-${section}`, "max")
 
 	return new Response(null, { status: 204 })
 }

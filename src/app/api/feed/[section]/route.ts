@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString } from "@/lib/format"
 import { isValidSection } from "@/lib/sections"
@@ -38,6 +39,40 @@ function escapeXml(text: string): string {
 		.replace(/'/g, "&apos;")
 }
 
+/**
+ * Creates a cached fetcher for feed posts scoped to a single section.
+ * Each section gets its own cache entry and tag so revalidation is precise:
+ * invalidating `feed-tech` only busts the tech feed, not life, and vice versa.
+ */
+function makeFeedPostsCache(section: string) {
+	return unstable_cache(
+		async () => {
+			const now = currentDatetimeString()
+
+			return prisma.post.findMany({
+				where: { section, published: true, datetime: { lte: now } },
+				select: {
+					title: true,
+					slug: true,
+					section: true,
+					datetime: true,
+					body: true,
+					summary: true,
+				},
+				orderBy: { datetime: "desc" },
+				take: 20,
+			})
+		},
+		[`feed-posts-${section}`],
+		{ tags: [`feed-${section}`] }
+	)
+}
+
+const feedPostsCache: Record<string, ReturnType<typeof makeFeedPostsCache>> = {
+	tech: makeFeedPostsCache("tech"),
+	life: makeFeedPostsCache("life"),
+}
+
 export async function GET(
 	request: Request,
 	{ params }: { params: Promise<{ section: string }> }
@@ -48,20 +83,7 @@ export async function GET(
 		return new Response("Not Found", { status: 404 })
 	}
 
-	const now = currentDatetimeString()
-	const posts = await prisma.post.findMany({
-		where: { section, published: true, datetime: { lte: now } },
-		select: {
-			title: true,
-			slug: true,
-			section: true,
-			datetime: true,
-			body: true,
-			summary: true,
-		},
-		orderBy: { datetime: "desc" },
-		take: 20,
-	})
+	const posts = await feedPostsCache[section]()
 
 	const { origin: SITE_URL } = new URL(request.url)
 

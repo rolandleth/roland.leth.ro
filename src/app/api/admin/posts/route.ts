@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
@@ -42,6 +43,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 				readingTime: calculateReadingTime(postBody),
 			},
 		})
+
+		revalidateTag(`feed-${post.section}`, "max")
+		revalidateTag(`blog-${post.section}`, "max")
 
 		return NextResponse.json(post, { status: 201 })
 	} catch (error) {

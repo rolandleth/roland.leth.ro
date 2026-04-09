@@ -1,6 +1,11 @@
+import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { DELETE, GET, PUT } from "./route"
+
+vi.mock("next/cache", () => ({
+	revalidateTag: vi.fn(),
+}))
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -143,6 +148,14 @@ describe("PUT /api/admin/posts/[id]", () => {
 		const response = await PUT(putRequest("1", { title: "T" }), params("1"))
 		expect(response.status).toBe(500)
 	})
+
+	it("invalidates the blog section cache after update", async () => {
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { title: "Updated Title" }), params("1"))
+
+		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
 })
 
 // ---------------------------------------------------------------------------
@@ -178,5 +191,13 @@ describe("DELETE /api/admin/posts/[id]", () => {
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(500)
+	})
+
+	it("invalidates the blog section cache after deletion", async () => {
+		vi.mocked(prisma.post.delete).mockResolvedValue(existingPost)
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+		expect(response.status).toBe(204)
+		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
 	})
 })

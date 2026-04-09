@@ -1,6 +1,11 @@
+import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { GET, POST } from "./route"
+
+vi.mock("next/cache", () => ({
+	revalidateTag: vi.fn(),
+}))
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -135,5 +140,22 @@ describe("POST /api/admin/posts", () => {
 
 		const response = await POST(makeRequest(validPayload))
 		expect(response.status).toBe(500)
+	})
+
+	it("invalidates the blog section cache after creation", async () => {
+		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
+
+		await POST(makeRequest(validPayload))
+
+		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
+
+	it("invalidates the blog cache for the correct section", async () => {
+		const lifePost = { ...createdPost, section: "life" }
+		vi.mocked(prisma.post.create).mockResolvedValue(lifePost)
+
+		await POST(makeRequest({ ...validPayload, section: "life" }))
+
+		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 	})
 })

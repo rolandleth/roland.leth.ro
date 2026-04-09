@@ -1,5 +1,7 @@
+import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString } from "@/lib/format"
+import { SECTIONS } from "@/lib/sections"
 
 export const PAGE_SIZE = 10
 
@@ -25,10 +27,55 @@ export interface PostDetail {
 	readingTime: string | null
 }
 
+/**
+ * Creates a cached fetcher for the first page of blog posts scoped to a single section.
+ * Each section gets its own cache entry and tag so revalidation is precise:
+ * invalidating `blog-tech` only busts the tech section, not life, and vice versa.
+ */
+function makeBlogPage1Cache(section: string) {
+	return unstable_cache(
+		async () => {
+			const now = currentDatetimeString()
+			const where = { section, published: true, datetime: { lte: now } }
+
+			const [posts, total] = await Promise.all([
+				prisma.post.findMany({
+					where,
+					select: {
+						id: true,
+						title: true,
+						slug: true,
+						section: true,
+						datetime: true,
+						body: true,
+						readingTime: true,
+					},
+					orderBy: { datetime: "desc" },
+					skip: 0,
+					take: PAGE_SIZE,
+				}),
+				prisma.post.count({ where }),
+			])
+
+			return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
+		},
+		[`blog-page1-${section}`],
+		{ tags: [`blog-${section}`] }
+	)
+}
+
+const blogPage1Cache = Object.fromEntries(
+	SECTIONS.map((section) => [section, makeBlogPage1Cache(section)])
+) as Record<string, ReturnType<typeof makeBlogPage1Cache>>
+
 export async function getPostsBySection(
 	section: string,
 	page: number = 1
 ): Promise<{ posts: PostListItem[]; totalPages: number }> {
+	if (page === 1 && section in blogPage1Cache) {
+		return blogPage1Cache[section]()
+	}
+
 	const now = currentDatetimeString()
 
 	const where = {

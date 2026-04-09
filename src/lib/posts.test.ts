@@ -9,6 +9,10 @@ import {
 	searchPosts,
 } from "@/lib/posts"
 
+vi.mock("next/cache", () => ({
+	unstable_cache: (fn: () => Promise<unknown>) => fn,
+}))
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		post: {
@@ -86,6 +90,39 @@ describe("getPostsBySection", () => {
 
 		const { totalPages } = await getPostsBySection("tech")
 		expect(totalPages).toBe(0)
+	})
+
+	it("queries with skip: 0 for page 1", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 1)
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ skip: 0, take: PAGE_SIZE })
+		)
+	})
+
+	it("queries with the correct skip offset for page 2", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 2)
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ skip: PAGE_SIZE, take: PAGE_SIZE })
+		)
+	})
+
+	it("queries with the correct skip offset for page 3", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 3)
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ skip: PAGE_SIZE * 2, take: PAGE_SIZE })
+		)
 	})
 })
 
