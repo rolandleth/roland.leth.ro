@@ -67,7 +67,26 @@ export default function ProjectForm({ initialData }: Props) {
 	const [freeformPlatform, setFreeformPlatform] = useState(
 		isInitiallyFreeform ? initialPlatformValue : ""
 	)
-	const [role, setRole] = useState(initialData?.role ?? "")
+	const roleOptions = [
+		"Sole developer",
+		"Lead",
+		"Co-founder",
+		"Employee",
+		"Contractor",
+		"Consultant",
+		"Contributor",
+		"Maintainer",
+	]
+	const initialRoleValue = initialData?.role ?? ""
+	const isRoleInitiallyFreeform =
+		initialRoleValue !== "" && !roleOptions.includes(initialRoleValue)
+
+	const [dropdownRole, setDropdownRole] = useState(
+		isRoleInitiallyFreeform ? "" : initialRoleValue
+	)
+	const [freeformRole, setFreeformRole] = useState(
+		isRoleInitiallyFreeform ? initialRoleValue : ""
+	)
 	const [date, setDate] = useState(initialData?.date ?? "")
 	const [sortOrder, setSortOrder] = useState(initialData?.sortOrder ?? 0)
 	const [accentColor, setAccentColor] = useState(initialData?.accentColor ?? "")
@@ -95,7 +114,7 @@ export default function ProjectForm({ initialData }: Props) {
 			name,
 			summary,
 			platform: freeformPlatform || dropdownPlatform,
-			role: role || null,
+			role: freeformRole || dropdownRole || null,
 			accentColor: accentColor || null,
 			icon: icon || null,
 			heroImage: heroImage || null,
@@ -227,13 +246,43 @@ export default function ProjectForm({ initialData }: Props) {
 				<label htmlFor="role" className="text-secondary text-sm font-medium">
 					Role
 				</label>
-				<input
-					id="role"
-					type="text"
-					value={role}
-					onChange={(e) => setRole(e.target.value)}
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
-				/>
+				<div className="flex gap-2">
+					<select
+						id="role"
+						value={dropdownRole}
+						onChange={(e) => {
+							if (e.target.value === "__freeform__") {
+								setDropdownRole("")
+							} else {
+								setDropdownRole(e.target.value)
+							}
+						}}
+						disabled={freeformRole !== ""}
+						required={freeformRole === ""}
+						className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
+					>
+						<option value="" disabled>
+							Select a role…
+						</option>
+						{roleOptions.map((option) => (
+							<option key={option} value={option}>
+								{option}
+							</option>
+						))}
+						{dropdownRole !== "" && (
+							<option value="__freeform__">Freeform…</option>
+						)}
+					</select>
+					<input
+						id="role-freeform"
+						type="text"
+						placeholder="or type freely…"
+						value={freeformRole}
+						onChange={(e) => setFreeformRole(e.target.value)}
+						disabled={dropdownRole !== ""}
+						className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
+					/>
+				</div>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
