@@ -38,7 +38,7 @@ const initialData = {
 	id: 3,
 	name: "Existing App",
 	summary: "An existing app.",
-	platform: "macOS",
+	platform: "macOSX",
 	role: "Developer",
 	accentColor: "#6366f1",
 	icon: null,
@@ -185,7 +185,7 @@ describe("ProjectForm — edit mode", () => {
 		mockRouter()
 		render(<ProjectForm initialData={initialData} />)
 		expect(screen.getByLabelText<HTMLInputElement>(/platform/i).value).toBe(
-			"macOS"
+			"macOSX"
 		)
 	})
 

@@ -78,7 +78,7 @@ describe("platformBucket", () => {
 	})
 
 	it("maps mac keyword to Mac bucket", () => {
-		expect(platformBucket("mac")).toBe("Mac")
+		expect(platformBucket("macOS")).toBe("Mac")
 	})
 
 	it("maps menu bar to Mac bucket", () => {
@@ -117,9 +117,9 @@ describe("groupByPlatform", () => {
 
 	it("groups projects into the correct buckets", () => {
 		const projects = [
-			{ platform: "react", name: "Web App" },
-			{ platform: "ios", name: "Mobile App" },
-			{ platform: "mac", name: "Desktop App" },
+			{ platform: "React", name: "Web App" },
+			{ platform: "iOS", name: "Mobile App" },
+			{ platform: "macOS", name: "Desktop App" },
 		]
 		const result = groupByPlatform(projects)
 		const labels = result.map((g) => g.label)
@@ -131,11 +131,11 @@ describe("groupByPlatform", () => {
 
 	it("preserves canonical order: iOS → Mac → Web → Open Source → Other", () => {
 		const projects = [
-			{ platform: "react", name: "A" },
-			{ platform: "cli", name: "B" },
-			{ platform: "mac", name: "C" },
-			{ platform: "ios", name: "D" },
-			{ platform: "game", name: "E" },
+			{ platform: "React", name: "A" },
+			{ platform: "CLI", name: "B" },
+			{ platform: "macOS", name: "C" },
+			{ platform: "iOS", name: "D" },
+			{ platform: "Game", name: "E" },
 		]
 		const labels = groupByPlatform(projects).map((g) => g.label)
 

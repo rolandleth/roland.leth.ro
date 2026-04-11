@@ -1,22 +1,22 @@
 // Platform bucket labels and their match keywords
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
-	{ label: "iOS", keywords: ["ios", "android", "ipad"] },
-	{ label: "Mac", keywords: ["mac", "menu bar"] },
+	{ label: "iOS", keywords: ["iOS", "iPad", "watchOS", "Android"] },
+	{ label: "Mac", keywords: ["macOS", "Menu bar"] },
 	{
 		label: "Web",
-		keywords: ["react", "next", "node", "backend", "frontend", "vapor"],
+		keywords: ["React", "Next", "Node", "Backend", "Frontend", "Vapor"],
 	},
 	{
 		label: "Open Source",
 		keywords: [
-			"cli",
+			"CLI",
 			"lib",
-			"sdk",
-			"package",
-			"plugin",
-			"script",
-			"extension",
-			"web",
+			"SDK",
+			"Package",
+			"Plugin",
+			"Script",
+			"Extension",
+			"Web",
 		],
 	},
 ]
@@ -50,12 +50,25 @@ export function formatPlatformDisplay(platform: string): string {
 	}
 
 	const keywords = platform.split(",").map((s) => s.trim().toLowerCase())
-	const webBucket = PLATFORM_BUCKETS.find((b) => b.label === "Web")
+	const webBucket = PLATFORM_BUCKETS.find(
+		(b) => b.label.toLowerCase() === "web"
+	)?.keywords.map((k) => k.toLowerCase())
 
-	if (webBucket && keywords.every((kw) => webBucket.keywords.includes(kw))) {
+	// If all keywords match the Web bucket, it's a fullstack web project.
+	if (webBucket && keywords.every((kw) => webBucket.includes(kw))) {
 		return "Fullstack"
 	}
 
+	const macBucket = PLATFORM_BUCKETS.find(
+		(b) => b.label.toLowerCase() === "mac"
+	)?.keywords.map((k) => k.toLowerCase())
+
+	// If all keywords match the Mac bucket, it's most likely it's a macOS app with a menu bar component.
+	if (macBucket && keywords.every((kw) => macBucket.includes(kw))) {
+		return "Mac"
+	}
+
+	// Otherwise, it's a generic multi-platform project.
 	return "Multiplatform"
 }
 
@@ -63,7 +76,11 @@ export function platformBucket(platform: string): string {
 	const lower = platform.toLowerCase()
 
 	for (const bucket of PLATFORM_BUCKETS) {
-		if (bucket.keywords.some((kw) => lower.includes(kw))) {
+		if (
+			bucket.keywords
+				.map((k) => k.toLowerCase())
+				.some((kw) => lower.includes(kw))
+		) {
 			return bucket.label
 		}
 	}
