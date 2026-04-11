@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { formatPlatformDisplay } from "@/lib/platforms"
 import type { ProjectGalleryItem } from "@/lib/projects"
 import type { ReactNode } from "react"
 
@@ -93,7 +94,7 @@ export default function FeaturedProjectCard({
 										color: accent,
 									}}
 								>
-									{platform}
+									{formatPlatformDisplay(platform)}
 								</span>
 
 								{role && <span className="text-secondary text-xs">{role}</span>}

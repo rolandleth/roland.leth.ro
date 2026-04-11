@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager from "@/components/admin/LinkManager"
+import PlatformPicker from "@/components/admin/PlatformPicker"
 import SectionManager from "@/components/admin/SectionManager"
-import { PLATFORM_BUCKETS } from "@/lib/platforms"
 
 interface SectionImage {
 	url: string
@@ -54,19 +54,8 @@ export default function ProjectForm({ initialData }: Props) {
 	const router = useRouter()
 	const isEditMode = initialData != null
 
-	const allDropdownKeywords = PLATFORM_BUCKETS.flatMap((b) => b.keywords)
-	const initialPlatformValue = initialData?.platform ?? ""
-	const isInitiallyFreeform =
-		initialPlatformValue !== "" &&
-		!allDropdownKeywords.includes(initialPlatformValue)
-
 	const [name, setName] = useState(initialData?.name ?? "")
-	const [dropdownPlatform, setDropdownPlatform] = useState(
-		isInitiallyFreeform ? "" : initialPlatformValue
-	)
-	const [freeformPlatform, setFreeformPlatform] = useState(
-		isInitiallyFreeform ? initialPlatformValue : ""
-	)
+	const [platform, setPlatform] = useState(initialData?.platform ?? "")
 	const roleOptions = [
 		"Sole developer",
 		"Lead",
@@ -114,7 +103,7 @@ export default function ProjectForm({ initialData }: Props) {
 		const body = {
 			name,
 			summary,
-			platform: freeformPlatform || dropdownPlatform,
+			platform,
 			role: freeformRole || dropdownRole || null,
 			accentColor: accentColor || null,
 			icon: icon || null,
@@ -196,51 +185,8 @@ export default function ProjectForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<label
-					htmlFor="platform"
-					className="text-secondary text-sm font-medium"
-				>
-					Platform
-				</label>
-				<div className="flex gap-2">
-					<select
-						id="platform"
-						value={dropdownPlatform}
-						onChange={(e) => {
-							if (e.target.value === "__freeform__") {
-								setDropdownPlatform("")
-							} else {
-								setDropdownPlatform(e.target.value)
-							}
-						}}
-						disabled={freeformPlatform !== ""}
-						required={freeformPlatform === ""}
-						className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
-					>
-						<option value="" disabled>
-							Select a platform…
-						</option>
-						{PLATFORM_BUCKETS.map((bucket) =>
-							bucket.keywords.map((keyword) => (
-								<option key={keyword} value={keyword}>
-									{keyword}
-								</option>
-							))
-						)}
-						{dropdownPlatform !== "" && (
-							<option value="__freeform__">Freeform…</option>
-						)}
-					</select>
-					<input
-						id="platform-freeform"
-						type="text"
-						placeholder="or type freely…"
-						value={freeformPlatform}
-						onChange={(e) => setFreeformPlatform(e.target.value)}
-						disabled={dropdownPlatform !== ""}
-						className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
-					/>
-				</div>
+				<span className="text-secondary text-sm font-medium">Platform</span>
+				<PlatformPicker value={platform} onChange={setPlatform} />
 			</div>
 
 			<div className="flex flex-col gap-1.5">

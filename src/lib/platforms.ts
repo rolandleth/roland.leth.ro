@@ -2,7 +2,10 @@
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
 	{ label: "iOS", keywords: ["ios", "android", "ipad"] },
 	{ label: "Mac", keywords: ["mac", "menu bar"] },
-	{ label: "Web", keywords: ["react", "next", "node", "backend", "frontend"] },
+	{
+		label: "Web",
+		keywords: ["react", "next", "node", "backend", "frontend", "vapor"],
+	},
 	{
 		label: "Open Source",
 		keywords: [
@@ -35,6 +38,25 @@ export function isPlatformRedundantWithSection(
 	const s = sectionLabel.trim().toLowerCase()
 
 	return p === s || p.startsWith(s) || s.startsWith(p)
+}
+
+/**
+ * Returns the display label for a platform string.
+ * Multiple web keywords → "Fullstack"; any other multi-keyword value → "Multiplatform".
+ */
+export function formatPlatformDisplay(platform: string): string {
+	if (!platform.includes(",")) {
+		return platform
+	}
+
+	const keywords = platform.split(",").map((s) => s.trim())
+	const webBucket = PLATFORM_BUCKETS.find((b) => b.label === "Web")
+
+	if (webBucket && keywords.every((kw) => webBucket.keywords.includes(kw))) {
+		return "Fullstack"
+	}
+
+	return "Multiplatform"
 }
 
 export function platformBucket(platform: string): string {

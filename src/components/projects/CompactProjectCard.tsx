@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { formatPlatformDisplay } from "@/lib/platforms"
 import type { ProjectGalleryItem } from "@/lib/projects"
 import type { ReactNode } from "react"
 
@@ -67,7 +68,7 @@ export default function CompactProjectCard({
 
 					{showPlatformCapsule && (
 						<span className="text-secondary absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full border border-(--color-border) bg-(--color-background-value)/90 px-1.5 py-0.5 text-[9px] whitespace-nowrap backdrop-blur-sm">
-							{platform.includes(",") ? "Multiplatform" : platform}
+							{formatPlatformDisplay(platform)}
 						</span>
 					)}
 				</div>
