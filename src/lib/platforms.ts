@@ -1,11 +1,11 @@
 // Platform bucket labels and their match keywords
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
-	{ label: "iOS", keywords: ["ios", "android", "mobile", "iphone", "ipad"] },
-	{ label: "Mac", keywords: ["mac", "macos", "desktop"] },
-	{ label: "Web", keywords: ["web", "website", "react", "next"] },
+	{ label: "iOS", keywords: ["ios", "android", "ipad"] },
+	{ label: "Mac", keywords: ["mac", "menu bar"] },
+	{ label: "Web", keywords: ["web", "react", "next", "node"] },
 	{
 		label: "Open Source",
-		keywords: ["cli", "lib", "sdk", "package", "plugin", "script"],
+		keywords: ["cli", "lib", "sdk", "package", "plugin", "script", "extension"],
 	},
 ]
 

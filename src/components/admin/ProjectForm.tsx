@@ -54,8 +54,19 @@ export default function ProjectForm({ initialData }: Props) {
 	const router = useRouter()
 	const isEditMode = initialData != null
 
+	const allDropdownKeywords = PLATFORM_BUCKETS.flatMap((b) => b.keywords)
+	const initialPlatformValue = initialData?.platform ?? ""
+	const isInitiallyFreeform =
+		initialPlatformValue !== "" &&
+		!allDropdownKeywords.includes(initialPlatformValue)
+
 	const [name, setName] = useState(initialData?.name ?? "")
-	const [platform, setPlatform] = useState(initialData?.platform ?? "")
+	const [dropdownPlatform, setDropdownPlatform] = useState(
+		isInitiallyFreeform ? "" : initialPlatformValue
+	)
+	const [freeformPlatform, setFreeformPlatform] = useState(
+		isInitiallyFreeform ? initialPlatformValue : ""
+	)
 	const [role, setRole] = useState(initialData?.role ?? "")
 	const [date, setDate] = useState(initialData?.date ?? "")
 	const [sortOrder, setSortOrder] = useState(initialData?.sortOrder ?? 0)
@@ -83,7 +94,7 @@ export default function ProjectForm({ initialData }: Props) {
 		const body = {
 			name,
 			summary,
-			platform,
+			platform: freeformPlatform || dropdownPlatform,
 			role: role || null,
 			accentColor: accentColor || null,
 			icon: icon || null,
@@ -171,24 +182,45 @@ export default function ProjectForm({ initialData }: Props) {
 				>
 					Platform
 				</label>
-				<select
-					id="platform"
-					value={platform}
-					onChange={(e) => setPlatform(e.target.value)}
-					required
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
-				>
-					<option value="" disabled>
-						Select a platform…
-					</option>
-					{PLATFORM_BUCKETS.map((bucket) =>
-						bucket.keywords.map((keyword) => (
-							<option key={keyword} value={keyword}>
-								{keyword}
-							</option>
-						))
-					)}
-				</select>
+				<div className="flex gap-2">
+					<select
+						id="platform"
+						value={dropdownPlatform}
+						onChange={(e) => {
+							if (e.target.value === "__freeform__") {
+								setDropdownPlatform("")
+							} else {
+								setDropdownPlatform(e.target.value)
+							}
+						}}
+						disabled={freeformPlatform !== ""}
+						required={freeformPlatform === ""}
+						className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
+					>
+						<option value="" disabled>
+							Select a platform…
+						</option>
+						{PLATFORM_BUCKETS.map((bucket) =>
+							bucket.keywords.map((keyword) => (
+								<option key={keyword} value={keyword}>
+									{keyword}
+								</option>
+							))
+						)}
+						{dropdownPlatform !== "" && (
+							<option value="__freeform__">Freeform…</option>
+						)}
+					</select>
+					<input
+						id="platform-freeform"
+						type="text"
+						placeholder="or type freely…"
+						value={freeformPlatform}
+						onChange={(e) => setFreeformPlatform(e.target.value)}
+						disabled={dropdownPlatform !== ""}
+						className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
+					/>
+				</div>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
