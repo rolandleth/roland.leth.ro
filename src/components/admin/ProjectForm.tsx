@@ -76,6 +76,7 @@ export default function ProjectForm({ initialData }: Props) {
 		"Consultant",
 		"Contributor",
 		"Maintainer",
+		"Creator",
 	]
 	const initialRoleValue = initialData?.role ?? ""
 	const isRoleInitiallyFreeform =
