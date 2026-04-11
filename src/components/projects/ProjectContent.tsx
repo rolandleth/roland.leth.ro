@@ -146,6 +146,22 @@ export default function ProjectContent({
 					{summary}
 				</motion.p>
 
+				{/* Hero image (no-sections fallback) */}
+				{sections.length === 0 && project.heroImage && (
+					<motion.div className="overflow-hidden rounded-xl" {...fadeUp(0.2)}>
+						<div className="relative h-120">
+							<Image
+								src={project.heroImage}
+								alt={`${name} screenshot`}
+								fill
+								sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
+								className="object-contain"
+								priority
+							/>
+						</div>
+					</motion.div>
+				)}
+
 				{/* Section tabs */}
 				{sections.length > 0 && (
 					<motion.div {...fadeUp(0.2)}>
