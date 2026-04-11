@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { getAllProjects, getProjectBySlug } from "@/lib/projects"
 
+vi.mock("next/cache", () => ({
+	unstable_cache: (fn: () => Promise<unknown>) => fn,
+}))
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		project: {

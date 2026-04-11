@@ -100,6 +100,10 @@ describe("ProjectForm — create mode", () => {
 		render(<ProjectForm />)
 		await userEvent.type(screen.getByLabelText(/^name$/i), "New App")
 		await userEvent.type(screen.getByLabelText(/platform/i), "iOS")
+		await userEvent.selectOptions(
+			screen.getByLabelText(/^role$/i),
+			"Sole developer"
+		)
 		await userEvent.type(screen.getByLabelText(/summary/i), "A new app.")
 		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
 
@@ -117,6 +121,10 @@ describe("ProjectForm — create mode", () => {
 		render(<ProjectForm />)
 		await userEvent.type(screen.getByLabelText(/^name$/i), "New App")
 		await userEvent.type(screen.getByLabelText(/platform/i), "iOS")
+		await userEvent.selectOptions(
+			screen.getByLabelText(/^role$/i),
+			"Sole developer"
+		)
 		await userEvent.type(screen.getByLabelText(/summary/i), "A new app.")
 		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
 
@@ -130,6 +138,10 @@ describe("ProjectForm — create mode", () => {
 		render(<ProjectForm />)
 		await userEvent.type(screen.getByLabelText(/^name$/i), "New App")
 		await userEvent.type(screen.getByLabelText(/platform/i), "iOS")
+		await userEvent.selectOptions(
+			screen.getByLabelText(/^role$/i),
+			"Sole developer"
+		)
 		await userEvent.type(screen.getByLabelText(/summary/i), "A new app.")
 		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
 
@@ -145,6 +157,10 @@ describe("ProjectForm — create mode", () => {
 		render(<ProjectForm />)
 		await userEvent.type(screen.getByLabelText(/^name$/i), "New App")
 		await userEvent.type(screen.getByLabelText(/platform/i), "iOS")
+		await userEvent.selectOptions(
+			screen.getByLabelText(/^role$/i),
+			"Sole developer"
+		)
 		await userEvent.type(screen.getByLabelText(/summary/i), "A new app.")
 		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
 

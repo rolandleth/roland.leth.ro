@@ -86,6 +86,7 @@ export default function PlatformPicker({ value, onChange }: Props) {
 			})}
 
 			<input
+				aria-label="Platform"
 				type="text"
 				placeholder="or type freely…"
 				value={freeform}

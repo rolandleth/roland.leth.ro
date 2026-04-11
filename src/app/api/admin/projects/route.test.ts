@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db"
 import { GET, POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
+vi.mock("next/cache", () => ({
+	revalidateTag: vi.fn(),
+}))
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		$transaction: vi.fn(),

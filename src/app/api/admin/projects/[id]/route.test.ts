@@ -3,6 +3,10 @@ import { isPrismaNotFound, prisma } from "@/lib/db"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
+vi.mock("next/cache", () => ({
+	revalidateTag: vi.fn(),
+}))
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		project: {
