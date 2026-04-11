@@ -76,15 +76,12 @@ export default function ProjectContent({
 							/>
 						) : (
 							<div
-								className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl shadow-sm"
+								className="flex h-18 w-18 shrink-0 items-center justify-center rounded-2xl shadow-sm"
 								style={{
 									backgroundColor: `color-mix(in srgb, ${accentColor} 15%, var(--color-border))`,
 								}}
 							>
-								<span
-									className="text-2xl font-bold"
-									style={{ color: accentColor }}
-								>
+								<span className="text-2xl font-bold" style={{ color: accent }}>
 									{name.charAt(0)}
 								</span>
 							</div>

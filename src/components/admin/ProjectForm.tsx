@@ -5,6 +5,7 @@ import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager from "@/components/admin/LinkManager"
 import SectionManager from "@/components/admin/SectionManager"
+import { PLATFORM_BUCKETS } from "@/lib/platforms"
 
 interface SectionImage {
 	url: string
@@ -170,15 +171,24 @@ export default function ProjectForm({ initialData }: Props) {
 				>
 					Platform
 				</label>
-				<input
+				<select
 					id="platform"
-					type="text"
 					value={platform}
 					onChange={(e) => setPlatform(e.target.value)}
 					required
-					placeholder="iOS, macOS, Web…"
 					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
-				/>
+				>
+					<option value="" disabled>
+						Select a platform…
+					</option>
+					{PLATFORM_BUCKETS.map((bucket) =>
+						bucket.keywords.map((keyword) => (
+							<option key={keyword} value={keyword}>
+								{keyword}
+							</option>
+						))
+					)}
+				</select>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
