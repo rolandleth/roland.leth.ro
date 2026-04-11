@@ -2,10 +2,19 @@
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
 	{ label: "iOS", keywords: ["ios", "android", "ipad"] },
 	{ label: "Mac", keywords: ["mac", "menu bar"] },
-	{ label: "Web", keywords: ["web", "react", "next", "node"] },
+	{ label: "Web", keywords: ["react", "next", "node", "backend", "frontend"] },
 	{
 		label: "Open Source",
-		keywords: ["cli", "lib", "sdk", "package", "plugin", "script", "extension"],
+		keywords: [
+			"cli",
+			"lib",
+			"sdk",
+			"package",
+			"plugin",
+			"script",
+			"extension",
+			"web",
+		],
 	},
 ]
 

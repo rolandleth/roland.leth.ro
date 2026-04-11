@@ -72,7 +72,7 @@ export default function CompactProjectCard({
 					)}
 				</div>
 
-				<span className="text-secondary mt-2 line-clamp-2 w-[calc(100%-20px)] text-center text-xs leading-tight transition-colors duration-300 group-hover:text-(--color-primary)">
+				<span className="text-secondary mt-2 line-clamp-2 w-[calc(100%-10px)] text-center text-xs leading-tight transition-colors duration-300 group-hover:text-(--color-primary)">
 					{name}
 				</span>
 			</Link>
