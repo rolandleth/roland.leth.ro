@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
 import { useEffect, useState } from "react"
 import { fadeUp } from "@/lib/motion"
-import { formatPlatformDisplay } from "@/lib/platforms"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { ProjectDetail } from "@/lib/projects"
 import type { ReactNode } from "react"
@@ -107,7 +106,7 @@ export default function ProjectContent({
 										color: accent,
 									}}
 								>
-									{formatPlatformDisplay(platform)}
+									{platform}
 								</span>
 
 								{role && <span className="text-secondary text-sm">{role}</span>}

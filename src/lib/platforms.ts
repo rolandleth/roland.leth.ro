@@ -49,7 +49,7 @@ export function formatPlatformDisplay(platform: string): string {
 		return platform
 	}
 
-	const keywords = platform.split(",").map((s) => s.trim())
+	const keywords = platform.split(",").map((s) => s.trim().toLowerCase())
 	const webBucket = PLATFORM_BUCKETS.find((b) => b.label === "Web")
 
 	if (webBucket && keywords.every((kw) => webBucket.keywords.includes(kw))) {
