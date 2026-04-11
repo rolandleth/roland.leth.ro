@@ -65,7 +65,7 @@ export default function ProjectContent({
 				>
 					{/* Left: icon + name + platform/role */}
 					<div className="flex items-start gap-4">
-						{icon && (
+						{icon ? (
 							<Image
 								src={icon}
 								alt={`${name} icon`}
@@ -74,6 +74,20 @@ export default function ProjectContent({
 								className="shrink-0 rounded-2xl shadow-sm"
 								priority
 							/>
+						) : (
+							<div
+								className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl shadow-sm"
+								style={{
+									backgroundColor: `color-mix(in srgb, ${accentColor} 15%, var(--color-border))`,
+								}}
+							>
+								<span
+									className="text-2xl font-bold"
+									style={{ color: accentColor }}
+								>
+									{name.charAt(0)}
+								</span>
+							</div>
 						)}
 
 						<div className="min-w-0">
