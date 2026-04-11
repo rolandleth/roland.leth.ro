@@ -1,9 +1,32 @@
 // Platform bucket labels and their match keywords
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
-	{ label: "Mobile", keywords: ["ios", "android", "mobile", "iphone", "ipad"] },
+	{ label: "iOS", keywords: ["ios", "android", "mobile", "iphone", "ipad"] },
 	{ label: "Mac", keywords: ["mac", "macos", "desktop"] },
 	{ label: "Web", keywords: ["web", "website", "react", "next"] },
+	{
+		label: "Open Source",
+		keywords: ["cli", "lib", "sdk", "package", "plugin", "script"],
+	},
 ]
+
+/**
+ * Returns true when the platform label adds no information beyond the section header.
+ * Hides the capsule for exact matches ("iOS" → "iOS") and prefix aliases ("macOS" → "Mac").
+ * Always shows for multi-platform values ("iOS, Android").
+ */
+export function isPlatformRedundantWithSection(
+	platform: string,
+	sectionLabel: string
+): boolean {
+	if (platform.includes(",")) {
+		return false
+	}
+
+	const p = platform.trim().toLowerCase()
+	const s = sectionLabel.trim().toLowerCase()
+
+	return p === s || p.startsWith(s) || s.startsWith(p)
+}
 
 export function platformBucket(platform: string): string {
 	const lower = platform.toLowerCase()
@@ -28,8 +51,8 @@ export function groupByPlatform<T extends { platform: string }>(
 		buckets.set(label, [...existing, project])
 	}
 
-	// Preserve canonical order: Mobile → Mac → Web → Other
-	const order = ["Mobile", "Mac", "Web", "Other"]
+	// Preserve canonical order: Mobile → Mac → Web → Open Source → Other
+	const order = ["iOS", "Mac", "Web", "Open Source", "Other"]
 
 	return order
 		.filter((label) => buckets.has(label))

@@ -2,7 +2,10 @@ import PageGlow from "@/components/PageGlow"
 import AnimatedProjectCard from "@/components/projects/AnimatedProjectCard"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
-import { groupByPlatform } from "@/lib/platforms"
+import {
+	groupByPlatform,
+	isPlatformRedundantWithSection,
+} from "@/lib/platforms"
 import { getAllProjectsForGallery } from "@/lib/projects"
 import type { Metadata } from "next"
 
@@ -50,7 +53,9 @@ export default async function ProjectsPage() {
 			{/* Other projects grouped by platform */}
 			{platformGroups.map((group, gi) => (
 				<section key={group.label} className="mb-12">
-					<h2 className="text-secondary mb-5 text-xs font-semibold tracking-widest uppercase">
+					<h2
+						className={`text-secondary mb-5 text-xs font-semibold tracking-widest ${group.label === "iOS" ? "" : "uppercase"}`}
+					>
 						{group.label}
 					</h2>
 
@@ -60,7 +65,15 @@ export default async function ProjectsPage() {
 								key={project.id}
 								index={featured.length + gi * 4 + i}
 							>
-								<CompactProjectCard project={project} />
+								<CompactProjectCard
+									project={project}
+									showPlatformCapsule={
+										!isPlatformRedundantWithSection(
+											project.platform,
+											group.label
+										)
+									}
+								/>
 							</AnimatedProjectCard>
 						))}
 					</div>
