@@ -1,10 +1,13 @@
+const frontendKeywords = ["React", "Next", "Frontend"]
+const backendKeywords = ["Node", "Backend", "Vapor"]
+
 // Platform bucket labels and their match keywords
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
 	{ label: "iOS", keywords: ["iOS", "iPad", "watchOS", "Android"] },
 	{ label: "Mac", keywords: ["macOS", "Menu bar"] },
 	{
 		label: "Web",
-		keywords: ["React", "Next", "Node", "Backend", "Frontend", "Vapor"],
+		keywords: [...frontendKeywords, ...backendKeywords],
 	},
 	{
 		label: "Open Source",
@@ -30,6 +33,11 @@ export function isPlatformRedundantWithSection(
 	platform: string,
 	sectionLabel: string
 ): boolean {
+	// The "Mac" section can be either standalone "macOS", or contain "Menu bar" as a secondary keyword. In either case, the platform label adds no information beyond the section header, so we hide it.
+	if (sectionLabel === "Mac") {
+		return true
+	}
+
 	if (platform.includes(",")) {
 		return false
 	}
@@ -45,6 +53,7 @@ export function isPlatformRedundantWithSection(
  * Multiple web keywords → "Fullstack"; any other multi-keyword value → "Multiplatform".
  */
 export function formatPlatformDisplay(platform: string): string {
+	// If it's a single keyword, just return it.
 	if (!platform.includes(",")) {
 		return platform
 	}
@@ -54,8 +63,17 @@ export function formatPlatformDisplay(platform: string): string {
 		(b) => b.label.toLowerCase() === "web"
 	)?.keywords.map((k) => k.toLowerCase())
 
-	// If all keywords match the Web bucket, it's a fullstack web project.
-	if (webBucket && keywords.every((kw) => webBucket.includes(kw))) {
+	// If all keywords match the Web bucket and there's at least one frontend and one backend keyword, it's most likely a fullstack web project rather than a generic multi-platform project.
+	if (
+		webBucket &&
+		keywords.every((kw) => webBucket.includes(kw)) &&
+		keywords.some((kw) =>
+			frontendKeywords.map((k) => k.toLowerCase()).includes(kw)
+		) &&
+		keywords.some((kw) =>
+			backendKeywords.map((k) => k.toLowerCase()).includes(kw)
+		)
+	) {
 		return "Fullstack"
 	}
 
@@ -63,15 +81,30 @@ export function formatPlatformDisplay(platform: string): string {
 		(b) => b.label.toLowerCase() === "mac"
 	)?.keywords.map((k) => k.toLowerCase())
 
-	// If all keywords match the Mac bucket, it's most likely it's a macOS app with a menu bar component.
+	// If all keywords match the Mac bucket, it's most likely a macOS app with a menu bar component.
 	if (macBucket && keywords.every((kw) => macBucket.includes(kw))) {
-		return "Mac"
+		return platform
+	}
+
+	const iosBucket = PLATFORM_BUCKETS.find(
+		(b) => b.label.toLowerCase() === "ios"
+	)?.keywords.map((k) => k.toLowerCase())
+
+	// If all keywords match the iOS bucket, but don't include "Android", it's an iOS app that also supports watchOS and/or iPad, but not a generic multi-platform project.
+	if (
+		iosBucket &&
+		keywords.every((kw) => iosBucket.includes(kw)) &&
+		!keywords.includes("android")
+	) {
+		return platform
 	}
 
 	// Otherwise, it's a generic multi-platform project.
 	return "Multiplatform"
 }
 
+// Returns the first bucket label for a given platform string, or "Other" if no match is found.
+// Order is: iOS → Mac → Web → Open Source → Other
 export function platformBucket(platform: string): string {
 	const lower = platform.toLowerCase()
 
