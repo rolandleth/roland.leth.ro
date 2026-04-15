@@ -32,6 +32,10 @@ describe("isPlatformRedundantWithSection", () => {
 	it("always returns false when platform contains a comma", () => {
 		expect(isPlatformRedundantWithSection("iOS, Mac", "iOS")).toBe(false)
 	})
+
+	it("returns true for a multi-keyword Mac platform vs Mac section", () => {
+		expect(isPlatformRedundantWithSection("macOS, Menu bar", "Mac")).toBe(true)
+	})
 })
 
 // #endregion
@@ -61,6 +65,14 @@ describe("formatPlatformDisplay", () => {
 
 	it("returns 'Multiplatform' for mixed native/web keywords", () => {
 		expect(formatPlatformDisplay("Mac, Node")).toBe("Multiplatform")
+	})
+
+	it("returns 'Multiplatform' for two frontend-only web keywords", () => {
+		expect(formatPlatformDisplay("React, Next")).toBe("Multiplatform")
+	})
+
+	it("returns 'Multiplatform' for two backend-only web keywords", () => {
+		expect(formatPlatformDisplay("Node, Vapor")).toBe("Multiplatform")
 	})
 })
 

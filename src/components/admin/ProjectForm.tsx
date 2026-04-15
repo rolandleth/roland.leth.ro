@@ -21,6 +21,7 @@ interface SectionItem {
 }
 
 interface LinkItem {
+	_key: string
 	label: string
 	url: string
 	sortOrder: number
@@ -43,12 +44,24 @@ interface InitialData {
 		id?: number
 		images: (SectionImage & { id?: number })[]
 	})[]
-	links: (LinkItem & { id?: number })[]
+	links: (Omit<LinkItem, "_key"> & { id?: number })[]
 }
 
 interface Props {
 	initialData?: InitialData
 }
+
+const ROLE_OPTIONS = [
+	"Sole developer",
+	"Lead",
+	"Co-founder",
+	"Employee",
+	"Contractor",
+	"Consultant",
+	"Contributor",
+	"Maintainer",
+	"Creator",
+]
 
 export default function ProjectForm({ initialData }: Props) {
 	const router = useRouter()
@@ -56,20 +69,9 @@ export default function ProjectForm({ initialData }: Props) {
 
 	const [name, setName] = useState(initialData?.name ?? "")
 	const [platform, setPlatform] = useState(initialData?.platform ?? "")
-	const roleOptions = [
-		"Sole developer",
-		"Lead",
-		"Co-founder",
-		"Employee",
-		"Contractor",
-		"Consultant",
-		"Contributor",
-		"Maintainer",
-		"Creator",
-	]
 	const initialRoleValue = initialData?.role ?? ""
 	const isRoleInitiallyFreeform =
-		initialRoleValue !== "" && !roleOptions.includes(initialRoleValue)
+		initialRoleValue !== "" && !ROLE_OPTIONS.includes(initialRoleValue)
 
 	const [dropdownRole, setDropdownRole] = useState(
 		isRoleInitiallyFreeform ? "" : initialRoleValue
@@ -90,7 +92,12 @@ export default function ProjectForm({ initialData }: Props) {
 	const [sections, setSections] = useState<SectionItem[]>(
 		initialData?.sections ?? []
 	)
-	const [links, setLinks] = useState<LinkItem[]>(initialData?.links ?? [])
+	const [links, setLinks] = useState<LinkItem[]>(
+		(initialData?.links ?? []).map((link) => ({
+			...link,
+			_key: crypto.randomUUID(),
+		}))
+	)
 
 	const [isSaving, setIsSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
@@ -113,7 +120,8 @@ export default function ProjectForm({ initialData }: Props) {
 			date: date || null,
 			sortOrder,
 			sections,
-			links,
+			// Strip the client-only _key before sending — the server schema doesn't know about it.
+			links: links.map(({ _key: _, ...rest }) => rest),
 		}
 
 		try {
@@ -211,7 +219,7 @@ export default function ProjectForm({ initialData }: Props) {
 						<option value="" disabled>
 							Select a role…
 						</option>
-						{roleOptions.map((option) => (
+						{ROLE_OPTIONS.map((option) => (
 							<option key={option} value={option}>
 								{option}
 							</option>

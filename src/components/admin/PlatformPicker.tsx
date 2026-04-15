@@ -15,10 +15,18 @@ export default function PlatformPicker({ value, onChange }: Props) {
 		.split(",")
 		.map((s) => s.trim())
 		.filter((s) => allKeywords.includes(s))
-	const isInitiallyFreeform = value !== "" && parsedKeywords.length === 0
+
+	// If the initial value's keywords span multiple buckets there is no clean
+	// bucket to lock to, so treat the whole value as freeform instead of
+	// entering a state where some selected keywords are stuck in a locked bucket.
+	const spannedBuckets = PLATFORM_BUCKETS.filter((b) =>
+		b.keywords.some((kw) => parsedKeywords.includes(kw))
+	)
+	const validParsedKeywords = spannedBuckets.length <= 1 ? parsedKeywords : []
+	const isInitiallyFreeform = value !== "" && validParsedKeywords.length === 0
 
 	const [selectedKeywords, setSelectedKeywords] =
-		useState<string[]>(parsedKeywords)
+		useState<string[]>(validParsedKeywords)
 	const [freeform, setFreeform] = useState(isInitiallyFreeform ? value : "")
 
 	// All selected keywords should belong to the same bucket — find it

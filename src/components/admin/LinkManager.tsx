@@ -14,6 +14,7 @@ const LINK_LABEL_OPTIONS = [
 ]
 
 interface LinkItem {
+	_key: string
 	label: string
 	url: string
 	sortOrder: number
@@ -134,7 +135,15 @@ interface Props {
 
 export default function LinkManager({ value, onChange }: Props) {
 	function addLink() {
-		onChange([...value, { label: "", url: "", sortOrder: value.length }])
+		onChange([
+			...value,
+			{
+				_key: crypto.randomUUID(),
+				label: "",
+				url: "",
+				sortOrder: value.length,
+			},
+		])
 	}
 
 	function removeLink(index: number) {
@@ -146,7 +155,7 @@ export default function LinkManager({ value, onChange }: Props) {
 
 	function updateLink(
 		index: number,
-		field: keyof Omit<LinkItem, "sortOrder">,
+		field: keyof Omit<LinkItem, "sortOrder" | "_key">,
 		newValue: string
 	) {
 		const updated = value.map((link, i) =>
@@ -171,7 +180,7 @@ export default function LinkManager({ value, onChange }: Props) {
 		<div className="flex flex-col gap-3">
 			{value.map((link, index) => (
 				<LinkRow
-					key={index}
+					key={link._key}
 					link={link}
 					index={index}
 					total={value.length}
