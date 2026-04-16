@@ -19,6 +19,11 @@ const DEFAULT_PARAMS: ComputeParams = {
 	},
 }
 
+function parseNum(raw: string, fallback: number): number {
+	const parsed = parseFloat(raw)
+	return isNaN(parsed) ? fallback : parsed
+}
+
 function Calculator({
 	params,
 	onChange,
@@ -50,7 +55,7 @@ function Calculator({
 				description="The sum you intend to loan."
 				value={params.loan}
 				onChange={(e) =>
-					onChange({ ...params, loan: Number(e.target.value) || params.loan })
+					onChange({ ...params, loan: parseNum(e.target.value, params.loan) })
 				}
 			/>
 			<LoanCalculatorInput
@@ -60,7 +65,7 @@ function Calculator({
 				onChange={(e) =>
 					onChange({
 						...params,
-						period: Number(e.target.value) || params.period,
+						period: parseNum(e.target.value, params.period),
 					})
 				}
 			/>
@@ -71,8 +76,10 @@ function Calculator({
 				onChange={(e) =>
 					onChange({
 						...params,
-						annualInterestRate:
-							Number(e.target.value) || params.annualInterestRate,
+						annualInterestRate: parseNum(
+							e.target.value,
+							params.annualInterestRate
+						),
 					})
 				}
 			/>
@@ -80,13 +87,12 @@ function Calculator({
 				label="Additional costs"
 				description="One-time costs, like commissions."
 				value={params.additionalCosts}
-				onChange={(e) => {
-					const parsed = parseFloat(e.target.value)
+				onChange={(e) =>
 					onChange({
 						...params,
-						additionalCosts: isNaN(parsed) ? params.additionalCosts : parsed,
+						additionalCosts: parseNum(e.target.value, params.additionalCosts),
 					})
-				}}
+				}
 			/>
 			<LoanCalculatorInput
 				label="Monthly extra payment"
@@ -95,7 +101,7 @@ function Calculator({
 				onChange={(e) =>
 					onChange({
 						...params,
-						additionalMonthlyPayment: Number(e.target.value),
+						additionalMonthlyPayment: parseNum(e.target.value, 0),
 					})
 				}
 			/>
@@ -118,7 +124,7 @@ function Calculator({
 								...params,
 								extraPayments: {
 									...params.extraPayments,
-									value: Number(e.target.value),
+									value: parseNum(e.target.value, params.extraPayments.value),
 								},
 							})
 						}
@@ -132,8 +138,10 @@ function Calculator({
 								...params,
 								extraPayments: {
 									...params.extraPayments,
-									frequency:
-										Number(e.target.value) || params.extraPayments.frequency,
+									frequency: parseNum(
+										e.target.value,
+										params.extraPayments.frequency
+									),
 								},
 							})
 						}
@@ -147,7 +155,7 @@ function Calculator({
 								...params,
 								extraPayments: {
 									...params.extraPayments,
-									limit: Number(e.target.value),
+									limit: parseNum(e.target.value, params.extraPayments.limit),
 								},
 							})
 						}

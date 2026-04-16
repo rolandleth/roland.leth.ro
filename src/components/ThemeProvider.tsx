@@ -1,12 +1,6 @@
 "use client"
 
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useState,
-} from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 
 export type Theme = "light" | "dark" | "system"
 
@@ -40,7 +34,7 @@ export default function ThemeProvider({
 	initialTheme: Theme
 	children: React.ReactNode
 }) {
-	const [theme, setThemeState] = useState<Theme>(initialTheme)
+	const [theme, setTheme] = useState<Theme>(initialTheme)
 	const [systemIsDark, setSystemIsDark] = useState(
 		() =>
 			typeof window !== "undefined" &&
@@ -77,10 +71,6 @@ export default function ThemeProvider({
 			theme === "system" ? `system-${isDark ? "dark" : "light"}` : theme
 		document.cookie = `theme=${value}; path=/; max-age=31536000; SameSite=Lax`
 	}, [theme, isDark])
-
-	const setTheme = useCallback((next: Theme) => {
-		setThemeState(next)
-	}, [])
 
 	return (
 		<ThemeContext.Provider value={{ theme, isThemeDark: isDark, setTheme }}>

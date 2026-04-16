@@ -14,14 +14,6 @@ export default function BlogSectionHeader({ section, label }: Props) {
 	const [isSearching, setIsSearching] = useState(false)
 	const formRef = useRef<HTMLDivElement>(null)
 
-	function openSearch() {
-		setIsSearching(true)
-	}
-
-	function closeSearch() {
-		setIsSearching(false)
-	}
-
 	useEffect(() => {
 		if (!isSearching) {
 			return
@@ -29,7 +21,7 @@ export default function BlogSectionHeader({ section, label }: Props) {
 
 		function handleMouseDown(e: MouseEvent) {
 			if (formRef.current && !formRef.current.contains(e.target as Node)) {
-				closeSearch()
+				setIsSearching(false)
 			}
 		}
 
@@ -55,11 +47,11 @@ export default function BlogSectionHeader({ section, label }: Props) {
 							section={section}
 							placeholder={`Search ${label.toLowerCase()}…`}
 							autoFocus
-							onKeyDownEscape={closeSearch}
+							onKeyDownEscape={() => setIsSearching(false)}
 							action={
 								<button
 									type="button"
-									onClick={closeSearch}
+									onClick={() => setIsSearching(false)}
 									aria-label="Cancel search"
 									className="text-secondary shrink-0 cursor-pointer transition-colors duration-300 hover:text-(--color-accent)"
 								>
@@ -80,7 +72,7 @@ export default function BlogSectionHeader({ section, label }: Props) {
 						<h1 className="text-3xl font-bold">{label}</h1>
 						<button
 							type="button"
-							onClick={openSearch}
+							onClick={() => setIsSearching(true)}
 							aria-label="Search posts"
 							className="text-secondary cursor-pointer transition-colors duration-300 hover:text-(--color-accent)"
 						>

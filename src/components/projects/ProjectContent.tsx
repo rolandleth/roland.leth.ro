@@ -106,6 +106,7 @@ export default function ProjectContent({
 										color: accent,
 									}}
 								>
+									{/* Show raw keywords on detail; formatPlatformDisplay is for list/gallery views. */}
 									{platform}
 								</span>
 
