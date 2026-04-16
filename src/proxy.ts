@@ -94,14 +94,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.redirect(new URL(`/blog/${section}`, request.url), 301)
 	}
 
-	// /tech/feed or /feed → /api/feed/tech
-	if (pathname === "/tech/feed" || pathname === "/feed") {
-		return NextResponse.redirect(new URL("/api/feed/tech", request.url), 301)
-	}
-
-	// /life/feed → /api/feed/life
-	if (pathname === "/life/feed") {
-		return NextResponse.redirect(new URL("/api/feed/life", request.url), 301)
+	// (/tech|/life)?/feed → /api/feed/(tech|life), defaulting to tech
+	const feedMatch = pathname.match(/^(?:\/(tech|life))?\/feed$/)
+	if (feedMatch) {
+		const section = feedMatch[1] ?? "tech"
+		return NextResponse.redirect(
+			new URL(`/api/feed/${section}`, request.url),
+			301
+		)
 	}
 
 	// --- Legacy redirects: root-level slugs (/:slug) ---
