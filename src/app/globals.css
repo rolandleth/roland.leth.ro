@@ -150,3 +150,9 @@ code[data-theme*=" "] span {
 	font-size: 0.875em;
 	font-weight: normal;
 }
+
+@layer components {
+	.admin-input {
+		@apply border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none;
+	}
+}
