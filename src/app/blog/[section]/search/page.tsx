@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import SearchForm from "@/components/blog/SearchForm"
 import { formatDate } from "@/lib/format"
 import { searchPosts } from "@/lib/posts"
-import { isValidSection } from "@/lib/sections"
+import { capitalizeSection, isValidSection } from "@/lib/sections"
 import type { Metadata } from "next"
 
 interface Props {
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		return {}
 	}
 
-	const label = section.charAt(0).toUpperCase() + section.slice(1)
+	const label = capitalizeSection(section)
 
 	return {
 		title: `Search ${label}`,

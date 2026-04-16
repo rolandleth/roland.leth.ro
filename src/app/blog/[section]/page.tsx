@@ -5,7 +5,7 @@ import Pagination from "@/components/blog/Pagination"
 import PostCard from "@/components/blog/PostCard"
 import PageGlow from "@/components/PageGlow"
 import { getPostsBySection } from "@/lib/posts"
-import { isValidSection, SECTIONS } from "@/lib/sections"
+import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
 
 export function generateStaticParams() {
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		return {}
 	}
 
-	const label = section.charAt(0).toUpperCase() + section.slice(1)
+	const label = capitalizeSection(section)
 
 	return {
 		title: `${label} blog`,
@@ -47,7 +47,7 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 
 	const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1)
 	const { posts, totalPages } = await getPostsBySection(section, page)
-	const label = section.charAt(0).toUpperCase() + section.slice(1)
+	const label = capitalizeSection(section)
 
 	return (
 		<main className="relative mx-auto w-full max-w-3xl px-4 py-12">

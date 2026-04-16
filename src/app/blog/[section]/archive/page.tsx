@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { formatDate } from "@/lib/format"
 import { getPostsGroupedByYear } from "@/lib/posts"
-import { isValidSection, SECTIONS } from "@/lib/sections"
+import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
 
 export function generateStaticParams() {
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		return {}
 	}
 
-	const label = section.charAt(0).toUpperCase() + section.slice(1)
+	const label = capitalizeSection(section)
 
 	return {
 		title: `${label} archive`,

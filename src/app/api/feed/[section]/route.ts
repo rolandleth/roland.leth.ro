@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString } from "@/lib/format"
-import { isValidSection } from "@/lib/sections"
+import { capitalizeSection, isValidSection } from "@/lib/sections"
 
 /**
  * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 date string.
@@ -87,7 +87,7 @@ export async function GET(
 
 	const { origin: SITE_URL } = new URL(request.url)
 
-	const feedTitle = `Roland Leth — ${section.charAt(0).toUpperCase() + section.slice(1)} blog`
+	const feedTitle = `Roland Leth — ${capitalizeSection(section)} blog`
 	const feedUrl = `${SITE_URL}/api/feed/${section}`
 	const blogUrl = `${SITE_URL}/blog/${section}`
 	const updatedAt =
