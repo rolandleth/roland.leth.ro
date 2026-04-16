@@ -2,6 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { verifyCredentials, createSession } from "@/lib/auth"
+import { loginSchema } from "@/lib/schemas"
 
 const hasRedis = process.env.KV_REST_API_TOKEN
 
@@ -31,19 +32,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 	}
 
-	if (
-		typeof body !== "object" ||
-		body === null ||
-		typeof (body as Record<string, unknown>).email !== "string" ||
-		typeof (body as Record<string, unknown>).password !== "string"
-	) {
+	const parsed = loginSchema.safeParse(body)
+
+	if (!parsed.success) {
 		return NextResponse.json(
 			{ error: "Missing email or password" },
 			{ status: 400 }
 		)
 	}
 
-	const { email, password } = body as { email: string; password: string }
+	const { email, password } = parsed.data
 
 	if (!(await verifyCredentials(email, password))) {
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })

@@ -1,11 +1,13 @@
-import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
+import { postListItemSelect, revalidatePostSection } from "@/lib/posts"
 import { postCreateSchema } from "@/lib/schemas"
+import type { Section } from "@/lib/sections"
 
 export async function GET(): Promise<NextResponse> {
 	const posts = await prisma.post.findMany({
+		select: postListItemSelect,
 		orderBy: { datetime: "desc" },
 	})
 
@@ -44,11 +46,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 			},
 		})
 
-		revalidateTag(`feed-${post.section}`, "max")
-		revalidateTag(`blog-${post.section}`, "max")
+		revalidatePostSection(post.section as Section)
 
 		return NextResponse.json(post, { status: 201 })
 	} catch (error) {
+		if (isPrismaUniqueConstraint(error)) {
+			return NextResponse.json(
+				{ error: "A post with this slug already exists" },
+				{ status: 409 }
+			)
+		}
+
 		// eslint-disable-next-line no-console
 		console.error(error)
 

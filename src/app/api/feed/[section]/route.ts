@@ -1,24 +1,8 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
-import { currentDatetimeString } from "@/lib/format"
-import { capitalizeSection, isValidSection } from "@/lib/sections"
-
-/**
- * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 date string.
- * Only the date portion is extracted; time data is not encoded in the string
- * in a way that is timezone-safe, so we use midnight UTC to avoid date shifts.
- */
-function datetimeToISO(datetime: string): string {
-	const match = datetime.match(/^(\d{4})-(\d{2})-(\d{2})/)
-
-	if (!match) {
-		return new Date().toISOString()
-	}
-
-	const [, year, month, day] = match
-
-	return `${year}-${month}-${day}T00:00:00Z`
-}
+import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
+import { bySection } from "@/lib/posts"
+import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
 
 /**
  * Returns the first 300 characters of a markdown body as a plain-text summary,
@@ -44,7 +28,7 @@ function escapeXml(text: string): string {
  * Each section gets its own cache entry and tag so revalidation is precise:
  * invalidating `feed-tech` only busts the tech feed, not life, and vice versa.
  */
-function makeFeedPostsCache(section: string) {
+function makeFeedPostsCache(section: Section) {
 	return unstable_cache(
 		async () => {
 			const now = currentDatetimeString()
@@ -68,10 +52,7 @@ function makeFeedPostsCache(section: string) {
 	)
 }
 
-const feedPostsCache: Record<string, ReturnType<typeof makeFeedPostsCache>> = {
-	tech: makeFeedPostsCache("tech"),
-	life: makeFeedPostsCache("life"),
-}
+const feedPostsCache = bySection(makeFeedPostsCache)
 
 export async function GET(
 	request: Request,
@@ -92,13 +73,13 @@ export async function GET(
 	const blogUrl = `${SITE_URL}/blog/${section}`
 	const updatedAt =
 		posts.length > 0
-			? datetimeToISO(posts[0].datetime)
+			? postDatetimeToISO(posts[0].datetime)
 			: new Date().toISOString()
 
 	const entries = posts
 		.map((post) => {
 			const postUrl = `${SITE_URL}/blog/${post.section}/${post.slug}`
-			const published = datetimeToISO(post.datetime)
+			const published = postDatetimeToISO(post.datetime)
 			const summary = escapeXml(post.summary ?? excerptFromBody(post.body))
 
 			return `  <entry>
@@ -126,6 +107,7 @@ ${entries}
 		status: 200,
 		headers: {
 			"Content-Type": "application/atom+xml; charset=utf-8",
+			"Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
 		},
 	})
 }

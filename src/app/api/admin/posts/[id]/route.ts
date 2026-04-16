@@ -1,21 +1,24 @@
-import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
-import { isPrismaNotFound, prisma } from "@/lib/db"
-import { calculateReadingTime, createSlug, parseIntId } from "@/lib/format"
+import { handlePrismaError, parseIdParam } from "@/lib/apiErrors"
+import { prisma } from "@/lib/db"
+import { calculateReadingTime, createSlug } from "@/lib/format"
+import { revalidatePostSection } from "@/lib/posts"
 import { postUpdateSchema } from "@/lib/schemas"
+import type { Section } from "@/lib/sections"
 
 export async function GET(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const postId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (postId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
 
-	const post = await prisma.post.findUnique({ where: { id: postId } })
+	const { id } = idResult
+
+	const post = await prisma.post.findUnique({ where: { id } })
 
 	if (!post) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -28,12 +31,13 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const postId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (postId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
+
+	const { id } = idResult
 
 	const parsed = postUpdateSchema.safeParse(await request.json())
 
@@ -42,8 +46,9 @@ export async function PUT(
 	}
 
 	const { title, body: postBody, ...rest } = parsed.data
+	// `v !== undefined` (not `!= null`) so explicit `null` clears are preserved.
 	const data: Record<string, unknown> = Object.fromEntries(
-		Object.entries(rest).filter(([, v]) => v != null)
+		Object.entries(rest).filter(([, v]) => v !== undefined)
 	)
 
 	if (title != null) {
@@ -58,17 +63,18 @@ export async function PUT(
 
 	try {
 		const post = await prisma.post.update({
-			where: { id: postId },
+			where: { id },
 			data,
 		})
 
-		revalidateTag(`feed-${post.section}`, "max")
-		revalidateTag(`blog-${post.section}`, "max")
+		revalidatePostSection(post.section as Section)
 
 		return NextResponse.json(post)
 	} catch (error) {
-		if (isPrismaNotFound(error)) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		const notFound = handlePrismaError(error)
+
+		if (notFound) {
+			return notFound
 		}
 
 		// eslint-disable-next-line no-console
@@ -85,25 +91,28 @@ export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const postId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (postId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
 
-	let section: string | null = null
+	const { id } = idResult
 
 	try {
 		const post = await prisma.post.delete({
-			where: { id: postId },
+			where: { id },
 			select: { section: true },
 		})
 
-		section = post.section
+		revalidatePostSection(post.section as Section)
+
+		return new NextResponse(null, { status: 204 })
 	} catch (error) {
-		if (isPrismaNotFound(error)) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		const notFound = handlePrismaError(error)
+
+		if (notFound) {
+			return notFound
 		}
 
 		// eslint-disable-next-line no-console
@@ -114,9 +123,4 @@ export async function DELETE(
 			{ status: 500 }
 		)
 	}
-
-	revalidateTag(`feed-${section}`, "max")
-	revalidateTag(`blog-${section}`, "max")
-
-	return new NextResponse(null, { status: 204 })
 }

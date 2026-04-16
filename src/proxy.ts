@@ -1,5 +1,6 @@
-import { jwtVerify } from "jose"
 import { NextResponse } from "next/server"
+import { getSessionSecret, verifyToken } from "@/lib/auth"
+import { SECTIONS } from "@/lib/sections"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
@@ -7,41 +8,45 @@ const SESSION_COOKIE = "session"
 // Known top-level routes that are not legacy slugs.
 const KNOWN_ROUTES = new Set(["/about", "/projects", "/blog", "/admin", "/api"])
 
-function getSecret(): Uint8Array {
-	const secret = process.env.SESSION_SECRET
+const SECTION_ALTERNATION = SECTIONS.join("|")
 
-	if (!secret) {
-		throw new Error("Cannot authenticate")
-	}
-
-	return new TextEncoder().encode(secret)
-}
+// Hoisted so Node doesn't re-compile these on every middleware invocation.
+const SECTION_BLOG_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/blog/(.+)$`)
+const SECTION_ARCHIVE_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/archive$`)
+const SECTION_SEARCH_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/search$`)
+const SECTION_ROOT_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})$`)
+const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
 
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
 	const token = request.cookies.get(SESSION_COOKIE)?.value
+
 	if (!token) {
 		return false
 	}
 
-	try {
-		await jwtVerify(token, getSecret())
-		return true
-	} catch {
-		return false
-	}
+	const payload = await verifyToken(token, getSessionSecret())
+
+	return payload !== null
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
 	const { pathname } = request.nextUrl
 
-	// --- Auth: protect /admin and admin API routes ---
+	// Skip middleware work for paths that can never be legacy slugs or admin pages.
+	// `.` catches static assets; the matcher already filters most, but keeps this safe.
+	if (pathname.startsWith("/_next/") || pathname.includes(".")) {
+		return NextResponse.next()
+	}
+
 	const isAdminApi =
 		pathname.startsWith("/api/admin/") || pathname === "/api/upload"
 	const isAdminPage =
 		pathname.startsWith("/admin") && pathname !== "/admin/login"
 
 	if (isAdminApi || isAdminPage) {
-		if (!(await isAuthenticated(request))) {
+		const isAuthed = await isAuthenticated(request)
+
+		if (!isAuthed) {
 			if (isAdminApi) {
 				return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 			}
@@ -53,11 +58,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		}
 	}
 
-	// --- Legacy redirects: pattern-based (no DB query) ---
+	// Other /api/* routes don't need legacy redirect handling.
+	if (pathname.startsWith("/api/")) {
+		return NextResponse.next()
+	}
 
-	// /tech/blog/:slug → /blog/tech/:slug
-	// /life/blog/:slug → /blog/life/:slug
-	const sectionBlogMatch = pathname.match(/^\/(tech|life)\/blog\/(.+)$/)
+	// /tech/blog/:slug → /blog/tech/:slug, /life/blog/:slug → /blog/life/:slug
+	const sectionBlogMatch = pathname.match(SECTION_BLOG_REGEX)
+
 	if (sectionBlogMatch) {
 		return NextResponse.redirect(
 			new URL(
@@ -68,9 +76,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		)
 	}
 
-	// /tech/archive → /blog/tech/archive
-	// /life/archive → /blog/life/archive
-	const archiveMatch = pathname.match(/^\/(tech|life)\/archive$/)
+	const archiveMatch = pathname.match(SECTION_ARCHIVE_REGEX)
+
 	if (archiveMatch) {
 		return NextResponse.redirect(
 			new URL(`/blog/${archiveMatch[1]}/archive`, request.url),
@@ -78,8 +85,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		)
 	}
 
-	// /tech/search → /blog/tech/search
-	const searchMatch = pathname.match(/^\/(tech|life)\/search$/)
+	const searchMatch = pathname.match(SECTION_SEARCH_REGEX)
+
 	if (searchMatch) {
 		return NextResponse.redirect(
 			new URL(`/blog/${searchMatch[1]}/search`, request.url),
@@ -87,29 +94,33 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		)
 	}
 
-	// /tech → /blog/tech
-	// /life → /blog/life
-	if (pathname === "/tech" || pathname === "/life") {
-		const section = pathname.slice(1)
-		return NextResponse.redirect(new URL(`/blog/${section}`, request.url), 301)
+	const sectionRootMatch = pathname.match(SECTION_ROOT_REGEX)
+
+	if (sectionRootMatch) {
+		return NextResponse.redirect(
+			new URL(`/blog/${sectionRootMatch[1]}`, request.url),
+			301
+		)
 	}
 
-	// (/tech|/life)?/feed → /api/feed/(tech|life), defaulting to tech
-	const feedMatch = pathname.match(/^(?:\/(tech|life))?\/feed$/)
+	// `(/tech|/life)?/feed` → `/api/feed/(tech|life)`, defaulting to first section.
+	const feedMatch = pathname.match(FEED_REGEX)
+
 	if (feedMatch) {
-		const section = feedMatch[1] ?? "tech"
+		const section = feedMatch[1] ?? SECTIONS[0]
+
 		return NextResponse.redirect(
 			new URL(`/api/feed/${section}`, request.url),
 			301
 		)
 	}
 
-	// --- Legacy redirects: root-level slugs (/:slug) ---
 	// Single-segment paths not matching known routes are potential old post slugs.
 	// DB lookup is handled in /app/[slug]/route.ts to keep middleware edge-safe.
 	const segments = pathname.split("/").filter(Boolean)
 	const isRootSlug =
 		segments.length === 1 && !KNOWN_ROUTES.has(`/${segments[0]}`)
+
 	if (isRootSlug) {
 		const lookupUrl = request.nextUrl.clone()
 		lookupUrl.pathname = `/api/legacy-redirect/${segments[0]}`

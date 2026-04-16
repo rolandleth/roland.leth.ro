@@ -1,7 +1,8 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
+import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
 import { projectCreateSchema } from "@/lib/schemas"
 
 export async function GET(): Promise<NextResponse> {
@@ -66,41 +67,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 					isDiscontinued: isDiscontinued ?? false,
 					date: date ?? null,
 					sortOrder: targetOrder,
-					sections: sections
-						? {
-								create: sections.map((s) => ({
-									title: s.title,
-									description: s.description,
-									sortOrder: s.sortOrder ?? 0,
-									images: s.images
-										? {
-												create: s.images.map((img) => ({
-													url: img.url,
-													caption: img.caption ?? null,
-													sortOrder: img.sortOrder ?? 0,
-												})),
-											}
-										: undefined,
-								})),
-							}
-						: undefined,
-					links: links
-						? {
-								create: links.map((l) => ({
-									label: l.label,
-									url: l.url,
-									sortOrder: l.sortOrder ?? 0,
-								})),
-							}
-						: undefined,
+					sections: toSectionCreate(sections),
+					links: toLinkCreate(links),
 				},
-				include: {
-					sections: {
-						orderBy: { sortOrder: "asc" },
-						include: { images: { orderBy: { sortOrder: "asc" } } },
-					},
-					links: { orderBy: { sortOrder: "asc" } },
-				},
+				include: projectInclude,
 			})
 		})
 
@@ -109,6 +79,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 		return NextResponse.json(project, { status: 201 })
 	} catch (error) {
+		if (isPrismaUniqueConstraint(error)) {
+			return NextResponse.json(
+				{ error: "A project with this slug already exists" },
+				{ status: 409 }
+			)
+		}
+
 		// eslint-disable-next-line no-console
 		console.error(error)
 

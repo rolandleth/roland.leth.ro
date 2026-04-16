@@ -9,7 +9,7 @@ function publishedWhere(section: Section, now: string) {
 	return { section, published: true, datetime: { lte: now } }
 }
 
-const postListItemSelect = {
+export const postListItemSelect = {
 	id: true,
 	title: true,
 	slug: true,

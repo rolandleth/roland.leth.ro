@@ -1,73 +1,25 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
-import { isPrismaNotFound, prisma } from "@/lib/db"
-import { createSlug, parseIntId } from "@/lib/format"
-import { projectInclude } from "@/lib/projects"
+import { handlePrismaError, parseIdParam } from "@/lib/apiErrors"
+import { prisma } from "@/lib/db"
+import { createSlug } from "@/lib/format"
+import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
 import { projectUpdateSchema } from "@/lib/schemas"
-
-type SectionInput = {
-	title: string
-	description: string
-	sortOrder?: number
-	images?: { url: string; caption?: string | null; sortOrder?: number }[]
-}
-
-type LinkInput = {
-	label: string
-	url: string
-	sortOrder?: number
-}
-
-function toSectionCreate(sections: SectionInput[] | undefined) {
-	if (sections == null) {
-		return undefined
-	}
-
-	return {
-		create: sections.map((s) => ({
-			title: s.title,
-			description: s.description,
-			sortOrder: s.sortOrder ?? 0,
-			images: s.images
-				? {
-						create: s.images.map((img) => ({
-							url: img.url,
-							caption: img.caption ?? null,
-							sortOrder: img.sortOrder ?? 0,
-						})),
-					}
-				: undefined,
-		})),
-	}
-}
-
-function toLinkCreate(links: LinkInput[] | undefined) {
-	if (links == null) {
-		return undefined
-	}
-
-	return {
-		create: links.map((l) => ({
-			label: l.label,
-			url: l.url,
-			sortOrder: l.sortOrder ?? 0,
-		})),
-	}
-}
 
 export async function GET(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const projectId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (projectId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
 
+	const { id } = idResult
+
 	const project = await prisma.project.findUnique({
-		where: { id: projectId },
+		where: { id },
 		include: projectInclude,
 	})
 
@@ -82,12 +34,13 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const numericId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (numericId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
+
+	const { id } = idResult
 
 	const parsed = projectUpdateSchema.safeParse(await request.json())
 
@@ -96,8 +49,9 @@ export async function PUT(
 	}
 
 	const { name, sections, links, ...rest } = parsed.data
+	// `v !== undefined` (not `!= null`) so explicit `null` clears are preserved.
 	const data: Record<string, unknown> = Object.fromEntries(
-		Object.entries(rest).filter(([, v]) => v != null)
+		Object.entries(rest).filter(([, v]) => v !== undefined)
 	)
 
 	if (name != null) {
@@ -109,7 +63,7 @@ export async function PUT(
 		const project = await prisma.$transaction(async (tx) => {
 			if (data.sortOrder != null) {
 				const current = await tx.project.findUnique({
-					where: { id: numericId },
+					where: { id },
 					select: { sortOrder: true },
 				})
 
@@ -121,7 +75,7 @@ export async function PUT(
 						// Moving up: shift the range [new, old) down to make room.
 						await tx.project.updateMany({
 							where: {
-								id: { not: numericId },
+								id: { not: id },
 								sortOrder: { gte: newOrder, lt: oldOrder },
 							},
 							data: { sortOrder: { increment: 1 } },
@@ -130,7 +84,7 @@ export async function PUT(
 						// Moving down: shift the range (old, new] up to fill the gap.
 						await tx.project.updateMany({
 							where: {
-								id: { not: numericId },
+								id: { not: id },
 								sortOrder: { gt: oldOrder, lte: newOrder },
 							},
 							data: { sortOrder: { decrement: 1 } },
@@ -141,15 +95,15 @@ export async function PUT(
 
 			if (sections != null) {
 				// Delete all existing sections (cascade removes images).
-				await tx.projectSection.deleteMany({ where: { projectId: numericId } })
+				await tx.projectSection.deleteMany({ where: { projectId: id } })
 			}
 
 			if (links != null) {
-				await tx.projectLink.deleteMany({ where: { projectId: numericId } })
+				await tx.projectLink.deleteMany({ where: { projectId: id } })
 			}
 
 			return tx.project.update({
-				where: { id: numericId },
+				where: { id },
 				data: {
 					...data,
 					sections: toSectionCreate(sections),
@@ -164,8 +118,10 @@ export async function PUT(
 
 		return NextResponse.json(project)
 	} catch (error) {
-		if (isPrismaNotFound(error)) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		const notFound = handlePrismaError(error)
+
+		if (notFound) {
+			return notFound
 		}
 
 		// eslint-disable-next-line no-console
@@ -182,16 +138,17 @@ export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const { id } = await params
-	const projectId = parseIntId(id)
+	const idResult = await parseIdParam(params)
 
-	if (projectId === null) {
-		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
+	if (idResult instanceof NextResponse) {
+		return idResult
 	}
+
+	const { id } = idResult
 
 	try {
 		const deleted = await prisma.$transaction(async (tx) => {
-			const project = await tx.project.delete({ where: { id: projectId } })
+			const project = await tx.project.delete({ where: { id } })
 
 			// Close the gap left by the deleted project.
 			await tx.project.updateMany({
@@ -204,9 +161,13 @@ export async function DELETE(
 
 		revalidateTag("projects", "max")
 		revalidateTag(`project-${deleted.slug}`, "max")
+
+		return new NextResponse(null, { status: 204 })
 	} catch (error) {
-		if (isPrismaNotFound(error)) {
-			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		const notFound = handlePrismaError(error)
+
+		if (notFound) {
+			return notFound
 		}
 
 		// eslint-disable-next-line no-console
@@ -217,6 +178,4 @@ export async function DELETE(
 			{ status: 500 }
 		)
 	}
-
-	return new NextResponse(null, { status: 204 })
 }

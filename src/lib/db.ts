@@ -26,10 +26,19 @@ if (process.env.NODE_ENV !== "production") {
 
 /** Returns true for Prisma P2025 "record not found" errors (e.g. update/delete on missing row). */
 export function isPrismaNotFound(error: unknown): boolean {
+	return isPrismaErrorCode(error, "P2025")
+}
+
+/** Returns true for Prisma P2002 "unique constraint violation" errors. */
+export function isPrismaUniqueConstraint(error: unknown): boolean {
+	return isPrismaErrorCode(error, "P2002")
+}
+
+function isPrismaErrorCode(error: unknown, code: string): boolean {
 	return (
 		typeof error === "object" &&
 		error !== null &&
 		"code" in error &&
-		(error as { code: unknown }).code === "P2025"
+		(error as { code: unknown }).code === code
 	)
 }

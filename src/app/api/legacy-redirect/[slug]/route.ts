@@ -1,5 +1,45 @@
+import { unstable_cache } from "next/cache"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+
+type LegacyMatch =
+	| { kind: "post"; section: string; slug: string }
+	| { kind: "project"; slug: string }
+	| null
+
+/**
+ * Looks up a legacy root-level slug against both posts and projects in parallel.
+ * Cached briefly so crawler hammering on dead slugs doesn't repeatedly hit the DB.
+ */
+function lookupLegacySlug(slug: string): Promise<LegacyMatch> {
+	return unstable_cache(
+		async (): Promise<LegacyMatch> => {
+			const [post, project] = await Promise.all([
+				prisma.post.findFirst({
+					where: { slug },
+					select: { section: true, slug: true },
+				}),
+				prisma.project.findFirst({
+					where: { slug },
+					select: { slug: true },
+				}),
+			])
+
+			// Posts win over projects when both share a slug (unlikely but possible).
+			if (post) {
+				return { kind: "post", section: post.section, slug: post.slug }
+			}
+
+			if (project) {
+				return { kind: "project", slug: project.slug }
+			}
+
+			return null
+		},
+		[`legacy-redirect-${slug}`],
+		{ revalidate: 300, tags: [`legacy-redirect-${slug}`] }
+	)()
+}
 
 export async function GET(
 	request: Request,
@@ -8,29 +48,19 @@ export async function GET(
 	const { slug } = await params
 	const base = new URL(request.url).origin
 
-	const post = await prisma.post.findFirst({
-		where: { slug },
-		select: { section: true, slug: true },
-	})
+	const match = await lookupLegacySlug(slug)
 
-	if (post) {
+	if (match?.kind === "post") {
 		return NextResponse.redirect(
-			new URL(`/blog/${post.section}/${post.slug}`, base),
+			new URL(`/blog/${match.section}/${match.slug}`, base),
 			301
 		)
 	}
 
-	const project = await prisma.project.findFirst({
-		where: { slug },
-		select: { slug: true },
-	})
-
-	if (project) {
-		return NextResponse.redirect(
-			new URL(`/projects/${project.slug}`, base),
-			301
-		)
+	if (match?.kind === "project") {
+		return NextResponse.redirect(new URL(`/projects/${match.slug}`, base), 301)
 	}
 
-	return NextResponse.json({ error: "Not found" }, { status: 404 })
+	// Miss means the slug isn't legacy — hand off to Next.js' not-found UI.
+	return NextResponse.redirect(new URL("/404", request.url), 307)
 }
