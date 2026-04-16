@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { fadeUp } from "@/lib/motion"
 
 interface Props {
 	index: number
@@ -14,16 +15,6 @@ export default function AnimatedCard({
 	children,
 }: Props) {
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: -12 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{
-				duration: 0.3,
-				delay: index * delayMultiplier,
-				ease: "easeOut",
-			}}
-		>
-			{children}
-		</motion.div>
+		<motion.div {...fadeUp(index * delayMultiplier)}>{children}</motion.div>
 	)
 }

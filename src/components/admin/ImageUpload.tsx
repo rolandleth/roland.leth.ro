@@ -64,7 +64,7 @@ export default function ImageUpload({
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="https://..."
-					className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input min-w-0 flex-1"
 				/>
 				<button
 					type="button"

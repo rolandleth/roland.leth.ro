@@ -49,7 +49,7 @@ export default function LoginForm() {
 					required
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
-					className="border-border bg-background text-primary rounded-md border px-3 py-2 text-sm transition-colors outline-none focus:border-(--color-accent) disabled:opacity-50"
+					className="admin-input disabled:opacity-50"
 					disabled={isSubmitting}
 				/>
 			</div>
@@ -68,7 +68,7 @@ export default function LoginForm() {
 					required
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
-					className="border-border bg-background text-primary rounded-md border px-3 py-2 text-sm transition-colors outline-none focus:border-(--color-accent) disabled:opacity-50"
+					className="admin-input disabled:opacity-50"
 					disabled={isSubmitting}
 				/>
 			</div>

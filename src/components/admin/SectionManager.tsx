@@ -3,6 +3,8 @@
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import ReorderControls from "@/components/ui/ReorderControls"
+import { moveAndReorder } from "@/lib/reorder"
 
 export interface SectionImage {
 	url: string
@@ -74,20 +76,9 @@ function SectionCard({
 	}
 
 	function moveImage(imageIndex: number, direction: "up" | "down") {
-		const swapIndex = direction === "up" ? imageIndex - 1 : imageIndex + 1
-
-		if (swapIndex < 0 || swapIndex >= section.images.length) {
-			return
-		}
-
-		const images = [...section.images]
-		;[images[imageIndex], images[swapIndex]] = [
-			images[swapIndex],
-			images[imageIndex],
-		]
 		onUpdate({
 			...section,
-			images: images.map((img, i) => ({ ...img, sortOrder: i })),
+			images: moveAndReorder(section.images, imageIndex, direction),
 		})
 	}
 
@@ -108,36 +99,16 @@ function SectionCard({
 					value={section.title}
 					onChange={(e) => updateField("title", e.target.value)}
 					placeholder="Section title"
-					className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors outline-none"
+					className="admin-input min-w-0 flex-1 py-1.5"
 				/>
 
-				<div className="flex shrink-0 gap-1">
-					<button
-						type="button"
-						onClick={() => onMove("up")}
-						disabled={index === 0}
-						className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-						aria-label="Move section up"
-					>
-						↑
-					</button>
-					<button
-						type="button"
-						onClick={() => onMove("down")}
-						disabled={index === total - 1}
-						className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-						aria-label="Move section down"
-					>
-						↓
-					</button>
-					<button
-						type="button"
-						onClick={onRemove}
-						className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors"
-					>
-						Remove
-					</button>
-				</div>
+				<ReorderControls
+					canMoveUp={index > 0}
+					canMoveDown={index < total - 1}
+					onMoveUp={() => onMove("up")}
+					onMoveDown={() => onMove("down")}
+					onRemove={onRemove}
+				/>
 			</div>
 
 			{isOpen && (
@@ -175,36 +146,16 @@ function SectionCard({
 											updateImage(imageIndex, "caption", e.target.value)
 										}
 										placeholder="Caption (optional)"
-										className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+										className="admin-input min-w-0 flex-1"
 									/>
 
-									<div className="flex shrink-0 gap-1">
-										<button
-											type="button"
-											onClick={() => moveImage(imageIndex, "up")}
-											disabled={imageIndex === 0}
-											className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-											aria-label="Move image up"
-										>
-											↑
-										</button>
-										<button
-											type="button"
-											onClick={() => moveImage(imageIndex, "down")}
-											disabled={imageIndex === section.images.length - 1}
-											className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-											aria-label="Move image down"
-										>
-											↓
-										</button>
-										<button
-											type="button"
-											onClick={() => removeImage(imageIndex)}
-											className="text-secondary hover:text-primary rounded px-1.5 py-1 text-sm transition-colors"
-										>
-											Remove
-										</button>
-									</div>
+									<ReorderControls
+										canMoveUp={imageIndex > 0}
+										canMoveDown={imageIndex < section.images.length - 1}
+										onMoveUp={() => moveImage(imageIndex, "up")}
+										onMoveDown={() => moveImage(imageIndex, "down")}
+										onRemove={() => removeImage(imageIndex)}
+									/>
 								</div>
 							</div>
 						))}
@@ -249,15 +200,7 @@ export default function SectionManager({ value, onChange }: Props) {
 	}
 
 	function moveSection(index: number, direction: "up" | "down") {
-		const swapIndex = direction === "up" ? index - 1 : index + 1
-
-		if (swapIndex < 0 || swapIndex >= value.length) {
-			return
-		}
-
-		const updated = [...value]
-		;[updated[index], updated[swapIndex]] = [updated[swapIndex], updated[index]]
-		onChange(updated.map((s, i) => ({ ...s, sortOrder: i })))
+		onChange(moveAndReorder(value, index, direction))
 	}
 
 	return (

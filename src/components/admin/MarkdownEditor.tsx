@@ -75,7 +75,7 @@ export default function MarkdownEditor({
 					onChange={(e) => onChange(e.target.value)}
 					placeholder={placeholder}
 					rows={20}
-					className="border-border bg-background text-primary focus:border-accent min-h-64 rounded-md border px-3 py-2 font-mono text-sm transition-colors outline-none"
+					className="admin-input min-h-64 font-mono"
 				/>
 			)}
 		</div>

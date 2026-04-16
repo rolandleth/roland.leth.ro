@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import AnimatedPostCard from "@/components/blog/AnimatedPostCard"
+import AnimatedCard from "@/components/AnimatedCard"
 import BlogSectionHeader from "@/components/blog/BlogSectionHeader"
 import Pagination from "@/components/blog/Pagination"
 import PostCard from "@/components/blog/PostCard"
@@ -56,9 +56,9 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 
 			<div className="divide-border divide-y">
 				{posts.map((post, i) => (
-					<AnimatedPostCard key={post.id} index={i}>
+					<AnimatedCard key={post.id} index={i}>
 						<PostCard post={post} />
-					</AnimatedPostCard>
+					</AnimatedCard>
 				))}
 			</div>
 

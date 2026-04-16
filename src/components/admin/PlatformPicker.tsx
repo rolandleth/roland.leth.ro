@@ -8,13 +8,13 @@ interface Props {
 	onChange: (value: string) => void
 }
 
-export default function PlatformPicker({ value, onChange }: Props) {
-	const allKeywords = PLATFORM_BUCKETS.flatMap((b) => b.keywords)
+const ALL_KEYWORDS = PLATFORM_BUCKETS.flatMap((b) => b.keywords)
 
+export default function PlatformPicker({ value, onChange }: Props) {
 	const parsedKeywords = value
 		.split(",")
 		.map((s) => s.trim())
-		.filter((s) => allKeywords.includes(s))
+		.filter((s) => ALL_KEYWORDS.includes(s))
 
 	// If the initial value's keywords span multiple buckets there is no clean
 	// bucket to lock to, so treat the whole value as freeform instead of
@@ -29,7 +29,6 @@ export default function PlatformPicker({ value, onChange }: Props) {
 		useState<string[]>(validParsedKeywords)
 	const [freeform, setFreeform] = useState(isInitiallyFreeform ? value : "")
 
-	// All selected keywords should belong to the same bucket — find it
 	const activeBucket =
 		selectedKeywords.length > 0
 			? (PLATFORM_BUCKETS.find((b) =>
@@ -100,10 +99,9 @@ export default function PlatformPicker({ value, onChange }: Props) {
 				value={freeform}
 				onChange={(e) => handleFreeformChange(e.target.value)}
 				disabled={selectedKeywords.length > 0}
-				className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
+				className="admin-input disabled:opacity-40"
 			/>
 
-			{/* Hidden input for native form required validation */}
 			<input
 				type="text"
 				required

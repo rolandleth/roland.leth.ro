@@ -1,5 +1,5 @@
+import AnimatedCard from "@/components/AnimatedCard"
 import PageGlow from "@/components/PageGlow"
-import AnimatedProjectCard from "@/components/projects/AnimatedProjectCard"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
 import {
@@ -42,9 +42,9 @@ export default async function ProjectsPage() {
 
 					<div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
 						{featured.map((project, i) => (
-							<AnimatedProjectCard key={project.id} index={i}>
+							<AnimatedCard key={project.id} index={i} delayMultiplier={0.05}>
 								<FeaturedProjectCard project={project} isPriority={i === 0} />
-							</AnimatedProjectCard>
+							</AnimatedCard>
 						))}
 					</div>
 				</section>
@@ -61,9 +61,10 @@ export default async function ProjectsPage() {
 
 					<div className="grid grid-cols-4 gap-1 sm:grid-cols-6 md:grid-cols-8">
 						{group.projects.map((project, i) => (
-							<AnimatedProjectCard
+							<AnimatedCard
 								key={project.id}
 								index={featured.length + gi * 4 + i}
+								delayMultiplier={0.05}
 							>
 								<CompactProjectCard
 									project={project}
@@ -74,7 +75,7 @@ export default async function ProjectsPage() {
 										)
 									}
 								/>
-							</AnimatedProjectCard>
+							</AnimatedCard>
 						))}
 					</div>
 				</section>

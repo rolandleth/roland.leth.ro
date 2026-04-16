@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
@@ -9,6 +8,8 @@ import SectionManager, {
 	type SectionImage,
 	type SectionItem,
 } from "@/components/admin/SectionManager"
+import { useAdminResource } from "@/components/admin/useAdminResource"
+import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 
 interface InitialData {
 	id: number
@@ -34,6 +35,22 @@ interface Props {
 	initialData?: InitialData
 }
 
+interface ProjectPayload {
+	name: string
+	summary: string
+	platform: string
+	role: string | null
+	accentColor: string | null
+	icon: string | null
+	heroImage: string | null
+	isFeatured: boolean
+	isDiscontinued: boolean
+	date: string | null
+	sortOrder: number
+	sections: Omit<SectionItem, "_key">[]
+	links: Omit<LinkItem, "_key">[]
+}
+
 const ROLE_OPTIONS = [
 	"Sole developer",
 	"Lead",
@@ -47,21 +64,16 @@ const ROLE_OPTIONS = [
 ]
 
 export default function ProjectForm({ initialData }: Props) {
-	const router = useRouter()
-	const isEditMode = initialData != null
+	const isEditing = initialData != null
+	const { save, remove, isSubmitting, error } =
+		useAdminResource<ProjectPayload>({
+			resource: "projects",
+			id: initialData?.id ?? null,
+		})
 
 	const [name, setName] = useState(initialData?.name ?? "")
 	const [platform, setPlatform] = useState(initialData?.platform ?? "")
-	const initialRoleValue = initialData?.role ?? ""
-	const isRoleInitiallyFreeform =
-		initialRoleValue !== "" && !ROLE_OPTIONS.includes(initialRoleValue)
-
-	const [dropdownRole, setDropdownRole] = useState(
-		isRoleInitiallyFreeform ? "" : initialRoleValue
-	)
-	const [freeformRole, setFreeformRole] = useState(
-		isRoleInitiallyFreeform ? initialRoleValue : ""
-	)
+	const [role, setRole] = useState(initialData?.role ?? "")
 	const [date, setDate] = useState(initialData?.date ?? "")
 	const [sortOrder, setSortOrder] = useState(initialData?.sortOrder ?? 0)
 	const [accentColor, setAccentColor] = useState(initialData?.accentColor ?? "")
@@ -85,20 +97,14 @@ export default function ProjectForm({ initialData }: Props) {
 		}))
 	)
 
-	const [isSaving, setIsSaving] = useState(false)
-	const [isDeleting, setIsDeleting] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
 		e.preventDefault()
-		setError(null)
-		setIsSaving(true)
 
-		const body = {
+		await save({
 			name,
 			summary,
 			platform,
-			role: freeformRole || dropdownRole || null,
+			role: role || null,
 			accentColor: accentColor || null,
 			icon: icon || null,
 			heroImage: heroImage || null,
@@ -106,64 +112,10 @@ export default function ProjectForm({ initialData }: Props) {
 			isDiscontinued,
 			date: date || null,
 			sortOrder,
-			// Strip the client-only _key from sections and links before sending.
+			// Strip the client-only `_key` from sections and links before sending.
 			sections: sections.map(({ _key: _, ...rest }) => rest),
 			links: links.map(({ _key: _, ...rest }) => rest),
-		}
-
-		try {
-			const url = isEditMode
-				? `/api/admin/projects/${initialData.id}`
-				: "/api/admin/projects"
-			const method = isEditMode ? "PUT" : "POST"
-
-			const response = await fetch(url, {
-				method,
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			})
-
-			if (!response.ok) {
-				const data = await response.json().catch(() => ({}))
-				throw new Error(data.error ?? "Failed to save project")
-			}
-
-			router.push("/admin")
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to save project")
-		} finally {
-			setIsSaving(false)
-		}
-	}
-
-	async function handleDelete() {
-		if (!isEditMode) {
-			return
-		}
-
-		if (!confirm(`Delete "${name}"? This cannot be undone.`)) {
-			return
-		}
-
-		setError(null)
-		setIsDeleting(true)
-
-		try {
-			const response = await fetch(`/api/admin/projects/${initialData.id}`, {
-				method: "DELETE",
-			})
-
-			if (!response.ok && response.status !== 204) {
-				const data = await response.json().catch(() => ({}))
-				throw new Error(data.error ?? "Failed to delete project")
-			}
-
-			router.push("/admin")
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to delete project")
-		} finally {
-			setIsDeleting(false)
-		}
+		})
 	}
 
 	return (
@@ -178,7 +130,7 @@ export default function ProjectForm({ initialData }: Props) {
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					required
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -191,43 +143,13 @@ export default function ProjectForm({ initialData }: Props) {
 				<label htmlFor="role" className="text-secondary text-sm font-medium">
 					Role
 				</label>
-				<div className="flex gap-2">
-					<select
-						id="role"
-						value={dropdownRole}
-						onChange={(e) => {
-							if (e.target.value === "__freeform__") {
-								setDropdownRole("")
-							} else {
-								setDropdownRole(e.target.value)
-							}
-						}}
-						disabled={freeformRole !== ""}
-						required={freeformRole === ""}
-						className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
-					>
-						<option value="" disabled>
-							Select a role…
-						</option>
-						{ROLE_OPTIONS.map((option) => (
-							<option key={option} value={option}>
-								{option}
-							</option>
-						))}
-						{dropdownRole !== "" && (
-							<option value="__freeform__">Freeform…</option>
-						)}
-					</select>
-					<input
-						id="role-freeform"
-						type="text"
-						placeholder="or type freely…"
-						value={freeformRole}
-						onChange={(e) => setFreeformRole(e.target.value)}
-						disabled={dropdownRole !== ""}
-						className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
-					/>
-				</div>
+				<PresetOrFreeformInput
+					id="role"
+					value={role}
+					onChange={setRole}
+					presets={ROLE_OPTIONS}
+					presetLabel="Select a role…"
+				/>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
@@ -240,7 +162,7 @@ export default function ProjectForm({ initialData }: Props) {
 					value={date}
 					onChange={(e) => setDate(e.target.value)}
 					placeholder="2023"
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -256,7 +178,7 @@ export default function ProjectForm({ initialData }: Props) {
 					type="number"
 					value={sortOrder}
 					onChange={(e) => setSortOrder(Number(e.target.value))}
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -273,7 +195,7 @@ export default function ProjectForm({ initialData }: Props) {
 					value={accentColor}
 					onChange={(e) => setAccentColor(e.target.value)}
 					placeholder="#6366f1"
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -287,7 +209,7 @@ export default function ProjectForm({ initialData }: Props) {
 					onChange={(e) => setSummary(e.target.value)}
 					required
 					rows={4}
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -337,20 +259,20 @@ export default function ProjectForm({ initialData }: Props) {
 			<div className="flex items-center gap-4">
 				<button
 					type="submit"
-					disabled={isSaving}
+					disabled={isSubmitting}
 					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
 				>
-					{isSaving ? "Saving…" : "Save project"}
+					{isSubmitting ? "Saving…" : "Save project"}
 				</button>
 
-				{isEditMode && (
+				{isEditing && (
 					<button
 						type="button"
-						onClick={handleDelete}
-						disabled={isDeleting}
+						onClick={remove}
+						disabled={isSubmitting}
 						className="rounded-md px-4 py-2 text-sm font-medium text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{isDeleting ? "Deleting…" : "Delete"}
+						Delete
 					</button>
 				)}
 			</div>

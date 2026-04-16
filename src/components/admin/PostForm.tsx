@@ -1,9 +1,9 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import { useAdminResource } from "@/components/admin/useAdminResource"
 import { currentDatetimeString } from "@/lib/format"
 import { SECTIONS } from "@/lib/sections"
 
@@ -20,9 +20,22 @@ interface Props {
 	}
 }
 
+interface PostPayload {
+	title: string
+	body: string
+	section: string
+	datetime: string
+	published: boolean
+	summary?: string
+	imageUrl?: string
+}
+
 export default function PostForm({ initialData }: Props) {
-	const router = useRouter()
 	const isEditing = initialData != null
+	const { save, remove, isSubmitting, error } = useAdminResource<PostPayload>({
+		resource: "posts",
+		id: initialData?.id ?? null,
+	})
 
 	const [title, setTitle] = useState(initialData?.title ?? "")
 	const [section, setSection] = useState(initialData?.section ?? "tech")
@@ -33,88 +46,19 @@ export default function PostForm({ initialData }: Props) {
 	const [summary, setSummary] = useState(initialData?.summary ?? "")
 	const [imageUrl, setImageUrl] = useState(initialData?.imageUrl ?? "")
 	const [body, setBody] = useState(initialData?.body ?? "")
-	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [isDeleting, setIsDeleting] = useState(false)
-	const [error, setError] = useState<string | null>(null)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
-		setError(null)
-		setIsSubmitting(true)
 
-		try {
-			const payload = {
-				title,
-				body,
-				section,
-				datetime,
-				published,
-				summary: summary || undefined,
-				imageUrl: imageUrl || undefined,
-			}
-
-			const url = isEditing
-				? `/api/admin/posts/${initialData.id}`
-				: "/api/admin/posts"
-			const method = isEditing ? "PUT" : "POST"
-
-			const response = await fetch(url, {
-				method,
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			})
-
-			if (!response.ok) {
-				const data = await response.json().catch(() => ({}))
-				throw new Error(data.error ?? "Something went wrong. Please try again.")
-			}
-
-			router.push("/admin")
-		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: "Something went wrong. Please try again."
-			)
-		} finally {
-			setIsSubmitting(false)
-		}
-	}
-
-	async function handleDelete() {
-		if (!isEditing) {
-			return
-		}
-
-		if (
-			!confirm(
-				"Are you sure you want to delete this post? This cannot be undone."
-			)
-		) {
-			return
-		}
-
-		setError(null)
-		setIsDeleting(true)
-
-		try {
-			const response = await fetch(`/api/admin/posts/${initialData.id}`, {
-				method: "DELETE",
-			})
-
-			if (!response.ok) {
-				const data = await response.json().catch(() => ({}))
-				throw new Error(data.error ?? "Delete failed. Please try again.")
-			}
-
-			router.push("/admin")
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Delete failed. Please try again."
-			)
-		} finally {
-			setIsDeleting(false)
-		}
+		await save({
+			title,
+			body,
+			section,
+			datetime,
+			published,
+			summary: summary || undefined,
+			imageUrl: imageUrl || undefined,
+		})
 	}
 
 	return (
@@ -129,7 +73,7 @@ export default function PostForm({ initialData }: Props) {
 					required
 					value={title}
 					onChange={(e) => setTitle(e.target.value)}
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -141,7 +85,7 @@ export default function PostForm({ initialData }: Props) {
 					id="section"
 					value={section}
 					onChange={(e) => setSection(e.target.value)}
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				>
 					{SECTIONS.map((s) => (
 						<option key={s} value={s}>
@@ -164,7 +108,7 @@ export default function PostForm({ initialData }: Props) {
 					value={datetime}
 					onChange={(e) => setDatetime(e.target.value)}
 					placeholder="yyyy-MM-dd-HHmm"
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 font-mono text-sm transition-colors outline-none"
+					className="admin-input font-mono"
 				/>
 			</div>
 
@@ -193,7 +137,7 @@ export default function PostForm({ initialData }: Props) {
 					onChange={(e) => setSummary(e.target.value)}
 					rows={3}
 					placeholder="Optional summary shown in post listings…"
-					className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none"
+					className="admin-input"
 				/>
 			</div>
 
@@ -213,7 +157,7 @@ export default function PostForm({ initialData }: Props) {
 			<div className="flex items-center justify-between">
 				<button
 					type="submit"
-					disabled={isSubmitting || isDeleting}
+					disabled={isSubmitting}
 					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{isSubmitting ? "Saving…" : "Save post"}
@@ -222,11 +166,11 @@ export default function PostForm({ initialData }: Props) {
 				{isEditing && (
 					<button
 						type="button"
-						onClick={handleDelete}
-						disabled={isDeleting || isSubmitting}
+						onClick={remove}
+						disabled={isSubmitting}
 						className="text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{isDeleting ? "Deleting…" : "Delete"}
+						Delete
 					</button>
 				)}
 			</div>
