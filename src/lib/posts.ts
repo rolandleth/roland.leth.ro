@@ -152,6 +152,77 @@ export const loadPost = cache(async (section: Section, slug: string) =>
 )
 
 /**
+ * Request-scoped dedupe for the admin edit page, where `generateMetadata` and
+ * the page body both need the full row (including drafts). Unlike the public
+ * `loadPost`, this hits the DB directly without tag-based caching.
+ */
+export const loadPostForAdmin = cache(async (id: number) =>
+	prisma.post.findUnique({ where: { id } })
+)
+
+const ADMIN_LIST_LIMIT = 100
+
+const adminPostListItemSelect = {
+	...postListItemSelect,
+	published: true,
+} as const
+
+export interface AdminPostListItem extends PostListItem {
+	published: boolean
+}
+
+export interface AdminPostListResult {
+	posts: AdminPostListItem[]
+	totalCount: number
+	totalPages: number
+}
+
+/**
+ * Fetches posts for the admin dashboard, across all sections and including drafts.
+ * When `query` is non-empty, matches title OR body case-insensitively (mirrors `searchPosts`).
+ * Results are capped at `ADMIN_LIST_LIMIT`; `totalCount` reflects the true DB count.
+ */
+export async function listPostsForAdmin({
+	query,
+	page,
+}: {
+	query?: string
+	page: number
+}): Promise<AdminPostListResult> {
+	const term = query?.trim() ?? ""
+	const isSearching = term.length > 0
+
+	const where = isSearching
+		? {
+				OR: [
+					{ title: { contains: term, mode: "insensitive" as const } },
+					{ body: { contains: term, mode: "insensitive" as const } },
+				],
+			}
+		: {}
+
+	const take = isSearching ? ADMIN_LIST_LIMIT : PAGE_SIZE
+	const skip = isSearching ? 0 : (page - 1) * PAGE_SIZE
+
+	const [posts, totalCount] = await Promise.all([
+		prisma.post.findMany({
+			where,
+			select: adminPostListItemSelect,
+			orderBy: { datetime: "desc" },
+			skip,
+			take,
+		}),
+		prisma.post.count({ where }),
+	])
+
+	return {
+		posts,
+		totalCount,
+		totalPages: Math.ceil(totalCount / PAGE_SIZE),
+	}
+}
+
+/**
  * Cached list of every published post's slug/section/datetime/updatedAt for use
  * by `generateStaticParams` and the sitemap. Tagged `posts` so post mutations
  * bust this alongside section-scoped caches.

@@ -212,3 +212,65 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
  * the page body share one fetch per render.
  */
 export const loadProject = cache(async (slug: string) => getProjectBySlug(slug))
+
+/**
+ * Request-scoped dedupe for the admin edit page: both `generateMetadata` and
+ * the page body fetch the same row, so React's `cache` collapses them into
+ * one DB hit per request. Looked up by numeric id, unlike the public loader.
+ */
+export const loadProjectForAdmin = cache(async (id: number) =>
+	prisma.project.findUnique({ where: { id }, include: projectInclude })
+)
+
+const ADMIN_LIST_LIMIT = 100
+
+/**
+ * Fetches projects for the admin dashboard in the same shape as the public gallery,
+ * but without cache or discontinued-last ordering so edits surface immediately.
+ * When `query` is non-empty, matches `name` case-insensitively. Capped at `ADMIN_LIST_LIMIT`.
+ */
+export async function listProjectsForAdmin({
+	query,
+}: {
+	query?: string
+}): Promise<ProjectGalleryItem[]> {
+	const term = query?.trim() ?? ""
+	const isSearching = term.length > 0
+
+	if (!isSearching) {
+		return getAllProjectsForGallery({ sortDiscontinued: false })
+	}
+
+	return prisma.project.findMany({
+		where: { name: { contains: term, mode: "insensitive" } },
+		select: gallerySelect,
+		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+		take: ADMIN_LIST_LIMIT,
+	})
+}
+
+/**
+ * Detail row as returned by `loadProjectForAdmin`: `projectInclude` expands sections
+ * (with images) and links, which is what the edit form consumes.
+ */
+export type AdminProjectDetail = NonNullable<
+	Awaited<ReturnType<typeof loadProjectForAdmin>>
+>
+
+/**
+ * Normalizes a DB project row into the shape `ProjectForm` expects.
+ * Specifically, image captions are nullable in the DB but the form treats
+ * them as plain strings, so null is coerced to "".
+ */
+export function toProjectFormInitialData(project: AdminProjectDetail) {
+	return {
+		...project,
+		sections: project.sections.map((section) => ({
+			...section,
+			images: section.images.map((image) => ({
+				...image,
+				caption: image.caption ?? "",
+			})),
+		})),
+	}
+}

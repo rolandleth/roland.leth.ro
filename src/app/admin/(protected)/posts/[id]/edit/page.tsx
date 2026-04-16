@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import PostForm from "@/components/admin/PostForm"
-import { prisma } from "@/lib/db"
 import { parseIntId } from "@/lib/format"
+import { loadPostForAdmin } from "@/lib/posts"
 import type { Metadata } from "next"
 
 interface Props {
@@ -16,10 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		return { title: "Edit post" }
 	}
 
-	const post = await prisma.post.findUnique({
-		where: { id: postId },
-		select: { title: true },
-	})
+	const post = await loadPostForAdmin(postId)
 
 	return { title: post ? `Edit: ${post.title}` : "Edit post" }
 }
@@ -32,7 +29,7 @@ export default async function EditPostPage({ params }: Props) {
 		notFound()
 	}
 
-	const post = await prisma.post.findUnique({ where: { id: postId } })
+	const post = await loadPostForAdmin(postId)
 
 	if (!post) {
 		notFound()

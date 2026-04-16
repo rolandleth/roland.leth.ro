@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation"
 import ProjectForm from "@/components/admin/ProjectForm"
-import { prisma } from "@/lib/db"
 import { parseIntId } from "@/lib/format"
-import { projectInclude } from "@/lib/projects"
+import { loadProjectForAdmin, toProjectFormInitialData } from "@/lib/projects"
 import type { Metadata } from "next"
 
 interface PageProps {
@@ -19,10 +18,7 @@ export async function generateMetadata({
 		return { title: "Edit project" }
 	}
 
-	const project = await prisma.project.findUnique({
-		where: { id: projectId },
-		select: { name: true },
-	})
+	const project = await loadProjectForAdmin(projectId)
 
 	return { title: project ? `Edit: ${project.name}` : "Edit project" }
 }
@@ -35,25 +31,11 @@ export default async function EditProjectPage({ params }: PageProps) {
 		notFound()
 	}
 
-	const project = await prisma.project.findUnique({
-		where: { id: projectId },
-		include: projectInclude,
-	})
+	const project = await loadProjectForAdmin(projectId)
 
 	if (!project) {
 		notFound()
 	}
 
-	const initialData = {
-		...project,
-		sections: project.sections.map((section) => ({
-			...section,
-			images: section.images.map((image) => ({
-				...image,
-				caption: image.caption ?? "",
-			})),
-		})),
-	}
-
-	return <ProjectForm initialData={initialData} />
+	return <ProjectForm initialData={toProjectFormInitialData(project)} />
 }
