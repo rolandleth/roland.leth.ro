@@ -17,6 +17,7 @@ export default function ProjectSortOrderInput({
 	const router = useRouter()
 	const [value, setValue] = useState(String(initialSortOrder))
 	const [isSaving, setIsSaving] = useState(false)
+	const [error, setError] = useState<string | null>(null)
 
 	async function handleBlur() {
 		const parsed = parseInt(value, 10)
@@ -43,24 +44,29 @@ export default function ProjectSortOrderInput({
 
 		if (!response.ok) {
 			setValue(String(initialSortOrder))
+			setError("Failed to save")
 			setIsSaving(false)
 			return
 		}
 
+		setError(null)
 		router.refresh()
 		setIsSaving(false)
 	}
 
 	return (
-		<input
-			type="number"
-			value={value}
-			min={1}
-			max={totalCount}
-			disabled={isSaving}
-			onChange={(e) => setValue(e.target.value)}
-			onBlur={handleBlur}
-			className="border-border bg-background text-primary focus:border-accent w-12 rounded border px-1.5 py-0.5 text-center text-xs transition-colors outline-none disabled:opacity-50"
-		/>
+		<div className="flex flex-col items-center gap-1">
+			<input
+				type="number"
+				value={value}
+				min={1}
+				max={totalCount}
+				disabled={isSaving}
+				onChange={(e) => setValue(e.target.value)}
+				onBlur={handleBlur}
+				className="border-border bg-background text-primary focus:border-accent w-12 rounded border px-1.5 py-0.5 text-center text-xs transition-colors outline-none disabled:opacity-50"
+			/>
+			{error && <p className="text-xs text-red-500">{error}</p>}
+		</div>
 	)
 }

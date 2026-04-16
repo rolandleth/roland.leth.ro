@@ -11,6 +11,7 @@ export interface SectionImage {
 }
 
 export interface SectionItem {
+	_key: string
 	title: string
 	description: string
 	sortOrder: number
@@ -226,7 +227,13 @@ export default function SectionManager({ value, onChange }: Props) {
 	function addSection() {
 		onChange([
 			...value,
-			{ title: "", description: "", sortOrder: value.length, images: [] },
+			{
+				_key: crypto.randomUUID(),
+				title: "",
+				description: "",
+				sortOrder: value.length,
+				images: [],
+			},
 		])
 	}
 
@@ -257,7 +264,7 @@ export default function SectionManager({ value, onChange }: Props) {
 		<div className="flex flex-col gap-3">
 			{value.map((section, index) => (
 				<SectionCard
-					key={index}
+					key={section._key}
 					section={section}
 					index={index}
 					total={value.length}

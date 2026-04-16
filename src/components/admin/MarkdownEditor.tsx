@@ -1,20 +1,8 @@
 "use client"
 
-import { toJsxRuntime } from "hast-util-to-jsx-runtime"
 import { useState, useEffect } from "react"
-import { jsx, jsxs, Fragment } from "react/jsx-runtime"
-import remarkGfm from "remark-gfm"
-import remarkParse from "remark-parse"
-import remarkRehype from "remark-rehype"
-import { unified } from "unified"
+import { markdownToReact } from "@/lib/markdown"
 import type { ReactNode } from "react"
-
-async function renderMarkdown(content: string): Promise<ReactNode> {
-	const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype)
-	const hast = await processor.run(processor.parse(content))
-
-	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
-}
 
 interface Props {
 	value: string
@@ -37,7 +25,7 @@ export default function MarkdownEditor({
 
 		let cancelled = false
 
-		renderMarkdown(value).then((node) => {
+		markdownToReact(value).then((node) => {
 			if (!cancelled) {
 				setPreview(node)
 			}

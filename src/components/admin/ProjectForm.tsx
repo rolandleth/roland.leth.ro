@@ -23,7 +23,7 @@ interface InitialData {
 	isDiscontinued: boolean
 	date: string | null
 	sortOrder: number
-	sections: (SectionItem & {
+	sections: (Omit<SectionItem, "_key"> & {
 		id?: number
 		images: (SectionImage & { id?: number })[]
 	})[]
@@ -73,7 +73,10 @@ export default function ProjectForm({ initialData }: Props) {
 		initialData?.isDiscontinued ?? false
 	)
 	const [sections, setSections] = useState<SectionItem[]>(
-		initialData?.sections ?? []
+		(initialData?.sections ?? []).map((section) => ({
+			...section,
+			_key: crypto.randomUUID(),
+		}))
 	)
 	const [links, setLinks] = useState<LinkItem[]>(
 		(initialData?.links ?? []).map((link) => ({
@@ -83,6 +86,7 @@ export default function ProjectForm({ initialData }: Props) {
 	)
 
 	const [isSaving, setIsSaving] = useState(false)
+	const [isDeleting, setIsDeleting] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -102,8 +106,8 @@ export default function ProjectForm({ initialData }: Props) {
 			isDiscontinued,
 			date: date || null,
 			sortOrder,
-			sections,
-			// Strip the client-only _key before sending — the server schema doesn't know about it.
+			// Strip the client-only _key from sections and links before sending.
+			sections: sections.map(({ _key: _, ...rest }) => rest),
 			links: links.map(({ _key: _, ...rest }) => rest),
 		}
 
@@ -142,6 +146,7 @@ export default function ProjectForm({ initialData }: Props) {
 		}
 
 		setError(null)
+		setIsDeleting(true)
 
 		try {
 			const response = await fetch(`/api/admin/projects/${initialData.id}`, {
@@ -156,6 +161,8 @@ export default function ProjectForm({ initialData }: Props) {
 			router.push("/admin")
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to delete project")
+		} finally {
+			setIsDeleting(false)
 		}
 	}
 
@@ -340,9 +347,10 @@ export default function ProjectForm({ initialData }: Props) {
 					<button
 						type="button"
 						onClick={handleDelete}
-						className="rounded-md px-4 py-2 text-sm font-medium text-red-500 transition-opacity hover:opacity-75"
+						disabled={isDeleting}
+						className="rounded-md px-4 py-2 text-sm font-medium text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						Delete
+						{isDeleting ? "Deleting…" : "Delete"}
 					</button>
 				)}
 			</div>
