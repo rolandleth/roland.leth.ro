@@ -1,9 +1,6 @@
-"use client"
-
-import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
-import { fadeUp } from "@/lib/motion"
+import FadeIn from "@/components/about/FadeIn"
 
 const chips = [
 	"15+ years",
@@ -51,12 +48,17 @@ const contactLinks = [
 	},
 ]
 
+// Stagger math for section fade-ins: each section appears slightly after the
+// previous one, offset from the intro block which lands at 0.1s.
+const SECTION_BASE_DELAY = 0.1
+const SECTION_STAGGER = 0.06
+
 export default function AboutContent() {
 	return (
 		<div className="flex flex-col items-center gap-10 sm:flex-row sm:items-start sm:gap-12">
-			{/* Sidebar */}
-			<motion.aside
-				{...fadeUp(0)}
+			<FadeIn
+				as="aside"
+				delay={0}
 				className="flex shrink-0 gap-16 text-center sm:sticky sm:top-8 sm:w-48 sm:flex-col sm:items-start sm:gap-5 sm:text-left"
 			>
 				<div className="flex flex-col items-center gap-5 sm:items-start">
@@ -103,47 +105,50 @@ export default function AboutContent() {
 						))}
 					</div>
 				</div>
-			</motion.aside>
+			</FadeIn>
 
-			{/* Main content */}
 			<div className="min-w-0 flex-1 space-y-10">
-				<motion.h1 className="text-3xl font-bold" {...fadeUp(0.06)}>
-					About
-				</motion.h1>
+				<FadeIn delay={0.06}>
+					<h1 className="text-3xl font-bold">About</h1>
+				</FadeIn>
 
-				<motion.section {...fadeUp(0.1)}>
-					<div className="space-y-4">
-						<p className="text-secondary leading-relaxed">
-							I&apos;m an iOS developer since 2011, with extensive full-stack
-							knowledge, placing myself at the crossroads of product, business,
-							and user experience, balancing all three to create successful
-							products.
-						</p>
-						<p className="text-secondary leading-relaxed">
-							I&apos;ve worked on my own projects, on remote teams, as a
-							freelancer and contractor, or led teams at big companies like
-							DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
-							also started my own software company, Runtime Sharks, and
-							co-founded startups like Eventa and Qality Tech.
-						</p>
-					</div>
-				</motion.section>
+				<FadeIn delay={SECTION_BASE_DELAY}>
+					<section>
+						<div className="space-y-4">
+							<p className="text-secondary leading-relaxed">
+								I&apos;m an iOS developer since 2011, with extensive full-stack
+								knowledge, placing myself at the crossroads of product,
+								business, and user experience, balancing all three to create
+								successful products.
+							</p>
+							<p className="text-secondary leading-relaxed">
+								I&apos;ve worked on my own projects, on remote teams, as a
+								freelancer and contractor, or led teams at big companies like
+								DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
+								also started my own software company, Runtime Sharks, and
+								co-founded startups like Eventa and Qality Tech.
+							</p>
+						</div>
+					</section>
+				</FadeIn>
 
 				{sections.map((section, i) => (
-					<motion.section
+					<FadeIn
 						key={section.heading}
-						{...fadeUp((i + 2) * 0.06 + 0.1)}
+						delay={SECTION_BASE_DELAY + (i + 1) * SECTION_STAGGER}
 					>
-						<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
+						<section>
+							<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
 
-						<div className="space-y-4">
-							{section.paragraphs.map((paragraph, j) => (
-								<p key={j} className="text-secondary leading-relaxed">
-									{paragraph}
-								</p>
-							))}
-						</div>
-					</motion.section>
+							<div className="space-y-4">
+								{section.paragraphs.map((paragraph, j) => (
+									<p key={j} className="text-secondary leading-relaxed">
+										{paragraph}
+									</p>
+								))}
+							</div>
+						</section>
+					</FadeIn>
 				))}
 			</div>
 		</div>

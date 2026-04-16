@@ -1,4 +1,5 @@
-import HomeContent from "./HomeContent"
+import HomeHero from "@/components/home/HomeHero"
+import LandingBackground from "@/components/home/LandingBackground"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 }
 
 export default function Home() {
-	return <HomeContent />
+	return (
+		<main className="relative flex flex-1 flex-col items-center justify-center px-4">
+			<LandingBackground />
+			<HomeHero />
+		</main>
+	)
 }

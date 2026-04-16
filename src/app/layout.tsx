@@ -3,8 +3,11 @@ import { cookies } from "next/headers"
 import AnalyticsWithFilter from "@/app/AnalyticsWithFilter"
 import SpeedInsightsWithFilter from "@/app/SpeedInsightsWithFilter"
 import Footer from "@/components/Footer"
-import SiteChrome from "@/components/SiteChrome"
-import ThemeProvider, { type Theme } from "@/components/ThemeProvider"
+import Header from "@/components/Header"
+import ThemeProvider, {
+	resolveInitialTheme,
+	resolveInitialThemeClass,
+} from "@/components/ThemeProvider"
 import { siteBase } from "@/lib/request"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
@@ -50,14 +53,6 @@ export async function generateMetadata(): Promise<Metadata> {
 	}
 }
 
-// Valid cookie values — "system" is encoded with its resolved dark/light suffix.
-const validCookieValues = [
-	"light",
-	"dark",
-	"system-light",
-	"system-dark",
-] as const
-
 export default async function RootLayout({
 	children,
 }: Readonly<{
@@ -65,19 +60,12 @@ export default async function RootLayout({
 }>) {
 	const cookieStore = await cookies()
 	const rawCookie = cookieStore.get("theme")?.value
-	const cookieTheme = validCookieValues.find((v) => v === rawCookie) ?? null
 
-	const initialTheme: Theme =
-		cookieTheme === "light" || cookieTheme === "dark" ? cookieTheme : "system"
-	// Set the class server-side to avoid a flash on load.
-	// "system-*" cookies let us resolve the correct class even for system users.
-	// First-time visitors have no cookie: no class is set and globals.css hides
-	// the page until client JS applies it.
-	const themeClass: string = cookieTheme?.includes("dark")
-		? "dark"
-		: cookieTheme?.includes("light")
-			? "light"
-			: ""
+	const initialTheme = resolveInitialTheme(rawCookie)
+	// Resolve the class server-side to avoid a flash on load. First-time
+	// visitors have no cookie: no class is set and globals.css hides the page
+	// until client JS applies it.
+	const themeClass = resolveInitialThemeClass(rawCookie) ?? ""
 
 	return (
 		<html
@@ -87,7 +75,7 @@ export default async function RootLayout({
 		>
 			<body className="bg-background text-primary flex min-h-full flex-col font-sans">
 				<ThemeProvider initialTheme={initialTheme}>
-					<SiteChrome />
+					<Header />
 					{children}
 					<SpeedInsightsWithFilter />
 					<AnalyticsWithFilter />

@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 
 interface Props {
 	phrases: string[]
@@ -32,51 +32,55 @@ export default function Typewriter({
 
 	const currentPhrase = phrases[phraseIndex]
 
-	const advanceToNextPhrase = useCallback(() => {
-		setPhraseIndex((prev) => (prev + 1) % phrases.length)
-		setPhase("typing")
-	}, [phrases.length])
-
 	useEffect(() => {
-		let timeout: ReturnType<typeof setTimeout>
-
+		// Each phase either schedules the next character mutation or transitions
+		// to the next phase synchronously once the current one is complete.
+		// Synchronous transitions avoid the `setTimeout(..., 0)` hop and let
+		// React batch the state update before the next render.
 		switch (phase) {
 			case "typing": {
 				if (displayedText.length < currentPhrase.length) {
-					timeout = setTimeout(() => {
+					const timeout = setTimeout(() => {
 						setDisplayedText(currentPhrase.slice(0, displayedText.length + 1))
 					}, typeSpeed)
-				} else {
-					timeout = setTimeout(() => setPhase("paused"), 0)
+
+					return () => clearTimeout(timeout)
 				}
-				break
+
+				setPhase("paused")
+
+				return
 			}
 
 			case "paused": {
-				timeout = setTimeout(() => {
-					setPhase("erasing")
-				}, pauseAfterType)
-				break
+				const timeout = setTimeout(() => setPhase("erasing"), pauseAfterType)
+
+				return () => clearTimeout(timeout)
 			}
 
 			case "erasing": {
 				if (displayedText.length > 0) {
-					timeout = setTimeout(() => {
-						setDisplayedText(displayedText.slice(0, displayedText.length - 1))
+					const timeout = setTimeout(() => {
+						setDisplayedText(displayedText.slice(0, -1))
 					}, eraseSpeed)
-				} else {
-					timeout = setTimeout(() => setPhase("waiting"), 0)
+
+					return () => clearTimeout(timeout)
 				}
-				break
+
+				setPhase("waiting")
+
+				return
 			}
 
 			case "waiting": {
-				timeout = setTimeout(advanceToNextPhrase, pauseAfterErase)
-				break
+				const timeout = setTimeout(() => {
+					setPhraseIndex((prev) => (prev + 1) % phrases.length)
+					setPhase("typing")
+				}, pauseAfterErase)
+
+				return () => clearTimeout(timeout)
 			}
 		}
-
-		return () => clearTimeout(timeout)
 	}, [
 		phase,
 		displayedText,
@@ -85,7 +89,7 @@ export default function Typewriter({
 		eraseSpeed,
 		pauseAfterType,
 		pauseAfterErase,
-		advanceToNextPhrase,
+		phrases.length,
 	])
 
 	return (
