@@ -3,9 +3,11 @@ import { prisma } from "@/lib/db"
 import { GET, POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
-vi.mock("next/cache", () => ({
-	revalidateTag: vi.fn(),
-}))
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -17,6 +19,7 @@ vi.mock("@/lib/db", () => ({
 			updateMany: vi.fn(),
 		},
 	},
+	isPrismaUniqueConstraint: vi.fn().mockReturnValue(false),
 }))
 
 function makeRequest(body: unknown) {

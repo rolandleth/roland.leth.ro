@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { getAllProjects, getProjectBySlug } from "@/lib/projects"
+import { makeProjectListItem } from "@/test/fixtures"
 
-vi.mock("next/cache", () => ({
-	unstable_cache: (fn: () => Promise<unknown>) => fn,
-}))
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
+
+vi.mock("react", async (importOriginal) => {
+	const { reactCachePassthroughFactory } =
+		await import("@/test/mocks/nextCache")
+
+	return reactCachePassthroughFactory(importOriginal)
+})
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -15,33 +25,11 @@ vi.mock("@/lib/db", () => ({
 	},
 }))
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeProjectListItem(
-	overrides: Partial<{ id: number; name: string; slug: string }> = {}
-) {
-	return {
-		id: 1,
-		name: "My App",
-		slug: "my-app",
-		platform: "iOS",
-		isFeatured: false,
-		isDiscontinued: false,
-		sortOrder: 0,
-		icon: null,
-		...overrides,
-	}
-}
-
 beforeEach(() => {
 	vi.resetAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// getAllProjects
-// ---------------------------------------------------------------------------
+// #region getAllProjects
 
 describe("getAllProjects", () => {
 	it("returns the list of projects from prisma", async () => {
@@ -65,9 +53,9 @@ describe("getAllProjects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// getProjectBySlug
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region getProjectBySlug
 
 describe("getProjectBySlug", () => {
 	const fullProject = {
@@ -101,3 +89,5 @@ describe("getProjectBySlug", () => {
 		expect(result).toBeNull()
 	})
 })
+
+// #endregion

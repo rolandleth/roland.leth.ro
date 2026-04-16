@@ -21,15 +21,20 @@ vi.mock("@/components/admin/LinkManager", () => ({
 
 function mockRouter() {
 	const push = vi.fn()
-	vi.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<
-		typeof useRouter
-	>)
-	return { push }
+	const refresh = vi.fn()
+	vi.mocked(useRouter).mockReturnValue({
+		push,
+		refresh,
+	} as unknown as ReturnType<typeof useRouter>)
+	return { push, refresh }
 }
 
 function mockFetch(ok: boolean, body: object = {}) {
+	// `useAdminResource.readErrorMessage` inspects the `content-type` header
+	// before parsing the body, so a bare `{ok, json}` object isn't enough.
 	global.fetch = vi.fn().mockResolvedValue({
 		ok,
+		headers: new Headers({ "content-type": "application/json" }),
 		json: () => Promise.resolve(body),
 	})
 }
@@ -55,9 +60,7 @@ beforeEach(() => {
 	vi.resetAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// Create mode (no initialData)
-// ---------------------------------------------------------------------------
+// #region Create mode (no initialData)
 
 describe("ProjectForm — create mode", () => {
 	it("renders the name input", () => {
@@ -168,9 +171,9 @@ describe("ProjectForm — create mode", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Edit mode (with initialData)
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Edit mode (with initialData)
 
 describe("ProjectForm — edit mode", () => {
 	it("pre-fills the name field from initialData", () => {
@@ -239,3 +242,5 @@ describe("ProjectForm — edit mode", () => {
 		expect(global.fetch).not.toHaveBeenCalled()
 	})
 })
+
+// #endregion

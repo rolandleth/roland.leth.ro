@@ -11,11 +11,20 @@ import {
 	revalidatePostSection,
 	searchPosts,
 } from "@/lib/posts"
+import { makePost } from "@/test/fixtures"
 
-vi.mock("next/cache", () => ({
-	unstable_cache: (fn: () => Promise<unknown>) => fn,
-	revalidateTag: vi.fn(),
-}))
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
+
+vi.mock("react", async (importOriginal) => {
+	const { reactCachePassthroughFactory } =
+		await import("@/test/mocks/nextCache")
+
+	return reactCachePassthroughFactory(importOriginal)
+})
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
@@ -27,40 +36,15 @@ vi.mock("@/lib/db", () => ({
 	},
 }))
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makePost(overrides: {
-	title?: string
-	body?: string
-	datetime?: string
-	slug?: string
-	section?: string
-	readingTime?: string | null
-}) {
-	return {
-		title: "Default Title",
-		body: "Default body content.",
-		datetime: "2024-06-01-1200",
-		slug: "default-title",
-		section: "tech",
-		readingTime: "2 min read",
-		...overrides,
-	}
-}
-
 beforeEach(() => {
 	vi.resetAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// getPostsBySection
-// ---------------------------------------------------------------------------
+// #region getPostsBySection
 
 describe("getPostsBySection", () => {
 	it("returns posts and totalPages for a single page of results", async () => {
-		const posts = [makePost({})]
+		const posts = [makePost()]
 		vi.mocked(prisma.post.findMany).mockResolvedValue(
 			posts as unknown as Post[]
 		)
@@ -130,9 +114,9 @@ describe("getPostsBySection", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// getPostsGroupedByYear
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region getPostsGroupedByYear
 
 describe("getPostsGroupedByYear", () => {
 	it("groups posts by the year extracted from their datetime", async () => {
@@ -174,9 +158,9 @@ describe("getPostsGroupedByYear", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// getPostBySlug
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region getPostBySlug
 
 describe("getPostBySlug", () => {
 	const postDetail = {
@@ -233,9 +217,9 @@ describe("getPostBySlug", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// searchPosts
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region searchPosts
 
 /** Recursively finds the first `contains` string value in a Prisma where clause. */
 function findContainsTerm(obj: unknown): string | undefined {
@@ -275,19 +259,29 @@ describe("searchPosts", () => {
 	beforeEach(() => {
 		// Simulate case-insensitive search by extracting the `contains` term from
 		// wherever it appears in the where clause — agnostic to AND/OR nesting.
-		vi.mocked(prisma.post.findMany).mockImplementation(async (args) => {
+		// The outer cast matches Prisma's PrismaPromise return, the inner `as Post[]`
+		// lets us return plain fixtures without re-declaring every Post field.
+		vi.mocked(prisma.post.findMany).mockImplementation(((
+			args: { where?: unknown } | undefined
+		) => {
 			const term = findContainsTerm(args?.where)?.toLowerCase()
 
 			if (!term) {
-				return posts as unknown as Post[]
+				return Promise.resolve(
+					posts as unknown as Post[]
+				) as unknown as ReturnType<typeof prisma.post.findMany>
 			}
 
-			return posts.filter(
+			const filtered = posts.filter(
 				(p) =>
 					p.title.toLowerCase().includes(term) ||
 					p.body.toLowerCase().includes(term)
-			) as unknown as Post[]
-		})
+			)
+
+			return Promise.resolve(
+				filtered as unknown as Post[]
+			) as unknown as ReturnType<typeof prisma.post.findMany>
+		}) as typeof prisma.post.findMany)
 	})
 
 	it("returns posts whose title matches the query", async () => {
@@ -332,9 +326,9 @@ describe("searchPosts", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// bySection
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region bySection
 
 describe("bySection", () => {
 	it("produces an entry for every known section", () => {
@@ -356,9 +350,9 @@ describe("bySection", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// revalidatePostSection
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region revalidatePostSection
 
 describe("revalidatePostSection", () => {
 	beforeEach(() => {
@@ -377,3 +371,5 @@ describe("revalidatePostSection", () => {
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 	})
 })
+
+// #endregion

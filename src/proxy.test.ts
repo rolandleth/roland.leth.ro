@@ -2,12 +2,11 @@ import { jwtVerify } from "jose"
 import { NextRequest } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { proxy } from "@/proxy"
+import { TEST_SECRET } from "@/test/fixtures"
 
 vi.mock("jose", () => ({
 	jwtVerify: vi.fn(),
 }))
-
-const TEST_SECRET = "test-secret-at-least-32-characters-long"
 
 function makeRequest(path: string, sessionToken?: string): NextRequest {
 	const headers = new Headers()
@@ -20,12 +19,12 @@ function makeRequest(path: string, sessionToken?: string): NextRequest {
 }
 
 beforeEach(() => {
-	vi.stubEnv("SESSION_SECRET", TEST_SECRET)
+	// Real `auth.ts` throws if SESSION_SECRET is unset. Use a deterministic hex
+	// secret (length satisfies jose's HS256 minimum) so every test starts signed.
+	vi.stubEnv("SESSION_SECRET", TEST_SECRET.padEnd(32, "0"))
 })
 
-// ---------------------------------------------------------------------------
-// Admin page protection
-// ---------------------------------------------------------------------------
+// #region Admin page protection
 
 describe("proxy — admin page protection", () => {
 	it("redirects unauthenticated requests to /admin to /admin/login", async () => {
@@ -58,18 +57,29 @@ describe("proxy — admin page protection", () => {
 		expect(response.headers.get("location")).toContain("/admin/login")
 	})
 
-	it("redirects to /admin/login when SESSION_SECRET is missing", async () => {
+	it("surfaces the error when SESSION_SECRET is missing and a token is present", async () => {
+		// Deleting the env var makes `getSessionSecret()` throw; the proxy's
+		// `await isAuthenticated(...)` rejects with that error. The contract is:
+		// missing secret is a deployment fault and must not silently pass auth.
 		delete process.env.SESSION_SECRET
-		// getSecret() throws, caught inside isAuthenticated → returns false
-		const response = await proxy(makeRequest("/admin", "some-token"))
+		await expect(proxy(makeRequest("/admin", "some-token"))).rejects.toThrow(
+			/SESSION_SECRET/
+		)
+	})
+
+	it("redirects unauthenticated requests to /admin/login with no cookie even if SESSION_SECRET is missing", async () => {
+		// No cookie → isAuthenticated short-circuits before reading the secret,
+		// so the redirect path still works without env setup.
+		delete process.env.SESSION_SECRET
+		const response = await proxy(makeRequest("/admin"))
 		expect(response.status).toBe(307)
 		expect(response.headers.get("location")).toContain("/admin/login")
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Admin API protection
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Admin API protection
 
 describe("proxy — admin API protection", () => {
 	it("returns 401 for unauthenticated /api/admin/ requests", async () => {
@@ -95,9 +105,9 @@ describe("proxy — admin API protection", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Legacy redirects — section blog
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Legacy redirects — section blog
 
 describe("proxy — section blog redirects", () => {
 	it("redirects /tech/blog/:slug to /blog/tech/:slug", async () => {
@@ -120,9 +130,9 @@ describe("proxy — section blog redirects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Legacy redirects — archive
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Legacy redirects — archive
 
 describe("proxy — archive redirects", () => {
 	it("redirects /tech/archive to /blog/tech/archive", async () => {
@@ -138,9 +148,9 @@ describe("proxy — archive redirects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Legacy redirects — search
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Legacy redirects — search
 
 describe("proxy — search redirects", () => {
 	it("redirects /tech/search to /blog/tech/search", async () => {
@@ -156,9 +166,9 @@ describe("proxy — search redirects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Legacy redirects — section root
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Legacy redirects — section root
 
 describe("proxy — section root redirects", () => {
 	it("redirects /tech to /blog/tech", async () => {
@@ -174,9 +184,9 @@ describe("proxy — section root redirects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Legacy redirects — feeds
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Legacy redirects — feeds
 
 describe("proxy — feed redirects", () => {
 	it("redirects /tech/feed to /api/feed/tech", async () => {
@@ -198,9 +208,9 @@ describe("proxy — feed redirects", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Root slug rewrite
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Root slug rewrite
 
 describe("proxy — root slug rewrite", () => {
 	it("rewrites an unknown single-segment path to /api/legacy-redirect/:slug", async () => {
@@ -222,9 +232,9 @@ describe("proxy — root slug rewrite", () => {
 	)
 })
 
-// ---------------------------------------------------------------------------
-// Pass-through
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Pass-through
 
 describe("proxy — pass-through", () => {
 	it("passes through the home page", async () => {
@@ -257,3 +267,5 @@ describe("proxy — pass-through", () => {
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 })
+
+// #endregion

@@ -23,9 +23,7 @@ vi.mock("next/headers", () => ({
 	cookies: vi.fn(),
 }))
 
-// ---------------------------------------------------------------------------
-// Shared test constants
-// ---------------------------------------------------------------------------
+// #region Shared test constants
 
 const TEST_SECRET = "test-secret-must-be-at-least-32-chars-x"
 const TEST_EMAIL = "admin@example.com"
@@ -47,9 +45,9 @@ beforeEach(() => {
 	mockCookieStore.get.mockReset()
 })
 
-// ---------------------------------------------------------------------------
-// verifyCredentials
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region verifyCredentials
 
 describe("verifyCredentials", () => {
 	it("returns true for correct email and password", async () => {
@@ -81,9 +79,9 @@ describe("verifyCredentials", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// createSession
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region createSession
 
 describe("createSession", () => {
 	it("calls cookieStore.set with the session cookie name", async () => {
@@ -120,9 +118,9 @@ describe("createSession", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// destroySession
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region destroySession
 
 describe("destroySession", () => {
 	it("calls cookieStore.delete with the session cookie name", async () => {
@@ -136,9 +134,9 @@ describe("destroySession", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// verifySession
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region verifySession
 
 describe("verifySession", () => {
 	async function signToken(
@@ -205,9 +203,9 @@ describe("verifySession", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// verifyToken
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region verifyToken
 
 describe("verifyToken", () => {
 	const secret = new TextEncoder().encode(TEST_SECRET)
@@ -256,9 +254,9 @@ describe("verifyToken", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// getSessionSecret
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region getSessionSecret
 
 describe("getSessionSecret", () => {
 	it("returns a Uint8Array derived from SESSION_SECRET", () => {
@@ -267,3 +265,5 @@ describe("getSessionSecret", () => {
 		expect(new TextDecoder().decode(secret)).toBe(TEST_SECRET)
 	})
 })
+
+// #endregion

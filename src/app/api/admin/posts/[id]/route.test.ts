@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { DELETE, GET, PUT } from "./route"
 
-vi.mock("next/cache", () => ({
-	revalidateTag: vi.fn(),
-}))
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
 
 vi.mock("@/lib/db", () => ({
 	prisma: {

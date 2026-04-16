@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { GET } from "./route"
 
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		post: {
@@ -30,9 +36,11 @@ beforeEach(() => {
 })
 
 describe("GET /api/legacy-redirect/[slug]", () => {
-	it("returns 404 when neither post nor project matches the slug", async () => {
+	it("redirects to /404 when neither post nor project matches the slug", async () => {
 		const response = await GET(makeRequest("old-slug"), makeParams("old-slug"))
-		expect(response.status).toBe(404)
+		// Route hands misses to Next's not-found UI via a 307 rewrite.
+		expect(response.status).toBe(307)
+		expect(response.headers.get("location")).toContain("/404")
 	})
 
 	it("redirects to /blog/:section/:slug when a post is found", async () => {
@@ -82,13 +90,15 @@ describe("GET /api/legacy-redirect/[slug]", () => {
 		expect(response.headers.get("location")).toBe(`${BASE}/projects/my-app`)
 	})
 
-	it("does not query projects when a post is found", async () => {
+	it("queries posts and projects in parallel regardless of which matches", async () => {
+		// Route uses Promise.all, so both queries always fire. Post wins on conflict.
 		vi.mocked(prisma.post.findFirst).mockResolvedValue({
 			section: "tech",
 			slug: "a-post",
 		} as never)
 		await GET(makeRequest("a-post"), makeParams("a-post"))
-		expect(prisma.project.findFirst).not.toHaveBeenCalled()
+		expect(prisma.post.findFirst).toHaveBeenCalled()
+		expect(prisma.project.findFirst).toHaveBeenCalled()
 	})
 
 	it("queries projects by the slug from the route params", async () => {

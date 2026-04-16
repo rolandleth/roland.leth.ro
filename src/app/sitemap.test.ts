@@ -3,6 +3,12 @@ import sitemap from "@/app/sitemap"
 import { prisma } from "@/lib/db"
 import { siteBase } from "@/lib/request"
 
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		post: {
@@ -22,12 +28,21 @@ vi.mock("@/lib/request", () => ({
 const BASE = "https://localhost:3000"
 
 function postStub(
-	overrides: { slug?: string; section?: string; datetime?: string } = {}
+	overrides: {
+		slug?: string
+		section?: string
+		datetime?: string
+		updatedAt?: Date
+	} = {}
 ) {
+	const datetime = overrides.datetime ?? "2025-06-01-1200"
+	const dateOnly = datetime.slice(0, 10)
+
 	return {
 		slug: "my-post",
 		section: "tech",
-		datetime: "2025-06-01-1200",
+		datetime,
+		updatedAt: new Date(dateOnly),
 		...overrides,
 	}
 }
@@ -38,9 +53,7 @@ beforeEach(() => {
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 })
 
-// ---------------------------------------------------------------------------
-// Static routes
-// ---------------------------------------------------------------------------
+// #region Static routes
 
 describe("sitemap — static routes", () => {
 	it("includes the home page with priority 1.0", async () => {
@@ -98,9 +111,9 @@ describe("sitemap — static routes", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Post routes
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Post routes
 
 describe("sitemap — post routes", () => {
 	it("includes a route for each published post", async () => {
@@ -156,3 +169,5 @@ describe("sitemap — post routes", () => {
 		expect(result).toHaveLength(7)
 	})
 })
+
+// #endregion

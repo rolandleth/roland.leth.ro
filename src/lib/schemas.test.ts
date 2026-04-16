@@ -7,9 +7,7 @@ import {
 	projectUpdateSchema,
 } from "@/lib/schemas"
 
-// ---------------------------------------------------------------------------
-// httpUrl (tested indirectly through schema fields that use it)
-// ---------------------------------------------------------------------------
+// #region httpUrl (tested indirectly through schema fields that use it)
 
 describe("httpUrl validator (via imageUrl)", () => {
 	const base = { title: "T", body: "B", datetime: "2025-01-01-1200" }
@@ -63,9 +61,9 @@ describe("httpUrl validator (via imageUrl)", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// postCreateSchema
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region postCreateSchema
 
 describe("postCreateSchema", () => {
 	const valid = {
@@ -129,9 +127,9 @@ describe("postCreateSchema", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// postUpdateSchema
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region postUpdateSchema
 
 describe("postUpdateSchema", () => {
 	it("accepts an empty object (all fields optional)", () => {
@@ -151,9 +149,9 @@ describe("postUpdateSchema", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// projectCreateSchema
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region projectCreateSchema
 
 describe("projectCreateSchema", () => {
 	const valid = {
@@ -236,9 +234,9 @@ describe("projectCreateSchema", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// projectUpdateSchema
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region projectUpdateSchema
 
 describe("projectUpdateSchema", () => {
 	it("accepts an empty object (all fields optional)", () => {
@@ -258,9 +256,9 @@ describe("projectUpdateSchema", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// loginSchema
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region loginSchema
 
 describe("loginSchema", () => {
 	it("accepts a valid email and password", () => {
@@ -297,3 +295,5 @@ describe("loginSchema", () => {
 		expect(result.success).toBe(false)
 	})
 })
+
+// #endregion

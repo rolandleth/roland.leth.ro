@@ -11,9 +11,7 @@ import {
 	yearFromDatetime,
 } from "@/lib/format"
 
-// ---------------------------------------------------------------------------
-// parseIntId
-// ---------------------------------------------------------------------------
+// #region parseIntId
 
 describe("parseIntId", () => {
 	it("parses a valid positive integer", () => {
@@ -45,9 +43,9 @@ describe("parseIntId", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// parsePageParam
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region parsePageParam
 
 describe("parsePageParam", () => {
 	it("parses a valid positive integer string", () => {
@@ -83,9 +81,9 @@ describe("parsePageParam", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// postDatetimeToISO
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region postDatetimeToISO
 
 describe("postDatetimeToISO", () => {
 	it("returns an ISO string for a valid datetime", () => {
@@ -93,8 +91,10 @@ describe("postDatetimeToISO", () => {
 		expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 	})
 
-	it("preserves the year, month, and day", () => {
-		const iso = postDatetimeToISO("2025-01-02-0000")
+	it("preserves the year, month, and day for a midday time", () => {
+		// `new Date(y, m, d, h, min)` uses local time; midday keeps the UTC date
+		// on the same calendar day across every reasonable zone.
+		const iso = postDatetimeToISO("2025-01-02-1200")
 		expect(iso.slice(0, 10)).toBe("2025-01-02")
 	})
 
@@ -107,9 +107,9 @@ describe("postDatetimeToISO", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// yearFromDatetime
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region yearFromDatetime
 
 describe("yearFromDatetime", () => {
 	it("extracts the 4-digit year from a valid datetime", () => {
@@ -121,9 +121,9 @@ describe("yearFromDatetime", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// formatDate
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region formatDate
 
 describe("formatDate", () => {
 	it("formats a mid-year date", () => {
@@ -147,9 +147,9 @@ describe("formatDate", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// currentDatetimeString
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region currentDatetimeString
 
 describe("currentDatetimeString", () => {
 	it("returns a string matching the yyyy-MM-dd-HHmm format", () => {
@@ -162,9 +162,9 @@ describe("currentDatetimeString", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// createSlug
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region createSlug
 
 describe("createSlug", () => {
 	it("lowercases the title", () => {
@@ -222,9 +222,9 @@ describe("createSlug", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// calculateReadingTime
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region calculateReadingTime
 
 // reading-time uses ~200 wpm:
 //   <40 words  → <0.2 min → ""
@@ -251,9 +251,9 @@ describe("calculateReadingTime", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// truncateBody
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region truncateBody
 
 describe("truncateBody", () => {
 	it("returns body unchanged when under 900 chars", () => {
@@ -295,3 +295,5 @@ describe("truncateBody", () => {
 		expect(text).toBe(intro)
 	})
 })
+
+// #endregion

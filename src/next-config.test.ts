@@ -14,9 +14,7 @@ function getDirective(csp: string, name: string) {
 	return csp.split("; ").find((d) => d.startsWith(name))
 }
 
-// ---------------------------------------------------------------------------
-// Route coverage
-// ---------------------------------------------------------------------------
+// #region Route coverage
 
 describe("nextConfig.headers — route coverage", () => {
 	it("applies to all routes", async () => {
@@ -25,9 +23,9 @@ describe("nextConfig.headers — route coverage", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// Static headers
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Static headers
 
 describe("nextConfig.headers — static headers", () => {
 	it("sets X-Content-Type-Options to nosniff", async () => {
@@ -68,9 +66,9 @@ describe("nextConfig.headers — static headers", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// CSP — production
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region CSP — production
 
 describe("nextConfig.headers — CSP in production", () => {
 	beforeEach(() => {
@@ -121,9 +119,9 @@ describe("nextConfig.headers — CSP in production", () => {
 	})
 })
 
-// ---------------------------------------------------------------------------
-// CSP — development
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region CSP — development
 
 describe("nextConfig.headers — CSP in development", () => {
 	beforeEach(() => {
@@ -144,3 +142,5 @@ describe("nextConfig.headers — CSP in development", () => {
 		)
 	})
 })
+
+// #endregion
