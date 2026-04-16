@@ -1,11 +1,11 @@
-import { unstable_cache } from "next/cache"
+import { revalidateTag, unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
-import { currentDatetimeString } from "@/lib/format"
-import { SECTIONS } from "@/lib/sections"
+import { currentDatetimeString, yearFromDatetime } from "@/lib/format"
+import { SECTIONS, type Section } from "@/lib/sections"
 
 export const PAGE_SIZE = 10
 
-function publishedWhere(section: string, now: string) {
+function publishedWhere(section: Section, now: string) {
 	return { section, published: true, datetime: { lte: now } }
 }
 
@@ -17,6 +17,13 @@ const postListItemSelect = {
 	datetime: true,
 	body: true,
 	readingTime: true,
+} as const
+
+const postArchiveItemSelect = {
+	title: true,
+	slug: true,
+	section: true,
+	datetime: true,
 } as const
 
 export interface PostListItem {
@@ -42,11 +49,21 @@ export interface PostDetail {
 }
 
 /**
+ * Builds a per-section record by applying `fn` to each known `Section`.
+ * Used to avoid repeating `Object.fromEntries(SECTIONS.map(...))` with casts.
+ */
+export function bySection<T>(fn: (section: Section) => T): Record<Section, T> {
+	const entries = SECTIONS.map((section) => [section, fn(section)] as const)
+
+	return Object.fromEntries(entries) as Record<Section, T>
+}
+
+/**
  * Creates a cached fetcher for the first page of blog posts scoped to a single section.
  * Each section gets its own cache entry and tag so revalidation is precise:
  * invalidating `blog-tech` only busts the tech section, not life, and vice versa.
  */
-function makeBlogPage1Cache(section: string) {
+function makeBlogPage1Cache(section: Section) {
 	return unstable_cache(
 		async () => {
 			const now = currentDatetimeString()
@@ -70,15 +87,13 @@ function makeBlogPage1Cache(section: string) {
 	)
 }
 
-const blogPage1Cache = Object.fromEntries(
-	SECTIONS.map((section) => [section, makeBlogPage1Cache(section)])
-) as Record<string, ReturnType<typeof makeBlogPage1Cache>>
+const blogPage1Cache = bySection(makeBlogPage1Cache)
 
 export async function getPostsBySection(
-	section: string,
+	section: Section,
 	page: number = 1
 ): Promise<{ posts: PostListItem[]; totalPages: number }> {
-	if (page === 1 && section in blogPage1Cache) {
+	if (page === 1) {
 		return blogPage1Cache[section]()
 	}
 
@@ -103,7 +118,7 @@ export async function getPostsBySection(
 }
 
 export function getPostBySlug(
-	section: string,
+	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
 	return unstable_cache(
@@ -139,21 +154,21 @@ export interface PostArchiveItem {
  * Tagged with both `blog-archive-{section}` and `blog-{section}` so that any
  * post mutation (which revalidates `blog-{section}`) also busts the archive.
  */
-function makeArchiveCache(section: string) {
+function makeArchiveCache(section: Section) {
 	return unstable_cache(
 		async () => {
 			const now = currentDatetimeString()
 
 			const posts = await prisma.post.findMany({
 				where: publishedWhere(section, now),
-				select: { title: true, slug: true, section: true, datetime: true },
+				select: postArchiveItemSelect,
 				orderBy: { datetime: "desc" },
 			})
 
 			const groups: Record<string, PostArchiveItem[]> = {}
 
 			for (const post of posts) {
-				const year = post.datetime.slice(0, 4)
+				const year = yearFromDatetime(post.datetime)
 
 				if (!groups[year]) {
 					groups[year] = []
@@ -169,19 +184,13 @@ function makeArchiveCache(section: string) {
 	)
 }
 
-const archiveCache = Object.fromEntries(
-	SECTIONS.map((section) => [section, makeArchiveCache(section)])
-) as Record<string, ReturnType<typeof makeArchiveCache>>
+const archiveCache = bySection(makeArchiveCache)
 
 /** Returns all published posts for a section grouped by year, newest year first. */
 export function getPostsGroupedByYear(
-	section: string
+	section: Section
 ): Promise<Record<string, PostArchiveItem[]>> {
-	if (section in archiveCache) {
-		return archiveCache[section]()
-	}
-
-	return makeArchiveCache(section)()
+	return archiveCache[section]()
 }
 
 export interface PostSearchResult {
@@ -195,11 +204,16 @@ export interface PostSearchResult {
 
 /** Full-text search across title and body for published posts in a section. */
 export async function searchPosts(
-	section: string,
+	section: Section,
 	query: string
 ): Promise<PostSearchResult[]> {
-	const now = currentDatetimeString()
 	const term = query.trim()
+
+	if (term.length === 0) {
+		return []
+	}
+
+	const now = currentDatetimeString()
 
 	return prisma.post.findMany({
 		where: {
@@ -223,4 +237,13 @@ export async function searchPosts(
 		},
 		orderBy: { datetime: "desc" },
 	})
+}
+
+/**
+ * Invalidates every cache tag tied to a blog section so updated posts
+ * surface immediately on list, archive, and feed endpoints.
+ */
+export function revalidatePostSection(section: Section): void {
+	revalidateTag(`feed-${section}`, "max")
+	revalidateTag(`blog-${section}`, "max")
 }

@@ -1,31 +1,81 @@
 import readingTime from "reading-time"
 
+const DATETIME_REGEX = /(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?/
+
 /**
  * Parses a string into an integer, returning `null` if invalid.
  */
 export function parseIntId(raw: string): number | null {
-	const n = parseInt(raw, 10)
-	return isNaN(n) ? null : n
+	const n = Number.parseInt(raw, 10)
+
+	return Number.isNaN(n) ? null : n
+}
+
+/**
+ * Parses a `?page=` query value into a positive integer, defaulting to `1` on invalid input.
+ */
+export function parsePageParam(raw: string | undefined | null): number {
+	const n = Number.parseInt(raw ?? "1", 10)
+
+	if (Number.isNaN(n) || n < 1) {
+		return 1
+	}
+
+	return n
 }
 
 /**
  * Parses a `yyyy-MM-dd-HHmm` datetime string into a human-readable date.
  */
 export function formatDate(datetime: string): string {
-	const match = datetime.match(/(\d{4})-(\d{2})-(\d{2})/)
+	const match = datetime.match(DATETIME_REGEX)
 
 	if (!match) {
 		return datetime
 	}
 
 	const [, year, month, day] = match
-	const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+	const date = new Date(
+		Number.parseInt(year, 10),
+		Number.parseInt(month, 10) - 1,
+		Number.parseInt(day, 10)
+	)
 
 	return date.toLocaleDateString("en-US", {
 		year: "numeric",
 		month: "short",
 		day: "numeric",
 	})
+}
+
+/**
+ * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 string.
+ * Throws on malformed input so callers don't silently render a bad date.
+ */
+export function postDatetimeToISO(datetime: string): string {
+	const match = datetime.match(DATETIME_REGEX)
+
+	if (!match) {
+		throw new Error(`Invalid post datetime: ${datetime}`)
+	}
+
+	const [, year, month, day, hours, minutes] = match
+	const date = new Date(
+		Number.parseInt(year, 10),
+		Number.parseInt(month, 10) - 1,
+		Number.parseInt(day, 10),
+		hours ? Number.parseInt(hours, 10) : 0,
+		minutes ? Number.parseInt(minutes, 10) : 0
+	)
+
+	return date.toISOString()
+}
+
+/**
+ * Returns the year portion of a `yyyy-MM-dd-HHmm` datetime string.
+ */
+export function yearFromDatetime(datetime: string): string {
+	return datetime.slice(0, 4)
 }
 
 /**
@@ -62,9 +112,17 @@ export function createSlug(title: string): string {
 export function calculateReadingTime(body: string): string {
 	const t = readingTime(body)
 
-	if (t.minutes <= 0.2) return ""
-	if (t.minutes <= 0.5) return "25 sec read"
-	if (t.minutes <= 0.8) return "45 sec read"
+	if (t.minutes <= 0.2) {
+		return ""
+	}
+
+	if (t.minutes <= 0.5) {
+		return "25 sec read"
+	}
+
+	if (t.minutes <= 0.8) {
+		return "45 sec read"
+	}
 
 	return t.text
 }
@@ -90,8 +148,7 @@ export function truncateBody(body: string): {
 	const cutPoint = lastBreak > 0 ? lastBreak : TRUNCATE_TARGET_LENGTH
 
 	const slicedText = body.slice(0, cutPoint)
-	// If the excerpt contains a heading block, trim before that heading so it
-	// isn't shown without the content that follows it.
+	// Trim before a heading block so we don't show the heading without its content.
 	const lastHeadingBreak = slicedText.lastIndexOf("\n\n#")
 	const finalCutPoint = lastHeadingBreak > 0 ? lastHeadingBreak : cutPoint
 

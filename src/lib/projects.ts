@@ -141,19 +141,7 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 		() =>
 			prisma.project.findUnique({
 				where: { slug },
-				include: {
-					sections: {
-						orderBy: { sortOrder: "asc" },
-						include: {
-							images: {
-								orderBy: { sortOrder: "asc" },
-							},
-						},
-					},
-					links: {
-						orderBy: { sortOrder: "asc" },
-					},
-				},
+				include: projectInclude,
 			}),
 		[`project-${slug}`],
 		{ tags: [`project-${slug}`, "projects"] }

@@ -13,6 +13,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { section, slug } = await params
+
+	if (!isValidSection(section)) {
+		return {}
+	}
+
 	const post = await getPostBySlug(section, slug)
 
 	if (!post) {

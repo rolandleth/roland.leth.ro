@@ -15,14 +15,15 @@ const prettyCodeOptions: Options = {
 	},
 }
 
-export async function markdownToReact(content: string): Promise<ReactNode> {
-	const processor = unified()
-		.use(remarkParse)
-		.use(remarkGfm)
-		.use(remarkRehype)
-		.use(rehypePrettyCode, prettyCodeOptions)
+// Built once and reused; `unified().use(...)` is expensive enough that constructing it per call wastes allocations on hot paths like the feed.
+const markdownProcessor = unified()
+	.use(remarkParse)
+	.use(remarkGfm)
+	.use(remarkRehype)
+	.use(rehypePrettyCode, prettyCodeOptions)
 
-	const hast = await processor.run(processor.parse(content))
+export async function markdownToReact(content: string): Promise<ReactNode> {
+	const hast = await markdownProcessor.run(markdownProcessor.parse(content))
 
 	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
 }

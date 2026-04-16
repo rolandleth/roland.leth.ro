@@ -5,7 +5,10 @@ import {
 	currentDatetimeString,
 	formatDate,
 	parseIntId,
+	parsePageParam,
+	postDatetimeToISO,
 	truncateBody,
+	yearFromDatetime,
 } from "@/lib/format"
 
 // ---------------------------------------------------------------------------
@@ -39,6 +42,82 @@ describe("parseIntId", () => {
 
 	it("returns null for whitespace", () => {
 		expect(parseIntId(" ")).toBeNull()
+	})
+})
+
+// ---------------------------------------------------------------------------
+// parsePageParam
+// ---------------------------------------------------------------------------
+
+describe("parsePageParam", () => {
+	it("parses a valid positive integer string", () => {
+		expect(parsePageParam("3")).toBe(3)
+	})
+
+	it("defaults to 1 for null", () => {
+		expect(parsePageParam(null)).toBe(1)
+	})
+
+	it("defaults to 1 for undefined", () => {
+		expect(parsePageParam(undefined)).toBe(1)
+	})
+
+	it("defaults to 1 for non-numeric input", () => {
+		expect(parsePageParam("abc")).toBe(1)
+	})
+
+	it("defaults to 1 for 0 (below minimum)", () => {
+		expect(parsePageParam("0")).toBe(1)
+	})
+
+	it("defaults to 1 for a negative integer", () => {
+		expect(parsePageParam("-5")).toBe(1)
+	})
+
+	it("defaults to 1 for an empty string", () => {
+		expect(parsePageParam("")).toBe(1)
+	})
+
+	it("truncates floats to their integer part", () => {
+		expect(parsePageParam("4.7")).toBe(4)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// postDatetimeToISO
+// ---------------------------------------------------------------------------
+
+describe("postDatetimeToISO", () => {
+	it("returns an ISO string for a valid datetime", () => {
+		const iso = postDatetimeToISO("2024-06-15-0930")
+		expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+	})
+
+	it("preserves the year, month, and day", () => {
+		const iso = postDatetimeToISO("2025-01-02-0000")
+		expect(iso.slice(0, 10)).toBe("2025-01-02")
+	})
+
+	it("throws for a malformed datetime", () => {
+		expect(() => postDatetimeToISO("not-a-date")).toThrow()
+	})
+
+	it("throws for an empty string", () => {
+		expect(() => postDatetimeToISO("")).toThrow()
+	})
+})
+
+// ---------------------------------------------------------------------------
+// yearFromDatetime
+// ---------------------------------------------------------------------------
+
+describe("yearFromDatetime", () => {
+	it("extracts the 4-digit year from a valid datetime", () => {
+		expect(yearFromDatetime("2024-06-15-0930")).toBe("2024")
+	})
+
+	it("returns the first 4 characters regardless of trailing content", () => {
+		expect(yearFromDatetime("1999-xx")).toBe("1999")
 	})
 })
 

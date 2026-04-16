@@ -1,16 +1,20 @@
+import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db"
 import {
+	bySection,
 	getPostBySlug,
 	getPostsBySection,
 	getPostsGroupedByYear,
 	PAGE_SIZE,
+	revalidatePostSection,
 	searchPosts,
 } from "@/lib/posts"
 
 vi.mock("next/cache", () => ({
 	unstable_cache: (fn: () => Promise<unknown>) => fn,
+	revalidateTag: vi.fn(),
 }))
 
 vi.mock("@/lib/db", () => ({
@@ -313,5 +317,63 @@ describe("searchPosts", () => {
 	it("returns an empty array when no posts match", async () => {
 		const results = await searchPosts("tech", "python")
 		expect(results).toHaveLength(0)
+	})
+
+	it("returns an empty array for an empty query without hitting the database", async () => {
+		const results = await searchPosts("tech", "")
+		expect(results).toEqual([])
+		expect(prisma.post.findMany).not.toHaveBeenCalled()
+	})
+
+	it("returns an empty array for a whitespace-only query", async () => {
+		const results = await searchPosts("tech", "   ")
+		expect(results).toEqual([])
+		expect(prisma.post.findMany).not.toHaveBeenCalled()
+	})
+})
+
+// ---------------------------------------------------------------------------
+// bySection
+// ---------------------------------------------------------------------------
+
+describe("bySection", () => {
+	it("produces an entry for every known section", () => {
+		const result = bySection((section) => section.toUpperCase())
+		expect(result).toEqual({ tech: "TECH", life: "LIFE" })
+	})
+
+	it("calls the factory once per section", () => {
+		const fn = vi.fn((section: string) => section)
+		bySection(fn)
+		expect(fn).toHaveBeenCalledTimes(2)
+	})
+
+	it("supports arbitrary value types", () => {
+		const result = bySection(() => ({ counter: 0 }))
+		expect(result.tech).toEqual({ counter: 0 })
+		expect(result.life).toEqual({ counter: 0 })
+		expect(result.tech).not.toBe(result.life)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// revalidatePostSection
+// ---------------------------------------------------------------------------
+
+describe("revalidatePostSection", () => {
+	beforeEach(() => {
+		vi.mocked(revalidateTag).mockClear()
+	})
+
+	it("revalidates both the feed and blog tags for the section", () => {
+		revalidatePostSection("tech")
+		expect(revalidateTag).toHaveBeenCalledWith("feed-tech", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
+
+	it("uses the section name for the life section", () => {
+		revalidatePostSection("life")
+		expect(revalidateTag).toHaveBeenCalledWith("feed-life", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 	})
 })

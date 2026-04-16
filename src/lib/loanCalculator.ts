@@ -74,6 +74,28 @@ export default function computeLoan({
 	additionalMonthlyPayment,
 	extraPayments,
 }: ComputeParams): ComputeReturn {
+	// Zero-loan short-circuit keeps downstream math (PMT, % overpay) well-defined and avoids a divide-by-zero masked by Math.max.
+	if (loan <= 0) {
+		return {
+			baseMonthlyPayment: 0,
+			actualMonthlyPayment: 0,
+			actualMonthlyPaymentWithExtra: 0,
+			total: additionalCosts,
+			totalInterest: 0,
+			percentageOfOverpay: 0,
+			durationOfRepay: 0,
+			numberOfPaidExtraPayments: 0,
+			valueOfPaidExtraPayments: 0,
+			repayDurationDifference: period,
+		}
+	}
+
+	if (extraPayments.frequency < 1) {
+		throw new Error(
+			`extraPayments.frequency must be >= 1, got ${extraPayments.frequency}`
+		)
+	}
+
 	const monthlyInterestRate = (annualInterestRate * 0.01) / 12
 	const baseMonthlyPayment = PMT({ monthlyInterestRate, period, loan })
 	const actualMonthlyPayment = baseMonthlyPayment + additionalMonthlyPayment
@@ -85,9 +107,6 @@ export default function computeLoan({
 	let valueOfPaidExtraPayments = 0
 	let durationOfRepay = 0
 
-	// Treat frequency of 0 as 1 (monthly) to avoid modulo-by-zero.
-	const safeFrequency = Math.max(1, extraPayments.frequency)
-
 	while (durationOfRepay < period && remainingLoan > 0) {
 		const monthlyInterest = remainingLoan * monthlyInterestRate
 		let principal = actualMonthlyPayment - monthlyInterest
@@ -95,7 +114,7 @@ export default function computeLoan({
 		const hasExtraPayments = extraPayments.value > 0
 		const hasExtraPaymentsRemaining =
 			extraPayments.limit < 1 || numberOfPaidExtraPayments < extraPayments.limit
-		const isExtraPaymentMonth = durationOfRepay % safeFrequency === 0
+		const isExtraPaymentMonth = durationOfRepay % extraPayments.frequency === 0
 
 		if (hasExtraPayments && hasExtraPaymentsRemaining && isExtraPaymentMonth) {
 			numberOfPaidExtraPayments += 1
@@ -110,12 +129,11 @@ export default function computeLoan({
 
 	total += totalInterest
 
-	// If there are no extra payments, ignore any value passed in.
 	const actualMonthlyPaymentWithExtra =
 		extraPayments.value > 0
 			? actualMonthlyPayment + extraPayments.value
 			: actualMonthlyPayment
-	const percentageOfOverpay = (totalInterest / Math.max(0.01, loan)) * 100
+	const percentageOfOverpay = (totalInterest / loan) * 100
 	const repayDurationDifference = period - durationOfRepay
 
 	return {

@@ -1,7 +1,6 @@
 const frontendKeywords = ["React", "Next", "Frontend"]
 const backendKeywords = ["Node", "Backend", "Vapor"]
 
-// Platform bucket labels and their match keywords
 export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
 	{ label: "iOS", keywords: ["iOS", "iPad", "watchOS", "Android"] },
 	{ label: "Mac", keywords: ["macOS", "Menu bar"] },
@@ -24,6 +23,23 @@ export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
 	},
 ]
 
+function lowerSet(values: string[]): Set<string> {
+	return new Set(values.map((value) => value.toLowerCase()))
+}
+
+const BUCKET_KEYWORDS: Record<string, Set<string>> = Object.fromEntries(
+	PLATFORM_BUCKETS.map((bucket) => [bucket.label, lowerSet(bucket.keywords)])
+)
+
+const FRONTEND_KEYWORDS_LOWER = lowerSet(frontendKeywords)
+const BACKEND_KEYWORDS_LOWER = lowerSet(backendKeywords)
+
+const OTHER_BUCKET_LABEL = "Other"
+const BUCKET_ORDER = [
+	...PLATFORM_BUCKETS.map((bucket) => bucket.label),
+	OTHER_BUCKET_LABEL,
+]
+
 /**
  * Returns true when the platform label adds no information beyond the section header.
  * Hides the capsule for exact matches ("iOS" → "iOS") and prefix aliases ("macOS" → "Mac").
@@ -33,7 +49,7 @@ export function isPlatformRedundantWithSection(
 	platform: string,
 	sectionLabel: string
 ): boolean {
-	// The "Mac" section can be either standalone "macOS", or contain "Menu bar" as a secondary keyword. In either case, the platform label adds no information beyond the section header, so we hide it.
+	// "Mac" section covers both "macOS" alone and "macOS, Menu bar"; the capsule would duplicate the header in both cases.
 	if (sectionLabel === "Mac") {
 		return true
 	}
@@ -53,72 +69,58 @@ export function isPlatformRedundantWithSection(
  * Multiple web keywords → "Fullstack"; any other multi-keyword value → "Multiplatform".
  */
 export function formatPlatformDisplay(platform: string): string {
-	// If it's a single keyword, just return it.
 	if (!platform.includes(",")) {
 		return platform
 	}
 
 	const keywords = platform.split(",").map((s) => s.trim().toLowerCase())
-	const webBucket = PLATFORM_BUCKETS.find(
-		(b) => b.label.toLowerCase() === "web"
-	)?.keywords.map((k) => k.toLowerCase())
 
-	// If all keywords match the Web bucket and there's at least one frontend and one backend keyword, it's most likely a fullstack web project rather than a generic multi-platform project.
+	const webBucket = BUCKET_KEYWORDS["Web"]
+
 	if (
 		webBucket &&
-		keywords.every((kw) => webBucket.includes(kw)) &&
-		keywords.some((kw) =>
-			frontendKeywords.map((k) => k.toLowerCase()).includes(kw)
-		) &&
-		keywords.some((kw) =>
-			backendKeywords.map((k) => k.toLowerCase()).includes(kw)
-		)
+		keywords.every((kw) => webBucket.has(kw)) &&
+		keywords.some((kw) => FRONTEND_KEYWORDS_LOWER.has(kw)) &&
+		keywords.some((kw) => BACKEND_KEYWORDS_LOWER.has(kw))
 	) {
 		return "Fullstack"
 	}
 
-	const macBucket = PLATFORM_BUCKETS.find(
-		(b) => b.label.toLowerCase() === "mac"
-	)?.keywords.map((k) => k.toLowerCase())
+	const macBucket = BUCKET_KEYWORDS["Mac"]
 
-	// If all keywords match the Mac bucket, it's most likely a macOS app with a menu bar component.
-	if (macBucket && keywords.every((kw) => macBucket.includes(kw))) {
+	if (macBucket && keywords.every((kw) => macBucket.has(kw))) {
 		return platform
 	}
 
-	const iosBucket = PLATFORM_BUCKETS.find(
-		(b) => b.label.toLowerCase() === "ios"
-	)?.keywords.map((k) => k.toLowerCase())
+	const iosBucket = BUCKET_KEYWORDS["iOS"]
 
-	// If all keywords match the iOS bucket, but don't include "Android", it's an iOS app that also supports watchOS and/or iPad, but not a generic multi-platform project.
+	// iOS-only multi-keyword strings (e.g. "iOS, watchOS") still render as the original value; anything touching Android is multiplatform.
 	if (
 		iosBucket &&
-		keywords.every((kw) => iosBucket.includes(kw)) &&
+		keywords.every((kw) => iosBucket.has(kw)) &&
 		!keywords.includes("android")
 	) {
 		return platform
 	}
 
-	// Otherwise, it's a generic multi-platform project.
 	return "Multiplatform"
 }
 
-// Returns the first bucket label for a given platform string, or "Other" if no match is found.
-// Order is: iOS → Mac → Web → Open Source → Other
+/** Returns the first bucket label that any keyword in `platform` matches, or "Other". */
 export function platformBucket(platform: string): string {
 	const lower = platform.toLowerCase()
 
 	for (const bucket of PLATFORM_BUCKETS) {
-		if (
-			bucket.keywords
-				.map((k) => k.toLowerCase())
-				.some((kw) => lower.includes(kw))
-		) {
-			return bucket.label
+		const keywords = BUCKET_KEYWORDS[bucket.label]
+
+		for (const keyword of keywords) {
+			if (lower.includes(keyword)) {
+				return bucket.label
+			}
 		}
 	}
 
-	return "Other"
+	return OTHER_BUCKET_LABEL
 }
 
 export function groupByPlatform<T extends { platform: string }>(
@@ -128,14 +130,18 @@ export function groupByPlatform<T extends { platform: string }>(
 
 	for (const project of projects) {
 		const label = platformBucket(project.platform)
-		const existing = buckets.get(label) ?? []
-		buckets.set(label, [...existing, project])
+		const existing = buckets.get(label)
+
+		if (existing) {
+			existing.push(project)
+			continue
+		}
+
+		buckets.set(label, [project])
 	}
 
-	// Preserve canonical order: Mobile → Mac → Web → Open Source → Other
-	const order = ["iOS", "Mac", "Web", "Open Source", "Other"]
-
-	return order
-		.filter((label) => buckets.has(label))
-		.map((label) => ({ label, projects: buckets.get(label) ?? [] }))
+	return BUCKET_ORDER.filter((label) => buckets.has(label)).map((label) => ({
+		label,
+		projects: buckets.get(label) ?? [],
+	}))
 }

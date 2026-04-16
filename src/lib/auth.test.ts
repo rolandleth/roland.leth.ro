@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	createSession,
 	destroySession,
+	getSessionSecret,
 	verifyCredentials,
 	verifySession,
+	verifyToken,
 } from "@/lib/auth"
 
 // Must be declared before the module under test is imported so the hoisted
@@ -200,5 +202,68 @@ describe("verifySession", () => {
 	it("returns false for a garbage string in the cookie", async () => {
 		mockCookieStore.get.mockReturnValue({ value: "not.a.jwt" })
 		expect(await verifySession()).toBe(false)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// verifyToken
+// ---------------------------------------------------------------------------
+
+describe("verifyToken", () => {
+	const secret = new TextEncoder().encode(TEST_SECRET)
+
+	async function sign(
+		payload: Record<string, unknown>,
+		expirationTime: string | number = "7d",
+		withSecret: Uint8Array = secret
+	): Promise<string> {
+		return new SignJWT(payload)
+			.setProtectedHeader({ alg: "HS256" })
+			.setIssuedAt()
+			.setExpirationTime(expirationTime)
+			.sign(withSecret)
+	}
+
+	it("returns the decoded payload for a valid token", async () => {
+		const token = await sign({ admin: true })
+		const payload = await verifyToken(token, secret)
+		expect(payload).not.toBeNull()
+		expect(payload?.admin).toBe(true)
+	})
+
+	it("returns null for a token signed with a different secret", async () => {
+		const wrongSecret = new TextEncoder().encode(
+			"completely-different-secret-xx"
+		)
+		const token = await sign({ admin: true }, "7d", wrongSecret)
+		expect(await verifyToken(token, secret)).toBeNull()
+	})
+
+	it("returns null for an expired token", async () => {
+		const token = await sign(
+			{ admin: true },
+			Math.floor(Date.now() / 1000) - 60
+		)
+		expect(await verifyToken(token, secret)).toBeNull()
+	})
+
+	it("returns null for a garbage string", async () => {
+		expect(await verifyToken("not.a.jwt", secret)).toBeNull()
+	})
+
+	it("returns null for an empty string", async () => {
+		expect(await verifyToken("", secret)).toBeNull()
+	})
+})
+
+// ---------------------------------------------------------------------------
+// getSessionSecret
+// ---------------------------------------------------------------------------
+
+describe("getSessionSecret", () => {
+	it("returns a Uint8Array derived from SESSION_SECRET", () => {
+		const secret = getSessionSecret()
+		expect(secret).toBeInstanceOf(Uint8Array)
+		expect(new TextDecoder().decode(secret)).toBe(TEST_SECRET)
 	})
 })

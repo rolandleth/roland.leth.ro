@@ -5,7 +5,8 @@ import { SECTIONS } from "@/lib/sections"
 // Add rel="noopener noreferrer" to any <a> rendering these on public pages.
 const httpUrl = z
 	.string()
-	.refine((url) => url.startsWith("https://") || url.startsWith("http://"), {
+	.url()
+	.refine((u) => /^https?:/.test(u), {
 		message: "URL must use http or https",
 	})
 
@@ -61,3 +62,10 @@ export const projectCreateSchema = z.object({
 })
 
 export const projectUpdateSchema = projectCreateSchema.partial()
+
+// Auth
+
+export const loginSchema = z.object({
+	email: z.string().email(),
+	password: z.string().min(1),
+})

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	loginSchema,
 	postCreateSchema,
 	postUpdateSchema,
 	projectCreateSchema,
@@ -254,5 +255,45 @@ describe("projectUpdateSchema", () => {
 		expect(
 			projectUpdateSchema.safeParse({ icon: "javascript:evil()" }).success
 		).toBe(false)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// loginSchema
+// ---------------------------------------------------------------------------
+
+describe("loginSchema", () => {
+	it("accepts a valid email and password", () => {
+		const result = loginSchema.safeParse({
+			email: "admin@example.com",
+			password: "secret-123",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects an invalid email", () => {
+		const result = loginSchema.safeParse({
+			email: "not-an-email",
+			password: "secret-123",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects an empty password", () => {
+		const result = loginSchema.safeParse({
+			email: "admin@example.com",
+			password: "",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a missing email field", () => {
+		const result = loginSchema.safeParse({ password: "secret-123" })
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a missing password field", () => {
+		const result = loginSchema.safeParse({ email: "admin@example.com" })
+		expect(result.success).toBe(false)
 	})
 })
