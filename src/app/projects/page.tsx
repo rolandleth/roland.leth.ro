@@ -2,6 +2,7 @@ import AnimatedCard from "@/components/AnimatedCard"
 import PageGlow from "@/components/PageGlow"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
+import { buildPageMetadata } from "@/lib/metadata"
 import {
 	groupByPlatform,
 	isPlatformRedundantWithSection,
@@ -9,15 +10,11 @@ import {
 import { getAllProjectsForGallery } from "@/lib/projects"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
 	title: "Projects",
 	description: "Apps and tools built or led by Roland Leth.",
-	openGraph: {
-		title: "Projects | Roland Leth",
-		description: "Apps and tools built or led by Roland Leth.",
-		url: "/projects",
-	},
-}
+	path: "/projects",
+})
 
 export default async function ProjectsPage() {
 	const allProjects = await getAllProjectsForGallery()

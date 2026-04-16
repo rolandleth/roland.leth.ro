@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { markdownToReact } from "@/lib/markdown"
-import { getAllProjectsForGallery, getProjectBySlug } from "@/lib/projects"
+import { buildPageMetadata } from "@/lib/metadata"
+import { getAllProjectsForGallery, loadProject } from "@/lib/projects"
 import type { Metadata } from "next"
 
 interface Props {
@@ -16,32 +17,23 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { slug } = await params
-	const project = await getProjectBySlug(slug)
+	const project = await loadProject(slug)
 
 	if (!project) {
 		return {}
 	}
 
-	return {
+	return buildPageMetadata({
 		title: project.name,
 		description: project.summary,
-		openGraph: {
-			title: `${project.name} | Roland Leth`,
-			description: project.summary,
-			url: `/projects/${project.slug}`,
-			images: project.heroImage ? [project.heroImage] : undefined,
-		},
-		twitter: {
-			title: project.name,
-			description: project.summary,
-			images: project.heroImage ? [project.heroImage] : undefined,
-		},
-	}
+		path: `/projects/${project.slug}`,
+		image: project.heroImage,
+	})
 }
 
 export default async function ProjectPage({ params }: Props) {
 	const { slug } = await params
-	const project = await getProjectBySlug(slug)
+	const project = await loadProject(slug)
 
 	if (!project) {
 		notFound()

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { formatDate } from "@/lib/format"
+import { buildPageMetadata } from "@/lib/metadata"
 import { getPostsGroupedByYear } from "@/lib/posts"
 import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
@@ -22,10 +23,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	const label = capitalizeSection(section)
 
-	return {
+	return buildPageMetadata({
 		title: `${label} archive`,
 		description: `All ${section} posts, grouped by year.`,
-	}
+		path: `/blog/${section}/archive`,
+	})
 }
 
 export default async function ArchivePage({ params }: Props) {

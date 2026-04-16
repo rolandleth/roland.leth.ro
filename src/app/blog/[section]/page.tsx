@@ -4,6 +4,8 @@ import BlogSectionHeader from "@/components/blog/BlogSectionHeader"
 import Pagination from "@/components/blog/Pagination"
 import PostCard from "@/components/blog/PostCard"
 import PageGlow from "@/components/PageGlow"
+import { parsePageParam } from "@/lib/format"
+import { buildPageMetadata } from "@/lib/metadata"
 import { getPostsBySection } from "@/lib/posts"
 import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/sections"
 import type { Metadata } from "next"
@@ -26,15 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	const label = capitalizeSection(section)
 
-	return {
+	return buildPageMetadata({
 		title: `${label} blog`,
 		description: `Thoughts on ${section}.`,
-		openGraph: {
-			title: `${label} blog | Roland Leth`,
-			description: `Thoughts on ${section}.`,
-			url: `/blog/${section}`,
-		},
-	}
+		path: `/blog/${section}`,
+	})
 }
 
 export default async function BlogListPage({ params, searchParams }: Props) {
@@ -45,7 +43,7 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 		notFound()
 	}
 
-	const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1)
+	const page = parsePageParam(pageParam)
 	const { posts, totalPages } = await getPostsBySection(section, page)
 	const label = capitalizeSection(section)
 

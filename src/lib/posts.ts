@@ -1,4 +1,5 @@
 import { revalidateTag, unstable_cache } from "next/cache"
+import { cache } from "react"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/format"
 import { SECTIONS, type Section } from "@/lib/sections"
@@ -141,6 +142,35 @@ export function getPostBySlug(
 		{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
 	)()
 }
+
+/**
+ * Request-scoped dedupe around `getPostBySlug` so multiple callers in a single
+ * render pass (e.g. `generateMetadata` + the page body) share one DB hit.
+ */
+export const loadPost = cache(async (section: Section, slug: string) =>
+	getPostBySlug(section, slug)
+)
+
+/**
+ * Cached list of every published post's slug/section/datetime/updatedAt for use
+ * by `generateStaticParams` and the sitemap. Tagged `posts` so post mutations
+ * bust this alongside section-scoped caches.
+ */
+export const getAllPublishedPostSlugs = unstable_cache(
+	async () =>
+		prisma.post.findMany({
+			where: { published: true },
+			select: {
+				slug: true,
+				section: true,
+				datetime: true,
+				updatedAt: true,
+			},
+			orderBy: { datetime: "desc" },
+		}),
+	["all-published-post-slugs"],
+	{ tags: ["posts"] }
+)
 
 export interface PostArchiveItem {
 	title: string

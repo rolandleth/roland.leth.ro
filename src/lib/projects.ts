@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache"
+import { cache } from "react"
 import { prisma } from "@/lib/db"
 
 export interface ProjectListItem {
@@ -205,3 +206,9 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 		{ tags: [`project-${slug}`, "projects"] }
 	)()
 }
+
+/**
+ * Request-scoped dedupe around `getProjectBySlug` so `generateMetadata` and
+ * the page body share one fetch per render.
+ */
+export const loadProject = cache(async (slug: string) => getProjectBySlug(slug))

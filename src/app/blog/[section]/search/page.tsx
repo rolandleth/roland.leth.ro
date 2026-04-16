@@ -1,7 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import SearchForm from "@/components/blog/SearchForm"
+import EmptyState from "@/components/ui/EmptyState"
 import { formatDate } from "@/lib/format"
+import { buildPageMetadata } from "@/lib/metadata"
 import { searchPosts } from "@/lib/posts"
 import { capitalizeSection, isValidSection } from "@/lib/sections"
 import type { Metadata } from "next"
@@ -20,10 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	const label = capitalizeSection(section)
 
-	return {
+	return buildPageMetadata({
 		title: `Search ${label}`,
 		description: `Search ${section} posts.`,
-	}
+		path: `/blog/${section}/search`,
+	})
 }
 
 export default async function SearchPage({ params, searchParams }: Props) {
@@ -50,18 +53,13 @@ export default async function SearchPage({ params, searchParams }: Props) {
 			{query.length > 0 && (
 				<div className="mt-8">
 					{results.length === 0 ? (
-						<div className="flex flex-col items-center py-16 text-center">
-							<p
-								aria-hidden
-								className="text-[6rem] leading-none font-bold text-(--color-accent) opacity-10 select-none"
-							>
-								?
-							</p>
-							<p className="-mt-2 text-lg font-semibold">Nothing found</p>
-							<p className="text-secondary mt-2 max-w-xs text-sm leading-relaxed">
-								No posts match &ldquo;{query}&rdquo;. Try a different term.
-							</p>
-						</div>
+						<EmptyState
+							symbol="?"
+							title="Nothing found"
+							description={
+								<>No posts match &ldquo;{query}&rdquo;. Try a different term.</>
+							}
+						/>
 					) : (
 						<ul className="divide-border divide-y">
 							{results.map((post) => (
