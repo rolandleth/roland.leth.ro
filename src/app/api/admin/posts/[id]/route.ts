@@ -84,14 +84,12 @@ export async function PUT(
 export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
-): Promise<Response> {
+): Promise<NextResponse> {
 	const { id } = await params
 	const postId = parseIntId(id)
 
 	if (postId === null) {
-		return new Response(JSON.stringify({ error: "Invalid id" }), {
-			status: 400,
-		})
+		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
 	}
 
 	let section: string | null = null
@@ -105,21 +103,20 @@ export async function DELETE(
 		section = post.section
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
-			return new Response(JSON.stringify({ error: "Not found" }), {
-				status: 404,
-			})
+			return NextResponse.json({ error: "Not found" }, { status: 404 })
 		}
 
 		// eslint-disable-next-line no-console
 		console.error(error)
 
-		return new Response(JSON.stringify({ error: "Internal server error" }), {
-			status: 500,
-		})
+		return NextResponse.json(
+			{ error: "Internal server error" },
+			{ status: 500 }
+		)
 	}
 
 	revalidateTag(`feed-${section}`, "max")
 	revalidateTag(`blog-${section}`, "max")
 
-	return new Response(null, { status: 204 })
+	return new NextResponse(null, { status: 204 })
 }
