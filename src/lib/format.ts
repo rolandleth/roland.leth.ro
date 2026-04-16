@@ -1,7 +1,7 @@
 import readingTime from "reading-time"
 
 /**
- * Parses a string into a positive integer, returning `null` if invalid.
+ * Parses a string into an integer, returning `null` if invalid.
  */
 export function parseIntId(raw: string): number | null {
 	const n = parseInt(raw, 10)
@@ -69,22 +69,25 @@ export function calculateReadingTime(body: string): string {
 	return t.text
 }
 
+const TRUNCATE_MIN_LENGTH = 900
+const TRUNCATE_TARGET_LENGTH = 700
+
 /**
- * Truncates a raw markdown body at a paragraph boundary near 700 chars,
- * but only if the body exceeds 900 chars. Returns the text and whether
+ * Truncates a raw markdown body at a paragraph boundary near `TRUNCATE_TARGET_LENGTH` chars,
+ * but only if the body exceeds `TRUNCATE_MIN_LENGTH` chars. Returns the text and whether
  * it was truncated (to decide whether to show "Continue reading").
  */
 export function truncateBody(body: string): {
 	text: string
 	isTruncated: boolean
 } {
-	if (body.length < 900) {
+	if (body.length < TRUNCATE_MIN_LENGTH) {
 		return { text: body, isTruncated: false }
 	}
 
-	const candidate = body.slice(0, 700)
+	const candidate = body.slice(0, TRUNCATE_TARGET_LENGTH)
 	const lastBreak = candidate.lastIndexOf("\n\n")
-	const cutPoint = lastBreak > 0 ? lastBreak : 700
+	const cutPoint = lastBreak > 0 ? lastBreak : TRUNCATE_TARGET_LENGTH
 
 	const slicedText = body.slice(0, cutPoint)
 	// If the excerpt contains a heading block, trim before that heading so it

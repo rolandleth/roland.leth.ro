@@ -6,7 +6,7 @@ function createPrismaClient() {
 
 	// v8 ignore next 3
 	if (!connectionString) {
-		throw new Error("Can't create client")
+		throw new Error("DATABASE_URL environment variable is not set")
 	}
 
 	const adapter = new PrismaPg({ connectionString })

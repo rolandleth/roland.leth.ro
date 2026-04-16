@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { SECTIONS } from "@/lib/sections"
 
 // Only http/https allowed — prevents javascript: or data: XSS vectors.
 // Add rel="noopener noreferrer" to any <a> rendering these on public pages.
@@ -16,7 +17,7 @@ export const postCreateSchema = z.object({
 	datetime: z.string().min(1),
 	summary: z.string().nullable().optional(),
 	imageUrl: httpUrl.nullable().optional(),
-	section: z.enum(["tech", "life"]).optional(),
+	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),
 })
 

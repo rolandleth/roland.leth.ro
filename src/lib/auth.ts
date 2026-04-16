@@ -5,6 +5,7 @@ import { cookies } from "next/headers"
 const COOKIE_NAME = "session"
 const SESSION_DURATION = 60 * 60 * 24 * 7 // 7 days in seconds
 
+// Function (not a module-level constant) so tests can stub process.env.SESSION_SECRET.
 function getSecret(): Uint8Array {
 	const secret = process.env.SESSION_SECRET
 
