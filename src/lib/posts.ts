@@ -276,4 +276,5 @@ export async function searchPosts(
 export function revalidatePostSection(section: Section): void {
 	revalidateTag(`feed-${section}`, "max")
 	revalidateTag(`blog-${section}`, "max")
+	revalidateTag("posts", "max")
 }
