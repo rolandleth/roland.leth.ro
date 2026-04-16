@@ -258,6 +258,70 @@ describe("projectUpdateSchema", () => {
 
 // #endregion
 
+// #region sortOrder boundary — projectCreateSchema
+
+describe("projectCreateSchema — sortOrder boundaries", () => {
+	const valid = {
+		name: "My App",
+		summary: "An app that does things.",
+		platform: "iOS",
+	}
+
+	it("accepts a negative sortOrder", () => {
+		// `z.number().int()` has no lower bound, so negative integers pass today.
+		// If we ever want to require non-negative sort orders, this test will flip.
+		expect(
+			projectCreateSchema.safeParse({ ...valid, sortOrder: -1 }).success
+		).toBe(true)
+	})
+
+	it("rejects a non-integer sortOrder", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, sortOrder: 1.5 }).success
+		).toBe(false)
+	})
+
+	it("rejects NaN as a sortOrder", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, sortOrder: NaN }).success
+		).toBe(false)
+	})
+
+	it("accepts a non-integer sortOrder on a link only if integer", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			links: [{ label: "L", url: "https://example.com", sortOrder: 2.5 }],
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region String length boundaries (gap)
+
+// `postCreateSchema`/`projectCreateSchema`/`loginSchema` only enforce `min(1)`
+// on title/body/summary/name/password — there is no `max()` in `src/lib/schemas.ts`.
+// Leaving these as `.todo` so the gap is visible in the report.
+describe.todo(
+	"postCreateSchema — title/body/summary max-length boundaries",
+	() => {
+		it.todo("rejects a title longer than the configured max")
+		it.todo("rejects a body longer than the configured max")
+		it.todo("rejects a summary longer than the configured max")
+	}
+)
+
+describe.todo(
+	"projectCreateSchema — name/summary max-length boundaries",
+	() => {
+		it.todo("rejects a name longer than the configured max")
+		it.todo("rejects a summary longer than the configured max")
+	}
+)
+
+// #endregion
+
 // #region loginSchema
 
 describe("loginSchema", () => {

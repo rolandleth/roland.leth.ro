@@ -168,6 +168,33 @@ describe("sitemap — post routes", () => {
 		// 6 static + 1 post
 		expect(result).toHaveLength(7)
 	})
+
+	it("filters to published posts only at the DB query", async () => {
+		await sitemap()
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { published: true },
+			})
+		)
+	})
+
+	it("does not crash when a post has a malformed datetime string", async () => {
+		// Sitemap uses `post.updatedAt` (a Date), not `datetime`, so a malformed
+		// datetime string should be irrelevant to route emission. This pins that
+		// contract so a future refactor that swaps in a parser can't regress silently.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			postStub({
+				slug: "weird-post",
+				datetime: "not-a-date",
+				updatedAt: new Date("2024-01-01"),
+			}) as never,
+		])
+
+		const result = await sitemap()
+		const route = result.find((r) => r.url.includes("/blog/tech/weird-post"))
+		expect(route).toBeDefined()
+		expect(route?.lastModified).toEqual(new Date("2024-01-01"))
+	})
 })
 
 // #endregion

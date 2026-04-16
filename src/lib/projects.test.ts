@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
-import { getAllProjects, getProjectBySlug } from "@/lib/projects"
+import {
+	getAllProjects,
+	getAllProjectsForGallery,
+	getProjectBySlug,
+	listProjectsForAdmin,
+} from "@/lib/projects"
 import { makeProjectListItem } from "@/test/fixtures"
 
 vi.mock("next/cache", async () => {
@@ -50,6 +55,103 @@ describe("getAllProjects", () => {
 
 		const result = await getAllProjects()
 		expect(result).toEqual([])
+	})
+})
+
+// #endregion
+
+// #region getAllProjectsForGallery
+
+describe("getAllProjectsForGallery", () => {
+	it("orders discontinued projects last when sortDiscontinued is true (default)", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await getAllProjectsForGallery()
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				orderBy: [
+					{ isDiscontinued: "asc" },
+					{ sortOrder: "asc" },
+					{ name: "asc" },
+				],
+			})
+		)
+	})
+
+	it("skips the discontinued-last ordering when sortDiscontinued is false", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await getAllProjectsForGallery({ sortDiscontinued: false })
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+			})
+		)
+	})
+})
+
+// #endregion
+
+// #region listProjectsForAdmin
+
+describe("listProjectsForAdmin", () => {
+	it("falls back to the full admin gallery when the query is empty", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await listProjectsForAdmin({ query: "" })
+
+		// Empty query → getAllProjectsForGallery({ sortDiscontinued: false }),
+		// i.e. no `where` filter and the unsorted-by-discontinued ordering.
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+			})
+		)
+
+		const args = vi.mocked(prisma.project.findMany).mock.calls[0][0]
+		expect(args?.where).toBeUndefined()
+	})
+
+	it("falls back to the full gallery when the query is whitespace-only", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await listProjectsForAdmin({ query: "   " })
+
+		const args = vi.mocked(prisma.project.findMany).mock.calls[0][0]
+		expect(args?.where).toBeUndefined()
+	})
+
+	it("filters by case-insensitive name contains when the query is non-empty", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await listProjectsForAdmin({ query: "Alph" })
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { name: { contains: "Alph", mode: "insensitive" } },
+				take: 100,
+			})
+		)
+	})
+
+	it("trims surrounding whitespace before searching", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await listProjectsForAdmin({ query: "  Beta  " })
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { name: { contains: "Beta", mode: "insensitive" } },
+			})
+		)
 	})
 })
 

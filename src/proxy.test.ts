@@ -11,7 +11,7 @@ vi.mock("jose", () => ({
 function makeRequest(path: string, sessionToken?: string): NextRequest {
 	const headers = new Headers()
 
-	if (sessionToken) {
+	if (sessionToken != null) {
 		headers.set("Cookie", `session=${sessionToken}`)
 	}
 
@@ -215,9 +215,11 @@ describe("proxy — feed redirects", () => {
 describe("proxy — root slug rewrite", () => {
 	it("rewrites an unknown single-segment path to /api/legacy-redirect/:slug", async () => {
 		const response = await proxy(makeRequest("/some-old-post"))
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/legacy-redirect/some-old-post"
-		)
+		const rewriteHeader = response.headers.get("x-middleware-rewrite")
+		expect(rewriteHeader).not.toBeNull()
+
+		const rewriteUrl = new URL(rewriteHeader!)
+		expect(rewriteUrl.pathname).toBe("/api/legacy-redirect/some-old-post")
 	})
 
 	// /admin is excluded: it redirects to /admin/login when unauthenticated,
@@ -265,6 +267,54 @@ describe("proxy — pass-through", () => {
 	it("passes through multi-segment paths that are not legacy patterns", async () => {
 		const response = await proxy(makeRequest("/blog/tech/archive"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("passes through /api/admin without a trailing slash (boundary)", async () => {
+		// `startsWith("/api/admin/")` requires the trailing slash, so the bare
+		// path falls through to the generic /api pass-through, not admin auth.
+		const response = await proxy(makeRequest("/api/admin"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+})
+
+// #endregion
+
+// #region Trailing slash + empty cookie edge cases
+
+describe("proxy — trailing slash variants and empty cookie", () => {
+	it("does not redirect /tech/ (trailing slash) as a section root", async () => {
+		// SECTION_ROOT_REGEX is anchored with `$` after the section name, so
+		// `/tech/` misses it; it's a single-segment root-slug rewrite candidate.
+		// `split("/").filter(Boolean)` yields ["tech"] which is in KNOWN_ROUTES... no,
+		// KNOWN_ROUTES holds `/about`, `/projects`, etc. `/tech` is NOT known, so
+		// this path gets rewritten to the legacy-redirect lookup.
+		const response = await proxy(makeRequest("/tech/"))
+		const rewrite = response.headers.get("x-middleware-rewrite")
+		expect(rewrite).not.toBeNull()
+		// The trailing slash is preserved through the rewrite because the source
+		// segment is forwarded verbatim to the legacy-redirect lookup.
+		expect(new URL(rewrite!).pathname).toBe("/api/legacy-redirect/tech/")
+	})
+
+	it("does not redirect /life/blog/ (empty slug) as a section blog redirect", async () => {
+		// SECTION_BLOG_REGEX requires `(.+)` after `/blog/`, so `/life/blog/` misses it
+		// and falls through to pass-through as a multi-segment non-legacy path.
+		const response = await proxy(makeRequest("/life/blog/"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
+	})
+
+	it("redirects an /admin request with an empty session cookie to /admin/login", async () => {
+		// An empty-string cookie value is falsy, so isAuthenticated short-circuits
+		// the same way as a missing cookie.
+		const response = await proxy(makeRequest("/admin", ""))
+		expect(response.status).toBe(307)
+		expect(response.headers.get("location")).toContain("/admin/login")
+	})
+
+	it("returns 401 for an /api/admin request with an empty session cookie", async () => {
+		const response = await proxy(makeRequest("/api/admin/posts", ""))
+		expect(response.status).toBe(401)
 	})
 })
 

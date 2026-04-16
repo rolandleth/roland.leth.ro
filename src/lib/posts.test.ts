@@ -324,6 +324,37 @@ describe("searchPosts", () => {
 		expect(results).toEqual([])
 		expect(prisma.post.findMany).not.toHaveBeenCalled()
 	})
+
+	it("passes SQL LIKE special characters through unescaped to Prisma", async () => {
+		// Prisma parameterizes `contains` under the hood; the caller must NOT
+		// pre-escape `%` or `_`, or the user's literal query will be distorted.
+		await searchPosts("tech", "50%_off")
+		expect(prisma.post.findMany).toHaveBeenCalledOnce()
+
+		const args = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: unknown
+		}
+		expect(findContainsTerm(args.where)).toBe("50%_off")
+	})
+})
+
+// #endregion
+
+// #region getPostsBySection — invalid page inputs
+
+describe("getPostsBySection — invalid page inputs", () => {
+	// Source currently does not clamp or validate `page`. These `.todo` entries
+	// document the gap so it surfaces in the test report without masking it
+	// behind passing assertions.
+	it.todo(
+		"clamps page 0 to page 1 (source currently computes skip = -PAGE_SIZE)"
+	)
+	it.todo(
+		"clamps negative pages to page 1 (source currently produces a negative skip)"
+	)
+	it.todo(
+		"rejects or rounds non-integer page values (source currently passes them through)"
+	)
 })
 
 // #endregion

@@ -77,36 +77,40 @@ describe("verifyCredentials", () => {
 		delete process.env.ADMIN_PASSWORD_HASH
 		expect(await verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).toBe(false)
 	})
+
+	it("returns false for an empty email", async () => {
+		expect(await verifyCredentials("", TEST_PASSWORD)).toBe(false)
+	})
+
+	it("returns false for an empty password", async () => {
+		expect(await verifyCredentials(TEST_EMAIL, "")).toBe(false)
+	})
+
+	it("returns false for both empty email and password", async () => {
+		expect(await verifyCredentials("", "")).toBe(false)
+	})
 })
 
 // #endregion
 
 // #region createSession
 
+// 7 days in seconds, matching `SESSION_DURATION` in `src/lib/auth.ts`.
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7
+
 describe("createSession", () => {
-	it("calls cookieStore.set with the session cookie name", async () => {
+	it("writes the session cookie with the expected options and name", async () => {
 		await createSession()
 		expect(mockCookieStore.set).toHaveBeenCalledOnce()
-		const [name] = mockCookieStore.set.mock.calls[0]
+
+		const [name, , options] = mockCookieStore.set.mock.calls[0]
 		expect(name).toBe("session")
-	})
-
-	it("sets httpOnly on the session cookie", async () => {
-		await createSession()
-		const [, , options] = mockCookieStore.set.mock.calls[0]
-		expect(options.httpOnly).toBe(true)
-	})
-
-	it("sets sameSite to lax", async () => {
-		await createSession()
-		const [, , options] = mockCookieStore.set.mock.calls[0]
-		expect(options.sameSite).toBe("lax")
-	})
-
-	it("sets a positive maxAge", async () => {
-		await createSession()
-		const [, , options] = mockCookieStore.set.mock.calls[0]
-		expect(options.maxAge).toBeGreaterThan(0)
+		expect(options).toMatchObject({
+			httpOnly: true,
+			sameSite: "lax",
+			maxAge: SEVEN_DAYS_SECONDS,
+			path: "/",
+		})
 	})
 
 	it("stores a valid JWT token that can be verified", async () => {
@@ -199,6 +203,22 @@ describe("verifySession", () => {
 
 	it("returns false for a garbage string in the cookie", async () => {
 		mockCookieStore.get.mockReturnValue({ value: "not.a.jwt" })
+		expect(await verifySession()).toBe(false)
+	})
+
+	it("throws when cookie is present but SESSION_SECRET env is missing", async () => {
+		// Mirror the proxy contract: missing secret with a token present is a
+		// deployment fault and must surface, not silently pass auth.
+		const token = await signToken()
+		mockCookieStore.get.mockReturnValue({ value: token })
+		delete process.env.SESSION_SECRET
+		await expect(verifySession()).rejects.toThrow(/SESSION_SECRET/)
+	})
+
+	it("returns false with no cookie even when SESSION_SECRET is missing", async () => {
+		// Short-circuits before reading the secret, so missing env is irrelevant.
+		mockCookieStore.get.mockReturnValue(undefined)
+		delete process.env.SESSION_SECRET
 		expect(await verifySession()).toBe(false)
 	})
 })
