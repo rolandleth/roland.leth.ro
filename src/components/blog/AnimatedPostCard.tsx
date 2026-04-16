@@ -1,6 +1,4 @@
-"use client"
-
-import { motion } from "framer-motion"
+import AnimatedCard from "@/components/AnimatedCard"
 
 interface Props {
 	index: number
@@ -8,13 +6,5 @@ interface Props {
 }
 
 export default function AnimatedPostCard({ index, children }: Props) {
-	return (
-		<motion.div
-			initial={{ opacity: 0, y: -12 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.3, delay: index * 0.06, ease: "easeOut" }}
-		>
-			{children}
-		</motion.div>
-	)
+	return <AnimatedCard index={index}>{children}</AnimatedCard>
 }
