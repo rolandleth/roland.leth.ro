@@ -126,6 +126,15 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 	})
 }
 
+/** Prisma `include` clause for fetching sections (with images) and links, ordered by sortOrder. */
+export const projectInclude = {
+	sections: {
+		orderBy: { sortOrder: "asc" as const },
+		include: { images: { orderBy: { sortOrder: "asc" as const } } },
+	},
+	links: { orderBy: { sortOrder: "asc" as const } },
+} as const
+
 /** Returns a project with its sections (and section images) and links, or null if not found. */
 export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 	return unstable_cache(

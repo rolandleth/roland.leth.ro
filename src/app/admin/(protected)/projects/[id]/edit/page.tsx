@@ -2,18 +2,11 @@ import { notFound } from "next/navigation"
 import ProjectForm from "@/components/admin/ProjectForm"
 import { prisma } from "@/lib/db"
 import { parseIntId } from "@/lib/format"
+import { projectInclude } from "@/lib/projects"
 import type { Metadata } from "next"
 
 interface PageProps {
 	params: Promise<{ id: string }>
-}
-
-const projectInclude = {
-	sections: {
-		orderBy: { sortOrder: "asc" as const },
-		include: { images: { orderBy: { sortOrder: "asc" as const } } },
-	},
-	links: { orderBy: { sortOrder: "asc" as const } },
 }
 
 export async function generateMetadata({

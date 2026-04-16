@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { createSlug, parseIntId } from "@/lib/format"
+import { projectInclude } from "@/lib/projects"
 import { projectUpdateSchema } from "@/lib/schemas"
 
 type SectionInput = {
@@ -52,14 +53,6 @@ function toLinkCreate(links: LinkInput[] | undefined) {
 			sortOrder: l.sortOrder ?? 0,
 		})),
 	}
-}
-
-const projectInclude = {
-	sections: {
-		orderBy: { sortOrder: "asc" as const },
-		include: { images: { orderBy: { sortOrder: "asc" as const } } },
-	},
-	links: { orderBy: { sortOrder: "asc" as const } },
 }
 
 export async function GET(
@@ -188,14 +181,12 @@ export async function PUT(
 export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
-): Promise<Response> {
+): Promise<NextResponse> {
 	const { id } = await params
 	const projectId = parseIntId(id)
 
 	if (projectId === null) {
-		return new Response(JSON.stringify({ error: "Invalid id" }), {
-			status: 400,
-		})
+		return NextResponse.json({ error: "Invalid id" }, { status: 400 })
 	}
 
 	try {
@@ -215,18 +206,17 @@ export async function DELETE(
 		revalidateTag(`project-${deleted.slug}`, "max")
 	} catch (error) {
 		if (isPrismaNotFound(error)) {
-			return new Response(JSON.stringify({ error: "Not found" }), {
-				status: 404,
-			})
+			return NextResponse.json({ error: "Not found" }, { status: 404 })
 		}
 
 		// eslint-disable-next-line no-console
 		console.error(error)
 
-		return new Response(JSON.stringify({ error: "Internal server error" }), {
-			status: 500,
-		})
+		return NextResponse.json(
+			{ error: "Internal server error" },
+			{ status: 500 }
+		)
 	}
 
-	return new Response(null, { status: 204 })
+	return new NextResponse(null, { status: 204 })
 }
