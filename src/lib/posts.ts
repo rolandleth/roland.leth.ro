@@ -5,6 +5,20 @@ import { SECTIONS } from "@/lib/sections"
 
 export const PAGE_SIZE = 10
 
+function publishedWhere(section: string, now: string) {
+	return { section, published: true, datetime: { lte: now } }
+}
+
+const postListItemSelect = {
+	id: true,
+	title: true,
+	slug: true,
+	section: true,
+	datetime: true,
+	body: true,
+	readingTime: true,
+} as const
+
 export interface PostListItem {
 	id: number
 	title: string
@@ -36,20 +50,12 @@ function makeBlogPage1Cache(section: string) {
 	return unstable_cache(
 		async () => {
 			const now = currentDatetimeString()
-			const where = { section, published: true, datetime: { lte: now } }
+			const where = publishedWhere(section, now)
 
 			const [posts, total] = await Promise.all([
 				prisma.post.findMany({
 					where,
-					select: {
-						id: true,
-						title: true,
-						slug: true,
-						section: true,
-						datetime: true,
-						body: true,
-						readingTime: true,
-					},
+					select: postListItemSelect,
 					orderBy: { datetime: "desc" },
 					skip: 0,
 					take: PAGE_SIZE,
@@ -77,25 +83,12 @@ export async function getPostsBySection(
 	}
 
 	const now = currentDatetimeString()
-
-	const where = {
-		section,
-		published: true,
-		datetime: { lte: now },
-	}
+	const where = publishedWhere(section, now)
 
 	const [posts, total] = await Promise.all([
 		prisma.post.findMany({
 			where,
-			select: {
-				id: true,
-				title: true,
-				slug: true,
-				section: true,
-				datetime: true,
-				body: true,
-				readingTime: true,
-			},
+			select: postListItemSelect,
 			orderBy: { datetime: "desc" },
 			skip: (page - 1) * PAGE_SIZE,
 			take: PAGE_SIZE,
@@ -152,7 +145,7 @@ function makeArchiveCache(section: string) {
 			const now = currentDatetimeString()
 
 			const posts = await prisma.post.findMany({
-				where: { section, published: true, datetime: { lte: now } },
+				where: publishedWhere(section, now),
 				select: { title: true, slug: true, section: true, datetime: true },
 				orderBy: { datetime: "desc" },
 			})
@@ -206,10 +199,20 @@ export async function searchPosts(
 	query: string
 ): Promise<PostSearchResult[]> {
 	const now = currentDatetimeString()
-	const term = query.trim().toLowerCase()
+	const term = query.trim()
 
-	const posts = await prisma.post.findMany({
-		where: { section, published: true, datetime: { lte: now } },
+	return prisma.post.findMany({
+		where: {
+			AND: [
+				publishedWhere(section, now),
+				{
+					OR: [
+						{ title: { contains: term, mode: "insensitive" } },
+						{ body: { contains: term, mode: "insensitive" } },
+					],
+				},
+			],
+		},
 		select: {
 			title: true,
 			slug: true,
@@ -220,10 +223,4 @@ export async function searchPosts(
 		},
 		orderBy: { datetime: "desc" },
 	})
-
-	return posts.filter(
-		(p) =>
-			p.title.toLowerCase().includes(term) ||
-			p.body.toLowerCase().includes(term)
-	)
 }
