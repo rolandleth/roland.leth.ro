@@ -109,11 +109,11 @@ describe("sitemap — post routes", () => {
 			postStub({ slug: "second-post", section: "life" }) as never,
 		])
 		const result = await sitemap()
-		expect(result.some((r) => r.url === `${BASE}/blog/tech/first-post`)).toBe(
-			true
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/blog/tech/first-post` })
 		)
-		expect(result.some((r) => r.url === `${BASE}/blog/life/second-post`)).toBe(
-			true
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/blog/life/second-post` })
 		)
 	})
 

@@ -230,8 +230,29 @@ describe("getPostBySlug", () => {
 })
 
 // ---------------------------------------------------------------------------
-// searchPosts — the client-side filtering is where logic lives
+// searchPosts
 // ---------------------------------------------------------------------------
+
+/** Recursively finds the first `contains` string value in a Prisma where clause. */
+function findContainsTerm(obj: unknown): string | undefined {
+	if (typeof obj !== "object" || obj === null) {
+		return undefined
+	}
+
+	for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+		if (key === "contains" && typeof val === "string") {
+			return val
+		}
+
+		const found = findContainsTerm(val)
+
+		if (found !== undefined) {
+			return found
+		}
+	}
+
+	return undefined
+}
 
 describe("searchPosts", () => {
 	const posts = [
@@ -248,9 +269,21 @@ describe("searchPosts", () => {
 	]
 
 	beforeEach(() => {
-		vi.mocked(prisma.post.findMany).mockResolvedValue(
-			posts as unknown as Post[]
-		)
+		// Simulate case-insensitive search by extracting the `contains` term from
+		// wherever it appears in the where clause — agnostic to AND/OR nesting.
+		vi.mocked(prisma.post.findMany).mockImplementation(async (args) => {
+			const term = findContainsTerm(args?.where)?.toLowerCase()
+
+			if (!term) {
+				return posts as unknown as Post[]
+			}
+
+			return posts.filter(
+				(p) =>
+					p.title.toLowerCase().includes(term) ||
+					p.body.toLowerCase().includes(term)
+			) as unknown as Post[]
+		})
 	})
 
 	it("returns posts whose title matches the query", async () => {

@@ -168,9 +168,7 @@ describe("calculateReadingTime", () => {
 	})
 
 	it("returns a standard minute-based string for longer content", () => {
-		const result = calculateReadingTime(words(400))
-		// eslint-disable-next-line sonarjs/slow-regex
-		expect(result).toMatch(/\d+ min read/)
+		expect(calculateReadingTime(words(400))).toBe("2 min read")
 	})
 })
 

@@ -5,6 +5,7 @@ import type { Prisma } from "@/generated/prisma/client"
 
 vi.mock("next/cache", () => ({
 	revalidateTag: vi.fn(),
+	unstable_cache: (fn: () => unknown) => fn,
 }))
 
 vi.mock("@/lib/db", () => ({

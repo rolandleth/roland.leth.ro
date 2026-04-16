@@ -1,49 +1,69 @@
+import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { markdownToReact } from "@/lib/markdown"
 
+async function render(markdown: string): Promise<string> {
+	const node = await markdownToReact(markdown)
+	return renderToStaticMarkup(node as React.ReactElement)
+}
+
 describe("markdownToReact", () => {
-	it("returns a non-null value for a heading", async () => {
-		const result = await markdownToReact("# Hello")
-		expect(result).not.toBeNull()
+	it("renders a heading", async () => {
+		const html = await render("# Hello")
+		expect(html).toContain("<h1>")
+		expect(html).toContain("Hello")
 	})
 
-	it("returns a non-null value for plain text", async () => {
-		const result = await markdownToReact("Just some plain text.")
-		expect(result).not.toBeNull()
+	it("renders plain text in a paragraph", async () => {
+		const html = await render("Just some plain text.")
+		expect(html).toContain("<p>")
+		expect(html).toContain("Just some plain text.")
 	})
 
-	it("returns a non-null value for bold and italic text", async () => {
-		const result = await markdownToReact("**bold** and _italic_")
-		expect(result).not.toBeNull()
+	it("renders bold and italic text", async () => {
+		const html = await render("**bold** and _italic_")
+		expect(html).toContain("<strong>")
+		expect(html).toContain("<em>")
 	})
 
-	it("returns a non-null value for a link", async () => {
-		const result = await markdownToReact("[label](https://example.com)")
-		expect(result).not.toBeNull()
+	it("renders a link with href and label", async () => {
+		const html = await render("[label](https://example.com)")
+		expect(html).toContain('<a href="https://example.com"')
+		expect(html).toContain("label")
 	})
 
-	it("returns a non-null value for a blockquote", async () => {
-		const result = await markdownToReact("> A quoted line.")
-		expect(result).not.toBeNull()
+	it("renders a blockquote", async () => {
+		const html = await render("> A quoted line.")
+		expect(html).toContain("<blockquote>")
+		expect(html).toContain("A quoted line.")
 	})
 
-	it("returns a non-null value for a fenced code block", async () => {
-		const result = await markdownToReact("```ts\nconst x = 1\n```")
-		expect(result).not.toBeNull()
+	it("renders a fenced code block with syntax highlighting", async () => {
+		const html = await render("```ts\nconst x = 1\n```")
+		// rehype-pretty-code tokenizes code into <span>s, so raw text won't appear;
+		// assert on the structural markers it always emits instead.
+		expect(html).toContain('data-language="ts"')
+		expect(html).toContain("data-rehype-pretty-code-figure")
 	})
 
-	it("returns a non-null value for a GFM table", async () => {
-		const result = await markdownToReact("| A | B |\n|---|---|\n| 1 | 2 |")
-		expect(result).not.toBeNull()
+	it("renders a GFM table", async () => {
+		const html = await render("| A | B |\n|---|---|\n| 1 | 2 |")
+		expect(html).toContain("<table>")
+		expect(html).toContain("<th>")
+		expect(html).toContain("<td>")
 	})
 
-	it("does not throw for an empty string", async () => {
-		await expect(markdownToReact("")).resolves.not.toThrow()
+	it("returns empty output for an empty string", async () => {
+		const html = await render("")
+		expect(html).toBe("")
 	})
 
-	it("handles multiple headings and paragraphs", async () => {
+	it("renders multiple headings and paragraphs", async () => {
 		const content = `# Title\n\nFirst paragraph.\n\n## Section\n\nSecond paragraph.`
-		const result = await markdownToReact(content)
-		expect(result).not.toBeNull()
+		const html = await render(content)
+		expect(html).toContain("<h1>")
+		expect(html).toContain("<h2>")
+		expect(html).toContain("First paragraph.")
+		expect(html).toContain("Second paragraph.")
 	})
 })

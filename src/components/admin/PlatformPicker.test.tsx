@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import PlatformPicker from "./PlatformPicker"
 
@@ -33,6 +34,66 @@ describe("PlatformPicker — same-bucket initial value", () => {
 	it("locks out keywords from other buckets when one bucket is active", () => {
 		render(<PlatformPicker value="iOS, iPad" onChange={vi.fn()} />)
 		expect(screen.getByRole("button", { name: "React" })).toBeDisabled()
+	})
+})
+
+// #endregion
+
+// #region keyword toggle interactions
+
+describe("PlatformPicker — keyword toggle interactions", () => {
+	it("calls onChange with the keyword when a keyword is clicked", async () => {
+		const onChange = vi.fn()
+		render(<PlatformPicker value="" onChange={onChange} />)
+		await userEvent.click(screen.getByRole("button", { name: "iOS" }))
+		expect(onChange).toHaveBeenCalledWith("iOS")
+	})
+
+	it("adds a second same-bucket keyword to the selection", async () => {
+		const onChange = vi.fn()
+		render(<PlatformPicker value="iOS" onChange={onChange} />)
+		await userEvent.click(screen.getByRole("button", { name: "iPad" }))
+		expect(onChange).toHaveBeenCalledWith("iOS, iPad")
+	})
+
+	it("removes a keyword when it is clicked while already selected", async () => {
+		const onChange = vi.fn()
+		render(<PlatformPicker value="iOS" onChange={onChange} />)
+		await userEvent.click(screen.getByRole("button", { name: "iOS" }))
+		expect(onChange).toHaveBeenCalledWith("")
+	})
+
+	it("locks keywords from other buckets after selecting a keyword", async () => {
+		render(<PlatformPicker value="" onChange={vi.fn()} />)
+		await userEvent.click(screen.getByRole("button", { name: "iOS" }))
+		expect(screen.getByRole("button", { name: "React" })).toBeDisabled()
+	})
+})
+
+// #endregion
+
+// #region freeform input interactions
+
+describe("PlatformPicker — freeform input interactions", () => {
+	it("calls onChange when the freeform input changes", async () => {
+		const onChange = vi.fn()
+		render(<PlatformPicker value="" onChange={onChange} />)
+		await userEvent.type(screen.getByPlaceholderText("or type freely…"), "x")
+		expect(onChange).toHaveBeenCalledWith("x")
+	})
+
+	it("disables keyword buttons when freeform is non-empty", async () => {
+		render(<PlatformPicker value="" onChange={vi.fn()} />)
+		await userEvent.type(screen.getByPlaceholderText("or type freely…"), "a")
+		expect(screen.getByRole("button", { name: "iOS" })).toBeDisabled()
+	})
+
+	it("re-enables keyword buttons when freeform is cleared", async () => {
+		render(<PlatformPicker value="" onChange={vi.fn()} />)
+		const input = screen.getByPlaceholderText("or type freely…")
+		await userEvent.type(input, "a")
+		await userEvent.clear(input)
+		expect(screen.getByRole("button", { name: "iOS" })).not.toBeDisabled()
 	})
 })
 

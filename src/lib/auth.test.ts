@@ -37,9 +37,6 @@ beforeEach(() => {
 	vi.stubEnv("SESSION_SECRET", TEST_SECRET)
 	vi.stubEnv("ADMIN_EMAIL", TEST_EMAIL)
 	vi.stubEnv("ADMIN_PASSWORD_HASH", TEST_HEX_HASH)
-})
-
-beforeEach(() => {
 	vi.mocked(cookies).mockResolvedValue(
 		mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
 	)
