@@ -13,7 +13,7 @@ const LINK_LABEL_OPTIONS = [
 	"Product Hunt",
 ]
 
-interface LinkItem {
+export interface LinkItem {
 	_key: string
 	label: string
 	url: string

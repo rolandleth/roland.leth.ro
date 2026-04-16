@@ -3,29 +3,12 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
-import LinkManager from "@/components/admin/LinkManager"
+import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
 import PlatformPicker from "@/components/admin/PlatformPicker"
-import SectionManager from "@/components/admin/SectionManager"
-
-interface SectionImage {
-	url: string
-	caption: string
-	sortOrder: number
-}
-
-interface SectionItem {
-	title: string
-	description: string
-	sortOrder: number
-	images: SectionImage[]
-}
-
-interface LinkItem {
-	_key: string
-	label: string
-	url: string
-	sortOrder: number
-}
+import SectionManager, {
+	type SectionImage,
+	type SectionItem,
+} from "@/components/admin/SectionManager"
 
 interface InitialData {
 	id: number

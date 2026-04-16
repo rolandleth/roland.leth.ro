@@ -4,13 +4,13 @@ import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 
-interface SectionImage {
+export interface SectionImage {
 	url: string
 	caption: string
 	sortOrder: number
 }
 
-interface SectionItem {
+export interface SectionItem {
 	title: string
 	description: string
 	sortOrder: number
