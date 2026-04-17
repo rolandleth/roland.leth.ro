@@ -8,6 +8,7 @@ import { useClickOutside } from "./useClickOutside"
 interface Props {
 	placeholder: string
 	onSubmit: (query: string) => void
+	onClose?: () => void
 	initialValue?: string
 	className?: string
 	autoFocusOnOpen?: boolean
@@ -16,6 +17,7 @@ interface Props {
 export default function ExpandableSearch({
 	placeholder,
 	onSubmit,
+	onClose,
 	initialValue = "",
 	className,
 	autoFocusOnOpen = true,
@@ -24,7 +26,12 @@ export default function ExpandableSearch({
 	const inputRef = useRef<HTMLInputElement>(null)
 	const formRef = useRef<HTMLFormElement>(null)
 
-	useClickOutside(formRef, () => setIsOpen(false), isOpen)
+	function handleClose() {
+		setIsOpen(false)
+		onClose?.()
+	}
+
+	useClickOutside(formRef, handleClose, isOpen)
 
 	function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
@@ -39,7 +46,7 @@ export default function ExpandableSearch({
 
 	function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
 		if (event.key === "Escape") {
-			setIsOpen(false)
+			handleClose()
 		}
 	}
 
@@ -81,7 +88,7 @@ export default function ExpandableSearch({
 						/>
 						<button
 							type="button"
-							onClick={() => setIsOpen(false)}
+							onClick={handleClose}
 							aria-label="Cancel search"
 							className="text-secondary cursor-pointer transition-colors hover:text-(--color-accent)"
 						>

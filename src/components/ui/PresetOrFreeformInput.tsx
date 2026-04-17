@@ -12,6 +12,7 @@ interface Props {
 	placeholder?: string
 	id?: string
 	className?: string
+	required?: boolean
 }
 
 export default function PresetOrFreeformInput({
@@ -22,6 +23,7 @@ export default function PresetOrFreeformInput({
 	placeholder = "or type freely…",
 	id,
 	className,
+	required = false,
 }: Props) {
 	const isPreset = presets.includes(value)
 	const [dropdownValue, setDropdownValue] = useState(isPreset ? value : "")
@@ -55,6 +57,7 @@ export default function PresetOrFreeformInput({
 				value={dropdownValue}
 				onChange={(e) => handleDropdownChange(e.target.value)}
 				disabled={freeformValue !== ""}
+				required={required && freeformValue === ""}
 				className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			>
 				<option value="" disabled>
@@ -75,6 +78,7 @@ export default function PresetOrFreeformInput({
 				value={freeformValue}
 				onChange={(e) => handleFreeformChange(e.target.value)}
 				disabled={dropdownValue !== ""}
+				required={required && dropdownValue === ""}
 				className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			/>
 		</div>

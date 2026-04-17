@@ -149,6 +149,7 @@ export default function ProjectForm({ initialData }: Props) {
 					onChange={setRole}
 					presets={ROLE_OPTIONS}
 					presetLabel="Select a role…"
+					required
 				/>
 			</div>
 
