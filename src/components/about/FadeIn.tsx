@@ -3,7 +3,9 @@
 import { motion } from "framer-motion"
 import { fadeUp } from "@/lib/motion"
 
-type FadeInTag = "div" | "aside" | "section"
+// Pulls the allowed tag set straight from Framer Motion's own typed surface,
+// so any element `motion` supports works here without a hand-maintained union.
+type FadeInTag = keyof typeof motion
 
 interface Props {
 	delay?: number
@@ -18,7 +20,7 @@ export default function FadeIn({
 	className,
 	children,
 }: Props) {
-	const Component = motion[as]
+	const Component = motion[as] as React.ElementType
 
 	return (
 		<Component className={className} {...fadeUp(delay)}>

@@ -108,46 +108,43 @@ export default function AboutContent() {
 			</FadeIn>
 
 			<div className="min-w-0 flex-1 space-y-10">
-				<FadeIn delay={0.06}>
-					<h1 className="text-3xl font-bold">About</h1>
+				<FadeIn as="h1" delay={0.06} className="text-3xl font-bold">
+					About
 				</FadeIn>
 
-				<FadeIn delay={SECTION_BASE_DELAY}>
-					<section>
-						<div className="space-y-4">
-							<p className="text-secondary leading-relaxed">
-								I&apos;m an iOS developer since 2011, with extensive full-stack
-								knowledge, placing myself at the crossroads of product,
-								business, and user experience, balancing all three to create
-								successful products.
-							</p>
-							<p className="text-secondary leading-relaxed">
-								I&apos;ve worked on my own projects, on remote teams, as a
-								freelancer and contractor, or led teams at big companies like
-								DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
-								also started my own software company, Runtime Sharks, and
-								co-founded startups like Eventa and Qality Tech.
-							</p>
-						</div>
-					</section>
+				<FadeIn as="section" delay={SECTION_BASE_DELAY}>
+					<div className="space-y-4">
+						<p className="text-secondary leading-relaxed">
+							I&apos;m an iOS developer since 2011, with extensive full-stack
+							knowledge, placing myself at the crossroads of product, business,
+							and user experience, balancing all three to create successful
+							products.
+						</p>
+						<p className="text-secondary leading-relaxed">
+							I&apos;ve worked on my own projects, on remote teams, as a
+							freelancer and contractor, or led teams at big companies like
+							DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
+							also started my own software company, Runtime Sharks, and
+							co-founded startups like Eventa and Qality Tech.
+						</p>
+					</div>
 				</FadeIn>
 
 				{sections.map((section, i) => (
 					<FadeIn
 						key={section.heading}
+						as="section"
 						delay={SECTION_BASE_DELAY + (i + 1) * SECTION_STAGGER}
 					>
-						<section>
-							<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
+						<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
 
-							<div className="space-y-4">
-								{section.paragraphs.map((paragraph, j) => (
-									<p key={j} className="text-secondary leading-relaxed">
-										{paragraph}
-									</p>
-								))}
-							</div>
-						</section>
+						<div className="space-y-4">
+							{section.paragraphs.map((paragraph, j) => (
+								<p key={j} className="text-secondary leading-relaxed">
+									{paragraph}
+								</p>
+							))}
+						</div>
 					</FadeIn>
 				))}
 			</div>
