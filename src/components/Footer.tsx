@@ -1,16 +1,15 @@
 import Link from "next/link"
+import FooterYear from "./FooterYear"
 import ThemeToggle from "./ThemeToggle"
 
 export default function Footer() {
-	const year = new Date().getFullYear()
-
 	return (
 		<footer className="border-border relative mt-auto border-t">
 			<div className="text-secondary mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-6 text-center text-sm">
 				<div className="flex items-center gap-5">
 					<span>
 						&copy; <span className="hidden sm:inline">2013 &ndash; </span>
-						{year}
+						<FooterYear initialYear={new Date().getFullYear()} />
 					</span>
 					<Link
 						href="/blog/tech/archive"
