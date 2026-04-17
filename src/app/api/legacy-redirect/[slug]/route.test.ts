@@ -125,4 +125,23 @@ describe("GET /api/legacy-redirect/[slug]", () => {
 			"https://rolandleth.com/blog/tech/a-post"
 		)
 	})
+
+	it("returns 500 and logs when the DB query throws", async () => {
+		// Simulate a connection blip: the query rejects rather than returning null.
+		vi.mocked(prisma.post.findFirst).mockRejectedValue(
+			new Error("connection refused")
+		)
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+		const response = await GET(makeRequest("any-slug"), makeParams("any-slug"))
+
+		expect(response.status).toBe(500)
+		expect(await response.json()).toEqual({ error: "Internal server error" })
+		expect(consoleSpy).toHaveBeenCalledWith(
+			"legacy-redirect lookup failed",
+			expect.objectContaining({ slug: "any-slug" })
+		)
+
+		consoleSpy.mockRestore()
+	})
 })

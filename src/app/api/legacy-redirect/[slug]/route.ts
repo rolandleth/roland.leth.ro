@@ -48,7 +48,22 @@ export async function GET(
 	const { slug } = await params
 	const base = new URL(request.url).origin
 
-	const match = await lookupLegacySlug(slug)
+	let match: LegacyMatch
+
+	try {
+		match = await lookupLegacySlug(slug)
+	} catch (error) {
+		// DB blip: log so the failure is debuggable, return 500 consistent with
+		// the rest of the API surface. Letting it bubble would render Next's
+		// error boundary at the user's rewritten URL.
+		// eslint-disable-next-line no-console
+		console.error("legacy-redirect lookup failed", { slug, error })
+
+		return NextResponse.json(
+			{ error: "Internal server error" },
+			{ status: 500 }
+		)
+	}
 
 	if (match?.kind === "post") {
 		return NextResponse.redirect(
