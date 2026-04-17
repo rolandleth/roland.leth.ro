@@ -23,14 +23,19 @@ export default async function ProjectsPage() {
 	const platformGroups = groupByPlatform(others)
 
 	// Precompute a running stagger offset per group so each card's animation
-	// index is unique across every group, independent of group size.
-	let staggerCursor = featured.length
-	const groupsWithStaggerStart = platformGroups.map((group) => {
-		const startIndex = staggerCursor
-		staggerCursor += group.projects.length
+	// index is unique across every group, independent of group size. A plain
+	// for-of loop keeps the running sum local — assigning into a `let`
+	// captured inside a `.map` callback trips the React Compiler's
+	// `react-hooks/immutability` rule.
+	const groupsWithStaggerStart: Array<
+		(typeof platformGroups)[number] & { startIndex: number }
+	> = []
+	let offset = featured.length
 
-		return { ...group, startIndex }
-	})
+	for (const group of platformGroups) {
+		groupsWithStaggerStart.push({ ...group, startIndex: offset })
+		offset += group.projects.length
+	}
 
 	return (
 		<main className="relative mx-auto max-w-5xl px-4 py-12">

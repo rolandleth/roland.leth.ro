@@ -16,7 +16,7 @@ interface Props {
 	className?: string
 }
 
-type Phase = "typing" | "paused" | "erasing" | "waiting"
+type Phase = "typing" | "erasing"
 
 export default function Typewriter({
 	phrases,
@@ -33,10 +33,10 @@ export default function Typewriter({
 	const currentPhrase = phrases[phraseIndex]
 
 	useEffect(() => {
-		// Each phase either schedules the next character mutation or transitions
-		// to the next phase synchronously once the current one is complete.
-		// Synchronous transitions avoid the `setTimeout(..., 0)` hop and let
-		// React batch the state update before the next render.
+		// Each branch schedules exactly one timer. When a phase is complete, the
+		// same branch schedules the pause-then-transition timer directly instead
+		// of calling `setPhase` synchronously (which would cascade renders and
+		// trip `react-hooks/set-state-in-effect`).
 		switch (phase) {
 			case "typing": {
 				if (displayedText.length < currentPhrase.length) {
@@ -47,12 +47,7 @@ export default function Typewriter({
 					return () => clearTimeout(timeout)
 				}
 
-				setPhase("paused")
-
-				return
-			}
-
-			case "paused": {
+				// End of typing: pause before flipping into erasing.
 				const timeout = setTimeout(() => setPhase("erasing"), pauseAfterType)
 
 				return () => clearTimeout(timeout)
@@ -67,12 +62,7 @@ export default function Typewriter({
 					return () => clearTimeout(timeout)
 				}
 
-				setPhase("waiting")
-
-				return
-			}
-
-			case "waiting": {
+				// End of erasing: pause, then advance to the next phrase.
 				const timeout = setTimeout(() => {
 					setPhraseIndex((prev) => (prev + 1) % phrases.length)
 					setPhase("typing")

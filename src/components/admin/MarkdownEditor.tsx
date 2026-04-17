@@ -41,6 +41,7 @@ export default function MarkdownEditor({
 					return
 				}
 
+				// eslint-disable-next-line no-console
 				console.error("Markdown preview failed to render:", err)
 				setPreview(
 					<span className="text-sm text-red-500">
