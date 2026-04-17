@@ -4,11 +4,9 @@ import AnalyticsWithFilter from "@/app/AnalyticsWithFilter"
 import SpeedInsightsWithFilter from "@/app/SpeedInsightsWithFilter"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
-import ThemeProvider, {
-	resolveInitialTheme,
-	resolveInitialThemeClass,
-} from "@/components/ThemeProvider"
+import ThemeProvider from "@/components/ThemeProvider"
 import { siteBase } from "@/lib/request"
+import { resolveInitialTheme, resolveInitialThemeClass } from "@/lib/theme"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
