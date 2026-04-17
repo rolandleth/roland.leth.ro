@@ -61,6 +61,13 @@ export async function PUT(
 	}
 
 	try {
+		// The sortOrder shift below assumes a single concurrent writer: it reads
+		// the current position, then updates the affected range. Prisma's default
+		// READ COMMITTED isolation plus the absence of a `@@unique` constraint on
+		// `Project.sortOrder` means two simultaneous PUTs could compute disjoint
+		// shift ranges and produce duplicate sortOrder values with no error.
+		// Fine on a single-admin site; escalate to `Prisma.TransactionIsolationLevel.Serializable`
+		// (or add the unique constraint) the moment a second editor is added.
 		const project = await prisma.$transaction(async (tx) => {
 			if (data.sortOrder != null) {
 				const current = await tx.project.findUnique({
