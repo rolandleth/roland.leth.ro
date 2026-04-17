@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useDeferredValue } from "react"
 import { markdownToReact } from "@/lib/markdown"
 import type { ReactNode } from "react"
+
+const PREVIEW_DEBOUNCE_MS = 150
 
 interface Props {
 	value: string
@@ -17,6 +19,7 @@ export default function MarkdownEditor({
 }: Props) {
 	const [isPreview, setIsPreview] = useState(false)
 	const [preview, setPreview] = useState<ReactNode>(null)
+	const deferredValue = useDeferredValue(value)
 
 	useEffect(() => {
 		if (!isPreview) {
@@ -25,16 +28,19 @@ export default function MarkdownEditor({
 
 		let cancelled = false
 
-		markdownToReact(value).then((node) => {
-			if (!cancelled) {
-				setPreview(node)
-			}
-		})
+		const timer = setTimeout(() => {
+			markdownToReact(deferredValue).then((node) => {
+				if (!cancelled) {
+					setPreview(node)
+				}
+			})
+		}, PREVIEW_DEBOUNCE_MS)
 
 		return () => {
 			cancelled = true
+			clearTimeout(timer)
 		}
-	}, [isPreview, value])
+	}, [isPreview, deferredValue])
 
 	return (
 		<div className="flex flex-col gap-2">
