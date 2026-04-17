@@ -26,6 +26,7 @@ vi.mock("@/lib/db", () => ({
 		project: {
 			findMany: vi.fn(),
 			findUnique: vi.fn(),
+			count: vi.fn(),
 		},
 	},
 }))
@@ -103,7 +104,7 @@ describe("listProjectsForAdmin", () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await listProjectsForAdmin({ query: "" })
+		const result = await listProjectsForAdmin({ query: "", page: 1 })
 
 		// Empty query → getAllProjectsForGallery({ sortDiscontinued: false }),
 		// i.e. no `where` filter and the unsorted-by-discontinued ordering.
@@ -115,13 +116,15 @@ describe("listProjectsForAdmin", () => {
 
 		const args = vi.mocked(prisma.project.findMany).mock.calls[0][0]
 		expect(args?.where).toBeUndefined()
+		// Non-search returns everything with no pagination metadata to render.
+		expect(result.totalPages).toBe(1)
 	})
 
 	it("falls back to the full gallery when the query is whitespace-only", async () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await listProjectsForAdmin({ query: "   " })
+		await listProjectsForAdmin({ query: "   ", page: 1 })
 
 		const args = vi.mocked(prisma.project.findMany).mock.calls[0][0]
 		expect(args?.where).toBeUndefined()
@@ -131,12 +134,14 @@ describe("listProjectsForAdmin", () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await listProjectsForAdmin({ query: "Alph" })
+		vi.mocked(prisma.project.count).mockResolvedValue(0)
+		await listProjectsForAdmin({ query: "Alph", page: 1 })
 
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: { name: { contains: "Alph", mode: "insensitive" } },
-				take: 100,
+				skip: 0,
+				take: 10,
 			})
 		)
 	})
@@ -145,13 +150,38 @@ describe("listProjectsForAdmin", () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await listProjectsForAdmin({ query: "  Beta  " })
+		vi.mocked(prisma.project.count).mockResolvedValue(0)
+		await listProjectsForAdmin({ query: "  Beta  ", page: 1 })
 
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: { name: { contains: "Beta", mode: "insensitive" } },
 			})
 		)
+	})
+
+	it("applies page-based skip when searching page 2+", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		vi.mocked(prisma.project.count).mockResolvedValue(0)
+		await listProjectsForAdmin({ query: "Alph", page: 3 })
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ skip: 20, take: 10 })
+		)
+	})
+
+	it("reports totalPages from the filtered count when searching", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		vi.mocked(prisma.project.count).mockResolvedValue(25)
+		const result = await listProjectsForAdmin({ query: "Alph", page: 1 })
+
+		// 25 matches / 10 per page = 3 pages
+		expect(result.totalPages).toBe(3)
+		expect(result.totalCount).toBe(25)
 	})
 })
 

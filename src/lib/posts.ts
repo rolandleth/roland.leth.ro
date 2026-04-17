@@ -165,8 +165,6 @@ export const loadPostForAdmin = cache(async (id: number) =>
 	prisma.post.findUnique({ where: { id } })
 )
 
-const ADMIN_LIST_LIMIT = 100
-
 const adminPostListItemSelect = {
 	...postListItemSelect,
 	published: true,
@@ -185,7 +183,7 @@ export interface AdminPostListResult {
 /**
  * Fetches posts for the admin dashboard, across all sections and including drafts.
  * When `query` is non-empty, matches title OR body case-insensitively (mirrors `searchPosts`).
- * Results are capped at `ADMIN_LIST_LIMIT`; `totalCount` reflects the true DB count.
+ * Paginated at `PAGE_SIZE` in both modes so `totalPages` is always meaningful.
  */
 export async function listPostsForAdmin({
 	query,
@@ -206,16 +204,13 @@ export async function listPostsForAdmin({
 			}
 		: {}
 
-	const take = isSearching ? ADMIN_LIST_LIMIT : PAGE_SIZE
-	const skip = isSearching ? 0 : (page - 1) * PAGE_SIZE
-
 	const [posts, totalCount] = await Promise.all([
 		prisma.post.findMany({
 			where,
 			select: adminPostListItemSelect,
 			orderBy: { datetime: "desc" },
-			skip,
-			take,
+			skip: (page - 1) * PAGE_SIZE,
+			take: PAGE_SIZE,
 		}),
 		prisma.post.count({ where }),
 	])

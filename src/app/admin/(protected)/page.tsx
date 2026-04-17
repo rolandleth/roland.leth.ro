@@ -26,11 +26,17 @@ async function PostsSection({ query, page }: { query: string; page: number }) {
 	})
 
 	function pageUrl(p: number): string {
-		if (p === 1) {
-			return "/admin"
+		const params = new URLSearchParams()
+		if (isSearching) {
+			params.set("q", query)
+		}
+		if (p > 1) {
+			params.set("page", String(p))
 		}
 
-		return `/admin?page=${p}`
+		const qs = params.toString()
+
+		return qs ? `/admin?${qs}` : "/admin"
 	}
 
 	return (
@@ -75,7 +81,7 @@ async function PostsSection({ query, page }: { query: string; page: number }) {
 				)}
 			</div>
 
-			{!isSearching && totalPages > 1 && (
+			{totalPages > 1 && (
 				<nav className="mt-6 flex items-center justify-between">
 					{page > 1 ? (
 						<Link
@@ -138,17 +144,38 @@ function ProjectsGroupedView({ projects }: { projects: ProjectGalleryItem[] }) {
 	)
 }
 
-async function ProjectsSection({ query }: { query: string }) {
+async function ProjectsSection({
+	query,
+	page,
+}: {
+	query: string
+	page: number
+}) {
 	const isSearching = query.length > 0
-	const projects = await listProjectsForAdmin({ query })
+	const { projects, totalCount, totalPages } = await listProjectsForAdmin({
+		query,
+		page,
+	})
+
+	function pageUrl(p: number): string {
+		const params = new URLSearchParams({ tab: "projects" })
+		if (isSearching) {
+			params.set("q", query)
+		}
+		if (p > 1) {
+			params.set("page", String(p))
+		}
+
+		return `/admin?${params.toString()}`
+	}
 
 	return (
 		<section>
 			<div className="mb-4 flex items-center justify-between">
 				<p className="text-secondary text-xs">
 					{isSearching
-						? `${projects.length} result${projects.length === 1 ? "" : "s"}`
-						: `${projects.length} projects`}
+						? `${totalCount} result${totalCount === 1 ? "" : "s"}`
+						: `${totalCount} projects`}
 				</p>
 				<Link
 					href="/admin/projects/new"
@@ -191,6 +218,36 @@ async function ProjectsSection({ query }: { query: string }) {
 				</div>
 			) : (
 				<ProjectsGroupedView projects={projects} />
+			)}
+
+			{totalPages > 1 && (
+				<nav className="mt-6 flex items-center justify-between">
+					{page > 1 ? (
+						<Link
+							href={pageUrl(page - 1)}
+							className="text-secondary hover:text-primary text-sm transition-colors"
+						>
+							← Previous
+						</Link>
+					) : (
+						<div />
+					)}
+
+					<p className="text-secondary text-xs">
+						{page} / {totalPages}
+					</p>
+
+					{page < totalPages ? (
+						<Link
+							href={pageUrl(page + 1)}
+							className="text-secondary hover:text-primary text-sm transition-colors"
+						>
+							Next →
+						</Link>
+					) : (
+						<div />
+					)}
+				</nav>
 			)}
 		</section>
 	)
@@ -236,7 +293,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 			</div>
 
 			{tab === "posts" && <PostsSection query={query} page={page} />}
-			{tab === "projects" && <ProjectsSection query={query} />}
+			{tab === "projects" && <ProjectsSection query={query} page={page} />}
 		</div>
 	)
 }

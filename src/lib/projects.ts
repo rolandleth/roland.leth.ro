@@ -222,31 +222,61 @@ export const loadProjectForAdmin = cache(async (id: number) =>
 	prisma.project.findUnique({ where: { id }, include: projectInclude })
 )
 
-const ADMIN_LIST_LIMIT = 100
+/**
+ * Admin dashboard pagination size. Kept in sync with `PAGE_SIZE` in `posts.ts`
+ * so both tabs paginate at the same rhythm; duplicated to avoid cross-module
+ * coupling of an arguably unrelated constant.
+ */
+const ADMIN_PAGE_SIZE = 10
+
+export interface AdminProjectListResult {
+	projects: ProjectGalleryItem[]
+	totalCount: number
+	totalPages: number
+}
 
 /**
  * Fetches projects for the admin dashboard in the same shape as the public gallery,
  * but without cache or discontinued-last ordering so edits surface immediately.
- * When `query` is non-empty, matches `name` case-insensitively. Capped at `ADMIN_LIST_LIMIT`.
+ * When `query` is non-empty, matches `name` case-insensitively and paginates at
+ * `ADMIN_PAGE_SIZE`. When not searching, returns everything (the grouped view
+ * shows the full list) and reports `totalPages: 1` so callers can treat it
+ * uniformly.
  */
 export async function listProjectsForAdmin({
 	query,
+	page,
 }: {
 	query?: string
-}): Promise<ProjectGalleryItem[]> {
+	page: number
+}): Promise<AdminProjectListResult> {
 	const term = query?.trim() ?? ""
 	const isSearching = term.length > 0
 
 	if (!isSearching) {
-		return getAllProjectsForGallery({ sortDiscontinued: false })
+		const projects = await getAllProjectsForGallery({ sortDiscontinued: false })
+
+		return { projects, totalCount: projects.length, totalPages: 1 }
 	}
 
-	return prisma.project.findMany({
-		where: { name: { contains: term, mode: "insensitive" } },
-		select: gallerySelect,
-		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-		take: ADMIN_LIST_LIMIT,
-	})
+	const where = { name: { contains: term, mode: "insensitive" as const } }
+
+	const [projects, totalCount] = await Promise.all([
+		prisma.project.findMany({
+			where,
+			select: gallerySelect,
+			orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+			skip: (page - 1) * ADMIN_PAGE_SIZE,
+			take: ADMIN_PAGE_SIZE,
+		}),
+		prisma.project.count({ where }),
+	])
+
+	return {
+		projects,
+		totalCount,
+		totalPages: Math.ceil(totalCount / ADMIN_PAGE_SIZE),
+	}
 }
 
 /**

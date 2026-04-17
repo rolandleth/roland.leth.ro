@@ -1,6 +1,9 @@
+// Both handlers are required even when the corresponding `canMove*` is false,
+// so we can't ship a live button that calls into thin air. The `canMove*`
+// flags drive the disabled state only.
 interface Props {
-	onMoveUp?: () => void
-	onMoveDown?: () => void
+	onMoveUp: () => void
+	onMoveDown: () => void
 	onRemove?: () => void
 	canMoveUp: boolean
 	canMoveDown: boolean
