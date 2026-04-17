@@ -1,7 +1,5 @@
 "use client"
 
-import { useState } from "react"
-
 export const FREEFORM_VALUE = "__freeform__"
 
 interface Props {
@@ -15,6 +13,18 @@ interface Props {
 	required?: boolean
 }
 
+/**
+ * Dual-input control that stays in sync with the `value` prop without any
+ * internal mirror state: mode is derived from `value` on every render, so
+ * external prop changes (form reset, async prefill) flow through cleanly.
+ *
+ * - `value === ""` → both inputs enabled (user picks a preset or types freely).
+ * - `value` matches a preset → dropdown active, text input disabled.
+ * - `value` is non-empty & not a preset → text input active, dropdown disabled.
+ *
+ * The dropdown always exposes a "Freeform…" option so users in preset mode can
+ * explicitly switch back by clearing `value` via `onChange("")`.
+ */
 export default function PresetOrFreeformInput({
 	value,
 	onChange,
@@ -25,24 +35,16 @@ export default function PresetOrFreeformInput({
 	className,
 	required = false,
 }: Props) {
-	const isPreset = presets.includes(value)
-	const [dropdownValue, setDropdownValue] = useState(isPreset ? value : "")
-	const [freeformValue, setFreeformValue] = useState(isPreset ? "" : value)
+	const isPreset = value !== "" && presets.includes(value)
+	const isFreeform = value !== "" && !isPreset
 
 	function handleDropdownChange(next: string) {
 		if (next === FREEFORM_VALUE) {
-			setDropdownValue("")
-			onChange(freeformValue)
+			onChange("")
 
 			return
 		}
 
-		setDropdownValue(next)
-		onChange(next)
-	}
-
-	function handleFreeformChange(next: string) {
-		setFreeformValue(next)
 		onChange(next)
 	}
 
@@ -54,10 +56,10 @@ export default function PresetOrFreeformInput({
 		<div className={wrapperClassName}>
 			<select
 				id={id}
-				value={dropdownValue}
+				value={isPreset ? value : ""}
 				onChange={(e) => handleDropdownChange(e.target.value)}
-				disabled={freeformValue !== ""}
-				required={required && freeformValue === ""}
+				disabled={isFreeform}
+				required={required && !isFreeform}
 				className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			>
 				<option value="" disabled>
@@ -68,17 +70,15 @@ export default function PresetOrFreeformInput({
 						{option}
 					</option>
 				))}
-				{dropdownValue !== "" && (
-					<option value={FREEFORM_VALUE}>Freeform…</option>
-				)}
+				<option value={FREEFORM_VALUE}>Freeform…</option>
 			</select>
 			<input
 				type="text"
 				placeholder={placeholder}
-				value={freeformValue}
-				onChange={(e) => handleFreeformChange(e.target.value)}
-				disabled={dropdownValue !== ""}
-				required={required && dropdownValue === ""}
+				value={isFreeform ? value : ""}
+				onChange={(e) => onChange(e.target.value)}
+				disabled={isPreset}
+				required={required && !isPreset}
 				className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			/>
 		</div>
