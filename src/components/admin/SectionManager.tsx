@@ -7,6 +7,7 @@ import ReorderControls from "@/components/ui/ReorderControls"
 import { moveAndReorder } from "@/lib/reorder"
 
 export interface SectionImage {
+	_key: string
 	url: string
 	caption: string
 	sortOrder: number
@@ -52,7 +53,12 @@ function SectionCard({
 	function addImage() {
 		const images = [
 			...section.images,
-			{ url: "", caption: "", sortOrder: section.images.length },
+			{
+				_key: crypto.randomUUID(),
+				url: "",
+				caption: "",
+				sortOrder: section.images.length,
+			},
 		]
 		onUpdate({ ...section, images })
 	}
@@ -129,7 +135,7 @@ function SectionCard({
 
 						{section.images.map((image, imageIndex) => (
 							<div
-								key={imageIndex}
+								key={image._key}
 								className="border-border flex flex-col gap-3 rounded-md border p-3"
 							>
 								<ImageUpload

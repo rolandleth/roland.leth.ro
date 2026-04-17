@@ -49,10 +49,11 @@ export async function PUT(
 	}
 
 	const { name, sections, links, ...rest } = parsed.data
-	// `v !== undefined` (not `!= null`) so explicit `null` clears are preserved.
-	const data: Record<string, unknown> = Object.fromEntries(
-		Object.entries(rest).filter(([, v]) => v !== undefined)
-	)
+	// `rest` carries the Zod-inferred field types; Prisma treats `undefined`
+	// as "skip this column" and `null` as "set to null" natively, so we don't
+	// need to strip undefineds. `name` is folded in alongside a derived `slug`.
+	type ProjectUpdatePayload = typeof rest & { name?: string; slug?: string }
+	const data: ProjectUpdatePayload = { ...rest }
 
 	if (name != null) {
 		data.name = name
@@ -69,7 +70,7 @@ export async function PUT(
 
 				if (current != null && current.sortOrder !== data.sortOrder) {
 					const oldOrder = current.sortOrder
-					const newOrder = data.sortOrder as number
+					const newOrder = data.sortOrder
 
 					if (newOrder < oldOrder) {
 						// Moving up: shift the range [new, old) down to make room.

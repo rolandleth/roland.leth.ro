@@ -22,6 +22,16 @@ export default async function ProjectsPage() {
 	const others = allProjects.filter((p) => !p.isFeatured)
 	const platformGroups = groupByPlatform(others)
 
+	// Precompute a running stagger offset per group so each card's animation
+	// index is unique across every group, independent of group size.
+	let staggerCursor = featured.length
+	const groupsWithStaggerStart = platformGroups.map((group) => {
+		const startIndex = staggerCursor
+		staggerCursor += group.projects.length
+
+		return { ...group, startIndex }
+	})
+
 	return (
 		<main className="relative mx-auto max-w-5xl px-4 py-12">
 			<PageGlow />
@@ -48,7 +58,7 @@ export default async function ProjectsPage() {
 			)}
 
 			{/* Other projects grouped by platform */}
-			{platformGroups.map((group, gi) => (
+			{groupsWithStaggerStart.map((group) => (
 				<section key={group.label} className="mb-12">
 					<h2
 						className={`text-secondary mb-5 text-xs font-semibold tracking-widest ${group.label === "iOS" ? "" : "uppercase"}`}
@@ -60,7 +70,7 @@ export default async function ProjectsPage() {
 						{group.projects.map((project, i) => (
 							<AnimatedCard
 								key={project.id}
-								index={featured.length + gi * 4 + i}
+								index={group.startIndex + i}
 								delayMultiplier={0.05}
 							>
 								<CompactProjectCard

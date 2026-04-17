@@ -130,7 +130,10 @@ describe("POST /api/admin/projects", () => {
 		await POST(makeRequest(validPayload))
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.sortOrder).toBe(6)
+		// With 5 existing projects at sortOrder 0..4, the new one slots in at 5
+		// (0-indexed). `count + 1` would create a gap that the reorder helper
+		// and DELETE reindex both assume doesn't exist.
+		expect(data.sortOrder).toBe(5)
 		expect(updateMany).not.toHaveBeenCalled()
 	})
 

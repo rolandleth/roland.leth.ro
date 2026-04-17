@@ -24,9 +24,9 @@ interface InitialData {
 	isDiscontinued: boolean
 	date: string | null
 	sortOrder: number
-	sections: (Omit<SectionItem, "_key"> & {
+	sections: (Omit<SectionItem, "_key" | "images"> & {
 		id?: number
-		images: (SectionImage & { id?: number })[]
+		images: (Omit<SectionImage, "_key"> & { id?: number })[]
 	})[]
 	links: (Omit<LinkItem, "_key"> & { id?: number })[]
 }
@@ -47,7 +47,9 @@ interface ProjectPayload {
 	isDiscontinued: boolean
 	date: string | null
 	sortOrder: number
-	sections: Omit<SectionItem, "_key">[]
+	sections: (Omit<SectionItem, "_key" | "images"> & {
+		images: Omit<SectionImage, "_key">[]
+	})[]
 	links: Omit<LinkItem, "_key">[]
 }
 
@@ -88,6 +90,10 @@ export default function ProjectForm({ initialData }: Props) {
 		(initialData?.sections ?? []).map((section) => ({
 			...section,
 			_key: crypto.randomUUID(),
+			images: section.images.map((image) => ({
+				...image,
+				_key: crypto.randomUUID(),
+			})),
 		}))
 	)
 	const [links, setLinks] = useState<LinkItem[]>(
@@ -112,8 +118,12 @@ export default function ProjectForm({ initialData }: Props) {
 			isDiscontinued,
 			date: date || null,
 			sortOrder,
-			// Strip the client-only `_key` from sections and links before sending.
-			sections: sections.map(({ _key: _, ...rest }) => rest),
+			// Strip the client-only `_key` from sections, their nested images,
+			// and links before sending.
+			sections: sections.map(({ _key: _, images, ...rest }) => ({
+				...rest,
+				images: images.map(({ _key: __, ...imgRest }) => imgRest),
+			})),
 			links: links.map(({ _key: _, ...rest }) => rest),
 		})
 	}

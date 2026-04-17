@@ -48,9 +48,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 				})
 				targetOrder = sortOrder
 			} else {
-				// No position given — append after the last project.
-				const count = await tx.project.count()
-				targetOrder = count + 1
+				// No position given — append at the end. `sortOrder` is 0-indexed
+				// everywhere else (reorder helper, DELETE reindex), so `count` is
+				// the next free slot, not `count + 1`.
+				targetOrder = await tx.project.count()
 			}
 
 			return tx.project.create({
