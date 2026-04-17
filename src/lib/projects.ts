@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache"
 import { cache } from "react"
 import { prisma } from "@/lib/db"
+import { PAGE_SIZE } from "@/lib/posts"
 
 export interface ProjectListItem {
 	id: number
@@ -222,13 +223,6 @@ export const loadProjectForAdmin = cache(async (id: number) =>
 	prisma.project.findUnique({ where: { id }, include: projectInclude })
 )
 
-/**
- * Admin dashboard pagination size. Kept in sync with `PAGE_SIZE` in `posts.ts`
- * so both tabs paginate at the same rhythm; duplicated to avoid cross-module
- * coupling of an arguably unrelated constant.
- */
-const ADMIN_PAGE_SIZE = 10
-
 export interface AdminProjectListResult {
 	projects: ProjectGalleryItem[]
 	totalCount: number
@@ -239,7 +233,7 @@ export interface AdminProjectListResult {
  * Fetches projects for the admin dashboard in the same shape as the public gallery,
  * but without cache or discontinued-last ordering so edits surface immediately.
  * When `query` is non-empty, matches `name` case-insensitively and paginates at
- * `ADMIN_PAGE_SIZE`. When not searching, returns everything (the grouped view
+ * `PAGE_SIZE`. When not searching, returns everything (the grouped view
  * shows the full list) and reports `totalPages: 1` so callers can treat it
  * uniformly.
  */
@@ -266,8 +260,8 @@ export async function listProjectsForAdmin({
 			where,
 			select: gallerySelect,
 			orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-			skip: (page - 1) * ADMIN_PAGE_SIZE,
-			take: ADMIN_PAGE_SIZE,
+			skip: (page - 1) * PAGE_SIZE,
+			take: PAGE_SIZE,
 		}),
 		prisma.project.count({ where }),
 	])
@@ -275,7 +269,7 @@ export async function listProjectsForAdmin({
 	return {
 		projects,
 		totalCount,
-		totalPages: Math.ceil(totalCount / ADMIN_PAGE_SIZE),
+		totalPages: Math.ceil(totalCount / PAGE_SIZE),
 	}
 }
 
