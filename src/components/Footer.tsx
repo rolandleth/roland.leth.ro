@@ -9,7 +9,7 @@ export default function Footer() {
 				<div className="flex items-center gap-5">
 					<span>
 						&copy; <span className="hidden sm:inline">2013 &ndash; </span>
-						<FooterYear initialYear={new Date().getFullYear()} />
+						<FooterYear />
 					</span>
 					<Link
 						href="/blog/tech/archive"
