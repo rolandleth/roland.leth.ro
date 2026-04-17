@@ -90,6 +90,11 @@ function makeBlogPage1Cache(section: Section) {
 
 const blogPage1Cache = bySection(makeBlogPage1Cache)
 
+/**
+ * Fetches a page of posts for a section. Callers are responsible for passing
+ * a sane `page` (>= 1, integer) — always route through `parsePageParam` at the
+ * route boundary. This function does not clamp, to surface misuse early.
+ */
 export async function getPostsBySection(
 	section: Section,
 	page: number = 1
