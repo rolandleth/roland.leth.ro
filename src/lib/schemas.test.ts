@@ -298,27 +298,82 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 
 // #endregion
 
-// #region String length boundaries (gap)
+// #region String length boundaries
 
-// `postCreateSchema`/`projectCreateSchema`/`loginSchema` only enforce `min(1)`
-// on title/body/summary/name/password — there is no `max()` in `src/lib/schemas.ts`.
-// Leaving these as `.todo` so the gap is visible in the report.
-describe.todo(
-	"postCreateSchema — title/body/summary max-length boundaries",
-	() => {
-		it.todo("rejects a title longer than the configured max")
-		it.todo("rejects a body longer than the configured max")
-		it.todo("rejects a summary longer than the configured max")
+describe("postCreateSchema — title/body/summary max-length boundaries", () => {
+	const basePost = {
+		title: "T",
+		body: "B",
+		datetime: "2024-01-01-0900",
 	}
-)
 
-describe.todo(
-	"projectCreateSchema — name/summary max-length boundaries",
-	() => {
-		it.todo("rejects a name longer than the configured max")
-		it.todo("rejects a summary longer than the configured max")
+	it("rejects a title longer than 200 characters", () => {
+		const result = postCreateSchema.safeParse({
+			...basePost,
+			title: "x".repeat(201),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a body longer than 100_000 characters", () => {
+		const result = postCreateSchema.safeParse({
+			...basePost,
+			body: "x".repeat(100_001),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a summary longer than 300 characters", () => {
+		const result = postCreateSchema.safeParse({
+			...basePost,
+			summary: "x".repeat(301),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("accepts title/body/summary at exactly the configured max", () => {
+		const result = postCreateSchema.safeParse({
+			...basePost,
+			title: "x".repeat(200),
+			body: "x".repeat(100_000),
+			summary: "x".repeat(300),
+		})
+		expect(result.success).toBe(true)
+	})
+})
+
+describe("projectCreateSchema — name/summary max-length boundaries", () => {
+	const baseProject = {
+		name: "N",
+		summary: "S",
+		platform: "iOS",
 	}
-)
+
+	it("rejects a name longer than 80 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			name: "x".repeat(81),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a summary longer than 300 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			summary: "x".repeat(301),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("accepts name/summary at exactly the configured max", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			name: "x".repeat(80),
+			summary: "x".repeat(300),
+		})
+		expect(result.success).toBe(true)
+	})
+})
 
 // #endregion
 

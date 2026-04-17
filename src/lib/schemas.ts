@@ -13,10 +13,10 @@ const httpUrl = z
 // Posts
 
 export const postCreateSchema = z.object({
-	title: z.string().min(1),
-	body: z.string().min(1),
+	title: z.string().min(1).max(200),
+	body: z.string().min(1).max(100_000),
 	datetime: z.string().min(1),
-	summary: z.string().nullable().optional(),
+	summary: z.string().max(300).nullable().optional(),
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),
@@ -46,8 +46,8 @@ const projectSectionSchema = z.object({
 })
 
 export const projectCreateSchema = z.object({
-	name: z.string().min(1),
-	summary: z.string().min(1),
+	name: z.string().min(1).max(80),
+	summary: z.string().min(1).max(300),
 	platform: z.string().min(1),
 	role: z.string().nullable().optional(),
 	accentColor: z.string().nullable().optional(),
