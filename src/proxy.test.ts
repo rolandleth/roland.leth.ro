@@ -210,22 +210,19 @@ describe("proxy — feed redirects", () => {
 
 // #endregion
 
-// #region Root slug rewrite
+// #region Root slug fall-through
 
-describe("proxy — root slug rewrite", () => {
-	it("rewrites an unknown single-segment path to /api/legacy-redirect/:slug", async () => {
+describe("proxy — root slug fall-through", () => {
+	it("passes unknown single-segment paths through to Next.js routing", async () => {
+		// Legacy slugs are handled by `src/app/[slug]/page.tsx`, not by
+		// middleware rewrite — so middleware just falls through.
 		const response = await proxy(makeRequest("/some-old-post"))
-		const rewriteHeader = response.headers.get("x-middleware-rewrite")
-		expect(rewriteHeader).not.toBeNull()
-
-		const rewriteUrl = new URL(rewriteHeader!)
-		expect(rewriteUrl.pathname).toBe("/api/legacy-redirect/some-old-post")
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
 	})
 
-	// /admin is excluded: it redirects to /admin/login when unauthenticated,
-	// so x-middleware-rewrite would be null for the wrong reason.
 	it.each(["/about", "/projects", "/blog", "/api", "/privacy", "/tools"])(
-		"does not rewrite known top-level route %s",
+		"passes known top-level route %s through",
 		async (path) => {
 			const response = await proxy(makeRequest(path))
 			expect(response.headers.get("x-middleware-rewrite")).toBeNull()
@@ -282,21 +279,17 @@ describe("proxy — pass-through", () => {
 // #region Trailing slash + empty cookie edge cases
 
 describe("proxy — trailing slash variants and empty cookie", () => {
-	it("does not redirect /tech/ (trailing slash) as a section root", async () => {
+	it("passes /tech/ (trailing slash) through to Next.js", async () => {
 		// SECTION_ROOT_REGEX is anchored with `$` after the section name, so
-		// `/tech/` misses it; it's a single-segment root-slug rewrite candidate.
-		// `split("/").filter(Boolean)` yields ["tech"] which is in KNOWN_ROUTES... no,
-		// KNOWN_ROUTES holds `/about`, `/projects`, etc. `/tech` is NOT known, so
-		// this path gets rewritten to the legacy-redirect lookup.
+		// `/tech/` misses it. With KNOWN_ROUTES gone, middleware no longer
+		// rewrites to an API handler; Next.js normalizes the trailing slash
+		// and dispatches to `src/app/[slug]/page.tsx` if nothing static matches.
 		const response = await proxy(makeRequest("/tech/"))
-		const rewrite = response.headers.get("x-middleware-rewrite")
-		expect(rewrite).not.toBeNull()
-		// The trailing slash is preserved through the rewrite because the source
-		// segment is forwarded verbatim to the legacy-redirect lookup.
-		expect(new URL(rewrite!).pathname).toBe("/api/legacy-redirect/tech/")
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
 	})
 
-	it("does not redirect /life/blog/ (empty slug) as a section blog redirect", async () => {
+	it("passes /life/blog/ (empty slug) through", async () => {
 		// SECTION_BLOG_REGEX requires `(.+)` after `/blog/`, so `/life/blog/` misses it
 		// and falls through to pass-through as a multi-segment non-legacy path.
 		const response = await proxy(makeRequest("/life/blog/"))

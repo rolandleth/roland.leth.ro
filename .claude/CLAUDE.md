@@ -31,7 +31,8 @@ src/
       loan-calculator/          # Loan calculator tool (/tools/loan-calculator)
     about/                      # About page (/about)
     admin/                      # Post/project creation/editing (protected)
-    api/                        # API routes (posts CRUD, feed, legacy-redirect, upload)
+    api/                        # API routes (posts CRUD, feed, upload)
+    [slug]/                     # Catch-all for legacy root-level URLs (DB lookup → permanentRedirect or notFound)
   proxy.ts                      # Middleware: auth protection + legacy URL redirects
   components/                   # Shared UI components
     blog/                       # Blog-specific components
@@ -96,12 +97,12 @@ Post fields: title, body (markdown), summary, imageUrl, section, slug (derived f
 
 ## Legacy URL handling
 
-Handled in `src/proxy.ts` (Next.js middleware), no hardcoded slug lists:
+Pattern-based redirects live in `src/proxy.ts` (Next.js middleware); single-segment root-level slug lookups live in `src/app/[slug]/page.tsx` (catch-all page, reached only when no static top-level route matches):
 
-- `/tech/blog/:slug` → 301 to `/blog/tech/:slug` (pattern match)
-- `/life/blog/:slug` → 301 to `/blog/life/:slug` (pattern match)
-- `/tech/archive` → 301 to `/blog/tech/archive` (pattern match)
-- `/:slug` (root-level, single segment, not a known route) → database lookup by slug, 301 to `/blog/{section}/{slug}` if found, otherwise 404
+- `/tech/blog/:slug` → 301 to `/blog/tech/:slug` (middleware, pattern match)
+- `/life/blog/:slug` → 301 to `/blog/life/:slug` (middleware, pattern match)
+- `/tech/archive` → 301 to `/blog/tech/archive` (middleware, pattern match)
+- `/:slug` (catch-all) → DB lookup via `lookupLegacySlug`, `permanentRedirect` (308) to `/blog/{section}/{slug}` or `/projects/{slug}` on hit, `notFound()` (renders `app/not-found.tsx`) on miss
 
 ## Design direction
 

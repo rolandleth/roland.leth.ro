@@ -5,19 +5,6 @@ import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
 
-// Known top-level routes that are not legacy slugs. Must be kept in sync with
-// the top-level folders under `src/app/` — a real route missing from this set
-// gets rewritten to the legacy-redirect lookup, then 404s.
-const KNOWN_ROUTES = new Set([
-	"/about",
-	"/admin",
-	"/api",
-	"/blog",
-	"/privacy",
-	"/projects",
-	"/tools",
-])
-
 const SECTION_ALTERNATION = SECTIONS.join("|")
 
 // Hoisted so Node doesn't re-compile these on every middleware invocation.
@@ -125,19 +112,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		)
 	}
 
-	// Single-segment paths not matching known routes are potential old post slugs.
-	// DB lookup is handled in /app/[slug]/route.ts to keep middleware edge-safe.
-	const segments = pathname.split("/").filter(Boolean)
-	const isRootSlug =
-		segments.length === 1 && !KNOWN_ROUTES.has(`/${segments[0]}`)
-
-	if (isRootSlug) {
-		const lookupUrl = request.nextUrl.clone()
-		lookupUrl.pathname = `/api/legacy-redirect/${segments[0]}`
-
-		return NextResponse.rewrite(lookupUrl)
-	}
-
+	// Unmatched single-segment paths (potential legacy post/project slugs) fall
+	// through to Next.js routing, where `src/app/[slug]/page.tsx` takes over
+	// only when no static top-level route matches — so no KNOWN_ROUTES list to
+	// maintain. The catch-all page does the DB lookup + `permanentRedirect` or
+	// `notFound()`.
 	return NextResponse.next()
 }
 
