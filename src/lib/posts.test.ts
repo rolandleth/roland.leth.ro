@@ -371,16 +371,23 @@ describe("revalidatePostSection", () => {
 		vi.mocked(revalidateTag).mockClear()
 	})
 
-	it("revalidates both the feed and blog tags for the section", () => {
+	it("revalidates the feed, blog, and shared posts tags for the section", () => {
 		revalidatePostSection("tech")
 		expect(revalidateTag).toHaveBeenCalledWith("feed-tech", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+		// The shared `posts` tag is what busts the sitemap and
+		// `generateStaticParams` on any post mutation — load-bearing for
+		// correctness, so pin both its presence and the total call count.
+		expect(revalidateTag).toHaveBeenCalledWith("posts", "max")
+		expect(revalidateTag).toHaveBeenCalledTimes(3)
 	})
 
 	it("uses the section name for the life section", () => {
 		revalidatePostSection("life")
 		expect(revalidateTag).toHaveBeenCalledWith("feed-life", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("posts", "max")
+		expect(revalidateTag).toHaveBeenCalledTimes(3)
 	})
 })
 
