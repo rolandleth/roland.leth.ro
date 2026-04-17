@@ -2,12 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-
-const navLinks = [
-	{ href: "/blog/tech", label: "Blog" },
-	{ href: "/projects", label: "Projects" },
-	{ href: "/about", label: "About" },
-]
+import { navLinks } from "@/lib/navigation"
 
 export default function Header() {
 	const pathname = usePathname()

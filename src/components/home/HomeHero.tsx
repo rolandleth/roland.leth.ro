@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import Typewriter from "@/components/Typewriter"
 import { fadeUp } from "@/lib/motion"
+import { navLinks } from "@/lib/navigation"
 
 const phrases = [
 	"iOS developer",
@@ -11,12 +12,6 @@ const phrases = [
 	"Product & UX focused",
 	"Business-driven",
 	"Engineering leader",
-]
-
-const navLinks = [
-	{ href: "/blog/tech", label: "Blog" },
-	{ href: "/projects", label: "Projects" },
-	{ href: "/about", label: "About" },
 ]
 
 export default function HomeHero() {
