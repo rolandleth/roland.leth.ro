@@ -1,7 +1,12 @@
 import { headers } from "next/headers"
 
 function defaultProto(host: string): "http" | "https" {
-	if (host.startsWith("localhost") || host.includes(":")) {
+	// `host.includes(":")` used to stand in for "has a port = dev", but an https
+	// host with an explicit port (e.g. `example.com:8443`) also has a colon and
+	// would wrongly resolve to http. On Vercel this code path is covered by the
+	// `x-forwarded-proto` header; the heuristic only matters on bare local dev,
+	// where the hostname itself is the signal.
+	if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) {
 		return "http"
 	}
 
