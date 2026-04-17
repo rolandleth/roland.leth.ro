@@ -1,5 +1,4 @@
 import PageGlow from "@/components/PageGlow"
-import PrivacyLink from "@/components/privacy/PrivacyLink"
 import PrivacySection from "@/components/privacy/PrivacySection"
 import type { Metadata } from "next"
 
@@ -27,12 +26,10 @@ const sections: { title: string; content: React.ReactNode }[] = [
 				</p>
 				<p>
 					This site uses{" "}
-					<PrivacyLink href="https://vercel.com/docs/analytics">
-						Vercel Analytics
-					</PrivacyLink>
-					, which is cookie-free and does not track individuals. It collects
-					only aggregated, anonymous data such as page views and general
-					geographic region.
+					<a href="https://vercel.com/docs/analytics">Vercel Analytics</a>,
+					which is cookie-free and does not track individuals. It collects only
+					aggregated, anonymous data such as page views and general geographic
+					region.
 				</p>
 				<p>
 					I do not knowingly contact or collect personal information from
@@ -87,7 +84,7 @@ const sections: { title: string; content: React.ReactNode }[] = [
 		content: (
 			<p>
 				If you have any questions or concerns, please{" "}
-				<PrivacyLink href="mailto:roland+hi@leth.ro">contact me</PrivacyLink>.
+				<a href="mailto:roland+hi@leth.ro">contact me</a>.
 			</p>
 		),
 	},

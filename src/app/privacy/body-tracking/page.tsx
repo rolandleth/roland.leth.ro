@@ -1,5 +1,4 @@
 import PageGlow from "@/components/PageGlow"
-import PrivacyLink from "@/components/privacy/PrivacyLink"
 import PrivacySection from "@/components/privacy/PrivacySection"
 import type { Metadata } from "next"
 
@@ -28,9 +27,9 @@ const sections: { title: string; content: React.ReactNode }[] = [
 				<p>
 					The HealthKit data and any data you create are synced via iCloud by
 					default, to keep it in sync across your devices. This is governed by{" "}
-					<PrivacyLink href="https://www.apple.com/legal/privacy/">
+					<a href="https://www.apple.com/legal/privacy/">
 						Apple&apos;s Privacy Policy
-					</PrivacyLink>
+					</a>
 					. We have no access to this data and it only leaves your device
 					through Apple&apos;s iCloud sync.
 				</p>
@@ -51,7 +50,7 @@ const sections: { title: string; content: React.ReactNode }[] = [
 		content: (
 			<p>
 				If you have any questions or concerns, please{" "}
-				<PrivacyLink href="mailto:roland+hi@leth.ro">contact us</PrivacyLink>.
+				<a href="mailto:roland+hi@leth.ro">contact us</a>.
 			</p>
 		),
 	},
