@@ -61,6 +61,9 @@ export async function GET(
 		return NextResponse.redirect(new URL(`/projects/${match.slug}`, base), 301)
 	}
 
-	// Miss means the slug isn't legacy — hand off to Next.js' not-found UI.
-	return NextResponse.redirect(new URL("/404", request.url), 307)
+	// Miss means the slug isn't legacy. The middleware rewrote the original URL
+	// to this handler, so returning 404 here surfaces a proper 404 at the
+	// user's URL. Redirecting to `/404` would re-enter middleware and loop,
+	// since `/404` isn't a real route.
+	return NextResponse.json({ error: "Not found" }, { status: 404 })
 }

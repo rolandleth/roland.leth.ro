@@ -36,11 +36,14 @@ beforeEach(() => {
 })
 
 describe("GET /api/legacy-redirect/[slug]", () => {
-	it("redirects to /404 when neither post nor project matches the slug", async () => {
+	it("returns 404 when neither post nor project matches the slug", async () => {
 		const response = await GET(makeRequest("old-slug"), makeParams("old-slug"))
-		// Route hands misses to Next's not-found UI via a 307 rewrite.
-		expect(response.status).toBe(307)
-		expect(response.headers.get("location")).toContain("/404")
+		// The middleware rewrote the user's URL to this handler, so returning
+		// 404 here surfaces a proper 404 at the original URL. Redirecting to
+		// `/404` would re-enter middleware and loop.
+		expect(response.status).toBe(404)
+		expect(response.headers.get("location")).toBeNull()
+		expect(await response.json()).toEqual({ error: "Not found" })
 	})
 
 	it("redirects to /blog/:section/:slug when a post is found", async () => {

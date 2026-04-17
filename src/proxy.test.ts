@@ -224,7 +224,7 @@ describe("proxy — root slug rewrite", () => {
 
 	// /admin is excluded: it redirects to /admin/login when unauthenticated,
 	// so x-middleware-rewrite would be null for the wrong reason.
-	it.each(["/about", "/projects", "/blog", "/api"])(
+	it.each(["/about", "/projects", "/blog", "/api", "/privacy", "/tools"])(
 		"does not rewrite known top-level route %s",
 		async (path) => {
 			const response = await proxy(makeRequest(path))

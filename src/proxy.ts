@@ -5,8 +5,18 @@ import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
 
-// Known top-level routes that are not legacy slugs.
-const KNOWN_ROUTES = new Set(["/about", "/projects", "/blog", "/admin", "/api"])
+// Known top-level routes that are not legacy slugs. Must be kept in sync with
+// the top-level folders under `src/app/` — a real route missing from this set
+// gets rewritten to the legacy-redirect lookup, then 404s.
+const KNOWN_ROUTES = new Set([
+	"/about",
+	"/admin",
+	"/api",
+	"/blog",
+	"/privacy",
+	"/projects",
+	"/tools",
+])
 
 const SECTION_ALTERNATION = SECTIONS.join("|")
 
