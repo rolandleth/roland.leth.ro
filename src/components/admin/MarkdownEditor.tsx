@@ -4,8 +4,6 @@ import { useState, useEffect, useDeferredValue } from "react"
 import { markdownToReact } from "@/lib/markdown"
 import type { ReactNode } from "react"
 
-const PREVIEW_DEBOUNCE_MS = 150
-
 interface Props {
 	value: string
 	onChange: (value: string) => void
@@ -19,6 +17,8 @@ export default function MarkdownEditor({
 }: Props) {
 	const [isPreview, setIsPreview] = useState(false)
 	const [preview, setPreview] = useState<ReactNode>(null)
+	// `useDeferredValue` already coalesces rapid edits by letting React drop
+	// stale renders, so no additional setTimeout debounce is needed.
 	const deferredValue = useDeferredValue(value)
 
 	useEffect(() => {
@@ -28,17 +28,29 @@ export default function MarkdownEditor({
 
 		let cancelled = false
 
-		const timer = setTimeout(() => {
-			markdownToReact(deferredValue).then((node) => {
-				if (!cancelled) {
-					setPreview(node)
+		markdownToReact(deferredValue)
+			.then((node) => {
+				if (cancelled) {
+					return
 				}
+
+				setPreview(node)
 			})
-		}, PREVIEW_DEBOUNCE_MS)
+			.catch((err: unknown) => {
+				if (cancelled) {
+					return
+				}
+
+				console.error("Markdown preview failed to render:", err)
+				setPreview(
+					<span className="text-sm text-red-500">
+						Preview failed to render. Check the console for details.
+					</span>
+				)
+			})
 
 		return () => {
 			cancelled = true
-			clearTimeout(timer)
 		}
 	}, [isPreview, deferredValue])
 
