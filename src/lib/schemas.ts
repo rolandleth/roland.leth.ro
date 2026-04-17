@@ -29,19 +29,19 @@ export const postUpdateSchema = postCreateSchema.partial()
 const projectLinkSchema = z.object({
 	label: z.string().min(1),
 	url: httpUrl,
-	sortOrder: z.number().int().optional(),
+	sortOrder: z.number().int().min(0).optional(),
 })
 
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
 	caption: z.string().nullable().optional(),
-	sortOrder: z.number().int().optional(),
+	sortOrder: z.number().int().min(0).optional(),
 })
 
 const projectSectionSchema = z.object({
 	title: z.string().min(1),
 	description: z.string().min(1),
-	sortOrder: z.number().int().optional(),
+	sortOrder: z.number().int().min(0).optional(),
 	images: z.array(projectSectionImageSchema).optional(),
 })
 
@@ -56,7 +56,7 @@ export const projectCreateSchema = z.object({
 	isFeatured: z.boolean().optional(),
 	isDiscontinued: z.boolean().optional(),
 	date: z.string().nullable().optional(),
-	sortOrder: z.number().int().optional(),
+	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
 })

@@ -5,17 +5,26 @@ import { useState } from "react"
 
 interface Props {
 	projectId: number
+	/** 0-indexed DB position. Rendered to the admin as a 1-indexed value. */
 	initialSortOrder: number
 	totalCount: number
 }
 
+/**
+ * Admin-only input for nudging a single project's position. The DB stores
+ * `sortOrder` as a dense 0-indexed sequence (`0..totalCount - 1`), but the
+ * admin sees it as an ordinal position (`1..totalCount`) — "1" means first,
+ * "2" second, etc. Translation happens at this component's boundary: display
+ * values are `initialSortOrder + 1`, and the PUT body subtracts 1 before it
+ * hits the API.
+ */
 export default function ProjectSortOrderInput({
 	projectId,
 	initialSortOrder,
 	totalCount,
 }: Props) {
 	const router = useRouter()
-	const [value, setValue] = useState(String(initialSortOrder))
+	const [value, setValue] = useState(String(initialSortOrder + 1))
 	const [isSaving, setIsSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
@@ -23,14 +32,17 @@ export default function ProjectSortOrderInput({
 		const parsed = parseInt(value, 10)
 
 		if (isNaN(parsed)) {
-			setValue(String(initialSortOrder))
+			setValue(String(initialSortOrder + 1))
 			return
 		}
 
 		const clamped = Math.max(1, Math.min(totalCount, parsed))
 		setValue(String(clamped))
 
-		if (clamped === initialSortOrder) {
+		// The input is 1-indexed for humans; the API expects 0-indexed.
+		const nextSortOrder = clamped - 1
+
+		if (nextSortOrder === initialSortOrder) {
 			return
 		}
 
@@ -39,11 +51,11 @@ export default function ProjectSortOrderInput({
 		const response = await fetch(`/api/admin/projects/${projectId}`, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ sortOrder: clamped }),
+			body: JSON.stringify({ sortOrder: nextSortOrder }),
 		})
 
 		if (!response.ok) {
-			setValue(String(initialSortOrder))
+			setValue(String(initialSortOrder + 1))
 			setError("Failed to save")
 			setIsSaving(false)
 			return

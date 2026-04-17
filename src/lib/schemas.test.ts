@@ -267,11 +267,20 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 		platform: "iOS",
 	}
 
-	it("accepts a negative sortOrder", () => {
-		// `z.number().int()` has no lower bound, so negative integers pass today.
-		// If we ever want to require non-negative sort orders, this test will flip.
+	it("rejects a negative sortOrder", () => {
+		// The DB stores `sortOrder` as a dense 0-indexed sequence; a negative
+		// value would cause the admin PUT path to shift every row and land the
+		// new project at an out-of-range index. `.min(0)` closes the gap at the
+		// schema boundary.
 		expect(
 			projectCreateSchema.safeParse({ ...valid, sortOrder: -1 }).success
+		).toBe(false)
+	})
+
+	it("accepts a zero sortOrder", () => {
+		// 0 is the first valid position — the top of the list.
+		expect(
+			projectCreateSchema.safeParse({ ...valid, sortOrder: 0 }).success
 		).toBe(true)
 	})
 

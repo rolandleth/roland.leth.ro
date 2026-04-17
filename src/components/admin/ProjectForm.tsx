@@ -187,6 +187,7 @@ export default function ProjectForm({ initialData }: Props) {
 				<input
 					id="sortOrder"
 					type="number"
+					min={0}
 					value={sortOrder}
 					onChange={(e) => setSortOrder(Number(e.target.value))}
 					className="admin-input"
