@@ -40,6 +40,7 @@ function makeFeedPostsCache(section: Section) {
 					slug: true,
 					section: true,
 					datetime: true,
+					updatedAt: true,
 					body: true,
 					summary: true,
 				},
@@ -71,15 +72,22 @@ export async function GET(
 	const feedTitle = `Roland Leth — ${capitalizeSection(section)} blog`
 	const feedUrl = `${SITE_URL}/api/feed/${section}`
 	const blogUrl = `${SITE_URL}/blog/${section}`
+	// `<updated>` is the most recent edit across the feed entries. Feed readers
+	// use it to decide whether to refetch; bumping it on edits (not just new
+	// posts) is what RFC 4287 asks for. An older post being edited correctly
+	// advances the feed's timestamp.
 	const updatedAt =
 		posts.length > 0
-			? postDatetimeToISO(posts[0].datetime)
+			? new Date(
+					Math.max(...posts.map((post) => post.updatedAt.getTime()))
+				).toISOString()
 			: new Date().toISOString()
 
 	const entries = posts
 		.map((post) => {
 			const postUrl = `${SITE_URL}/blog/${post.section}/${post.slug}`
 			const published = postDatetimeToISO(post.datetime)
+			const updated = post.updatedAt.toISOString()
 			const summary = escapeXml(post.summary ?? excerptFromBody(post.body))
 
 			return `  <entry>
@@ -87,7 +95,7 @@ export async function GET(
     <link href="${postUrl}" />
     <id>${postUrl}</id>
     <published>${published}</published>
-    <updated>${published}</updated>
+    <updated>${updated}</updated>
     <summary>${summary}</summary>
   </entry>`
 		})
