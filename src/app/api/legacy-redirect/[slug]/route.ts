@@ -1,9 +1,10 @@
 import { unstable_cache } from "next/cache"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import type { Section } from "@/lib/sections"
 
 type LegacyMatch =
-	| { kind: "post"; section: string; slug: string }
+	| { kind: "post"; section: Section; slug: string }
 	| { kind: "project"; slug: string }
 	| null
 

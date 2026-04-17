@@ -167,7 +167,7 @@ describe("getPostBySlug", () => {
 		id: 1,
 		title: "My Post",
 		slug: "my-post",
-		section: "tech",
+		section: "tech" as const,
 		datetime: "2024-06-01-1200",
 		body: "Body content.",
 		summary: "A short summary.",

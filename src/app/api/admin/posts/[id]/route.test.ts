@@ -41,7 +41,7 @@ const existingPost = {
 	title: "Original Title",
 	slug: "original-title",
 	body: "Original body.",
-	section: "tech",
+	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
 	summary: null,

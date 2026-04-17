@@ -10,7 +10,7 @@ export function makePost(overrides: Partial<PostListItem> = {}): PostListItem {
 		body: "Default body content.",
 		datetime: "2024-06-01-1200",
 		slug: "default-title",
-		section: "tech",
+		section: "tech" as const,
 		readingTime: "2 min read",
 		...overrides,
 	}

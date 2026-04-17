@@ -30,7 +30,7 @@ const BASE = "https://localhost:3000"
 function postStub(
 	overrides: {
 		slug?: string
-		section?: string
+		section?: "tech" | "life"
 		datetime?: string
 		updatedAt?: Date
 	} = {}
@@ -40,7 +40,7 @@ function postStub(
 
 	return {
 		slug: "my-post",
-		section: "tech",
+		section: "tech" as const,
 		datetime,
 		updatedAt: new Date(dateOnly),
 		...overrides,

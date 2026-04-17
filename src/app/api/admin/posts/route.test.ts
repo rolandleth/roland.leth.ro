@@ -37,7 +37,7 @@ const createdPost = {
 	id: 1,
 	...validPayload,
 	slug: "my-new-post",
-	section: "tech",
+	section: "tech" as const,
 	published: true,
 	summary: null,
 	imageUrl: null,
@@ -154,7 +154,7 @@ describe("POST /api/admin/posts", () => {
 	})
 
 	it("invalidates the blog cache for the correct section", async () => {
-		const lifePost = { ...createdPost, section: "life" }
+		const lifePost = { ...createdPost, section: "life" as const }
 		vi.mocked(prisma.post.create).mockResolvedValue(lifePost)
 
 		await POST(makeRequest({ ...validPayload, section: "life" }))

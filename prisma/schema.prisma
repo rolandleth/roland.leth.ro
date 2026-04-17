@@ -13,7 +13,7 @@ model Post {
   body        String
   summary     String?
   imageUrl    String?
-  section     String   @default("tech")
+  section     Section  @default(tech)
   slug        String
   datetime    String
   readingTime String?
@@ -22,6 +22,13 @@ model Post {
   updatedAt   DateTime @updatedAt
 
   @@unique([section, slug])
+}
+
+// Kept in sync with `SECTIONS` in src/lib/sections.ts. Adding a new value
+// requires updating both and running a Prisma migration.
+enum Section {
+  tech
+  life
 }
 
 model Project {

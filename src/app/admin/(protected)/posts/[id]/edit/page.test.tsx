@@ -25,7 +25,7 @@ const existingPost = {
 	id: 1,
 	title: "My Post",
 	body: "Content",
-	section: "tech",
+	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
 	summary: null,

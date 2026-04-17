@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
 import { postUpdateSchema } from "@/lib/schemas"
-import type { Section } from "@/lib/sections"
 
 export async function GET(
 	_request: Request,
@@ -67,7 +66,7 @@ export async function PUT(
 			data,
 		})
 
-		revalidatePostSection(post.section as Section)
+		revalidatePostSection(post.section)
 
 		return NextResponse.json(post)
 	} catch (error) {
@@ -105,7 +104,7 @@ export async function DELETE(
 			select: { section: true },
 		})
 
-		revalidatePostSection(post.section as Section)
+		revalidatePostSection(post.section)
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

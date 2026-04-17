@@ -31,7 +31,7 @@ export interface PostListItem {
 	id: number
 	title: string
 	slug: string
-	section: string
+	section: Section
 	datetime: string
 	body: string
 	readingTime: string | null
@@ -41,7 +41,7 @@ export interface PostDetail {
 	id: number
 	title: string
 	slug: string
-	section: string
+	section: Section
 	datetime: string
 	body: string
 	summary: string | null
@@ -251,7 +251,7 @@ export const getAllPublishedPostSlugs = unstable_cache(
 export interface PostArchiveItem {
 	title: string
 	slug: string
-	section: string
+	section: Section
 	datetime: string
 }
 
@@ -302,7 +302,7 @@ export function getPostsGroupedByYear(
 export interface PostSearchResult {
 	title: string
 	slug: string
-	section: string
+	section: Section
 	datetime: string
 	readingTime: string | null
 	body: string
