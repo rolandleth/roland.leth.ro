@@ -14,8 +14,9 @@ const ALLOWED_UPLOAD_MIMES = new Set([
 /**
  * Strips path separators and control/space characters from a filename so it
  * can be safely appended to a generated key without escaping the blob path.
+ * Exported for unit testing.
  */
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/\0\s]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "")
 }
 
@@ -41,6 +42,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 		)
 	}
 
+	// `file.type` is set by the client and trivially spoofable; this allowlist
+	// guards against the casual case (drag-and-drop of a `.html`) and against
+	// SVG specifically (XSS-shaped). It is NOT a defence against a malicious
+	// uploader — sniff magic bytes server-side if that threat model matters.
+	// Acceptable here because the only caller is the single-user admin UI.
 	if (!ALLOWED_UPLOAD_MIMES.has(file.type)) {
 		return NextResponse.json(
 			{ error: "Unsupported file type" },
