@@ -1,6 +1,6 @@
 import { headers } from "next/headers"
 
-function defaultProto(host: string): "http" | "https" {
+export function defaultProto(host: string): "http" | "https" {
 	// `host.includes(":")` used to stand in for "has a port = dev", but an https
 	// host with an explicit port (e.g. `example.com:8443`) also has a colon and
 	// would wrongly resolve to http. On Vercel this code path is covered by the

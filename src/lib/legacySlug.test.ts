@@ -69,10 +69,10 @@ describe("lookupLegacySlug", () => {
 		expect(prisma.project.findFirst).toHaveBeenCalled()
 	})
 
-	it("queries posts by the slug arg, selecting only section and slug", async () => {
+	it("queries published posts by the slug arg, selecting only section and slug", async () => {
 		await lookupLegacySlug("specific")
 		expect(prisma.post.findFirst).toHaveBeenCalledWith({
-			where: { slug: "specific" },
+			where: { slug: "specific", published: true },
 			select: { section: true, slug: true },
 		})
 	})

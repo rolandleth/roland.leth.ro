@@ -55,6 +55,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 	}
 
 	// Random prefix prevents collisions and guessable URLs for user-uploaded assets.
+	// If `file.name` strips entirely, the key ends with a trailing `-`; acceptable.
 	const key = `${randomUUID()}-${sanitizeFilename(file.name)}`
 
 	try {

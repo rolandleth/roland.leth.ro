@@ -17,7 +17,7 @@ export function lookupLegacySlug(slug: string): Promise<LegacyMatch> {
 		async (): Promise<LegacyMatch> => {
 			const [post, project] = await Promise.all([
 				prisma.post.findFirst({
-					where: { slug },
+					where: { slug, published: true },
 					select: { section: true, slug: true },
 				}),
 				prisma.project.findFirst({
