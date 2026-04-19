@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest"
-import { defaultProto } from "@/lib/request"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { defaultProto, siteBase } from "@/lib/request"
+
+vi.mock("next/headers", () => ({
+	headers: vi.fn(),
+}))
+
+import { headers } from "next/headers"
 
 describe("defaultProto", () => {
 	it("returns http for localhost", () => {
@@ -26,8 +32,53 @@ describe("defaultProto", () => {
 		expect(defaultProto("example.com:8443")).toBe("https")
 	})
 
-	it("returns https for a domain that starts with the word localhost as a subdomain prefix", () => {
-		// "localhostapp.example.com" starts with "localhost" — covered by startsWith
+	it("returns https for a domain with localhost as an embedded substring (not exact hostname)", () => {
+		// "notlocalhost" is not the hostname "localhost"; exact-match after stripping the port.
 		expect(defaultProto("notlocalhost.example.com")).toBe("https")
+	})
+
+	it("returns https for a hostname that shares the localhost prefix (e.g. localhostapp.example.com)", () => {
+		expect(defaultProto("localhostapp.example.com")).toBe("https")
+	})
+})
+
+describe("siteBase", () => {
+	beforeEach(() => {
+		vi.mocked(headers).mockReset()
+	})
+
+	it("throws when host header is missing", async () => {
+		vi.mocked(headers).mockResolvedValue(
+			new Headers() as Awaited<ReturnType<typeof headers>>
+		)
+		await expect(siteBase()).rejects.toThrow("Missing host header")
+	})
+
+	it("uses x-forwarded-proto over defaultProto when present", async () => {
+		vi.mocked(headers).mockResolvedValue(
+			new Headers({
+				host: "localhost",
+				"x-forwarded-proto": "https",
+			}) as Awaited<ReturnType<typeof headers>>
+		)
+		expect(await siteBase()).toBe("https://localhost")
+	})
+
+	it("falls back to defaultProto when x-forwarded-proto is absent", async () => {
+		vi.mocked(headers).mockResolvedValue(
+			new Headers({ host: "localhost:3000" }) as Awaited<
+				ReturnType<typeof headers>
+			>
+		)
+		expect(await siteBase()).toBe("http://localhost:3000")
+	})
+
+	it("returns https base for a production domain without x-forwarded-proto", async () => {
+		vi.mocked(headers).mockResolvedValue(
+			new Headers({ host: "roland.leth.ro" }) as Awaited<
+				ReturnType<typeof headers>
+			>
+		)
+		expect(await siteBase()).toBe("https://roland.leth.ro")
 	})
 })
