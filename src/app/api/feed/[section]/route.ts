@@ -1,16 +1,13 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
+import { stripMarkdown } from "@/lib/markdown"
 import { bySection } from "@/lib/posts"
 import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
 
-/**
- * Returns the first 300 characters of a markdown body as a plain-text summary,
- * stripping leading/trailing whitespace. Used as a fallback when no summary
- * field is present on the post.
- */
+/** Returns a plain-text excerpt from a markdown body. Used as a fallback when no summary field is present. */
 function excerptFromBody(body: string): string {
-	return body.trim().slice(0, 300)
+	return stripMarkdown(body).slice(0, 300)
 }
 
 /** Escapes characters that are special in XML to prevent feed breakage. */

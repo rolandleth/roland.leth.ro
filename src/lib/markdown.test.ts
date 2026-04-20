@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
-import { markdownToReact } from "@/lib/markdown"
+import { markdownToReact, stripMarkdown } from "@/lib/markdown"
 
 async function render(markdown: string): Promise<string> {
 	const node = await markdownToReact(markdown)
@@ -123,5 +123,50 @@ describe("markdownToReact", () => {
 		expect(html).toContain("<h2>")
 		expect(html).toContain("First paragraph.")
 		expect(html).toContain("Second paragraph.")
+	})
+})
+
+describe("stripMarkdown", () => {
+	it("passes plain text through unchanged", () => {
+		expect(stripMarkdown("Just some plain text.")).toBe("Just some plain text.")
+	})
+
+	it("strips heading markers", () => {
+		expect(stripMarkdown("# Title")).toBe("Title")
+		expect(stripMarkdown("## Section")).toBe("Section")
+	})
+
+	it("strips bold and italic syntax", () => {
+		expect(stripMarkdown("**bold** and _italic_")).toBe("bold and italic")
+	})
+
+	it("extracts link text, drops the URL", () => {
+		expect(stripMarkdown("[label](https://example.com)")).toBe("label")
+	})
+
+	it("keeps inline code value", () => {
+		expect(stripMarkdown("Use `const` here.")).toBe("Use const here.")
+	})
+
+	it("strips fenced code blocks entirely", () => {
+		expect(stripMarkdown("Before.\n\n```ts\nconst x = 1\n```\n\nAfter.")).toBe(
+			"Before. After."
+		)
+	})
+
+	it("strips blockquote markers", () => {
+		expect(stripMarkdown("> A quoted line.")).toBe("A quoted line.")
+	})
+
+	it("collapses multiple paragraphs into a single space-separated string", () => {
+		expect(stripMarkdown("First.\n\nSecond.")).toBe("First. Second.")
+	})
+
+	it("returns an empty string for empty input", () => {
+		expect(stripMarkdown("")).toBe("")
+	})
+
+	it("strips GFM strikethrough syntax", () => {
+		expect(stripMarkdown("~~gone~~ remains")).toBe("gone remains")
 	})
 })

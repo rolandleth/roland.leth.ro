@@ -27,3 +27,33 @@ export async function markdownToReact(content: string): Promise<ReactNode> {
 
 	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
 }
+
+type MdastNode = { type: string; value?: string; children?: MdastNode[] }
+
+// Block-level node types whose text content should be separated by whitespace
+// when multiple appear as siblings, so paragraphs don't run together after joining.
+const BLOCK_TYPES = new Set(["paragraph", "heading", "blockquote", "listItem"])
+
+function extractText(node: MdastNode): string {
+	// Fenced code blocks produce noise in plain-text excerpts; skip them entirely.
+	if (node.type === "code") {
+		return ""
+	}
+
+	if (node.value !== undefined) {
+		return node.value
+	}
+
+	const text = (node.children ?? []).map(extractText).join("")
+
+	return BLOCK_TYPES.has(node.type) ? text + "\n" : text
+}
+
+const textOnlyProcessor = unified().use(remarkParse).use(remarkGfm)
+
+/** Strips all markdown syntax and returns plain text. Fenced code blocks are omitted entirely; inline code values are kept. */
+export function stripMarkdown(markdown: string): string {
+	const tree = textOnlyProcessor.parse(markdown) as unknown as MdastNode
+
+	return extractText(tree).replace(/\s+/g, " ").trim()
+}
