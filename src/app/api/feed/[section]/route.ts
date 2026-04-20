@@ -33,7 +33,7 @@ function makeFeedPostsCache(section: Section) {
 		async () => {
 			const now = currentDatetimeString()
 
-			return prisma.post.findMany({
+			const posts = await prisma.post.findMany({
 				where: { section, published: true, datetime: { lte: now } },
 				select: {
 					title: true,
@@ -47,6 +47,14 @@ function makeFeedPostsCache(section: Section) {
 				orderBy: { datetime: "desc" },
 				take: 20,
 			})
+
+			// `unstable_cache` serializes via JSON, which turns `Date` into a
+			// string on cache hits. Normalize to ISO up-front so the handler
+			// never has to care whether it's reading a fresh or cached result.
+			return posts.map((post) => ({
+				...post,
+				updatedAt: post.updatedAt.toISOString(),
+			}))
 		},
 		[`feed-posts-${section}`],
 		{ tags: [`feed-${section}`] }
@@ -79,7 +87,7 @@ export async function GET(
 	const updatedAt =
 		posts.length > 0
 			? new Date(
-					Math.max(...posts.map((post) => post.updatedAt.getTime()))
+					Math.max(...posts.map((post) => new Date(post.updatedAt).getTime()))
 				).toISOString()
 			: new Date().toISOString()
 
@@ -87,7 +95,7 @@ export async function GET(
 		.map((post) => {
 			const postUrl = `${SITE_URL}/blog/${post.section}/${post.slug}`
 			const published = postDatetimeToISO(post.datetime)
-			const updated = post.updatedAt.toISOString()
+			const updated = post.updatedAt
 			const summary = escapeXml(post.summary ?? excerptFromBody(post.body))
 
 			return `  <entry>
