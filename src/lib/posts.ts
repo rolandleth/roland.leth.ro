@@ -123,29 +123,43 @@ export async function getPostsBySection(
 	}
 }
 
+// One cache wrapper per (section, slug) pair, built lazily on first access and
+// reused for every subsequent call. This preserves the per-post tag used by
+// targeted revalidation while avoiding the "new wrapper per call" cost and
+// the revalidation log noise that causes.
+const postBySlugWrappers = new Map<string, () => Promise<PostDetail | null>>()
+
 export function getPostBySlug(
 	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
-	return unstable_cache(
-		() =>
-			prisma.post.findUnique({
-				where: { section_slug: { section, slug } },
-				select: {
-					id: true,
-					title: true,
-					slug: true,
-					section: true,
-					datetime: true,
-					body: true,
-					summary: true,
-					imageUrl: true,
-					readingTime: true,
-				},
-			}),
-		[`post-${section}-${slug}`],
-		{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
-	)()
+	const key = `${section}:${slug}`
+	let wrapper = postBySlugWrappers.get(key)
+
+	if (wrapper == null) {
+		wrapper = unstable_cache(
+			() =>
+				prisma.post.findUnique({
+					where: { section_slug: { section, slug } },
+					select: {
+						id: true,
+						title: true,
+						slug: true,
+						section: true,
+						datetime: true,
+						body: true,
+						summary: true,
+						imageUrl: true,
+						readingTime: true,
+					},
+				}),
+			[`post-${section}-${slug}`],
+			{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
+		)
+		postBySlugWrappers.set(key, wrapper)
+	}
+
+	return wrapper()
 }
 
 /**

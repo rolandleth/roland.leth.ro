@@ -195,17 +195,33 @@ export const projectInclude = {
 	links: { orderBy: { sortOrder: "asc" as const } },
 } as const
 
+// One cache wrapper per slug, built lazily on first access and reused for every
+// subsequent call. Preserves the per-project tag used by targeted revalidation
+// while avoiding the "new wrapper per call" cost and the revalidation log
+// noise that causes.
+const projectBySlugWrappers = new Map<
+	string,
+	() => Promise<ProjectDetail | null>
+>()
+
 /** Returns a project with its sections (and section images) and links, or null if not found. */
 export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
-	return unstable_cache(
-		() =>
-			prisma.project.findUnique({
-				where: { slug },
-				include: projectInclude,
-			}),
-		[`project-${slug}`],
-		{ tags: [`project-${slug}`, "projects"] }
-	)()
+	let wrapper = projectBySlugWrappers.get(slug)
+
+	if (wrapper == null) {
+		wrapper = unstable_cache(
+			() =>
+				prisma.project.findUnique({
+					where: { slug },
+					include: projectInclude,
+				}),
+			[`project-${slug}`],
+			{ tags: [`project-${slug}`, "projects"] }
+		)
+		projectBySlugWrappers.set(slug, wrapper)
+	}
+
+	return wrapper()
 }
 
 /**
