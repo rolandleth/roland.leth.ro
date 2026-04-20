@@ -36,7 +36,7 @@ const TEST_HEX_HASH = Buffer.from(TEST_HASH).toString("hex")
 beforeEach(() => {
 	vi.stubEnv("SESSION_SECRET", TEST_SECRET)
 	vi.stubEnv("ADMIN_EMAIL", TEST_EMAIL)
-	vi.stubEnv("ADMIN_PASSWORD_HASH", TEST_HEX_HASH)
+	vi.stubEnv("ADMIN_HASH_PASSWORD", TEST_HEX_HASH)
 	vi.mocked(cookies).mockResolvedValue(
 		mockCookieStore as unknown as Awaited<ReturnType<typeof cookies>>
 	)
@@ -73,8 +73,8 @@ describe("verifyCredentials", () => {
 		expect(await verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).toBe(false)
 	})
 
-	it("returns false when ADMIN_PASSWORD_HASH env var is missing", async () => {
-		delete process.env.ADMIN_PASSWORD_HASH
+	it("returns false when ADMIN_HASH_PASSWORD env var is missing", async () => {
+		delete process.env.ADMIN_HASH_PASSWORD
 		expect(await verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).toBe(false)
 	})
 

@@ -79,13 +79,13 @@ export async function verifyCredentials(
 	password: string
 ): Promise<boolean> {
 	const adminEmail = process.env.ADMIN_EMAIL
-	const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH
+	const adminPasswordHash = process.env.ADMIN_HASH_PASSWORD
 
 	if (!adminEmail || !adminPasswordHash) {
 		return false
 	}
 
-	// ADMIN_PASSWORD_HASH is stored as hex to avoid env parsing issues with / and $ chars.
+	// ADMIN_HASH_PASSWORD is stored as hex to avoid env parsing issues with / and $ chars.
 	const hash = Buffer.from(adminPasswordHash, "hex").toString()
 
 	// Always run bcrypt regardless of email match to prevent timing-based user enumeration.

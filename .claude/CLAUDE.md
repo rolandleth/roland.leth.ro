@@ -75,7 +75,7 @@ public/
 DATABASE_URL=           # PostgreSQL connection string
 SESSION_SECRET=         # JWT signing secret (hex-encoded)
 ADMIN_EMAIL=            # Single admin user email
-ADMIN_PASSWORD_HASH=    # bcrypt hash of admin password (hex-encoded)
+ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
 ```
 
 ## Commands
