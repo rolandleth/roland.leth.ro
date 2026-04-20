@@ -1,14 +1,9 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
-import { stripMarkdown } from "@/lib/markdown"
+import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
 import { bySection } from "@/lib/posts"
 import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
-
-/** Returns a plain-text excerpt from a markdown body. Used as a fallback when no summary field is present. */
-function excerptFromBody(body: string): string {
-	return stripMarkdown(body).slice(0, 300)
-}
 
 /** Escapes characters that are special in XML to prevent feed breakage. */
 function escapeXml(text: string): string {
@@ -45,13 +40,22 @@ function makeFeedPostsCache(section: Section) {
 				take: 20,
 			})
 
-			// `unstable_cache` serializes via JSON, which turns `Date` into a
-			// string on cache hits. Normalize to ISO up-front so the handler
-			// never has to care whether it's reading a fresh or cached result.
-			return posts.map((post) => ({
-				...post,
-				updatedAt: post.updatedAt.toISOString(),
-			}))
+			// Pre-render markdown and resolve the summary fallback here so the
+			// handler is pure template work. Both are included in the cached
+			// payload; `body` is dropped since only the derived fields are needed.
+			// `updatedAt` is normalized to ISO — `unstable_cache` JSON-serializes
+			// its return value, turning `Date` into a string on cache hits.
+			return Promise.all(
+				posts.map(async (post) => ({
+					title: post.title,
+					slug: post.slug,
+					section: post.section,
+					datetime: post.datetime,
+					updatedAt: post.updatedAt.toISOString(),
+					summary: post.summary ?? stripMarkdown(post.body).slice(0, 300),
+					htmlBody: await markdownToHtml(post.body),
+				}))
+			)
 		},
 		[`feed-posts-${section}`],
 		{ tags: [`feed-${section}`] }
@@ -92,16 +96,15 @@ export async function GET(
 		.map((post) => {
 			const postUrl = `${SITE_URL}/blog/${post.section}/${post.slug}`
 			const published = postDatetimeToISO(post.datetime)
-			const updated = post.updatedAt
-			const summary = escapeXml(post.summary ?? excerptFromBody(post.body))
 
 			return `  <entry>
     <title>${escapeXml(post.title)}</title>
     <link href="${postUrl}" />
     <id>${postUrl}</id>
     <published>${published}</published>
-    <updated>${updated}</updated>
-    <summary>${summary}</summary>
+    <updated>${post.updatedAt}</updated>
+    <summary>${escapeXml(post.summary)}</summary>
+    <content type="html"><![CDATA[${post.htmlBody}]]></content>
   </entry>`
 		})
 		.join("\n")

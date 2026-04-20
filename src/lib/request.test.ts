@@ -1,11 +1,10 @@
+import { headers } from "next/headers"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { defaultProto, siteBase } from "@/lib/request"
 
 vi.mock("next/headers", () => ({
 	headers: vi.fn(),
 }))
-
-import { headers } from "next/headers"
 
 describe("defaultProto", () => {
 	it("returns http for localhost", () => {

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
-import { markdownToReact, stripMarkdown } from "@/lib/markdown"
+import { markdownToHtml, markdownToReact, stripMarkdown } from "@/lib/markdown"
 
 async function render(markdown: string): Promise<string> {
 	const node = await markdownToReact(markdown)
@@ -123,6 +123,62 @@ describe("markdownToReact", () => {
 		expect(html).toContain("<h2>")
 		expect(html).toContain("First paragraph.")
 		expect(html).toContain("Second paragraph.")
+	})
+})
+
+describe("markdownToHtml", () => {
+	it("renders plain text in a paragraph", async () => {
+		const html = await markdownToHtml("Just some plain text.")
+		expect(html).toContain("<p>Just some plain text.</p>")
+	})
+
+	it("renders headings", async () => {
+		expect(await markdownToHtml("# H1")).toContain("<h1>H1</h1>")
+		expect(await markdownToHtml("## H2")).toContain("<h2>H2</h2>")
+	})
+
+	it("renders bold and italic", async () => {
+		const html = await markdownToHtml("**bold** and _italic_")
+		expect(html).toContain("<strong>bold</strong>")
+		expect(html).toContain("<em>italic</em>")
+	})
+
+	it("renders links with href", async () => {
+		const html = await markdownToHtml("[label](https://example.com)")
+		expect(html).toContain('href="https://example.com"')
+		expect(html).toContain("label")
+	})
+
+	it("renders fenced code blocks as plain <pre><code> without Shiki spans", async () => {
+		const html = await markdownToHtml("```ts\nconst x = 1\n```")
+		expect(html).toContain("<pre>")
+		expect(html).toContain("<code")
+		// Contract: markdownToHtml must never emit Shiki-generated <span> tokens.
+		// Feed readers have no access to the site's stylesheet, so highlighted spans
+		// render as unstyled noise. If this assertion fails, rehype-pretty-code was
+		// added to htmlProcessor in markdown.ts — remove it.
+		expect(html).not.toContain("<span")
+	})
+
+	it("renders inline code", async () => {
+		const html = await markdownToHtml("Use `const` here.")
+		expect(html).toContain("<code>const</code>")
+	})
+
+	it("renders a GFM table", async () => {
+		const html = await markdownToHtml("| A | B |\n|---|---|\n| 1 | 2 |")
+		expect(html).toContain("<table>")
+		expect(html).toContain("<th>")
+		expect(html).toContain("<td>")
+	})
+
+	it("renders GFM strikethrough", async () => {
+		const html = await markdownToHtml("~~gone~~")
+		expect(html).toContain("<del>gone</del>")
+	})
+
+	it("returns empty output for an empty string", async () => {
+		expect(await markdownToHtml("")).toBe("")
 	})
 })
 
