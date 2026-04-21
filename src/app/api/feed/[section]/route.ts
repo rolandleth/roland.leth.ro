@@ -16,6 +16,16 @@ function escapeXml(text: string): string {
 }
 
 /**
+ * Neutralizes the CDATA section terminator inside a payload that will be wrapped
+ * in `<![CDATA[ ... ]]>`. Any literal `]]>` in the HTML would otherwise close the
+ * section early and break the XML; the canonical workaround is to split the
+ * sequence across two CDATA sections.
+ */
+function escapeCdata(html: string): string {
+	return html.replace(/\]\]>/g, "]]]]><![CDATA[>")
+}
+
+/**
  * Creates a cached fetcher for feed posts scoped to a single section.
  * Each section gets its own cache entry and tag so revalidation is precise:
  * invalidating `feed-tech` only busts the tech feed, not life, and vice versa.
@@ -104,7 +114,7 @@ export async function GET(
     <published>${published}</published>
     <updated>${post.updatedAt}</updated>
     <summary>${escapeXml(post.summary)}</summary>
-    <content type="html"><![CDATA[${post.htmlBody}]]></content>
+    <content type="html"><![CDATA[${escapeCdata(post.htmlBody)}]]></content>
   </entry>`
 		})
 		.join("\n")

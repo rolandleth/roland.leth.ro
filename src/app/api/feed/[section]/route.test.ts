@@ -134,4 +134,19 @@ describe("GET /api/feed/:section", () => {
 		expect(text).toContain("<feed")
 		expect(text).not.toContain("<entry>")
 	})
+
+	it("escapes the CDATA terminator inside rendered HTML so the feed stays well-formed", async () => {
+		// A body whose rendered HTML contains the literal `]]>` sequence would
+		// otherwise close the `<content>` CDATA section early and break the XML.
+		vi.mocked(markdownToHtml).mockResolvedValueOnce("<p>before]]>after</p>")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
+
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		// Raw `]]>` must not appear inside the CDATA payload; the canonical split
+		// swaps it for `]]]]><![CDATA[>` which XML parsers recombine safely.
+		expect(text).toContain(
+			"<![CDATA[<p>before]]]]><![CDATA[>after</p>]]></content>"
+		)
+	})
 })

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import remarkRehype from "remark-rehype"
 import { unified } from "unified"
+import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
 
@@ -62,23 +63,29 @@ export async function markdownToHtml(content: string): Promise<string> {
 	return String(result)
 }
 
-type MdastNode = { type: string; value?: string; children?: MdastNode[] }
-
 // Block-level node types whose text content should be separated by whitespace
 // when multiple appear as siblings, so paragraphs don't run together after joining.
 const BLOCK_TYPES = new Set(["paragraph", "heading", "blockquote", "listItem"])
 
-function extractText(node: MdastNode): string {
+function extractText(node: Nodes): string {
 	// Fenced code blocks produce noise in plain-text excerpts; skip them entirely.
 	if (node.type === "code") {
 		return ""
 	}
 
-	if (node.value !== undefined) {
+	// `image` / `imageReference` store their display text in `alt`, not `value`
+	// or `children`. Treat alt text like link label text — it's narrative content
+	// that belongs in the excerpt.
+	if (node.type === "image" || node.type === "imageReference") {
+		return node.alt ?? ""
+	}
+
+	if ("value" in node) {
 		return node.value
 	}
 
-	const text = (node.children ?? []).map(extractText).join("")
+	const children = "children" in node ? node.children : []
+	const text = children.map(extractText).join("")
 
 	return BLOCK_TYPES.has(node.type) ? text + "\n" : text
 }
@@ -93,7 +100,7 @@ function extractText(node: MdastNode): string {
  * values are kept since they're often meaningful in-line.
  */
 export function stripMarkdown(markdown: string): string {
-	const tree = textOnlyProcessor.parse(markdown) as unknown as MdastNode
+	const tree = textOnlyProcessor.parse(markdown)
 
 	return extractText(tree).replace(/\s+/g, " ").trim()
 }

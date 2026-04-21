@@ -180,6 +180,20 @@ describe("markdownToHtml", () => {
 	it("returns empty output for an empty string", async () => {
 		expect(await markdownToHtml("")).toBe("")
 	})
+
+	// `remark-rehype` defaults to dropping raw HTML (no `allowDangerousHtml`).
+	// Any `<script>`, `<iframe>`, etc. authored inside a post body is discarded
+	// before reaching the feed. This test locks that contract in: if a future
+	// change passes `allowDangerousHtml: true`, it will break here, prompting a
+	// conscious decision about sanitization.
+	it("drops raw HTML embedded in markdown", async () => {
+		const html = await markdownToHtml(
+			"Before\n\n<script>alert(1)</script>\n\nAfter"
+		)
+		expect(html).not.toContain("<script>")
+		expect(html).toContain("<p>Before</p>")
+		expect(html).toContain("<p>After</p>")
+	})
 })
 
 describe("stripMarkdown", () => {
@@ -224,5 +238,20 @@ describe("stripMarkdown", () => {
 
 	it("strips GFM strikethrough syntax", () => {
 		expect(stripMarkdown("~~gone~~ remains")).toBe("gone remains")
+	})
+
+	it("extracts image alt text (inline image)", () => {
+		expect(
+			stripMarkdown("Before ![Screenshot of the dashboard](/img.png) after.")
+		).toBe("Before Screenshot of the dashboard after.")
+	})
+
+	it("extracts image alt text (image reference)", () => {
+		const md = "Before ![Diagram of the flow][ref] after.\n\n[ref]: /img.png"
+		expect(stripMarkdown(md)).toBe("Before Diagram of the flow after.")
+	})
+
+	it("returns empty string for an image with no alt text", () => {
+		expect(stripMarkdown("![](/img.png)")).toBe("")
 	})
 })
