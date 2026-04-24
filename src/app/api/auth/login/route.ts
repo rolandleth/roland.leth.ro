@@ -20,6 +20,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 		const { success } = await ratelimit.limit("global")
 
 		if (!success) {
+			// eslint-disable-next-line no-console
+			console.error("[api:auth:login] rate limit exceeded")
+
 			return NextResponse.json({ error: "Too many requests" }, { status: 429 })
 		}
 	}
@@ -29,12 +32,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	try {
 		body = await request.json()
 	} catch {
+		// eslint-disable-next-line no-console
+		console.error("[api:auth:login] invalid JSON body")
+
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 	}
 
 	const parsed = loginSchema.safeParse(body)
 
 	if (!parsed.success) {
+		// eslint-disable-next-line no-console
+		console.error("[api:auth:login] schema validation failed")
+
 		return NextResponse.json(
 			{ error: "Missing email or password" },
 			{ status: 400 }
@@ -44,6 +53,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	const { email, password } = parsed.data
 
 	if (!(await verifyCredentials(email, password))) {
+		// Logs the attempt (not the credentials) so repeated failures are visible
+		// without leaking secrets. Correlate spikes with rate-limit hits above.
+		// eslint-disable-next-line no-console
+		console.error("[api:auth:login] invalid credentials")
+
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 	}
 
