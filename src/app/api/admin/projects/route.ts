@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
+import { Prisma } from "@/generated/prisma/client"
 import { respondInternalError } from "@/lib/apiErrors"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
@@ -30,43 +31,49 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} = parsed.data
 
 	try {
-		const project = await prisma.$transaction(async (tx) => {
-			let targetOrder: number
+		// Serializable isolation for the same reason as the PUT handler: a concurrent
+		// writer could pick the same `targetOrder` (via `count()` or an overlapping
+		// shift) and produce duplicate sortOrder values.
+		const project = await prisma.$transaction(
+			async (tx) => {
+				let targetOrder: number
 
-			if (sortOrder != null) {
-				// Shift everything at or after the target position down to make room.
-				await tx.project.updateMany({
-					where: { sortOrder: { gte: sortOrder } },
-					data: { sortOrder: { increment: 1 } },
+				if (sortOrder != null) {
+					// Shift everything at or after the target position down to make room.
+					await tx.project.updateMany({
+						where: { sortOrder: { gte: sortOrder } },
+						data: { sortOrder: { increment: 1 } },
+					})
+					targetOrder = sortOrder
+				} else {
+					// No position given — append at the end. `sortOrder` is 0-indexed
+					// everywhere else (reorder helper, DELETE reindex), so `count` is
+					// the next free slot, not `count + 1`.
+					targetOrder = await tx.project.count()
+				}
+
+				return tx.project.create({
+					data: {
+						name,
+						slug: createSlug(name),
+						summary,
+						platform,
+						role: role ?? null,
+						accentColor: accentColor ?? null,
+						icon: icon ?? null,
+						heroImage: heroImage ?? null,
+						isFeatured: isFeatured ?? false,
+						isDiscontinued: isDiscontinued ?? false,
+						date: date ?? null,
+						sortOrder: targetOrder,
+						sections: toSectionCreate(sections),
+						links: toLinkCreate(links),
+					},
+					include: projectInclude,
 				})
-				targetOrder = sortOrder
-			} else {
-				// No position given — append at the end. `sortOrder` is 0-indexed
-				// everywhere else (reorder helper, DELETE reindex), so `count` is
-				// the next free slot, not `count + 1`.
-				targetOrder = await tx.project.count()
-			}
-
-			return tx.project.create({
-				data: {
-					name,
-					slug: createSlug(name),
-					summary,
-					platform,
-					role: role ?? null,
-					accentColor: accentColor ?? null,
-					icon: icon ?? null,
-					heroImage: heroImage ?? null,
-					isFeatured: isFeatured ?? false,
-					isDiscontinued: isDiscontinued ?? false,
-					date: date ?? null,
-					sortOrder: targetOrder,
-					sections: toSectionCreate(sections),
-					links: toLinkCreate(links),
-				},
-				include: projectInclude,
-			})
-		})
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+		)
 
 		revalidateTag("projects", "max")
 		revalidateTag(`project-${project.slug}`, "max")

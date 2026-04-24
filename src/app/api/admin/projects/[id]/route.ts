@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
+import { Prisma } from "@/generated/prisma/client"
 import {
 	handlePrismaError,
 	parseIdParam,
@@ -69,65 +70,71 @@ export async function PUT(
 	}
 
 	try {
-		// The sortOrder shift below assumes a single concurrent writer: it reads
-		// the current position, then updates the affected range. Prisma's default
-		// READ COMMITTED isolation plus the absence of a `@@unique` constraint on
-		// `Project.sortOrder` means two simultaneous PUTs could compute disjoint
-		// shift ranges and produce duplicate sortOrder values with no error.
-		// Fine on a single-admin site; escalate to `Prisma.TransactionIsolationLevel.Serializable`
-		// (or add the unique constraint) the moment a second editor is added.
-		const project = await prisma.$transaction(async (tx) => {
-			if (data.sortOrder != null) {
-				const current = await tx.project.findUnique({
-					where: { id },
-					select: { sortOrder: true },
-				})
+		// The sortOrder shift reads the current position, then updates the affected
+		// range. Under READ COMMITTED (Prisma/Postgres default), two simultaneous
+		// PUTs could compute disjoint shift ranges and produce duplicate sortOrder
+		// values with no error — Postgres can't enforce uniqueness here because
+		// `Project.sortOrder` has no `@@unique` constraint (a reorder would need
+		// `DEFERRABLE INITIALLY DEFERRED`, unexpressible in Prisma DSL). Running
+		// the transaction at `Serializable` isolation is the cheap cover: Postgres
+		// aborts one of the conflicting txns with a serialization_failure instead
+		// of letting both commit. At single-admin volumes conflicts are essentially
+		// impossible, so no retry loop.
+		const project = await prisma.$transaction(
+			async (tx) => {
+				if (data.sortOrder != null) {
+					const current = await tx.project.findUnique({
+						where: { id },
+						select: { sortOrder: true },
+					})
 
-				if (current != null && current.sortOrder !== data.sortOrder) {
-					const oldOrder = current.sortOrder
-					const newOrder = data.sortOrder
+					if (current != null && current.sortOrder !== data.sortOrder) {
+						const oldOrder = current.sortOrder
+						const newOrder = data.sortOrder
 
-					if (newOrder < oldOrder) {
-						// Moving up: shift the range [new, old) down to make room.
-						await tx.project.updateMany({
-							where: {
-								id: { not: id },
-								sortOrder: { gte: newOrder, lt: oldOrder },
-							},
-							data: { sortOrder: { increment: 1 } },
-						})
-					} else {
-						// Moving down: shift the range (old, new] up to fill the gap.
-						await tx.project.updateMany({
-							where: {
-								id: { not: id },
-								sortOrder: { gt: oldOrder, lte: newOrder },
-							},
-							data: { sortOrder: { decrement: 1 } },
-						})
+						if (newOrder < oldOrder) {
+							// Moving up: shift the range [new, old) down to make room.
+							await tx.project.updateMany({
+								where: {
+									id: { not: id },
+									sortOrder: { gte: newOrder, lt: oldOrder },
+								},
+								data: { sortOrder: { increment: 1 } },
+							})
+						} else {
+							// Moving down: shift the range (old, new] up to fill the gap.
+							await tx.project.updateMany({
+								where: {
+									id: { not: id },
+									sortOrder: { gt: oldOrder, lte: newOrder },
+								},
+								data: { sortOrder: { decrement: 1 } },
+							})
+						}
 					}
 				}
-			}
 
-			if (sections != null) {
-				// Delete all existing sections (cascade removes images).
-				await tx.projectSection.deleteMany({ where: { projectId: id } })
-			}
+				if (sections != null) {
+					// Delete all existing sections (cascade removes images).
+					await tx.projectSection.deleteMany({ where: { projectId: id } })
+				}
 
-			if (links != null) {
-				await tx.projectLink.deleteMany({ where: { projectId: id } })
-			}
+				if (links != null) {
+					await tx.projectLink.deleteMany({ where: { projectId: id } })
+				}
 
-			return tx.project.update({
-				where: { id },
-				data: {
-					...data,
-					sections: toSectionCreate(sections),
-					links: toLinkCreate(links),
-				},
-				include: projectInclude,
-			})
-		})
+				return tx.project.update({
+					where: { id },
+					data: {
+						...data,
+						sections: toSectionCreate(sections),
+						links: toLinkCreate(links),
+					},
+					include: projectInclude,
+				})
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+		)
 
 		revalidateTag("projects", "max")
 		revalidateTag(`project-${project.slug}`, "max")
@@ -157,17 +164,23 @@ export async function DELETE(
 	const { id } = idResult
 
 	try {
-		const deleted = await prisma.$transaction(async (tx) => {
-			const project = await tx.project.delete({ where: { id } })
+		// Serializable isolation for the same reason as the PUT handler: a concurrent
+		// sortOrder write during a delete could leave duplicate slots after the
+		// decrement-shift below.
+		const deleted = await prisma.$transaction(
+			async (tx) => {
+				const project = await tx.project.delete({ where: { id } })
 
-			// Close the gap left by the deleted project.
-			await tx.project.updateMany({
-				where: { sortOrder: { gt: project.sortOrder } },
-				data: { sortOrder: { decrement: 1 } },
-			})
+				// Close the gap left by the deleted project.
+				await tx.project.updateMany({
+					where: { sortOrder: { gt: project.sortOrder } },
+					data: { sortOrder: { decrement: 1 } },
+				})
 
-			return project
-		})
+				return project
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+		)
 
 		revalidateTag("projects", "max")
 		revalidateTag(`project-${deleted.slug}`, "max")
