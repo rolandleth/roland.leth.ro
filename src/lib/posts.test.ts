@@ -2,12 +2,12 @@ import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db"
+import { PAGE_SIZE } from "@/lib/pagination"
 import {
 	bySection,
 	getPostBySlug,
 	getPostsBySection,
 	getPostsGroupedByYear,
-	PAGE_SIZE,
 	revalidatePostSection,
 	searchPosts,
 } from "@/lib/posts"

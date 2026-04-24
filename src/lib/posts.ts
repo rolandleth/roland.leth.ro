@@ -2,9 +2,8 @@ import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/format"
+import { PAGE_SIZE } from "@/lib/pagination"
 import { SECTIONS, type Section } from "@/lib/sections"
-
-export const PAGE_SIZE = 10
 
 function publishedWhere(section: Section, now: string) {
 	return { section, published: true, datetime: { lte: now } }

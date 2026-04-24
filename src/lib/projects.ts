@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache"
 import { cache } from "react"
 import { prisma } from "@/lib/db"
-import { PAGE_SIZE } from "@/lib/posts"
+import { PAGE_SIZE } from "@/lib/pagination"
 
 export interface ProjectListItem {
 	id: number
