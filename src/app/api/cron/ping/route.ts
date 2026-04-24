@@ -1,7 +1,13 @@
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 
-const hasRedis = process.env.KV_REST_API_TOKEN
+// `Redis.fromEnv()` needs BOTH `KV_REST_API_TOKEN` and `KV_REST_API_URL`; a
+// truthy check on just the token would let `fromEnv()` throw at module load
+// when the URL is missing, which produces an unhelpful startup failure rather
+// than the documented "no-Redis" fallback path.
+const hasRedis = Boolean(
+	process.env.KV_REST_API_TOKEN && process.env.KV_REST_API_URL
+)
 const redis = hasRedis ? Redis.fromEnv() : null
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

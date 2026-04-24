@@ -4,7 +4,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyCredentials, createSession } from "@/lib/auth"
 import { loginSchema } from "@/lib/schemas"
 
-const hasRedis = process.env.KV_REST_API_TOKEN
+// `Redis.fromEnv()` (inside `Ratelimit`) needs BOTH vars. A truthy check on
+// just the token would let module-load throw when URL is missing, which
+// breaks the whole login route instead of falling back to "no rate limiting".
+const hasRedis = Boolean(
+	process.env.KV_REST_API_TOKEN && process.env.KV_REST_API_URL
+)
 
 const ratelimit = hasRedis
 	? new Ratelimit({
