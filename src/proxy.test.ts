@@ -120,6 +120,21 @@ describe("proxy — admin API protection", () => {
 		const response = await proxy(makeRequest("/api/admin/posts", "valid-token"))
 		expect(response.status).toBe(401)
 	})
+
+	// Contract test: every admin API path — both collection and resource —
+	// must be gated by middleware. A new admin route that bypasses the matcher
+	// would be a silent auth regression; asserting each path here is the
+	// minimum backstop since the handlers themselves don't re-check sessions.
+	it.each([
+		"/api/admin/posts",
+		"/api/admin/posts/1",
+		"/api/admin/projects",
+		"/api/admin/projects/1",
+		"/api/upload",
+	])("returns 401 for unauthenticated %s", async (path) => {
+		const response = await proxy(makeRequest(path))
+		expect(response.status).toBe(401)
+	})
 })
 
 // #endregion
