@@ -133,7 +133,7 @@ export async function PUT(
 		}
 
 		// eslint-disable-next-line no-console
-		console.error(error)
+		console.error("[api:admin:projects:PUT]", error)
 
 		return NextResponse.json(
 			{ error: "Internal server error" },
@@ -179,7 +179,7 @@ export async function DELETE(
 		}
 
 		// eslint-disable-next-line no-console
-		console.error(error)
+		console.error("[api:admin:projects:DELETE]", error)
 
 		return NextResponse.json(
 			{ error: "Internal server error" },

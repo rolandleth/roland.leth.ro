@@ -64,7 +64,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		return NextResponse.json({ url: blob.url })
 	} catch (error) {
 		// eslint-disable-next-line no-console
-		console.error(error)
+		console.error("[api:upload:POST]", error)
 
 		return NextResponse.json({ error: "Upload failed" }, { status: 500 })
 	}

@@ -88,7 +88,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		}
 
 		// eslint-disable-next-line no-console
-		console.error(error)
+		console.error("[api:admin:projects:POST]", error)
 
 		return NextResponse.json(
 			{ error: "Internal server error" },
