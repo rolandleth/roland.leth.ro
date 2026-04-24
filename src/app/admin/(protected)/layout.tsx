@@ -2,9 +2,11 @@ import { redirect } from "next/navigation"
 import AdminNav from "@/components/admin/AdminNav"
 import { verifySession } from "@/lib/auth"
 
-// Defense-in-depth: `src/proxy.ts` already gates this route, but a middleware
-// matcher typo would silently expose the admin shell. Re-checking here keeps
-// the layout safe even if that happens.
+// The real gate is `src/proxy.ts` (middleware) — `generateMetadata` functions
+// inside nested admin pages run independently of this layout and already touch
+// the DB before any check here, so this layout is not a complete backstop.
+// Re-checking here still protects the rendered page body (not metadata) in the
+// narrow case where a future middleware matcher typo lets a request through.
 export default async function ProtectedLayout({
 	children,
 }: {
