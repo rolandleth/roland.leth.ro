@@ -7,7 +7,23 @@ export default function AdminNav() {
 	const router = useRouter()
 
 	async function handleLogout() {
-		await fetch("/api/auth/logout", { method: "POST" })
+		try {
+			const response = await fetch("/api/auth/logout", { method: "POST" })
+
+			if (!response.ok) {
+				// eslint-disable-next-line no-console
+				console.error(
+					"[AdminNav:handleLogout] logout returned non-ok",
+					response.status
+				)
+			}
+		} catch (error) {
+			// Network failure: the cookie may still be valid, but the user has
+			// asked to leave. Log and still redirect so they're not trapped.
+			// eslint-disable-next-line no-console
+			console.error("[AdminNav:handleLogout] logout fetch failed", error)
+		}
+
 		router.push("/admin/login")
 	}
 
