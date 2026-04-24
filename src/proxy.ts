@@ -34,9 +34,13 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
 	const { pathname, search } = request.nextUrl
 
-	// Skip middleware work for paths that can never be legacy slugs or admin pages.
-	// `.` catches static assets; the matcher already filters most, but keeps this safe.
-	if (pathname.startsWith("/_next/") || pathname.includes(".")) {
+	// Defensive short-circuit for internal Next.js paths; the `config.matcher`
+	// already excludes `_next/static` and `_next/image`, but this catches any
+	// future `_next/*` without relying on the negative-lookahead pattern. Dots
+	// in the pathname used to short-circuit here too, but that also dropped
+	// legacy slugs containing dots (e.g. `v1.2.3`, `node.js`) out of the
+	// redirect path — static assets are already excluded via the matcher.
+	if (pathname.startsWith("/_next/")) {
 		return NextResponse.next()
 	}
 

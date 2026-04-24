@@ -341,9 +341,19 @@ describe("proxy — short-circuit paths", () => {
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 
-	it("passes through paths containing a dot (static assets)", async () => {
+	it("passes through paths containing a dot (static-asset-shaped URLs)", async () => {
+		// The `config.matcher` is the primary asset filter; the proxy no longer
+		// short-circuits on dots because that also dropped legacy dotted slugs
+		// (e.g. `v1.2.3`, `node.js`) out of the redirect path. Anything with a
+		// dot that actually reaches the proxy falls through unchanged.
 		const response = await proxy(makeRequest("/favicon.ico"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("redirects a legacy dotted slug like /tech/blog/node.js", async () => {
+		const response = await proxy(makeRequest("/tech/blog/node.js"))
+		expect(response.status).toBe(301)
+		expect(response.headers.get("location")).toContain("/blog/tech/node.js")
 	})
 
 	it("passes through /api/cron/ping without admin auth", async () => {
