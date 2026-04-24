@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useDeferredValue } from "react"
+import { useState, useEffect, useDeferredValue, useRef } from "react"
 import { markdownToReact } from "@/lib/markdown"
 import type { ReactNode } from "react"
 
@@ -20,9 +20,20 @@ export default function MarkdownEditor({
 	// `useDeferredValue` already coalesces rapid edits by letting React drop
 	// stale renders, so no additional setTimeout debounce is needed.
 	const deferredValue = useDeferredValue(value)
+	// Bounded (size 1) cache of the last `(input → node)` pair. Toggling the
+	// preview panel back and forth with the same content would otherwise re-run
+	// the full unified → rehype pipeline on every mount. One entry is enough for
+	// the Edit↔Preview toggle case; larger histories rarely help and grow with
+	// typing.
+	const lastParseRef = useRef<{ input: string; node: ReactNode } | null>(null)
 
 	useEffect(() => {
 		if (!isPreview) {
+			return
+		}
+
+		if (lastParseRef.current?.input === deferredValue) {
+			setPreview(lastParseRef.current.node)
 			return
 		}
 
@@ -34,6 +45,7 @@ export default function MarkdownEditor({
 					return
 				}
 
+				lastParseRef.current = { input: deferredValue, node }
 				setPreview(node)
 			})
 			.catch((err: unknown) => {
