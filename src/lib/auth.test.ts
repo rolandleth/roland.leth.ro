@@ -89,6 +89,24 @@ describe("verifyCredentials", () => {
 	it("returns false for both empty email and password", async () => {
 		expect(await verifyCredentials("", "")).toBe(false)
 	})
+
+	it("returns false when ADMIN_HASH_PASSWORD is not valid hex", async () => {
+		// `Buffer.from(raw, "hex")` silently decodes garbage; if the deployer
+		// stores the bcrypt hash as-is (no hex encoding), login must fail cleanly
+		// rather than appear to succeed against decoded noise.
+		vi.stubEnv("ADMIN_HASH_PASSWORD", "not-hex-at-all-zzzz")
+		expect(await verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).toBe(false)
+	})
+
+	it("still runs bcrypt.compare when the email doesn't match", async () => {
+		// Timing-based user enumeration claim: bcrypt must run regardless of
+		// whether the email matches, so the early-mismatch path takes the same
+		// time as a real compare. Spy on bcrypt and assert it was called even
+		// for a wrong email.
+		const spy = vi.spyOn(bcrypt, "compare")
+		await verifyCredentials("other@example.com", TEST_PASSWORD)
+		expect(spy).toHaveBeenCalledOnce()
+	})
 })
 
 // #endregion
