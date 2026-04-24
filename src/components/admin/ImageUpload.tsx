@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Props {
 	value: string
@@ -14,8 +14,17 @@ export default function ImageUpload({
 	label = "Image URL",
 }: Props) {
 	const inputRef = useRef<HTMLInputElement>(null)
+	// Tracks the currently in-flight upload so a newly-picked file can abort
+	// the previous request. Without this, selecting file A and then file B
+	// before A completes races: whichever `onChange(url)` fires last wins, and
+	// it may be the older file.
+	const abortRef = useRef<AbortController | null>(null)
 	const [isUploading, setIsUploading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+
+	useEffect(() => {
+		return () => abortRef.current?.abort()
+	}, [])
 
 	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0]
@@ -23,6 +32,10 @@ export default function ImageUpload({
 		if (!file) {
 			return
 		}
+
+		abortRef.current?.abort()
+		const controller = new AbortController()
+		abortRef.current = controller
 
 		setError(null)
 		setIsUploading(true)
@@ -34,6 +47,7 @@ export default function ImageUpload({
 			const response = await fetch("/api/upload", {
 				method: "POST",
 				body: formData,
+				signal: controller.signal,
 			})
 
 			if (!response.ok) {
@@ -44,12 +58,23 @@ export default function ImageUpload({
 			const { url } = await response.json()
 			onChange(url)
 		} catch (err) {
+			// Aborts are intentional — a newer upload or an unmount cancelled this
+			// one. Don't surface that as an error to the user.
+			if (err instanceof Error && err.name === "AbortError") {
+				return
+			}
+
 			setError(err instanceof Error ? err.message : "Upload failed")
 		} finally {
-			setIsUploading(false)
+			// Only reset saving state for the most recent request. An older aborted
+			// request flipping `isUploading` to false would unlock the UI while a
+			// newer request is still in flight.
+			if (abortRef.current === controller) {
+				setIsUploading(false)
 
-			if (inputRef.current) {
-				inputRef.current.value = ""
+				if (inputRef.current) {
+					inputRef.current.value = ""
+				}
 			}
 		}
 	}
