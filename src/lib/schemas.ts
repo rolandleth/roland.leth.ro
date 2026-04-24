@@ -27,30 +27,42 @@ export const postUpdateSchema = postCreateSchema.partial()
 // Projects
 
 const projectLinkSchema = z.object({
-	label: z.string().min(1),
+	label: z.string().min(1).max(60),
 	url: httpUrl,
 	sortOrder: z.number().int().min(0).optional(),
 })
 
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
-	caption: z.string().nullable().optional(),
+	caption: z.string().max(300).nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
 const projectSectionSchema = z.object({
-	title: z.string().min(1),
-	description: z.string().min(1),
+	title: z.string().min(1).max(200),
+	description: z.string().min(1).max(100_000),
 	sortOrder: z.number().int().min(0).optional(),
 	images: z.array(projectSectionImageSchema).optional(),
 })
+
+// Accepts CSS hex color in #rgb, #rrggbb, #rgba, or #rrggbbaa form.
+// A non-hex value renders a broken accent color on the project page, so
+// we reject at the schema boundary rather than ship the raw string.
+const hexColor = z
+	.string()
+	.regex(/^#[0-9a-fA-F]{3,8}$/, {
+		message: "Must be a hex color like #rgb or #rrggbb",
+	})
+	.refine((v) => [4, 5, 7, 9].includes(v.length), {
+		message: "Hex color must be 3, 4, 6, or 8 digits after the '#'",
+	})
 
 export const projectCreateSchema = z.object({
 	name: z.string().min(1).max(80),
 	summary: z.string().min(1).max(300),
 	platform: z.string().min(1),
-	role: z.string().nullable().optional(),
-	accentColor: z.string().nullable().optional(),
+	role: z.string().max(80).nullable().optional(),
+	accentColor: hexColor.nullable().optional(),
 	icon: httpUrl.nullable().optional(),
 	heroImage: httpUrl.nullable().optional(),
 	isFeatured: z.boolean().optional(),

@@ -384,6 +384,136 @@ describe("projectCreateSchema — name/summary max-length boundaries", () => {
 	})
 })
 
+describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
+	const baseProject = {
+		name: "N",
+		summary: "S",
+		platform: "iOS",
+	}
+
+	it("rejects a role longer than 80 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			role: "x".repeat(81),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("accepts a role at exactly 80 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			role: "x".repeat(80),
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a link label longer than 60 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			links: [{ label: "x".repeat(61), url: "https://example.com" }],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a section image caption longer than 300 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			sections: [
+				{
+					title: "S",
+					description: "D",
+					images: [
+						{ url: "https://example.com/i.png", caption: "x".repeat(301) },
+					],
+				},
+			],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a section title longer than 200 characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			sections: [{ title: "x".repeat(201), description: "D" }],
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+describe("projectCreateSchema — accentColor hex validation", () => {
+	const baseProject = {
+		name: "N",
+		summary: "S",
+		platform: "iOS",
+	}
+
+	it("accepts a 3-digit hex color", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "#abc",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("accepts a 6-digit hex color", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "#6366f1",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("accepts an 8-digit hex color with alpha", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "#6366f1ff",
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a named CSS color", () => {
+		// A named color renders without the `#` prefix the project page expects
+		// and produces a broken CSS custom property.
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "red",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a hex missing the leading '#'", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "6366f1",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a 5-digit hex (not a valid CSS form)", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "#12345",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a hex with non-hex characters", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: "#gggggg",
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("accepts null to clear the accent color", () => {
+		const result = projectCreateSchema.safeParse({
+			...baseProject,
+			accentColor: null,
+		})
+		expect(result.success).toBe(true)
+	})
+})
+
 // #endregion
 
 // #region loginSchema
