@@ -1,5 +1,6 @@
-import PageGlow from "@/components/PageGlow"
-import PrivacySection from "@/components/privacy/PrivacySection"
+import PrivacyPageLayout, {
+	type PrivacySectionEntry,
+} from "@/components/privacy/PrivacyPageLayout"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 const LAST_UPDATED = "Apr 7, 2026"
 
-const sections: { title: string; content: React.ReactNode }[] = [
+const sections: PrivacySectionEntry[] = [
 	{
 		title: "Collected information",
 		content: (
@@ -91,18 +92,5 @@ const sections: { title: string; content: React.ReactNode }[] = [
 ]
 
 export default function PrivacyPage() {
-	return (
-		<main className="relative mx-auto max-w-2xl px-4 py-12">
-			<PageGlow />
-			<h1 className="mb-10 text-3xl font-bold">Privacy Policy</h1>
-
-			<div className="space-y-8">
-				{sections.map(({ title, content }) => (
-					<PrivacySection key={title} title={title}>
-						{content}
-					</PrivacySection>
-				))}
-			</div>
-		</main>
-	)
+	return <PrivacyPageLayout title="Privacy Policy" sections={sections} />
 }

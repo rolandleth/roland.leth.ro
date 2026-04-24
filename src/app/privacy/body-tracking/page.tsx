@@ -1,5 +1,6 @@
-import PageGlow from "@/components/PageGlow"
-import PrivacySection from "@/components/privacy/PrivacySection"
+import PrivacyPageLayout, {
+	type PrivacySectionEntry,
+} from "@/components/privacy/PrivacyPageLayout"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -7,9 +8,9 @@ export const metadata: Metadata = {
 	description: "Privacy policy for the Body Tracking app.",
 }
 
-const LAST_UPDATED = "Apr 07, 2026"
+const LAST_UPDATED = "Apr 7, 2026"
 
-const sections: { title: string; content: React.ReactNode }[] = [
+const sections: PrivacySectionEntry[] = [
 	{
 		title: "Collected information",
 		content: (
@@ -58,19 +59,9 @@ const sections: { title: string; content: React.ReactNode }[] = [
 
 export default function BodyTrackingPrivacyPage() {
 	return (
-		<main className="relative mx-auto max-w-2xl px-4 py-12">
-			<PageGlow />
-			<h1 className="mb-10 text-3xl font-bold">
-				Body Tracking – Privacy Policy
-			</h1>
-
-			<div className="space-y-8">
-				{sections.map(({ title, content }) => (
-					<PrivacySection key={title} title={title}>
-						{content}
-					</PrivacySection>
-				))}
-			</div>
-		</main>
+		<PrivacyPageLayout
+			title="Body Tracking – Privacy Policy"
+			sections={sections}
+		/>
 	)
 }
