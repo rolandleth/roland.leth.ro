@@ -8,6 +8,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const expected = process.env.CRON_SECRET
 
 	if (!expected) {
+		// Silent 500s here would let the keepalive cron quietly stop working after
+		// an env-var regression; logging the cause makes it visible in Vercel logs.
+		// eslint-disable-next-line no-console
+		console.error("[api:cron:ping] CRON_SECRET not configured")
+
 		return NextResponse.json(
 			{ error: "CRON_SECRET not configured" },
 			{ status: 500 }
@@ -17,6 +22,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const auth = request.headers.get("authorization")
 
 	if (auth !== `Bearer ${expected}`) {
+		// eslint-disable-next-line no-console
+		console.error("[api:cron:ping] unauthorized")
+
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 	}
 
@@ -24,7 +32,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.json({ ok: true })
 	}
 
-	await redis.ping()
+	try {
+		await redis.ping()
+	} catch (error) {
+		// eslint-disable-next-line no-console
+		console.error("[api:cron:ping] redis.ping() failed", error)
+
+		return NextResponse.json({ error: "Redis ping failed" }, { status: 502 })
+	}
 
 	return NextResponse.json({ ok: true })
 }
