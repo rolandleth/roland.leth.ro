@@ -15,6 +15,13 @@ model Post {
   imageUrl    String?
   section     Section  @default(tech)
   slug        String
+  // Stored as `yyyy-MM-dd-HHmm` string, not DateTime. Lex-sort on this format
+  // matches chronological order, so `orderBy: { datetime: "desc" }` works as
+  // intended. Keeping it as String avoids a disruptive migration that would
+  // touch every caller (admin form, create/update routes, sitemap, feed,
+  // `currentDatetimeString`, `yearFromDatetime`, `postDatetimeToISO`) for no
+  // behavioural win at current scale. Revisit if timezone-aware queries or
+  // cross-date range filtering become load-bearing.
   datetime    String
   readingTime String?
   published   Boolean  @default(true)
@@ -22,6 +29,10 @@ model Post {
   updatedAt   DateTime @updatedAt
 
   @@unique([section, slug])
+  // List queries filter on (section, published) then order by datetime DESC;
+  // this composite index lets Postgres hit the right shard and return rows
+  // in order without a sort step.
+  @@index([section, published, datetime])
 }
 
 // Kept in sync with `SECTIONS` in src/lib/sections.ts. Adding a new value

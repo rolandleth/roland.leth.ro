@@ -115,6 +115,7 @@ Pattern-based redirects live in `src/proxy.ts` (Next.js middleware); single-segm
 ## Testing
 
 - When writing tests, don't separate sections with big comment blocks. If you want to use something, use `regions`.
+- If you want to write to temp files for tests, tsc or lint, do it in `/tmp/rlr-test.log`, `tmp/rlr-tsc.log`, or `/tmp/rlr-lint.log`, other paths are blocked.
 
 ## Rules
 

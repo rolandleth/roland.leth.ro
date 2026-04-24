@@ -10,6 +10,13 @@ function publishedWhere(section: Section, now: string) {
 	return { section, published: true, datetime: { lte: now } }
 }
 
+// `body` is carried on list queries because `PostCard` renders a markdown
+// preview (via `truncateBody` + `PostMarkdownContent`) and the reading-time
+// fallback reads from it. A plain-text excerpt column would break the markdown
+// preview; preserving that UX via a write-time `preview` + `isPreviewTruncated`
+// pair costs two new columns + a backfill for a <100KB-per-list-render win at
+// current volumes. Revisit when post count or average body size grows enough
+// that the list payload becomes measurably slow.
 export const postListItemSelect = {
 	id: true,
 	title: true,
