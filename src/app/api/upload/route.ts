@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
 import { NextResponse } from "next/server"
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+const MAX_UPLOAD_MIB = 10
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MIB * 1024 * 1024
 const ALLOWED_UPLOAD_MIMES = new Set([
 	"image/png",
 	"image/jpeg",
@@ -37,7 +38,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	if (file.size > MAX_UPLOAD_BYTES) {
 		return NextResponse.json(
-			{ error: "File exceeds 10MB limit" },
+			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
 			{ status: 413 }
 		)
 	}

@@ -6,6 +6,16 @@ import { bySection } from "@/lib/posts"
 import { siteBase } from "@/lib/request"
 import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
 
+// The most recent N posts are included in the feed. 20 matches common reader
+// defaults (e.g. Feedbin, NetNewsWire) — large enough for weekly readers to
+// catch up, small enough to keep the cached payload bounded.
+const FEED_ENTRY_LIMIT = 20
+
+// Max characters for the synthesized `<summary>` when no explicit post summary
+// is set. Matches the 300-char cap on `postCreateSchema.summary` so fallback
+// and authored summaries stay visually consistent.
+const FEED_SUMMARY_MAX_CHARS = 300
+
 /** Escapes characters that are special in XML to prevent feed breakage. */
 function escapeXml(text: string): string {
 	return text
@@ -48,7 +58,7 @@ function makeFeedPostsCache(section: Section) {
 					summary: true,
 				},
 				orderBy: { datetime: "desc" },
-				take: 20,
+				take: FEED_ENTRY_LIMIT,
 			})
 
 			// Pre-render markdown and resolve the summary fallback here so the
@@ -63,7 +73,9 @@ function makeFeedPostsCache(section: Section) {
 					section: post.section,
 					datetime: post.datetime,
 					updatedAt: post.updatedAt.toISOString(),
-					summary: post.summary ?? stripMarkdown(post.body).slice(0, 300),
+					summary:
+						post.summary ??
+						stripMarkdown(post.body).slice(0, FEED_SUMMARY_MAX_CHARS),
 					htmlBody: await markdownToHtml(post.body),
 				}))
 			)
