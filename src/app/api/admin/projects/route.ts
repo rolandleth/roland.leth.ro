@@ -5,14 +5,6 @@ import { createSlug } from "@/lib/format"
 import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
 import { projectCreateSchema } from "@/lib/schemas"
 
-export async function GET(): Promise<NextResponse> {
-	const projects = await prisma.project.findMany({
-		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-	})
-
-	return NextResponse.json(projects)
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
 	const parsed = projectCreateSchema.safeParse(await request.json())
 

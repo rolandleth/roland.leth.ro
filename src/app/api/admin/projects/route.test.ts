@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
-import { GET, POST } from "./route"
+import { POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
 vi.mock("next/cache", async () => {
@@ -13,7 +13,6 @@ vi.mock("@/lib/db", () => ({
 	prisma: {
 		$transaction: vi.fn(),
 		project: {
-			findMany: vi.fn(),
 			create: vi.fn(),
 			count: vi.fn(),
 			updateMany: vi.fn(),
@@ -59,27 +58,6 @@ const createdProject = {
 beforeEach(() => {
 	vi.resetAllMocks()
 })
-
-// ---------------------------------------------------------------------------
-// GET
-// ---------------------------------------------------------------------------
-
-describe("GET /api/admin/projects", () => {
-	it("returns all projects as JSON", async () => {
-		vi.mocked(prisma.project.findMany).mockResolvedValue([createdProject])
-
-		const response = await GET()
-		expect(response.status).toBe(200)
-
-		const data = await response.json()
-		expect(data).toHaveLength(1)
-		expect(data[0].name).toBe("My App")
-	})
-})
-
-// ---------------------------------------------------------------------------
-// POST
-// ---------------------------------------------------------------------------
 
 describe("POST /api/admin/projects", () => {
 	function makeTx(updateMany = vi.fn()) {

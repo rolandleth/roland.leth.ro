@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
-import { postListItemSelect, revalidatePostSection } from "@/lib/posts"
+import { revalidatePostSection } from "@/lib/posts"
 import { postCreateSchema } from "@/lib/schemas"
-
-export async function GET(): Promise<NextResponse> {
-	const posts = await prisma.post.findMany({
-		select: postListItemSelect,
-		orderBy: { datetime: "desc" },
-	})
-
-	return NextResponse.json(posts)
-}
 
 export async function POST(request: Request): Promise<NextResponse> {
 	const parsed = postCreateSchema.safeParse(await request.json())

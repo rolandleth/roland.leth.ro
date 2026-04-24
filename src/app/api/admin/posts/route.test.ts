@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
-import { GET, POST } from "./route"
+import { POST } from "./route"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
@@ -12,7 +12,6 @@ vi.mock("next/cache", async () => {
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		post: {
-			findMany: vi.fn(),
 			create: vi.fn(),
 		},
 	},
@@ -49,27 +48,6 @@ const createdPost = {
 beforeEach(() => {
 	vi.resetAllMocks()
 })
-
-// ---------------------------------------------------------------------------
-// GET
-// ---------------------------------------------------------------------------
-
-describe("GET /api/admin/posts", () => {
-	it("returns all posts as JSON", async () => {
-		vi.mocked(prisma.post.findMany).mockResolvedValue([createdPost])
-
-		const response = await GET()
-		expect(response.status).toBe(200)
-
-		const data = await response.json()
-		expect(data).toHaveLength(1)
-		expect(data[0].id).toBe(1)
-	})
-})
-
-// ---------------------------------------------------------------------------
-// POST
-// ---------------------------------------------------------------------------
 
 describe("POST /api/admin/posts", () => {
 	it("returns 201 with the created post on a valid payload", async () => {
