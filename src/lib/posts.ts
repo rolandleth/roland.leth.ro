@@ -1,5 +1,6 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
+import { createBoundedWrapperCache } from "@/lib/boundedCache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/format"
 import { PAGE_SIZE } from "@/lib/pagination"
@@ -125,18 +126,18 @@ export async function getPostsBySection(
 // One cache wrapper per (section, slug) pair, built lazily on first access and
 // reused for every subsequent call. This preserves the per-post tag used by
 // targeted revalidation while avoiding the "new wrapper per call" cost and
-// the revalidation log noise that causes.
-const postBySlugWrappers = new Map<string, () => Promise<PostDetail | null>>()
+// the revalidation log noise that causes. Capped via `createBoundedWrapperCache`
+// so 404 probes (arbitrary slugs) can't grow the map unbounded.
+const postBySlugWrappers =
+	createBoundedWrapperCache<() => Promise<PostDetail | null>>()
 
 export function getPostBySlug(
 	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
 	const key = `${section}:${slug}`
-	let wrapper = postBySlugWrappers.get(key)
-
-	if (wrapper == null) {
-		wrapper = unstable_cache(
+	const wrapper = postBySlugWrappers.get(key, () =>
+		unstable_cache(
 			() =>
 				prisma.post.findUnique({
 					where: { section_slug: { section, slug } },
@@ -155,8 +156,7 @@ export function getPostBySlug(
 			[`post-${section}-${slug}`],
 			{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
 		)
-		postBySlugWrappers.set(key, wrapper)
-	}
+	)
 
 	return wrapper()
 }

@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache"
 import { cache } from "react"
+import { createBoundedWrapperCache } from "@/lib/boundedCache"
 import { prisma } from "@/lib/db"
 import { PAGE_SIZE } from "@/lib/pagination"
 
@@ -198,18 +199,15 @@ export const projectInclude = {
 // One cache wrapper per slug, built lazily on first access and reused for every
 // subsequent call. Preserves the per-project tag used by targeted revalidation
 // while avoiding the "new wrapper per call" cost and the revalidation log
-// noise that causes.
-const projectBySlugWrappers = new Map<
-	string,
-	() => Promise<ProjectDetail | null>
->()
+// noise that causes. Capped via `createBoundedWrapperCache` so 404 probes
+// (arbitrary slugs) can't grow the map unbounded.
+const projectBySlugWrappers =
+	createBoundedWrapperCache<() => Promise<ProjectDetail | null>>()
 
 /** Returns a project with its sections (and section images) and links, or null if not found. */
 export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
-	let wrapper = projectBySlugWrappers.get(slug)
-
-	if (wrapper == null) {
-		wrapper = unstable_cache(
+	const wrapper = projectBySlugWrappers.get(slug, () =>
+		unstable_cache(
 			() =>
 				prisma.project.findUnique({
 					where: { slug },
@@ -218,8 +216,7 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 			[`project-${slug}`],
 			{ tags: [`project-${slug}`, "projects"] }
 		)
-		projectBySlugWrappers.set(slug, wrapper)
-	}
+	)
 
 	return wrapper()
 }
