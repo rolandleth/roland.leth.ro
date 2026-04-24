@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import computeLoan from "@/lib/loanCalculator"
 import LoanCalculatorInput from "./LoanCalculatorInput"
 import LoanCalculatorSummary from "./LoanCalculatorSummary"
@@ -32,7 +32,10 @@ function Calculator({
 	onChange: (updated: ComputeParams) => void
 }) {
 	const [isExtraPaymentsEnabled, setIsExtraPaymentsEnabled] = useState(false)
-	const results = computeLoan(params)
+	// `computeLoan` runs a per-month amortization loop (up to `period` iterations);
+	// cache while the user is editing unrelated fields to avoid recomputing on
+	// every keystroke.
+	const results = useMemo(() => computeLoan(params), [params])
 
 	const handleExtraPaymentsToggle = (
 		e: React.ChangeEvent<HTMLInputElement>
@@ -192,11 +195,15 @@ export default function LoanCalculatorClient() {
 		setSecondParams(isComparing ? null : { ...firstParams })
 	}
 
-	const firstResults = computeLoan(firstParams)
-	const secondResults = secondParams ? computeLoan(secondParams) : null
-	const diffValues = secondResults
-		? diffResults(firstResults, secondResults)
-		: null
+	const firstResults = useMemo(() => computeLoan(firstParams), [firstParams])
+	const secondResults = useMemo(
+		() => (secondParams ? computeLoan(secondParams) : null),
+		[secondParams]
+	)
+	const diffValues = useMemo(
+		() => (secondResults ? diffResults(firstResults, secondResults) : null),
+		[firstResults, secondResults]
+	)
 
 	return (
 		<div className="grid gap-12">
