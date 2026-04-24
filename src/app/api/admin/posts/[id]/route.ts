@@ -49,10 +49,17 @@ export async function PUT(
 	}
 
 	const { title, body: postBody, ...rest } = parsed.data
-	// `v !== undefined` (not `!= null`) so explicit `null` clears are preserved.
-	const data: Record<string, unknown> = Object.fromEntries(
-		Object.entries(rest).filter(([, v]) => v !== undefined)
-	)
+	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
+	// so the validated payload flows straight in. `title`/`body` are folded back
+	// with their derived columns (`slug`, `readingTime`) only when they were set.
+	// Matches the shape in `src/app/api/admin/projects/[id]/route.ts`.
+	type PostUpdatePayload = typeof rest & {
+		title?: string
+		slug?: string
+		body?: string
+		readingTime?: string
+	}
+	const data: PostUpdatePayload = { ...rest }
 
 	if (title != null) {
 		data.title = title
