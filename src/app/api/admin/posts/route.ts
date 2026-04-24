@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { respondInternalError } from "@/lib/apiErrors"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
@@ -47,12 +48,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 			)
 		}
 
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:posts:POST]", error)
-
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return respondInternalError("[api:admin:posts:POST]", error)
 	}
 }

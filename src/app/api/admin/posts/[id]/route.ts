@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
-import { handlePrismaError, parseIdParam } from "@/lib/apiErrors"
+import {
+	handlePrismaError,
+	parseIdParam,
+	respondInternalError,
+} from "@/lib/apiErrors"
 import { prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
@@ -76,13 +80,7 @@ export async function PUT(
 			return notFound
 		}
 
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:posts:PUT]", error)
-
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return respondInternalError("[api:admin:posts:PUT]", error)
 	}
 }
 
@@ -114,12 +112,6 @@ export async function DELETE(
 			return notFound
 		}
 
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:posts:DELETE]", error)
-
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return respondInternalError("[api:admin:posts:DELETE]", error)
 	}
 }

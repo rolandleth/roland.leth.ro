@@ -30,3 +30,19 @@ export async function parseIdParam(
 
 	return { id: parsed }
 }
+
+/**
+ * Logs an unexpected error with a route-identifying tag and returns a generic
+ * 500 response. The tag (e.g. `[api:admin:posts:POST]`) is what shows up in
+ * Vercel logs so operators can tell which handler failed without opening the
+ * stack trace.
+ */
+export function respondInternalError(
+	tag: string,
+	error: unknown
+): NextResponse {
+	// eslint-disable-next-line no-console
+	console.error(tag, error)
+
+	return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+}

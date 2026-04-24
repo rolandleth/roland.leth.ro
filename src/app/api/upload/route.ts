@@ -66,6 +66,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 		// eslint-disable-next-line no-console
 		console.error("[api:upload:POST]", error)
 
+		// Keep the user-facing message distinct from the generic 500 helper so
+		// the admin UI can show "Upload failed" rather than "Internal server error".
 		return NextResponse.json({ error: "Upload failed" }, { status: 500 })
 	}
 }

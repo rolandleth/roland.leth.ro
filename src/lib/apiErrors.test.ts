@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
-import { describe, expect, it } from "vitest"
-import { handlePrismaError, parseIdParam } from "@/lib/apiErrors"
+import { describe, expect, it, vi } from "vitest"
+import {
+	handlePrismaError,
+	parseIdParam,
+	respondInternalError,
+} from "@/lib/apiErrors"
 
 describe("handlePrismaError", () => {
 	it("returns a 404 response for a P2025 error", () => {
@@ -59,5 +63,24 @@ describe("parseIdParam", () => {
 	it("parses negative integers", async () => {
 		const result = await parseIdParam(Promise.resolve({ id: "-1" }))
 		expect(result).toEqual({ id: -1 })
+	})
+})
+
+describe("respondInternalError", () => {
+	it("returns a 500 JSON response with a generic error message", async () => {
+		const response = respondInternalError("[test]", new Error("boom"))
+		expect(response.status).toBe(500)
+		const body = await response.json()
+		expect(body).toEqual({ error: "Internal server error" })
+	})
+
+	it("logs the tag and the error to the console", () => {
+		// `console.error` is silenced by the test setup, so read the mock calls
+		// directly instead of capturing stderr.
+		const err = new Error("db offline")
+		respondInternalError("[api:tag]", err)
+
+		const mock = vi.mocked(console.error)
+		expect(mock).toHaveBeenCalledWith("[api:tag]", err)
 	})
 })

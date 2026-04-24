@@ -1,6 +1,10 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
-import { handlePrismaError, parseIdParam } from "@/lib/apiErrors"
+import {
+	handlePrismaError,
+	parseIdParam,
+	respondInternalError,
+} from "@/lib/apiErrors"
 import { prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
 import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
@@ -132,13 +136,7 @@ export async function PUT(
 			return notFound
 		}
 
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:projects:PUT]", error)
-
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return respondInternalError("[api:admin:projects:PUT]", error)
 	}
 }
 
@@ -178,12 +176,6 @@ export async function DELETE(
 			return notFound
 		}
 
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:projects:DELETE]", error)
-
-		return NextResponse.json(
-			{ error: "Internal server error" },
-			{ status: 500 }
-		)
+		return respondInternalError("[api:admin:projects:DELETE]", error)
 	}
 }
