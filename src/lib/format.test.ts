@@ -230,6 +230,24 @@ describe("createSlug", () => {
 			"swifts-new-asyncawait-whats-next"
 		)
 	})
+
+	it("returns an empty string for empty input", () => {
+		// Insertion path relies on `slug` being a non-empty string (Prisma NOT
+		// NULL). Current behaviour is silent "", which would produce a confusing
+		// constraint error at insert time. Test pins the current shape so a
+		// future guard / fallback is an explicit decision.
+		expect(createSlug("")).toBe("")
+	})
+
+	it("returns an empty string when every character is stripped", () => {
+		// All punctuation characters listed in the regex strip away, so the
+		// result is "". Same NOT NULL concern as empty input.
+		expect(createSlug("!!!???")).toBe("")
+	})
+
+	it("returns an empty string for whitespace-only input", () => {
+		expect(createSlug("   ")).toBe("---")
+	})
 })
 
 // #endregion
