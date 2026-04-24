@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server"
 import { getSessionSecret, verifyToken } from "@/lib/auth"
-import { SECTIONS } from "@/lib/sections"
+import { type Section, SECTIONS } from "@/lib/sections"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
 
 const SECTION_ALTERNATION = SECTIONS.join("|")
+
+// Pinned explicitly so that reordering `SECTIONS` (e.g. adding a new section
+// at position 0) doesn't silently redirect `/feed` to a different Atom feed
+// for every existing subscriber.
+const DEFAULT_FEED_SECTION: Section = "tech"
 
 // Hoisted so Node doesn't re-compile these on every middleware invocation.
 const SECTION_BLOG_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/blog/(.+)$`)
@@ -108,7 +113,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 	const feedMatch = pathname.match(FEED_REGEX)
 
 	if (feedMatch) {
-		const section = feedMatch[1] ?? SECTIONS[0]
+		const section = feedMatch[1] ?? DEFAULT_FEED_SECTION
 
 		return NextResponse.redirect(
 			new URL(`/api/feed/${section}${search}`, request.url),
