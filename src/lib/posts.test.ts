@@ -5,9 +5,13 @@ import { prisma } from "@/lib/db"
 import { PAGE_SIZE } from "@/lib/pagination"
 import {
 	bySection,
+	getAllPublishedPostSlugs,
 	getPostBySlug,
 	getPostsBySection,
 	getPostsGroupedByYear,
+	listPostsForAdmin,
+	loadPost,
+	loadPostForAdmin,
 	revalidatePostSection,
 	searchPosts,
 } from "@/lib/posts"
@@ -359,6 +363,198 @@ describe("bySection", () => {
 		expect(result.tech).toEqual({ counter: 0 })
 		expect(result.life).toEqual({ counter: 0 })
 		expect(result.tech).not.toBe(result.life)
+	})
+})
+
+// #endregion
+
+// #region datetime future filter
+
+describe("publishedWhere filter via getPostsBySection", () => {
+	it("includes `datetime: { lte: now }` in the where clause", async () => {
+		// Load-bearing for scheduled posts: removing the `lte` would make
+		// future-dated drafts visible to public list views. Pin explicitly.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 2)
+
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: { datetime: { lte: string }; section: string; published: boolean }
+		}
+		expect(call.where.section).toBe("tech")
+		expect(call.where.published).toBe(true)
+		expect(typeof call.where.datetime.lte).toBe("string")
+	})
+})
+
+// #endregion
+
+// #region getAllPublishedPostSlugs
+
+describe("getAllPublishedPostSlugs", () => {
+	it("queries only published posts", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		await getAllPublishedPostSlugs()
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { published: true } })
+		)
+	})
+
+	it("selects only the columns the sitemap and generateStaticParams need", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		await getAllPublishedPostSlugs()
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				select: {
+					slug: true,
+					section: true,
+					datetime: true,
+					updatedAt: true,
+				},
+			})
+		)
+	})
+
+	it("orders by datetime descending", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		await getAllPublishedPostSlugs()
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ orderBy: { datetime: "desc" } })
+		)
+	})
+
+	it("does NOT filter out future-dated posts (distinct from public list views)", async () => {
+		// Sitemap/generateStaticParams want every published slug so future posts
+		// can pre-render at build time. A regression that added `datetime: lte`
+		// here would silently skip scheduled-but-unpublished slugs.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		await getAllPublishedPostSlugs()
+
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+		expect(call.where).not.toHaveProperty("datetime")
+	})
+})
+
+// #endregion
+
+// #region loadPost / loadPostForAdmin
+
+describe("loadPost", () => {
+	it("delegates to getPostBySlug returning its result", async () => {
+		const post = {
+			id: 1,
+			title: "P",
+			slug: "s",
+			section: "tech" as const,
+			datetime: "2024-06-01-1200",
+			body: "b",
+			summary: null,
+			imageUrl: null,
+			readingTime: null,
+		}
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(post as unknown as Post)
+
+		expect(await loadPost("tech", "s")).toEqual(post)
+	})
+})
+
+describe("loadPostForAdmin", () => {
+	it("queries by numeric id with no tag caching", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(null)
+		await loadPostForAdmin(42)
+
+		expect(prisma.post.findUnique).toHaveBeenCalledWith({ where: { id: 42 } })
+	})
+
+	it("returns null when no matching post exists", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(null)
+		expect(await loadPostForAdmin(999)).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region listPostsForAdmin
+
+describe("listPostsForAdmin", () => {
+	it("paginates with skip/take derived from the page arg", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await listPostsForAdmin({ page: 3 })
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				skip: PAGE_SIZE * 2,
+				take: PAGE_SIZE,
+			})
+		)
+	})
+
+	it("passes an empty where when query is undefined (list mode)", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await listPostsForAdmin({ page: 1 })
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+		expect(call.where).toEqual({})
+	})
+
+	it("treats a whitespace-only query as empty", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await listPostsForAdmin({ query: "   ", page: 1 })
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+		expect(call.where).toEqual({})
+	})
+
+	it("searches title and body when a query is provided", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await listPostsForAdmin({ query: "swift", page: 1 })
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: {
+				OR: [
+					{ title: { contains: string; mode: string } },
+					{ body: { contains: string; mode: string } },
+				]
+			}
+		}
+		expect(call.where.OR[0].title.contains).toBe("swift")
+		expect(call.where.OR[1].body.contains).toBe("swift")
+	})
+
+	it("includes drafts: no `published: true` filter in either mode", async () => {
+		// Admin dashboard must surface drafts alongside published posts so the
+		// author can see them all in one list.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await listPostsForAdmin({ page: 1 })
+		const [list] = vi.mocked(prisma.post.findMany).mock.calls[0] as [
+			{ where: Record<string, unknown> },
+		]
+		expect(list.where).not.toHaveProperty("published")
+	})
+
+	it("computes totalPages from the Prisma count result", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(PAGE_SIZE * 2 + 1)
+
+		const { totalPages, totalCount } = await listPostsForAdmin({ page: 1 })
+		expect(totalCount).toBe(PAGE_SIZE * 2 + 1)
+		expect(totalPages).toBe(3)
 	})
 })
 
