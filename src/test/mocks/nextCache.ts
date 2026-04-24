@@ -19,6 +19,23 @@ export function nextCacheMockFactory() {
 }
 
 /**
+ * Spy variant of `nextCacheMockFactory` for tests that need to assert the
+ * `keys` / `options.tags` arguments passed into `unstable_cache`. Behaves like
+ * the identity-passthrough factory for the wrapped function, but captures the
+ * call args so callers can assert on tag/key wiring without running the real
+ * cache machinery.
+ */
+export function nextCacheSpyFactory() {
+	const unstable_cache = vi.fn(<T>(fn: T): T => fn)
+
+	return {
+		unstable_cache,
+		revalidateTag: vi.fn(),
+		cache: <T>(fn: T): T => fn,
+	}
+}
+
+/**
  * Factory that preserves everything from the real `react` module but swaps
  * `cache` for a pass-through. Pass this to `vi.mock("react", reactCachePassthroughFactory)`.
  */

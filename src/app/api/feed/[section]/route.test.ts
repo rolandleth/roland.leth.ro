@@ -1,13 +1,17 @@
+import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
 import { siteBase } from "@/lib/request"
 import { GET } from "./route"
 
+// Spy variant so we can assert on the cache keys and tags wired to each
+// section. The identity-passthrough factory used elsewhere doesn't capture
+// the args, so tag renames would otherwise slip through undetected.
 vi.mock("next/cache", async () => {
-	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+	const { nextCacheSpyFactory } = await import("@/test/mocks/nextCache")
 
-	return nextCacheMockFactory()
+	return nextCacheSpyFactory()
 })
 
 vi.mock("@/lib/db", () => ({
@@ -44,6 +48,13 @@ const basePost = {
 	createdAt: new Date("2024-01-01T09:00:00.000Z"),
 	updatedAt: new Date("2024-01-01T09:00:00.000Z"),
 }
+
+// `makeFeedPostsCache` runs once per section at module load (via `bySection`),
+// so capture the `unstable_cache` call args here before `beforeEach`'s
+// `resetAllMocks` wipes them.
+const unstableCacheCallsAtModuleLoad = vi
+	.mocked(unstable_cache)
+	.mock.calls.slice()
 
 beforeEach(() => {
 	vi.resetAllMocks()
@@ -139,6 +150,23 @@ describe("GET /api/feed/:section", () => {
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<feed")
 		expect(text).not.toContain("<entry>")
+	})
+
+	it("wires per-section cache keys and tags through unstable_cache", () => {
+		// The cache key `feed-posts-${section}` and tag `feed-${section}` are
+		// the contract between the feed route and `revalidatePostSection`; a
+		// silent rename on either side would break invalidation undetected.
+		// Calls happen at module load via `bySection`, so we read the snapshot
+		// captured before `beforeEach`'s reset.
+		const keys = unstableCacheCallsAtModuleLoad.map((call) => call[1])
+		const tagSets = unstableCacheCallsAtModuleLoad.map((call) => call[2]?.tags)
+
+		expect(keys).toEqual(
+			expect.arrayContaining([["feed-posts-tech"], ["feed-posts-life"]])
+		)
+		expect(tagSets).toEqual(
+			expect.arrayContaining([["feed-tech"], ["feed-life"]])
+		)
 	})
 
 	it("uses siteBase() rather than request.url for the canonical origin", async () => {
