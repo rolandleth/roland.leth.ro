@@ -20,23 +20,33 @@ export default function IsFeaturedToggle({
 	async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const next = e.target.checked
 		setIsFeatured(next)
+		setError(null)
 		setIsSaving(true)
 
-		const response = await fetch(`/api/admin/projects/${projectId}`, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ isFeatured: next }),
-		})
+		try {
+			const response = await fetch(`/api/admin/projects/${projectId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ isFeatured: next }),
+			})
 
-		if (!response.ok) {
+			if (!response.ok) {
+				setIsFeatured(initialIsFeatured)
+				setError("Failed to save")
+
+				return
+			}
+
+			router.refresh()
+		} catch {
+			// A thrown fetch rejection (network down, CORS, abort) would otherwise
+			// leave `isSaving=true` forever and block further toggles. Reverting
+			// the optimistic update and surfacing the error is the recovery path.
 			setIsFeatured(initialIsFeatured)
 			setError("Failed to save")
-		} else {
-			setError(null)
-			router.refresh()
+		} finally {
+			setIsSaving(false)
 		}
-
-		setIsSaving(false)
 	}
 
 	return (
