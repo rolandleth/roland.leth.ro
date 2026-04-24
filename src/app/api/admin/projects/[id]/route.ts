@@ -22,16 +22,20 @@ export async function GET(
 
 	const { id } = idResult
 
-	const project = await prisma.project.findUnique({
-		where: { id },
-		include: projectInclude,
-	})
+	try {
+		const project = await prisma.project.findUnique({
+			where: { id },
+			include: projectInclude,
+		})
 
-	if (!project) {
-		return NextResponse.json({ error: "Not found" }, { status: 404 })
+		if (!project) {
+			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		}
+
+		return NextResponse.json(project)
+	} catch (error) {
+		return respondInternalError("[api:admin:projects:GET]", error)
 	}
-
-	return NextResponse.json(project)
 }
 
 export async function PUT(

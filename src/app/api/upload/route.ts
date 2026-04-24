@@ -29,7 +29,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 		)
 	}
 
-	const formData = await request.formData()
+	let formData: FormData
+
+	try {
+		formData = await request.formData()
+	} catch {
+		// A malformed multipart body throws from `formData()`; surface a 400
+		// rather than letting the rejection bubble as an uncaught exception.
+		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+	}
+
 	const file = formData.get("file")
 
 	if (!(file instanceof File)) {

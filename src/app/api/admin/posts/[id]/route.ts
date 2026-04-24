@@ -21,13 +21,17 @@ export async function GET(
 
 	const { id } = idResult
 
-	const post = await prisma.post.findUnique({ where: { id } })
+	try {
+		const post = await prisma.post.findUnique({ where: { id } })
 
-	if (!post) {
-		return NextResponse.json({ error: "Not found" }, { status: 404 })
+		if (!post) {
+			return NextResponse.json({ error: "Not found" }, { status: 404 })
+		}
+
+		return NextResponse.json(post)
+	} catch (error) {
+		return respondInternalError("[api:admin:posts:GET]", error)
 	}
-
-	return NextResponse.json(post)
 }
 
 export async function PUT(
