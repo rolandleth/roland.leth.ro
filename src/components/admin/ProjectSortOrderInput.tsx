@@ -86,7 +86,11 @@ export default function ProjectSortOrderInput({
 				onBlur={handleBlur}
 				className="border-border bg-background text-primary focus:border-accent w-12 rounded border px-1.5 py-0.5 text-center text-xs transition-colors outline-none disabled:opacity-50"
 			/>
-			{error && <p className="text-xs text-red-500">{error}</p>}
+			{error && (
+				<p className="text-xs text-red-500" role="alert">
+					{error}
+				</p>
+			)}
 		</div>
 	)
 }

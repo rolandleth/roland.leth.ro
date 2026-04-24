@@ -61,7 +61,11 @@ export default function IsFeaturedToggle({
 				/>
 				<span className="text-secondary text-xs">Featured</span>
 			</label>
-			{error && <p className="text-xs text-red-500">{error}</p>}
+			{error && (
+				<p className="text-xs text-red-500" role="alert">
+					{error}
+				</p>
+			)}
 		</div>
 	)
 }

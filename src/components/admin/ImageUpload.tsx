@@ -118,7 +118,11 @@ export default function ImageUpload({
 				/>
 			)}
 
-			{error && <p className="text-sm text-red-500">{error}</p>}
+			{error && (
+				<p className="text-sm text-red-500" role="alert">
+					{error}
+				</p>
+			)}
 		</div>
 	)
 }
