@@ -34,7 +34,12 @@ const cachedLookup = unstable_cache(
 		return null
 	},
 	["legacy-redirect"],
-	{ revalidate: 300 }
+	// Tagged with both `posts` and `projects` so the existing
+	// `revalidatePostSection` / project mutation paths bust stale legacy-slug
+	// entries without needing a dedicated legacy tag. Without tags a newly
+	// published slug that collides with a cached miss is invisible for up to
+	// `revalidate` seconds.
+	{ revalidate: 300, tags: ["posts", "projects"] }
 )
 
 /**
