@@ -329,3 +329,106 @@ describe("proxy — trailing slash variants and empty cookie", () => {
 })
 
 // #endregion
+
+// #region Middleware short-circuits
+
+describe("proxy — short-circuit paths", () => {
+	it("passes through /_next/ paths without running auth or redirect logic", async () => {
+		// `_next/` is excluded by `config.matcher` in production, but the defensive
+		// early return inside `proxy()` keeps the function safe if that matcher
+		// changes.
+		const response = await proxy(makeRequest("/_next/data/build/foo.json"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("passes through paths containing a dot (static assets)", async () => {
+		const response = await proxy(makeRequest("/favicon.ico"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("passes through /api/cron/ping without admin auth", async () => {
+		// Cron endpoints authenticate via Bearer token in the handler, not via
+		// the proxy's admin gate. A regression that rolled them into the admin
+		// gate would break the cron workflow.
+		const response = await proxy(makeRequest("/api/cron/ping"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.status).not.toBe(401)
+	})
+})
+
+// #endregion
+
+// #region Case sensitivity
+
+describe("proxy — case sensitivity", () => {
+	it("does not redirect /Tech/blog/:slug (section regex is lowercase)", async () => {
+		// Section regexes use `SECTIONS` values verbatim. Uppercase variants fall
+		// through so backlinks that were originally lowercase stay canonical;
+		// anything else would produce two different canonical URLs for the same
+		// post.
+		const response = await proxy(makeRequest("/Tech/blog/my-post"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("does not redirect /TECH/archive", async () => {
+		const response = await proxy(makeRequest("/TECH/archive"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.headers.get("location")).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region Query-string preservation
+
+describe("proxy — query-string preservation on redirects", () => {
+	it("preserves query strings on /tech/blog/:slug redirects", async () => {
+		// Analytics links (e.g. `?ref=twitter`) should survive the legacy
+		// redirect so the landing analytics stay attributed.
+		const response = await proxy(makeRequest("/tech/blog/my-post?ref=twitter"))
+		expect(response.status).toBe(301)
+		expect(response.headers.get("location")).toContain(
+			"/blog/tech/my-post?ref=twitter"
+		)
+	})
+
+	it("preserves query strings on /tech/archive redirects", async () => {
+		const response = await proxy(makeRequest("/tech/archive?page=2"))
+		expect(response.status).toBe(301)
+		expect(response.headers.get("location")).toContain(
+			"/blog/tech/archive?page=2"
+		)
+	})
+
+	it("preserves query strings on /tech/search redirects", async () => {
+		const response = await proxy(makeRequest("/tech/search?q=react"))
+		expect(response.status).toBe(301)
+		expect(response.headers.get("location")).toContain(
+			"/blog/tech/search?q=react"
+		)
+	})
+})
+
+// #endregion
+
+// #region /api/upload boundary
+
+describe("proxy — /api/upload boundary", () => {
+	it("gates /api/upload itself behind admin auth", async () => {
+		const response = await proxy(makeRequest("/api/upload"))
+		expect(response.status).toBe(401)
+	})
+
+	it("does not gate /api/upload/<sub-path> (handler check is exact match)", async () => {
+		// `proxy.ts` matches /api/upload with `===`, so sub-paths fall through
+		// the admin gate. There is no actual /api/upload/* route today — this
+		// test pins the current contract so a future sub-route addition is an
+		// explicit decision, not a silent bypass.
+		const response = await proxy(makeRequest("/api/upload/sub-path"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.status).not.toBe(401)
+	})
+})
+
+// #endregion

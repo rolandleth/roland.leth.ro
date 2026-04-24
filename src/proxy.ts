@@ -27,7 +27,7 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-	const { pathname } = request.nextUrl
+	const { pathname, search } = request.nextUrl
 
 	// Skip middleware work for paths that can never be legacy slugs or admin pages.
 	// `.` catches static assets; the matcher already filters most, but keeps this safe.
@@ -60,13 +60,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.next()
 	}
 
+	// Analytics and share query strings (`?ref=`, `?utm_*`) must survive the
+	// legacy redirect; `new URL(path, base)` would otherwise strip `base`'s
+	// query since `path` overrides it. Append `search` to every redirect target.
+
 	// /tech/blog/:slug → /blog/tech/:slug, /life/blog/:slug → /blog/life/:slug
 	const sectionBlogMatch = pathname.match(SECTION_BLOG_REGEX)
 
 	if (sectionBlogMatch) {
 		return NextResponse.redirect(
 			new URL(
-				`/blog/${sectionBlogMatch[1]}/${sectionBlogMatch[2]}`,
+				`/blog/${sectionBlogMatch[1]}/${sectionBlogMatch[2]}${search}`,
 				request.url
 			),
 			301
@@ -77,7 +81,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 	if (archiveMatch) {
 		return NextResponse.redirect(
-			new URL(`/blog/${archiveMatch[1]}/archive`, request.url),
+			new URL(`/blog/${archiveMatch[1]}/archive${search}`, request.url),
 			301
 		)
 	}
@@ -86,7 +90,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 	if (searchMatch) {
 		return NextResponse.redirect(
-			new URL(`/blog/${searchMatch[1]}/search`, request.url),
+			new URL(`/blog/${searchMatch[1]}/search${search}`, request.url),
 			301
 		)
 	}
@@ -95,7 +99,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 	if (sectionRootMatch) {
 		return NextResponse.redirect(
-			new URL(`/blog/${sectionRootMatch[1]}`, request.url),
+			new URL(`/blog/${sectionRootMatch[1]}${search}`, request.url),
 			301
 		)
 	}
@@ -107,7 +111,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		const section = feedMatch[1] ?? SECTIONS[0]
 
 		return NextResponse.redirect(
-			new URL(`/api/feed/${section}`, request.url),
+			new URL(`/api/feed/${section}${search}`, request.url),
 			301
 		)
 	}
