@@ -18,7 +18,18 @@ interface Props {
  */
 export default async function LegacySlugPage({ params }: Props) {
 	const { slug } = await params
-	const match = await lookupLegacySlug(slug)
+
+	let match: Awaited<ReturnType<typeof lookupLegacySlug>> = null
+
+	try {
+		match = await lookupLegacySlug(slug)
+	} catch (error) {
+		// A DB outage during legacy-slug lookup would otherwise render the
+		// default Next error page (500). A 404-styled miss is a strictly better
+		// UX for the visitor: the page still offers navigation back to the site.
+		// eslint-disable-next-line no-console
+		console.error("[page:[slug]] lookupLegacySlug failed for", slug, error)
+	}
 
 	if (match?.kind === "post") {
 		permanentRedirect(`/blog/${match.section}/${match.slug}`)

@@ -69,4 +69,13 @@ describe("LegacySlugPage", () => {
 		await LegacySlugPage(makeParams("specific-slug")).catch(() => {})
 		expect(lookupLegacySlug).toHaveBeenCalledWith("specific-slug")
 	})
+
+	it("falls through to notFound when lookupLegacySlug throws", async () => {
+		// DB outages shouldn't render the default Next 500 page for a legacy
+		// slug — a styled 404 is a strictly better visitor experience.
+		vi.mocked(lookupLegacySlug).mockRejectedValue(new Error("DB down"))
+		await expect(LegacySlugPage(makeParams("some-slug"))).rejects.toThrow(
+			"NOT_FOUND"
+		)
+	})
 })
