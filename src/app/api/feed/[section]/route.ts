@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
 import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
 import { bySection } from "@/lib/posts"
+import { siteBase } from "@/lib/request"
 import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
 
 /** Escapes characters that are special in XML to prevent feed breakage. */
@@ -75,7 +76,7 @@ function makeFeedPostsCache(section: Section) {
 const feedPostsCache = bySection(makeFeedPostsCache)
 
 export async function GET(
-	request: Request,
+	_request: Request,
 	{ params }: { params: Promise<{ section: string }> }
 ): Promise<Response> {
 	const { section } = await params
@@ -86,7 +87,11 @@ export async function GET(
 
 	const posts = await feedPostsCache[section]()
 
-	const { origin: SITE_URL } = new URL(request.url)
+	// Atom `<id>` elements must be stable across callers; `request.url` varies
+	// with preview/proxy hosts, so feed readers would see different IDs for the
+	// same entry. `siteBase()` resolves to the canonical origin via forwarded
+	// headers, matching `sitemap.ts` and `layout.tsx`.
+	const SITE_URL = await siteBase()
 
 	const feedTitle = `Roland Leth — ${capitalizeSection(section)} blog`
 	const feedUrl = `${SITE_URL}/api/feed/${section}`

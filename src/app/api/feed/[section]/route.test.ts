@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
+import { siteBase } from "@/lib/request"
 import { GET } from "./route"
 
 vi.mock("next/cache", async () => {
@@ -16,6 +17,10 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/markdown", () => ({
 	markdownToHtml: vi.fn(async (md: string) => `<p>${md}</p>`),
 	stripMarkdown: vi.fn((md: string) => md),
+}))
+
+vi.mock("@/lib/request", () => ({
+	siteBase: vi.fn(),
 }))
 
 function makeRequest(section: string) {
@@ -45,6 +50,7 @@ beforeEach(() => {
 	vi.mocked(markdownToHtml).mockImplementation(async (md) => `<p>${md}</p>`)
 	vi.mocked(stripMarkdown).mockImplementation((md) => md)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
+	vi.mocked(siteBase).mockResolvedValue("http://localhost")
 })
 
 describe("GET /api/feed/:section", () => {
@@ -133,6 +139,23 @@ describe("GET /api/feed/:section", () => {
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<feed")
 		expect(text).not.toContain("<entry>")
+	})
+
+	it("uses siteBase() rather than request.url for the canonical origin", async () => {
+		// Feed readers key entries on `<id>`; a regression to `request.url` would
+		// make preview/proxy hosts emit different IDs for the same entry.
+		vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
+
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(text).toContain(
+			'href="https://roland.leth.ro/api/feed/tech" rel="self"'
+		)
+		expect(text).toContain(
+			"<id>https://roland.leth.ro/blog/tech/test-post</id>"
+		)
+		expect(text).not.toContain("http://localhost")
 	})
 
 	it("escapes the CDATA terminator inside rendered HTML so the feed stays well-formed", async () => {
