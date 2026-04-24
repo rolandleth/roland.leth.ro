@@ -1,6 +1,9 @@
 import readingTime from "reading-time"
 
-const DATETIME_REGEX = /(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?/
+// Anchored so `postDatetimeToISO` doesn't silently accept a string with
+// leading or trailing garbage around a valid-looking date. `formatDate` uses
+// the same regex so falls back to returning the raw input on non-match.
+const DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?$/
 
 /**
  * Parses a string into an integer, returning `null` if invalid.

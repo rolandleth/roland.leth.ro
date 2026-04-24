@@ -105,6 +105,16 @@ describe("postDatetimeToISO", () => {
 	it("throws for an empty string", () => {
 		expect(() => postDatetimeToISO("")).toThrow()
 	})
+
+	it("throws when a valid date is embedded with trailing garbage", () => {
+		// Anchored regex: a leading match must consume the whole string, so
+		// `"2024-06-15-0930 extra"` is rejected instead of silently parsing.
+		expect(() => postDatetimeToISO("2024-06-15-0930 extra")).toThrow()
+	})
+
+	it("throws when a valid date is embedded with leading garbage", () => {
+		expect(() => postDatetimeToISO("prefix-2024-06-15-0930")).toThrow()
+	})
 })
 
 // #endregion
