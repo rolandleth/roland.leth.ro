@@ -45,8 +45,14 @@ export async function destroySession(): Promise<void> {
 
 /**
  * Verifies a raw JWT against the supplied secret and returns the decoded payload,
- * or `null` if verification fails for any reason (expired, tampered, garbage).
- * Shared with the edge middleware so verification lives in a single place.
+ * or `null` if verification fails for any reason (expired, tampered, garbage,
+ * missing `admin` claim). Shared with the edge middleware so verification lives
+ * in a single place.
+ *
+ * On failure, the reason is logged at error level so spikes in expired/tampered
+ * tokens are visible in production (e.g. after a secret rotation). `jose` sets
+ * a `code` like `ERR_JWT_EXPIRED` / `ERR_JWS_INVALID` / `ERR_JWS_SIGNATURE_VERIFICATION_FAILED`
+ * on the thrown error, which we forward verbatim.
  */
 export async function verifyToken(
 	token: string,
@@ -55,8 +61,29 @@ export async function verifyToken(
 	try {
 		const { payload } = await jwtVerify(token, secret)
 
+		// Runtime shape guard: a valid signature only proves the token came from us.
+		// Callers use the returned value to gate admin access, so confirm the claim
+		// explicitly rather than blindly casting any valid-signed JWT.
+		if (payload.admin !== true) {
+			// eslint-disable-next-line no-console
+			console.error(
+				"[auth:verifyToken] valid signature but missing admin claim"
+			)
+
+			return null
+		}
+
 		return payload as SessionPayload
-	} catch {
+	} catch (error) {
+		const code =
+			error instanceof Error && "code" in error
+				? String((error as Error & { code: unknown }).code)
+				: error instanceof Error
+					? error.name
+					: "unknown"
+		// eslint-disable-next-line no-console
+		console.error("[auth:verifyToken]", code)
+
 		return null
 	}
 }

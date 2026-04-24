@@ -45,7 +45,9 @@ describe("proxy — admin page protection", () => {
 	})
 
 	it("allows authenticated requests to /admin through", async () => {
-		vi.mocked(jwtVerify).mockResolvedValue({} as never)
+		vi.mocked(jwtVerify).mockResolvedValue({
+			payload: { admin: true },
+		} as never)
 		const response = await proxy(makeRequest("/admin", "valid-token"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
@@ -93,15 +95,30 @@ describe("proxy — admin API protection", () => {
 	})
 
 	it("allows authenticated /api/admin/ requests through", async () => {
-		vi.mocked(jwtVerify).mockResolvedValue({} as never)
+		vi.mocked(jwtVerify).mockResolvedValue({
+			payload: { admin: true },
+		} as never)
 		const response = await proxy(makeRequest("/api/admin/posts", "valid-token"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 
 	it("allows authenticated /api/upload requests through", async () => {
-		vi.mocked(jwtVerify).mockResolvedValue({} as never)
+		vi.mocked(jwtVerify).mockResolvedValue({
+			payload: { admin: true },
+		} as never)
 		const response = await proxy(makeRequest("/api/upload", "valid-token"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("rejects a valid-signed token that lacks the admin claim", async () => {
+		// A signature-only check would let any JWT signed with SESSION_SECRET pass
+		// — including ones minted by an unrelated flow. The admin-claim guard keeps
+		// auth scoped to tokens this app actually issues.
+		vi.mocked(jwtVerify).mockResolvedValue({
+			payload: { role: "guest" },
+		} as never)
+		const response = await proxy(makeRequest("/api/admin/posts", "valid-token"))
+		expect(response.status).toBe(401)
 	})
 })
 

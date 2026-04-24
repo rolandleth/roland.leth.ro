@@ -272,6 +272,26 @@ describe("verifyToken", () => {
 	it("returns null for an empty string", async () => {
 		expect(await verifyToken("", secret)).toBeNull()
 	})
+
+	it("returns null for a valid-signed token missing the admin claim", async () => {
+		// Signature-valid but shape-invalid tokens were previously accepted via
+		// a blind `as SessionPayload` cast. The runtime guard is load-bearing
+		// for the defense-in-depth contract proxy.ts relies on.
+		const token = await sign({ role: "guest" })
+		expect(await verifyToken(token, secret)).toBeNull()
+	})
+
+	it("returns null for a valid-signed token with admin: false", async () => {
+		const token = await sign({ admin: false })
+		expect(await verifyToken(token, secret)).toBeNull()
+	})
+
+	it("returns null for a valid-signed token with admin as a non-boolean", async () => {
+		// Strict equality with `true` rejects truthy-but-wrong shapes like
+		// `"yes"` / `1` / `{}`.
+		const token = await sign({ admin: "yes" })
+		expect(await verifyToken(token, secret)).toBeNull()
+	})
 })
 
 // #endregion
