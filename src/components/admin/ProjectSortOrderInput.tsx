@@ -46,24 +46,32 @@ export default function ProjectSortOrderInput({
 			return
 		}
 
+		setError(null)
 		setIsSaving(true)
 
-		const response = await fetch(`/api/admin/projects/${projectId}`, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ sortOrder: nextSortOrder }),
-		})
+		try {
+			const response = await fetch(`/api/admin/projects/${projectId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sortOrder: nextSortOrder }),
+			})
 
-		if (!response.ok) {
+			if (!response.ok) {
+				setValue(String(initialSortOrder + 1))
+				setError("Failed to save")
+
+				return
+			}
+
+			router.refresh()
+		} catch {
+			// Without the catch, a network rejection left `isSaving=true` forever
+			// and disabled the input with no error feedback.
 			setValue(String(initialSortOrder + 1))
 			setError("Failed to save")
+		} finally {
 			setIsSaving(false)
-			return
 		}
-
-		setError(null)
-		router.refresh()
-		setIsSaving(false)
 	}
 
 	return (
