@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Config {
 	resource: "posts" | "projects"
@@ -22,6 +22,19 @@ export function useAdminResource<TPayload>({
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	// Gates `setState` calls that fire after the caller has unmounted (e.g. the
+	// admin navigated away while a PUT was in flight). Without this the React
+	// dev-time warning is the only signal that the handler is updating a dead
+	// component.
+	const isMountedRef = useRef(true)
+
+	useEffect(() => {
+		isMountedRef.current = true
+
+		return () => {
+			isMountedRef.current = false
+		}
+	}, [])
 
 	const isEditing = id !== null
 
@@ -76,13 +89,19 @@ export function useAdminResource<TPayload>({
 
 			goBackToAdmin()
 		} catch (err) {
+			if (!isMountedRef.current) {
+				return
+			}
+
 			setError(
 				err instanceof Error
 					? err.message
 					: "Something went wrong. Please try again."
 			)
 		} finally {
-			setIsSubmitting(false)
+			if (isMountedRef.current) {
+				setIsSubmitting(false)
+			}
 		}
 	}
 
@@ -113,11 +132,17 @@ export function useAdminResource<TPayload>({
 
 			goBackToAdmin()
 		} catch (err) {
+			if (!isMountedRef.current) {
+				return
+			}
+
 			setError(
 				err instanceof Error ? err.message : "Delete failed. Please try again."
 			)
 		} finally {
-			setIsSubmitting(false)
+			if (isMountedRef.current) {
+				setIsSubmitting(false)
+			}
 		}
 	}
 
