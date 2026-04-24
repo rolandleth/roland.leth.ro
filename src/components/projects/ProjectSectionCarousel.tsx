@@ -16,6 +16,15 @@ interface Props {
 	altPrefix: string
 }
 
+// Hoisted so every carousel render doesn't build a new object; framer-motion
+// compares `variants` references and reinitializes the animation state when
+// the object identity changes.
+const variants = {
+	enter: (d: number) => ({ x: d > 0 ? "60%" : "-60%", opacity: 0 }),
+	center: { x: 0, opacity: 1 },
+	exit: (d: number) => ({ x: d > 0 ? "-60%" : "60%", opacity: 0 }),
+}
+
 export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 	const [[currentIndex, direction], setPage] = useState([0, 0])
 
@@ -28,12 +37,6 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 
 			return [nextIndex, newDirection]
 		})
-	}
-
-	const variants = {
-		enter: (d: number) => ({ x: d > 0 ? "60%" : "-60%", opacity: 0 }),
-		center: { x: 0, opacity: 1 },
-		exit: (d: number) => ({ x: d > 0 ? "-60%" : "60%", opacity: 0 }),
 	}
 
 	return (
