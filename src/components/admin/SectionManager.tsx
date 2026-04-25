@@ -3,8 +3,8 @@
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import { useOrderedList } from "@/components/admin/useOrderedList"
 import ReorderControls from "@/components/ui/ReorderControls"
-import { moveAndReorder } from "@/lib/reorder"
 
 export interface SectionImage {
 	_key: string
@@ -30,63 +30,22 @@ function SectionCard({
 	section,
 	index,
 	total,
-	onUpdate,
+	onPatch,
 	onRemove,
 	onMove,
 }: {
 	section: SectionItem
 	index: number
 	total: number
-	onUpdate: (updated: SectionItem) => void
+	onPatch: (patch: Partial<SectionItem>) => void
 	onRemove: () => void
 	onMove: (direction: "up" | "down") => void
 }) {
 	const [isOpen, setIsOpen] = useState(true)
 
-	function updateField(
-		field: keyof Omit<SectionItem, "images" | "sortOrder">,
-		value: string
-	) {
-		onUpdate({ ...section, [field]: value })
-	}
-
-	function addImage() {
-		const images = [
-			...section.images,
-			{
-				_key: crypto.randomUUID(),
-				url: "",
-				caption: "",
-				sortOrder: section.images.length,
-			},
-		]
-		onUpdate({ ...section, images })
-	}
-
-	function removeImage(imageIndex: number) {
-		const images = section.images
-			.filter((_, i) => i !== imageIndex)
-			.map((img, i) => ({ ...img, sortOrder: i }))
-		onUpdate({ ...section, images })
-	}
-
-	function updateImage(
-		imageIndex: number,
-		field: keyof Omit<SectionImage, "sortOrder">,
-		value: string
-	) {
-		const images = section.images.map((img, i) =>
-			i === imageIndex ? { ...img, [field]: value } : img
-		)
-		onUpdate({ ...section, images })
-	}
-
-	function moveImage(imageIndex: number, direction: "up" | "down") {
-		onUpdate({
-			...section,
-			images: moveAndReorder(section.images, imageIndex, direction),
-		})
-	}
+	const images = useOrderedList<SectionImage>(section.images, (next) =>
+		onPatch({ images: next })
+	)
 
 	return (
 		<div className="border-border rounded-lg border">
@@ -103,7 +62,7 @@ function SectionCard({
 				<input
 					type="text"
 					value={section.title}
-					onChange={(e) => updateField("title", e.target.value)}
+					onChange={(e) => onPatch({ title: e.target.value })}
 					placeholder="Section title"
 					className="admin-input min-w-0 flex-1 py-1.5"
 				/>
@@ -125,7 +84,7 @@ function SectionCard({
 						</label>
 						<MarkdownEditor
 							value={section.description}
-							onChange={(v) => updateField("description", v)}
+							onChange={(v) => onPatch({ description: v })}
 							placeholder="Section description…"
 						/>
 					</div>
@@ -140,7 +99,7 @@ function SectionCard({
 							>
 								<ImageUpload
 									value={image.url}
-									onChange={(url) => updateImage(imageIndex, "url", url)}
+									onChange={(url) => images.update(imageIndex, { url })}
 									label="Image URL"
 								/>
 
@@ -149,7 +108,7 @@ function SectionCard({
 										type="text"
 										value={image.caption}
 										onChange={(e) =>
-											updateImage(imageIndex, "caption", e.target.value)
+											images.update(imageIndex, { caption: e.target.value })
 										}
 										placeholder="Caption (optional)"
 										className="admin-input min-w-0 flex-1"
@@ -158,9 +117,9 @@ function SectionCard({
 									<ReorderControls
 										canMoveUp={imageIndex > 0}
 										canMoveDown={imageIndex < section.images.length - 1}
-										onMoveUp={() => moveImage(imageIndex, "up")}
-										onMoveDown={() => moveImage(imageIndex, "down")}
-										onRemove={() => removeImage(imageIndex)}
+										onMoveUp={() => images.move(imageIndex, "up")}
+										onMoveDown={() => images.move(imageIndex, "down")}
+										onRemove={() => images.remove(imageIndex)}
 									/>
 								</div>
 							</div>
@@ -168,7 +127,7 @@ function SectionCard({
 
 						<button
 							type="button"
-							onClick={addImage}
+							onClick={() => images.add(() => ({ url: "", caption: "" }))}
 							className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
 						>
 							Add image
@@ -181,33 +140,7 @@ function SectionCard({
 }
 
 export default function SectionManager({ value, onChange }: Props) {
-	function addSection() {
-		onChange([
-			...value,
-			{
-				_key: crypto.randomUUID(),
-				title: "",
-				description: "",
-				sortOrder: value.length,
-				images: [],
-			},
-		])
-	}
-
-	function updateSection(index: number, updated: SectionItem) {
-		onChange(value.map((s, i) => (i === index ? updated : s)))
-	}
-
-	function removeSection(index: number) {
-		const updated = value
-			.filter((_, i) => i !== index)
-			.map((s, i) => ({ ...s, sortOrder: i }))
-		onChange(updated)
-	}
-
-	function moveSection(index: number, direction: "up" | "down") {
-		onChange(moveAndReorder(value, index, direction))
-	}
+	const list = useOrderedList<SectionItem>(value, onChange)
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -217,15 +150,17 @@ export default function SectionManager({ value, onChange }: Props) {
 					section={section}
 					index={index}
 					total={value.length}
-					onUpdate={(updated) => updateSection(index, updated)}
-					onRemove={() => removeSection(index)}
-					onMove={(direction) => moveSection(index, direction)}
+					onPatch={(patch) => list.update(index, patch)}
+					onRemove={() => list.remove(index)}
+					onMove={(direction) => list.move(index, direction)}
 				/>
 			))}
 
 			<button
 				type="button"
-				onClick={addSection}
+				onClick={() =>
+					list.add(() => ({ title: "", description: "", images: [] }))
+				}
 				className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
 			>
 				Add section
