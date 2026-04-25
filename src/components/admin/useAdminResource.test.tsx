@@ -127,7 +127,10 @@ describe("useAdminResource.save", () => {
 		)
 
 		act(() => {
-			void result.current.save({})
+			// `.catch` keeps the rejection handled (the save's own catch covers it
+			// already; this just tells the test runner we're aware) and avoids the
+			// `void` operator that `sonarjs/void-use` flags.
+			result.current.save({}).catch(() => {})
 		})
 
 		unmount()
