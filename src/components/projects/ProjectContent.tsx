@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { fadeUp } from "@/lib/motion"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { ProjectDetail } from "@/lib/projects"
@@ -31,23 +31,19 @@ export default function ProjectContent({
 	const accent = accentColor ?? "var(--color-accent)"
 	const [activeTab, setActiveTab] = useState(0)
 
-	useEffect(() => {
-		if (!accentColor) {
-			return
-		}
-
-		const root = document.documentElement
-		root.style.setProperty("--color-header-accent", accentColor)
-
-		return () => {
-			root.style.removeProperty("--color-header-accent")
-		}
-	}, [accentColor])
-
 	const activeSection = sections[activeTab]
 
 	return (
 		<>
+			{/* The header gradient in globals.css reads `--color-header-accent`;
+			    rendering this rule via JSX (instead of a useEffect on mount) puts
+			    the override in the first paint, so SPA navigation between project
+			    pages doesn't flash through the default accent between unmount
+			    cleanup and remount effect. */}
+			{accentColor && (
+				<style>{`:root { --color-header-accent: ${accentColor}; }`}</style>
+			)}
+
 			{/* Project-specific glow */}
 			<div
 				aria-hidden
