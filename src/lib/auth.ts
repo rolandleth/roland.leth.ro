@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs"
 import { jwtVerify, SignJWT, type JWTPayload } from "jose"
 import { cookies } from "next/headers"
+import {
+	getAdminCredentials,
+	getSessionSecret as getRawSessionSecret,
+} from "@/lib/env"
 
 const COOKIE_NAME = "session"
 const SESSION_DURATION = 60 * 60 * 24 * 7 // 7 days in seconds
@@ -9,16 +13,13 @@ export interface SessionPayload extends JWTPayload {
 	admin: boolean
 }
 
-// Function (not a module-level constant) so tests can stub process.env.SESSION_SECRET.
+/**
+ * Returns the JWT signing secret as a `Uint8Array` ready for `jose`. Reads via
+ * `getRawSessionSecret` (lazy `process.env` read) so tests can stub the value
+ * via `vi.stubEnv`.
+ */
 export function getSessionSecret(): Uint8Array {
-	const secret = process.env.SESSION_SECRET
-
-	// v8 ignore next 3
-	if (!secret) {
-		throw new Error("SESSION_SECRET environment variable is not set")
-	}
-
-	return new TextEncoder().encode(secret)
+	return new TextEncoder().encode(getRawSessionSecret())
 }
 
 export async function createSession(): Promise<void> {
@@ -105,18 +106,17 @@ export async function verifyCredentials(
 	email: string,
 	password: string
 ): Promise<boolean> {
-	const adminEmail = process.env.ADMIN_EMAIL
-	const adminPasswordHash = process.env.ADMIN_HASH_PASSWORD
+	const credentials = getAdminCredentials()
 
-	if (!adminEmail || !adminPasswordHash) {
+	if (credentials === null) {
 		return false
 	}
 
 	// ADMIN_HASH_PASSWORD is stored as hex to avoid env parsing issues with / and $ chars.
-	const hash = Buffer.from(adminPasswordHash, "hex").toString()
+	const hash = Buffer.from(credentials.passwordHash, "hex").toString()
 
 	// Always run bcrypt regardless of email match to prevent timing-based user enumeration.
 	const passwordMatch = await bcrypt.compare(password, hash)
 
-	return email === adminEmail && passwordMatch
+	return email === credentials.email && passwordMatch
 }

@@ -1,19 +1,17 @@
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
+import { getCronSecret, getRedisConfig } from "@/lib/env"
 
-// `Redis.fromEnv()` needs BOTH `KV_REST_API_TOKEN` and `KV_REST_API_URL`; a
-// truthy check on just the token would let `fromEnv()` throw at module load
-// when the URL is missing, which produces an unhelpful startup failure rather
-// than the documented "no-Redis" fallback path.
-const hasRedis = Boolean(
-	process.env.KV_REST_API_TOKEN && process.env.KV_REST_API_URL
-)
-const redis = hasRedis ? Redis.fromEnv() : null
+// `Redis.fromEnv()` needs BOTH `KV_REST_API_TOKEN` and `KV_REST_API_URL`;
+// `getRedisConfig()` returns `null` unless both are set, so `fromEnv()` only
+// runs in the safe case (otherwise it would throw at module load with no
+// diagnostic).
+const redis = getRedisConfig() !== null ? Redis.fromEnv() : null
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-	const expected = process.env.CRON_SECRET
+	const expected = getCronSecret()
 
-	if (!expected) {
+	if (expected === null) {
 		// Silent 500s here would let the keepalive cron quietly stop working after
 		// an env-var regression; logging the cause makes it visible in Vercel logs.
 		// eslint-disable-next-line no-console

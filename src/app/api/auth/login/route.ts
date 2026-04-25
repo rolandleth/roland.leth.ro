@@ -2,22 +2,21 @@ import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { verifyCredentials, createSession } from "@/lib/auth"
+import { getRedisConfig } from "@/lib/env"
 import { loginSchema } from "@/lib/schemas"
 
-// `Redis.fromEnv()` (inside `Ratelimit`) needs BOTH vars. A truthy check on
-// just the token would let module-load throw when URL is missing, which
-// breaks the whole login route instead of falling back to "no rate limiting".
-const hasRedis = Boolean(
-	process.env.KV_REST_API_TOKEN && process.env.KV_REST_API_URL
-)
-
-const ratelimit = hasRedis
-	? new Ratelimit({
-			redis: Redis.fromEnv(),
-			limiter: Ratelimit.slidingWindow(5, "15 m"),
-			prefix: "rl:login",
-		})
-	: null
+// `Redis.fromEnv()` (inside `Ratelimit`) needs BOTH vars. `getRedisConfig()`
+// returns `null` unless both are set, so the constructor only runs in the safe
+// case (otherwise module-load would throw with no diagnostic, breaking the
+// whole login route instead of falling back to "no rate limiting").
+const ratelimit =
+	getRedisConfig() !== null
+		? new Ratelimit({
+				redis: Redis.fromEnv(),
+				limiter: Ratelimit.slidingWindow(5, "15 m"),
+				prefix: "rl:login",
+			})
+		: null
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
 	if (ratelimit) {
