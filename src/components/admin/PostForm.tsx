@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
@@ -30,6 +30,16 @@ interface PostPayload {
 	imageUrl?: string
 }
 
+interface FormState {
+	title: string
+	section: string
+	datetime: string
+	published: boolean
+	summary: string
+	imageUrl: string
+	body: string
+}
+
 export default function PostForm({ initialData }: Props) {
 	const isEditing = initialData != null
 	const { save, remove, isSubmitting, error } = useAdminResource<PostPayload>({
@@ -37,27 +47,39 @@ export default function PostForm({ initialData }: Props) {
 		id: initialData?.id ?? null,
 	})
 
-	const [title, setTitle] = useState(initialData?.title ?? "")
-	const [section, setSection] = useState(initialData?.section ?? "tech")
-	const [datetime, setDatetime] = useState(
-		initialData?.datetime ?? currentDatetimeString()
+	// Single state object so a partial-update setter (`setField`) can stand in
+	// for the seven individual `useState` setters this form used to carry. The
+	// callback identity is stable across renders (no value/closure dependency)
+	// so the heavy children — `MarkdownEditor`, `ImageUpload` — get the same
+	// `onChange` reference on every render.
+	const [state, setState] = useState<FormState>({
+		title: initialData?.title ?? "",
+		section: initialData?.section ?? "tech",
+		datetime: initialData?.datetime ?? currentDatetimeString(),
+		published: initialData?.published ?? true,
+		summary: initialData?.summary ?? "",
+		imageUrl: initialData?.imageUrl ?? "",
+		body: initialData?.body ?? "",
+	})
+
+	const setField = useCallback(
+		<K extends keyof FormState>(field: K, value: FormState[K]) => {
+			setState((prev) => ({ ...prev, [field]: value }))
+		},
+		[]
 	)
-	const [published, setPublished] = useState(initialData?.published ?? true)
-	const [summary, setSummary] = useState(initialData?.summary ?? "")
-	const [imageUrl, setImageUrl] = useState(initialData?.imageUrl ?? "")
-	const [body, setBody] = useState(initialData?.body ?? "")
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
 
 		await save({
-			title,
-			body,
-			section,
-			datetime,
-			published,
-			summary: summary || undefined,
-			imageUrl: imageUrl || undefined,
+			title: state.title,
+			body: state.body,
+			section: state.section,
+			datetime: state.datetime,
+			published: state.published,
+			summary: state.summary || undefined,
+			imageUrl: state.imageUrl || undefined,
 		})
 	}
 
@@ -71,8 +93,8 @@ export default function PostForm({ initialData }: Props) {
 					id="title"
 					type="text"
 					required
-					value={title}
-					onChange={(e) => setTitle(e.target.value)}
+					value={state.title}
+					onChange={(e) => setField("title", e.target.value)}
 					className="admin-input"
 				/>
 			</div>
@@ -83,8 +105,8 @@ export default function PostForm({ initialData }: Props) {
 				</label>
 				<select
 					id="section"
-					value={section}
-					onChange={(e) => setSection(e.target.value)}
+					value={state.section}
+					onChange={(e) => setField("section", e.target.value)}
 					className="admin-input"
 				>
 					{SECTIONS.map((s) => (
@@ -105,8 +127,8 @@ export default function PostForm({ initialData }: Props) {
 				<input
 					id="datetime"
 					type="text"
-					value={datetime}
-					onChange={(e) => setDatetime(e.target.value)}
+					value={state.datetime}
+					onChange={(e) => setField("datetime", e.target.value)}
 					placeholder="yyyy-MM-dd-HHmm"
 					className="admin-input font-mono"
 				/>
@@ -117,12 +139,12 @@ export default function PostForm({ initialData }: Props) {
 				<label className="flex items-center gap-2">
 					<input
 						type="checkbox"
-						checked={published}
-						onChange={(e) => setPublished(e.target.checked)}
+						checked={state.published}
+						onChange={(e) => setField("published", e.target.checked)}
 						className="accent-accent h-4 w-4"
 					/>
 					<span className="text-primary text-sm">
-						{published ? "Published" : "Draft"}
+						{state.published ? "Published" : "Draft"}
 					</span>
 				</label>
 			</div>
@@ -133,21 +155,25 @@ export default function PostForm({ initialData }: Props) {
 				</label>
 				<textarea
 					id="summary"
-					value={summary}
-					onChange={(e) => setSummary(e.target.value)}
+					value={state.summary}
+					onChange={(e) => setField("summary", e.target.value)}
 					rows={3}
 					placeholder="Optional summary shown in post listings…"
 					className="admin-input"
 				/>
 			</div>
 
-			<ImageUpload value={imageUrl} onChange={setImageUrl} label="Image" />
+			<ImageUpload
+				value={state.imageUrl}
+				onChange={(v) => setField("imageUrl", v)}
+				label="Image"
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<label className="text-secondary text-sm font-medium">Body</label>
 				<MarkdownEditor
-					value={body}
-					onChange={setBody}
+					value={state.body}
+					onChange={(v) => setField("body", v)}
 					placeholder="Write your post in markdown…"
 				/>
 			</div>
