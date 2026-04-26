@@ -217,7 +217,13 @@ export default function ProjectForm({ initialData }: Props) {
 					type="number"
 					min={0}
 					value={state.sortOrder}
-					onChange={(e) => setField("sortOrder", Number(e.target.value))}
+					onChange={(e) => {
+						// Empty input or partial entry ("-", ".") yields NaN; fall back to
+						// 0 so the payload stays a valid number and downstream Zod doesn't
+						// reject with a confusing "expected number, got null" message.
+						const num = Number(e.target.value)
+						setField("sortOrder", Number.isFinite(num) ? num : 0)
+					}}
 					className="admin-input"
 				/>
 			</div>
