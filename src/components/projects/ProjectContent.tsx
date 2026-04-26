@@ -74,7 +74,7 @@ export default function ProjectContent({
 							<div
 								className="flex h-18 w-18 shrink-0 items-center justify-center rounded-2xl shadow-sm"
 								style={{
-									backgroundColor: `color-mix(in srgb, ${accentColor} 15%, var(--color-border))`,
+									backgroundColor: `color-mix(in srgb, ${accent} 15%, var(--color-border))`,
 								}}
 							>
 								<span className="text-2xl font-bold" style={{ color: accent }}>
