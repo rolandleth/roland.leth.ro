@@ -121,27 +121,32 @@ describe("useAdminResource.save", () => {
 					rejectFetch = reject
 				})
 		)
+		// Suppress + record so we can assert React did NOT log the
+		// "state update on an unmounted component" warning. React 18 silently
+		// ignores it (no warning), so this assertion mainly documents intent and
+		// pins behavior against a future strict-mode regression.
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {})
 
 		const { result, unmount } = renderHook(() =>
 			useAdminResource({ resource: "posts", id: null })
 		)
 
-		act(() => {
-			// `.catch` keeps the rejection handled (the save's own catch covers it
-			// already; this just tells the test runner we're aware) and avoids the
-			// `void` operator that `sonarjs/void-use` flags.
-			result.current.save({}).catch(() => {})
-		})
+		const savePromise = result.current.save({}).catch(() => {})
 
 		unmount()
 		// Reject after unmount — the catch block runs against the stale instance.
 		rejectFetch?.(new Error("Network error"))
-		// Give the microtask a tick to flush.
+		await savePromise
+		// Microtask flush so any post-rejection setState would fire.
 		await new Promise((r) => setTimeout(r, 0))
 
-		// No assertion on state (the ref is stale after unmount); the test
-		// succeeds if it doesn't throw or produce an unhandled rejection.
-		expect(true).toBe(true)
+		expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+			expect.stringMatching(/unmounted component/)
+		)
+
+		consoleErrorSpy.mockRestore()
 	})
 })
 

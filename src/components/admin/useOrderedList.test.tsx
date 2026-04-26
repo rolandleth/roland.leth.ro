@@ -56,6 +56,37 @@ describe("useOrderedList update", () => {
 		// `_key` and `sortOrder` are preserved across update.
 		expect(next[0]._key).toBe("a")
 	})
+
+	it("preserves sortOrder across update (regression guard)", () => {
+		const value = [
+			makeItem({ _key: "a", label: "Alpha", sortOrder: 7 }),
+			makeItem({ _key: "b", label: "Beta", sortOrder: 8 }),
+		]
+		const onChange = vi.fn<(next: Item[]) => void>()
+
+		const { result } = renderHook(() => useOrderedList<Item>(value, onChange))
+		act(() => {
+			result.current.update(0, { label: "Alpha!" })
+		})
+
+		const next = onChange.mock.calls[0][0]
+		expect(next[0].sortOrder).toBe(7)
+		expect(next[1].sortOrder).toBe(8)
+	})
+
+	it("leaves the list intact when the index is out of range", () => {
+		const value = [makeItem({ _key: "a", label: "Alpha" })]
+		const onChange = vi.fn<(next: Item[]) => void>()
+
+		const { result } = renderHook(() => useOrderedList<Item>(value, onChange))
+		act(() => {
+			result.current.update(99, { label: "Ghost" })
+		})
+
+		const next = onChange.mock.calls[0][0]
+		expect(next).toHaveLength(1)
+		expect(next[0].label).toBe("Alpha")
+	})
 })
 
 // #endregion
@@ -79,6 +110,20 @@ describe("useOrderedList remove", () => {
 		const next = onChange.mock.calls[0][0]
 		expect(next.map((i) => i.label)).toEqual(["Alpha", "Charlie"])
 		expect(next.map((i) => i.sortOrder)).toEqual([0, 1])
+	})
+
+	it("no-ops when the index is out of range", () => {
+		const value = [makeItem({ _key: "a", label: "Alpha", sortOrder: 0 })]
+		const onChange = vi.fn<(next: Item[]) => void>()
+
+		const { result } = renderHook(() => useOrderedList<Item>(value, onChange))
+		act(() => {
+			result.current.remove(99)
+		})
+
+		const next = onChange.mock.calls[0][0]
+		expect(next.map((i) => i.label)).toEqual(["Alpha"])
+		expect(next.map((i) => i.sortOrder)).toEqual([0])
 	})
 })
 
