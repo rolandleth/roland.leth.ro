@@ -102,21 +102,30 @@ export async function verifySession(): Promise<boolean> {
 	return payload !== null
 }
 
+// Precomputed at module load so the no-credentials path below can still pay the
+// bcrypt cost. Without this, an attacker can probe the login endpoint and
+// detect "admin not configured yet" via response timing.
+const dummyHash = bcrypt.hashSync("dummy", 10)
+
 export async function verifyCredentials(
 	email: string,
 	password: string
 ): Promise<boolean> {
 	const credentials = getAdminCredentials()
 
+	// ADMIN_HASH_PASSWORD is stored as hex to avoid env parsing issues with / and $ chars.
+	const hash =
+		credentials !== null
+			? Buffer.from(credentials.passwordHash, "hex").toString()
+			: dummyHash
+
+	// Always run bcrypt regardless of email match (or even credential presence)
+	// to prevent timing-based user enumeration / config-state probing.
+	const passwordMatch = await bcrypt.compare(password, hash)
+
 	if (credentials === null) {
 		return false
 	}
-
-	// ADMIN_HASH_PASSWORD is stored as hex to avoid env parsing issues with / and $ chars.
-	const hash = Buffer.from(credentials.passwordHash, "hex").toString()
-
-	// Always run bcrypt regardless of email match to prevent timing-based user enumeration.
-	const passwordMatch = await bcrypt.compare(password, hash)
 
 	return email === credentials.email && passwordMatch
 }
