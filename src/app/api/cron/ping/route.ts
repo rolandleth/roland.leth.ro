@@ -1,12 +1,30 @@
+import { timingSafeEqual } from "node:crypto"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { getCronSecret, getRedisConfig } from "@/lib/env"
 
-// `Redis.fromEnv()` needs BOTH `KV_REST_API_TOKEN` and `KV_REST_API_URL`;
-// `getRedisConfig()` returns `null` unless both are set, so `fromEnv()` only
-// runs in the safe case (otherwise it would throw at module load with no
-// diagnostic).
-const redis = getRedisConfig() !== null ? Redis.fromEnv() : null
+// Construct from the resolved config object so the abstraction in `env.ts`
+// stays the single source of truth — `Redis.fromEnv()` would re-read
+// `process.env` directly and silently desync if the var names ever change.
+const redisConfig = getRedisConfig()
+const redis = redisConfig !== null ? new Redis(redisConfig) : null
+
+function isAuthorized(auth: string | null, expected: string): boolean {
+	const expectedBuf = Buffer.from(`Bearer ${expected}`)
+	const authBuf = Buffer.from(auth ?? "")
+
+	// `timingSafeEqual` requires equal-length buffers; the length check leaks
+	// the expected length but that's unavoidable and acceptable for a server-
+	// configured secret. Always run the compare against a same-length dummy
+	// when lengths differ so the byte-level work is constant-time.
+	if (authBuf.length !== expectedBuf.length) {
+		timingSafeEqual(expectedBuf, expectedBuf)
+
+		return false
+	}
+
+	return timingSafeEqual(authBuf, expectedBuf)
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
 	const expected = getCronSecret()
@@ -23,9 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		)
 	}
 
-	const auth = request.headers.get("authorization")
-
-	if (auth !== `Bearer ${expected}`) {
+	if (!isAuthorized(request.headers.get("authorization"), expected)) {
 		// eslint-disable-next-line no-console
 		console.error("[api:cron:ping] unauthorized")
 

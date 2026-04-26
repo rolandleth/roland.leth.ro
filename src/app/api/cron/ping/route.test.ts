@@ -103,8 +103,8 @@ describe("GET /api/cron/ping — Redis configured", () => {
 	it("returns 200 when redis.ping succeeds", async () => {
 		vi.resetModules()
 		vi.doMock("@upstash/redis", () => ({
-			Redis: {
-				fromEnv: () => ({ ping: vi.fn().mockResolvedValue("PONG") }),
+			Redis: class {
+				ping = vi.fn().mockResolvedValue("PONG")
 			},
 		}))
 
@@ -121,10 +121,8 @@ describe("GET /api/cron/ping — Redis configured", () => {
 	it("returns 502 when redis.ping rejects", async () => {
 		vi.resetModules()
 		vi.doMock("@upstash/redis", () => ({
-			Redis: {
-				fromEnv: () => ({
-					ping: vi.fn().mockRejectedValue(new Error("Redis down")),
-				}),
+			Redis: class {
+				ping = vi.fn().mockRejectedValue(new Error("Redis down"))
 			},
 		}))
 

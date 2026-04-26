@@ -5,14 +5,14 @@ import { verifyCredentials, createSession } from "@/lib/auth"
 import { getRedisConfig } from "@/lib/env"
 import { loginSchema } from "@/lib/schemas"
 
-// `Redis.fromEnv()` (inside `Ratelimit`) needs BOTH vars. `getRedisConfig()`
-// returns `null` unless both are set, so the constructor only runs in the safe
-// case (otherwise module-load would throw with no diagnostic, breaking the
-// whole login route instead of falling back to "no rate limiting").
+// Construct from the resolved config object so the abstraction in `env.ts`
+// stays the single source of truth — `Redis.fromEnv()` would re-read
+// `process.env` directly and silently desync if the var names ever change.
+const redisConfig = getRedisConfig()
 const ratelimit =
-	getRedisConfig() !== null
+	redisConfig !== null
 		? new Ratelimit({
-				redis: Redis.fromEnv(),
+				redis: new Redis(redisConfig),
 				limiter: Ratelimit.slidingWindow(5, "15 m"),
 				prefix: "rl:login",
 			})
@@ -66,5 +66,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	}
 
 	await createSession()
+	// Audit log for successful logins. Failed attempts log above; without this,
+	// the access log can't answer "did the legitimate user log in at 3am".
+	// eslint-disable-next-line no-console
+	console.info("[api:auth:login] success")
+
 	return NextResponse.json({ ok: true })
 }
