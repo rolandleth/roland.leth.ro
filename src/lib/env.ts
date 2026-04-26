@@ -5,20 +5,26 @@ import { z } from "zod"
  * `process.env` lazily on call, so tests can stub via `vi.stubEnv` and
  * `delete process.env.X` without re-importing the module.
  *
- * Required-var accessors (`getDatabaseUrl`, `getSessionSecret`) throw with a
- * predictable message. Optional-var accessors return `null` so callers can
- * choose between graceful degradation (Redis-less rate limiting, no cron
- * auth) and a 500.
+ * Required-var accessors (`getDatabaseUrl`, `getSessionSecret`) throw an
+ * `EnvConfigError` with a predictable message and `code: "ENV_MISSING"` so
+ * route handlers can distinguish a misconfigured deploy from other runtime
+ * errors. Optional-var accessors return `null` so callers can choose between
+ * graceful degradation (Redis-less rate limiting, no cron auth) and a 500.
  *
- * The Zod schema is intentionally loose — it lists the keys the app reads
- * and types them as `string`. Format checks (hex, URL, email) live at the
- * consumer site where the failure mode is meaningful.
+ * Format checks live in the schema where they're enforceable: `ADMIN_HASH_PASSWORD`
+ * is hex-decoded by `verifyCredentials`, so reject non-hex input early rather
+ * than producing garbage bytes deep inside `Buffer.from(..., "hex")`. Empty
+ * string is still allowed so the `nonEmpty`/required path can produce a useful
+ * "not set" message instead of a Zod regex error.
  */
 const envSchema = z.object({
 	DATABASE_URL: z.string().optional(),
 	SESSION_SECRET: z.string().optional(),
 	ADMIN_EMAIL: z.string().optional(),
-	ADMIN_HASH_PASSWORD: z.string().optional(),
+	ADMIN_HASH_PASSWORD: z
+		.string()
+		.regex(/^[0-9a-f]*$/i, "must be hex-encoded")
+		.optional(),
 	CRON_SECRET: z.string().optional(),
 	KV_REST_API_TOKEN: z.string().optional(),
 	KV_REST_API_URL: z.string().optional(),
@@ -26,17 +32,37 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>
 
+/**
+ * Thrown when a required env var is missing or fails schema validation.
+ * Carries `code: "ENV_MISSING"` and the var name so callers (middleware,
+ * route handlers) can branch on misconfiguration vs. business errors.
+ */
+export class EnvConfigError extends Error {
+	readonly code = "ENV_MISSING"
+
+	constructor(
+		public readonly varName: string,
+		message?: string
+	) {
+		super(message ?? `${varName} environment variable is not set`)
+		this.name = "EnvConfigError"
+	}
+}
+
 function readEnv(): Env {
 	const result = envSchema.safeParse(process.env)
 
-	// `safeParse` against a loose schema with `.optional()` everywhere should
-	// never fail in practice, but if it ever does (e.g. tightening the schema
-	// later) surface every issue at once rather than failing mid-call.
+	// Surfaces every schema issue at once (e.g. a non-hex `SESSION_SECRET`)
+	// rather than failing mid-call deep in a consumer.
 	if (!result.success) {
+		const firstIssue = result.error.issues[0]
 		const issues = result.error.issues
 			.map((issue) => `${issue.path.join(".")}: ${issue.message}`)
 			.join("; ")
-		throw new Error(`Invalid env config — ${issues}`)
+		throw new EnvConfigError(
+			String(firstIssue?.path[0] ?? "ENV"),
+			`Invalid env config — ${issues}`
+		)
 	}
 
 	return result.data
@@ -46,12 +72,11 @@ function nonEmpty(value: string | undefined): string | null {
 	return value != null && value.length > 0 ? value : null
 }
 
-/** Throws with `<NAME> environment variable is not set` if the var is missing. */
 function readRequired(name: keyof Env): string {
 	const value = nonEmpty(readEnv()[name])
 
 	if (value === null) {
-		throw new Error(`${name} environment variable is not set`)
+		throw new EnvConfigError(name)
 	}
 
 	return value
@@ -62,7 +87,7 @@ export function getDatabaseUrl(): string {
 	return readRequired("DATABASE_URL")
 }
 
-/** Hex-encoded JWT signing secret. Required by every protected request. */
+/** JWT signing secret. Required by every protected request. */
 export function getSessionSecret(): string {
 	return readRequired("SESSION_SECRET")
 }

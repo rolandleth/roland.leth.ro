@@ -73,7 +73,7 @@ public/
 
 ```
 DATABASE_URL=           # PostgreSQL connection string
-SESSION_SECRET=         # JWT signing secret (hex-encoded)
+SESSION_SECRET=         # JWT signing secret (any string)
 ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
 ```

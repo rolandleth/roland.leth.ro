@@ -90,12 +90,14 @@ describe("verifyCredentials", () => {
 		expect(await verifyCredentials("", "")).toBe(false)
 	})
 
-	it("returns false when ADMIN_HASH_PASSWORD is not valid hex", async () => {
-		// `Buffer.from(raw, "hex")` silently decodes garbage; if the deployer
-		// stores the bcrypt hash as-is (no hex encoding), login must fail cleanly
-		// rather than appear to succeed against decoded noise.
+	it("rejects with EnvConfigError when ADMIN_HASH_PASSWORD is not valid hex", async () => {
+		// `env.ts` enforces the hex format at the schema; a non-hex value should
+		// fail loudly rather than silently decode to garbage and produce a 401
+		// indistinguishable from a wrong password.
 		vi.stubEnv("ADMIN_HASH_PASSWORD", "not-hex-at-all-zzzz")
-		expect(await verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).toBe(false)
+		await expect(verifyCredentials(TEST_EMAIL, TEST_PASSWORD)).rejects.toThrow(
+			/hex/
+		)
 	})
 
 	it("still runs bcrypt.compare when the email doesn't match", async () => {

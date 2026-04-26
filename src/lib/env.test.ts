@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+	EnvConfigError,
 	getAdminCredentials,
 	getCronSecret,
 	getDatabaseUrl,
@@ -46,6 +47,20 @@ describe("getSessionSecret", () => {
 	})
 })
 
+describe("EnvConfigError", () => {
+	it("required-var throws are tagged so handlers can branch on them", () => {
+		vi.stubEnv("DATABASE_URL", "")
+		try {
+			getDatabaseUrl()
+			expect.unreachable("getDatabaseUrl should have thrown")
+		} catch (err) {
+			expect(err).toBeInstanceOf(EnvConfigError)
+			expect((err as EnvConfigError).code).toBe("ENV_MISSING")
+			expect((err as EnvConfigError).varName).toBe("DATABASE_URL")
+		}
+	})
+})
+
 // #endregion
 
 // #region optional — admin credentials
@@ -76,6 +91,12 @@ describe("getAdminCredentials", () => {
 		vi.stubEnv("ADMIN_EMAIL", "")
 		vi.stubEnv("ADMIN_HASH_PASSWORD", "")
 		expect(getAdminCredentials()).toBeNull()
+	})
+
+	it("rejects a non-hex ADMIN_HASH_PASSWORD via the schema", () => {
+		vi.stubEnv("ADMIN_EMAIL", "admin@example.com")
+		vi.stubEnv("ADMIN_HASH_PASSWORD", "not-hex!!")
+		expect(() => getAdminCredentials()).toThrow(/hex/)
 	})
 })
 
