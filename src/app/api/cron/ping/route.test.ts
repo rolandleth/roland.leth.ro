@@ -5,7 +5,7 @@ import { GET } from "./route"
 // `hasRedis` in the route is evaluated at module-load from
 // `process.env.KV_REST_API_TOKEN`. `.env.test` leaves it unset, so `redis` is
 // null here and these tests exercise the auth guards + the no-Redis happy path.
-// The redis.ping error branch is exercised in a separate describe block that
+// The redis.set error branch is exercised in a separate describe block that
 // resets the module with the env var set.
 
 function makeRequest(authorization?: string): NextRequest {
@@ -100,11 +100,12 @@ describe("GET /api/cron/ping — Redis configured", () => {
 		}
 	})
 
-	it("returns 200 when redis.ping succeeds", async () => {
+	it("returns 200 and writes keepalive:last when redis.set succeeds", async () => {
 		vi.resetModules()
+		const setSpy = vi.fn().mockResolvedValue("OK")
 		vi.doMock("@upstash/redis", () => ({
 			Redis: class {
-				ping = vi.fn().mockResolvedValue("PONG")
+				set = setSpy
 			},
 		}))
 
@@ -115,14 +116,22 @@ describe("GET /api/cron/ping — Redis configured", () => {
 		const data = await response.json()
 		expect(data.ok).toBe(true)
 
+		// Asserts the route writes the dedicated keepalive key with an ISO
+		// timestamp value — guards against a regression to `ping()` (which
+		// Upstash excludes from idle-database detection).
+		expect(setSpy).toHaveBeenCalledTimes(1)
+		const [key, value] = setSpy.mock.calls[0]
+		expect(key).toBe("keepalive:last")
+		expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+
 		vi.doUnmock("@upstash/redis")
 	})
 
-	it("returns 502 when redis.ping rejects", async () => {
+	it("returns 502 when redis.set rejects", async () => {
 		vi.resetModules()
 		vi.doMock("@upstash/redis", () => ({
 			Redis: class {
-				ping = vi.fn().mockRejectedValue(new Error("Redis down"))
+				set = vi.fn().mockRejectedValue(new Error("Redis down"))
 			},
 		}))
 
@@ -131,7 +140,7 @@ describe("GET /api/cron/ping — Redis configured", () => {
 
 		expect(response.status).toBe(502)
 		const data = await response.json()
-		expect(data.error).toMatch(/Redis ping failed/)
+		expect(data.error).toMatch(/Redis keepalive failed/)
 
 		vi.doUnmock("@upstash/redis")
 	})

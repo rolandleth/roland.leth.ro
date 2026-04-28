@@ -53,12 +53,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	}
 
 	try {
-		await redis.ping()
+		// `PING` is excluded from Upstash's idle-database detector, so a real data
+		// command is required to keep the free-tier DB from being flagged inactive.
+		// `SET keepalive:last <iso>` doubles as an observable "last successful run"
+		// marker visible in the Upstash data browser.
+		await redis.set("keepalive:last", new Date().toISOString())
 	} catch (error) {
 		// eslint-disable-next-line no-console
-		console.error("[api:cron:ping] redis.ping() failed", error)
+		console.error("[api:cron:ping] redis.set() failed", error)
 
-		return NextResponse.json({ error: "Redis ping failed" }, { status: 502 })
+		return NextResponse.json(
+			{ error: "Redis keepalive failed" },
+			{ status: 502 }
+		)
 	}
 
 	return NextResponse.json({ ok: true })
