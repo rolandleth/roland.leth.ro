@@ -1,14 +1,16 @@
 # Auto-allow sanctioned dev commands so they skip the permission prompt.
 #
 # Grammar:
-#   line       := cmd (sep cmd)* trailing-spaces
-#   sep        := optional-space ('&&' | ';') optional-space
-#   cmd        := (yarn_test | yarn_lint | yarn_tsc | search_log) tail?
-#   search_log := (rg|grep) [flags] <pattern> <log_path>+ [flags]
-#   tail       := redir_template | pipe_chain
-#   pipe_chain := [2>&1] (| pipe_cmd)+
-#   pipe_cmd   := head|tail [-n] N | wc [-lwcm] | sort [-urnhdiVfb] | rg [flags] <pattern>
-#   args       := space-separated tokens of a strict char ALLOWLIST
+#   line        := cmd (sep cmd)* trailing-spaces
+#   sep         := optional-space ('&&' | ';') optional-space
+#   cmd         := (yarn_test | yarn_lint | yarn_tsc | search_log | read_log) tail?
+#   search_log  := rg [flags] <pattern> <log_path>+ [flags]
+#   read_log    := (head|tail) [-n] N <log_path>+
+#   tail        := redir_template | [stderr_redir] pipe_chain | stderr_redir
+#   stderr_redir:= '2>&1' | '2>/dev/null'
+#   pipe_chain  := (| pipe_cmd)+
+#   pipe_cmd    := head|tail [-n] N | wc [-lwcm] | sort [-urnhdiVfb] | rg [flags] <pattern>
+#   args        := space-separated tokens of a strict char ALLOWLIST
 #
 # Notes:
 #   - Outside quotes, arg chars use an ALLOWLIST (`arg_char_re`): kills
@@ -42,29 +44,40 @@ def grep_like_flags_re:
 def grep_like_pattern_re:
   "(?:\"[^\"`$\\\\[:cntrl:]]*\"|'[^'[:cntrl:]]*'|\(arg_char_re)+)";
 
+def head_tail_re:
+  "(?:head|tail)(?: -n)? -?[1-9][0-9]{0,4}";
+
 # `sort` flags are an explicit allowlist: omits `-o` (writes file), `-S` (size
 # arg can be any string), `-T`/`-t` (paths/separators). Bundles like `-ur` ok.
 # `rg` in pipe: any rg flag taking a non-numeric arg (`-r`/`-f`/`-e`/`-t`/`-g`)
 # collapses under our value-must-be-numeric rule, so reusing grep_like_flags_re
 # is safe (grep is denied at the user-global level, so no recursion concern).
 def pipe_cmd_re:
-  "(?:(?:head|tail)(?: -n)? -?[1-9][0-9]{0,4}"
+  "(?:\(head_tail_re)"
   + "|wc(?: -[lwcm]+)?"
   + "|sort(?: -[urnhdiVfb]+)*"
   + "|rg\(grep_like_flags_re) \(grep_like_pattern_re))";
 
-def pipe_tail_re:
-  "(?: 2>&1)?(?: \\| \(pipe_cmd_re))+";
+def stderr_redir_re:
+  " (?:2>&1|2>/dev/null)";
+
+def pipe_chain_re:
+  "(?: \\| \(pipe_cmd_re))+";
 
 def output_tail_re:
-  "(?:\(redir_template_re)|\(pipe_tail_re))?";
+  "(?:"
+  + "\(redir_template_re)"
+  + "|(?:\(stderr_redir_re))?\(pipe_chain_re)"
+  + "|\(stderr_redir_re)"
+  + ")?";
 
 def cmd_re:
   "(?:"
   + "yarn test(?: run)?\(safe_args_re)"
   + "|yarn lint\(safe_args_re)"
   + "|yarn(?: run)? tsc --noEmit\(safe_args_re)"
-  + "|(?:rg|grep)\(grep_like_flags_re) \(grep_like_pattern_re)(?: \(log_path_re))+\(grep_like_flags_re)"
+  + "|rg\(grep_like_flags_re) \(grep_like_pattern_re)(?: \(log_path_re))+\(grep_like_flags_re)"
+  + "|\(head_tail_re)(?: \(log_path_re))+"
   + ")\(output_tail_re)";
 
 def sep_re: "(?: ?(?:&&|;) ?)";

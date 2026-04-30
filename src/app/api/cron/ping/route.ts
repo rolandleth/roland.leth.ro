@@ -3,6 +3,8 @@ import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { getCronSecret, getRedisConfig } from "@/lib/env"
 
+export const KEEPALIVE_KEY = "keepalive:last"
+
 // Construct from the resolved config object so the abstraction in `env.ts`
 // stays the single source of truth — `Redis.fromEnv()` would re-read
 // `process.env` directly and silently desync if the var names ever change.
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		// command is required to keep the free-tier DB from being flagged inactive.
 		// `SET keepalive:last <iso>` doubles as an observable "last successful run"
 		// marker visible in the Upstash data browser.
-		await redis.set("keepalive:last", new Date().toISOString())
+		await redis.set(KEEPALIVE_KEY, new Date().toISOString())
 	} catch (error) {
 		// eslint-disable-next-line no-console
 		console.error("[api:cron:ping] redis.set() failed", error)

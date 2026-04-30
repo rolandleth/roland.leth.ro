@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { GET } from "./route"
+import { GET, KEEPALIVE_KEY } from "./route"
 
 // `hasRedis` in the route is evaluated at module-load from
 // `process.env.KV_REST_API_TOKEN`. `.env.test` leaves it unset, so `redis` is
@@ -87,6 +87,8 @@ describe("GET /api/cron/ping — Redis configured", () => {
 	})
 
 	afterEach(() => {
+		vi.doUnmock("@upstash/redis")
+
 		if (originalKV === undefined) {
 			delete process.env.KV_REST_API_TOKEN
 		} else {
@@ -121,10 +123,8 @@ describe("GET /api/cron/ping — Redis configured", () => {
 		// Upstash excludes from idle-database detection).
 		expect(setSpy).toHaveBeenCalledTimes(1)
 		const [key, value] = setSpy.mock.calls[0]
-		expect(key).toBe("keepalive:last")
+		expect(key).toBe(KEEPALIVE_KEY)
 		expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
-
-		vi.doUnmock("@upstash/redis")
 	})
 
 	it("returns 502 when redis.set rejects", async () => {
@@ -141,8 +141,6 @@ describe("GET /api/cron/ping — Redis configured", () => {
 		expect(response.status).toBe(502)
 		const data = await response.json()
 		expect(data.error).toMatch(/Redis keepalive failed/)
-
-		vi.doUnmock("@upstash/redis")
 	})
 })
 

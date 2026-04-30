@@ -2,6 +2,21 @@
 
 Personal website for Roland Leth: landing page, blog, and projects portfolio.
 
+## Sanctioned command shapes
+Skip the permission prompt; anything else prompts. Full grammar in `.claude/hooks/auto-allow.jq`.
+Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`.
+
+- **Test**: `yarn test [run] [args]`
+- **Lint**: `yarn lint [args]`
+- **Type-check**: `yarn [run] tsc --noEmit [args]`
+  Optional tail on any of the above: ` > <log-path> 2>&1; echo "exit=$?"`
+- **Search logs**: `rg [flags] <pattern> <log-path>+ [flags]` — short-flag bundles only (e.g. `-iN`, `-A 3`).
+- **Read logs (CLI)**: `head|tail [-n] N <log-path>+`.
+- **Read logs (tool)**: `Read` on a log path is auto-allowed.
+- **Pipe chain** (append to any CLI command above): `| head|tail [-n] N`, `| wc [-lwcm]`, `| sort [-urnhdiVfb]`, `| rg [flags] <pattern>`.
+- **Chain commands**: `&&` or `;`.
+- **Args**: plain tokens only — `[A-Za-z0-9_./:=@,+%-]`. No quotes, spaces inside values, or shell metas (so `-t pattern` works, `-t "pat with space"` doesn't).
+
 ## Stack
 
 - **Framework**: Next.js 15 (App Router)
@@ -115,10 +130,3 @@ Pattern-based redirects live in `src/proxy.ts` (Next.js middleware); single-segm
 ## Testing
 
 - When writing tests, don't separate sections with big comment blocks. If you want to use something, use `regions`.
-- If you want to write to temp files for tests, tsc or lint, do it in `/tmp/rlr-test.log`, `tmp/rlr-tsc.log`, or `/tmp/rlr-lint.log`, other paths are blocked.
-
-## Rules
-
-- ALWAYS use dedicated/builtin tools (Read, Glob, Grep, LSP, IDE tools) over Bash for any operation (eg `Read` for reading files, `Glob` for pattern matching, `Grep` for searching, `LSP` for language server features, `IDE tools` for project-specific tasks); use Bash only when no dedicated/builtin tool covers it, and confirm with me first; non-negotiable.
-- If you find yourself writing a Bash command, stop and ask if there's a dedicated/builtin tool for the job. If there is, use it; if not, confirm with me before proceeding with Bash.
-- When delegating work to a subagent via Task/Agent tool, always include the above instructions in the prompt, and explicitly state that they should be followed.

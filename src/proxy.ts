@@ -73,6 +73,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 	// legacy redirect; `new URL(path, base)` would otherwise strip `base`'s
 	// query since `path` overrides it. Append `search` to every redirect target.
 
+	if (pathname === "/privacy-policy") {
+		return NextResponse.redirect(new URL(`/privacy${search}`, request.url), 301)
+	}
+
 	// /tech/blog/:slug → /blog/tech/:slug, /life/blog/:slug → /blog/life/:slug
 	const sectionBlogMatch = pathname.match(SECTION_BLOG_REGEX)
 

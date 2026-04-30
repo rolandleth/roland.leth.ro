@@ -242,6 +242,18 @@ describe("proxy — feed redirects", () => {
 
 // #endregion
 
+// #region Legacy redirects — privacy policy
+
+describe("proxy — privacy policy redirect", () => {
+	it("redirects /privacy-policy to /privacy", async () => {
+		const response = await proxy(makeRequest("/privacy-policy"))
+		expect(response.status).toBe(301)
+		expect(response.headers.get("location")).toContain("/privacy")
+	})
+})
+
+// #endregion
+
 // #region Root slug fall-through
 
 describe("proxy — root slug fall-through", () => {
