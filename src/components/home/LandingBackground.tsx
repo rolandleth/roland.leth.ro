@@ -25,6 +25,7 @@ export default function LandingBackground() {
 			{blobs.map(({ position, size, blur, animation }) => (
 				<div
 					key={animation}
+					data-blob-bg
 					className={`bg-accent absolute rounded-full ${position} ${size} ${blur}`}
 					style={{ animation, willChange: "transform" }}
 				/>

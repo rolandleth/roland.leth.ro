@@ -103,6 +103,14 @@ html:not(.dark):not(.light) {
 	}
 }
 
+/* Honour reduced-motion preferences: visitors with vestibular sensitivity
+   shouldn't see permanently-animating blurred blobs on the landing page. */
+@media (prefers-reduced-motion: reduce) {
+	[data-blob-bg] {
+		animation: none !important;
+	}
+}
+
 a {
 	transition:
 		color 0.4s ease,
