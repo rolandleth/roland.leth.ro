@@ -9,13 +9,14 @@ Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`.
 - **Test**: `yarn test [run] [args]`
 - **Lint**: `yarn lint [args]`
 - **Type-check**: `yarn [run] tsc --noEmit [args]`
-  Optional tail on any of the above: ` > <log-path> 2>&1; echo "exit=$?"`
-- **Search logs**: `rg [flags] <pattern> <log-path>+ [flags]` — short-flag bundles only (e.g. `-iN`, `-A 3`).
-- **Read logs (CLI)**: `head|tail [-n] N <log-path>+`.
+  Optional tail on any of the above: ` > <log-path> 2>&1; echo "<label>=$?"` — `<label>` is any identifier (e.g. `exit`, `lint`, `tsc`); use distinct labels for chained stages so you can tell exit codes apart in the output.
+- **Search logs**: `rg [flags] <pattern> <log-path>+ [flags]` — short-flag bundles only (e.g. `-iN`, `-A 3` or `-A3`). Quoted patterns: single quotes pass anything except `'`; double quotes block `"`, backtick, `$`, `\` — use single quotes for regex with backslashes.
+- **Multiple searches**: If you need to search multiple batches of terms, don't do it in a single call, do separate calls.
+- **Read logs (CLI)**: `head|tail [-n] N <log-path>+`, `wc [-lwcm] <log-path>+`.
 - **Read logs (tool)**: `Read` on a log path is auto-allowed.
-- **Pipe chain** (append to any CLI command above): `| head|tail [-n] N`, `| wc [-lwcm]`, `| sort [-urnhdiVfb]`, `| rg [flags] <pattern>`.
+- **Pipe chain** (append to any CLI command above): `| head|tail [-n] N`, `| wc [-lwcm]`, `| sort [-urnhdiVfb]`, `| uniq [-cdiu] [-fsw N]`, `| rg [flags] <pattern>`.
 - **Chain commands**: `&&` or `;`.
-- **Args**: plain tokens only — `[A-Za-z0-9_./:=@,+%-]`. No quotes, spaces inside values, or shell metas (so `-t pattern` works, `-t "pat with space"` doesn't).
+- **Args**: plain tokens (`[A-Za-z0-9_./:=@,+%-]`) or single-quoted strings (anything except `'`). Use single quotes for paths with `()`/`[]` (e.g. Next.js route groups: `'src/app/(protected)/[id]/page.test.tsx'`). Double quotes still blocked. Token-internal spaces still require quoting.
 
 ## Stack
 

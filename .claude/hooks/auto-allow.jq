@@ -3,14 +3,16 @@
 # Grammar:
 #   line        := cmd (sep cmd)* trailing-spaces
 #   sep         := optional-space ('&&' | ';') optional-space
-#   cmd         := (yarn_test | yarn_lint | yarn_tsc | search_log | read_log) tail?
+#   cmd         := (yarn_test | yarn_lint | yarn_tsc | search_log | read_log | count_log) tail?
 #   search_log  := rg [flags] <pattern> <log_path>+ [flags]
 #   read_log    := (head|tail) [-n] N <log_path>+
+#   count_log   := wc [-lwcm] <log_path>+
 #   tail        := redir_template | [stderr_redir] pipe_chain | stderr_redir
 #   stderr_redir:= '2>&1' | '2>/dev/null'
 #   pipe_chain  := (| pipe_cmd)+
-#   pipe_cmd    := head|tail [-n] N | wc [-lwcm] | sort [-urnhdiVfb] | rg [flags] <pattern>
-#   args        := space-separated tokens of a strict char ALLOWLIST
+#   pipe_cmd    := head|tail [-n] N | wc [-lwcm] | sort [-urnhdiVfb] | uniq [-cdiu] [-fsw N] | rg [flags] <pattern>
+#   args        := space-separated tokens; each token is either a strict
+#                   char ALLOWLIST run or a single-quoted string
 #
 # Notes:
 #   - Outside quotes, arg chars use an ALLOWLIST (`arg_char_re`): kills
@@ -25,21 +27,30 @@
 #     (`^ $ ( ) [ ] { } | + ? *`) through inside quotes, where it's safe.
 #   - `\A` / `\z` (not `^` / `$`): anchor to absolute string start/end,
 #     immune to multi-line trickery.
-#   - Redirect template `; echo "exit=$?"` is consumed atomically inside
+#   - Redirect template `; echo "<label>=$?"` is consumed atomically inside
 #     `tail`, so its inner `;` can never be confused with a chain separator.
+#     <label> is any identifier ([A-Za-z_][A-Za-z0-9_]*) — purely cosmetic,
+#     so chained stages can be distinguished (`exit=`, `lint=`, `tsc=`).
 
 def log_path_re:
   "/tmp/rlr-(test|tsc|lint)\\.log";
 
 def arg_char_re: "[A-Za-z0-9_./:=@,+%-]";
-def safe_args_re: "(?: \(arg_char_re)+)*";
 
+# Single-quoted only: bash interprets nothing inside `'...'`, so the deny set
+# collapses to `'` + cntrl. Double quotes would still leak `$`/backtick/`\`,
+# and yarn args never need those literal — single is strictly safer here.
+def safe_arg_re:
+  "(?:\(arg_char_re)+|'[^'[:cntrl:]]*')";
+def safe_args_re: "(?: \(safe_arg_re))*";
+
+def redir_label_re: "[A-Za-z_][A-Za-z0-9_]*";
 def redir_template_re:
-  " > \(log_path_re) 2>&1; echo \"exit=\\$\\?\"";
+  " > \(log_path_re) 2>&1; echo \"\(redir_label_re)=\\$\\?\"";
 
 # Shared by rg and grep — same shape: short-flag bundles with optional numeric arg.
 def grep_like_flags_re:
-  "(?: -[a-zA-Z]+(?: [1-9][0-9]{0,4})?)*";
+  "(?: -[a-zA-Z]+(?: ?[1-9][0-9]{0,4})?)*";
 
 def grep_like_pattern_re:
   "(?:\"[^\"`$\\\\[:cntrl:]]*\"|'[^'[:cntrl:]]*'|\(arg_char_re)+)";
@@ -47,15 +58,21 @@ def grep_like_pattern_re:
 def head_tail_re:
   "(?:head|tail)(?: -n)? -?[1-9][0-9]{0,4}";
 
+def wc_re:
+  "wc(?: -[lwcm]+)?";
+
 # `sort` flags are an explicit allowlist: omits `-o` (writes file), `-S` (size
 # arg can be any string), `-T`/`-t` (paths/separators). Bundles like `-ur` ok.
+# `uniq` is a pure stream filter — no file-write flag (unlike sort's `-o`);
+# arg-taking flags (`-f`/`-s`/`-w`) are numeric-only.
 # `rg` in pipe: any rg flag taking a non-numeric arg (`-r`/`-f`/`-e`/`-t`/`-g`)
 # collapses under our value-must-be-numeric rule, so reusing grep_like_flags_re
 # is safe (grep is denied at the user-global level, so no recursion concern).
 def pipe_cmd_re:
   "(?:\(head_tail_re)"
-  + "|wc(?: -[lwcm]+)?"
+  + "|\(wc_re)"
   + "|sort(?: -[urnhdiVfb]+)*"
+  + "|uniq(?: -[cdiu]+)*(?: -[fsw] [1-9][0-9]{0,4})*"
   + "|rg\(grep_like_flags_re) \(grep_like_pattern_re))";
 
 def stderr_redir_re:
@@ -78,6 +95,7 @@ def cmd_re:
   + "|yarn(?: run)? tsc --noEmit\(safe_args_re)"
   + "|rg\(grep_like_flags_re) \(grep_like_pattern_re)(?: \(log_path_re))+\(grep_like_flags_re)"
   + "|\(head_tail_re)(?: \(log_path_re))+"
+  + "|\(wc_re)(?: \(log_path_re))+"
   + ")\(output_tail_re)";
 
 def sep_re: "(?: ?(?:&&|;) ?)";
