@@ -46,11 +46,34 @@ describe("siteBase", () => {
 		vi.mocked(headers).mockReset()
 	})
 
-	it("throws when host header is missing", async () => {
+	it("throws when host header AND VERCEL_URL are both missing", async () => {
+		// Final fallback: a misconfigured deploy with neither signal can still
+		// fail loudly, but only when there's truly nothing to use.
+		delete process.env.VERCEL_URL
 		vi.mocked(headers).mockResolvedValue(
 			new Headers() as Awaited<ReturnType<typeof headers>>
 		)
 		await expect(siteBase()).rejects.toThrow("Missing host header")
+	})
+
+	it("falls back to VERCEL_URL when host header is missing", async () => {
+		// Reverse-proxy stripping `Host` is rare but real; the previous behavior
+		// was an unconditional throw → 500 across the entire site.
+		vi.stubEnv("VERCEL_URL", "preview-abc123.vercel.app")
+		vi.mocked(headers).mockResolvedValue(
+			new Headers() as Awaited<ReturnType<typeof headers>>
+		)
+		expect(await siteBase()).toBe("https://preview-abc123.vercel.app")
+	})
+
+	it("respects x-forwarded-proto when falling back to VERCEL_URL", async () => {
+		vi.stubEnv("VERCEL_URL", "preview-abc123.vercel.app")
+		vi.mocked(headers).mockResolvedValue(
+			new Headers({ "x-forwarded-proto": "http" }) as Awaited<
+				ReturnType<typeof headers>
+			>
+		)
+		expect(await siteBase()).toBe("http://preview-abc123.vercel.app")
 	})
 
 	it("uses x-forwarded-proto over defaultProto when present", async () => {

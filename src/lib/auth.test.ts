@@ -109,6 +109,25 @@ describe("verifyCredentials", () => {
 		await verifyCredentials("other@example.com", TEST_PASSWORD)
 		expect(spy).toHaveBeenCalledOnce()
 	})
+
+	it("still runs bcrypt.compare when admin credentials are not configured", async () => {
+		// Same anti-enumeration property when both env vars are missing — the
+		// no-credentials path must not return early before bcrypt fires.
+		delete process.env.ADMIN_EMAIL
+		delete process.env.ADMIN_HASH_PASSWORD
+		const spy = vi.spyOn(bcrypt, "compare")
+		await verifyCredentials("anyone@example.com", "anything")
+		expect(spy).toHaveBeenCalledOnce()
+	})
+
+	it("rejects mixed-case email by exact match (callers normalize via loginSchema)", async () => {
+		// `verifyCredentials` itself does case-sensitive `===`. The login route
+		// normalizes via loginSchema's transform; if a future caller bypasses
+		// the schema, this test pins that the lib doesn't smooth it over.
+		expect(await verifyCredentials("ADMIN@example.com", TEST_PASSWORD)).toBe(
+			false
+		)
+	})
 })
 
 // #endregion

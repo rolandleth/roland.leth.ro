@@ -116,6 +116,22 @@ describe("platformBucket", () => {
 	it("returns Other for an unknown platform", () => {
 		expect(platformBucket("game")).toBe("Other")
 	})
+
+	it("does NOT match a keyword as a substring of a longer word", () => {
+		// Pre-fix bug: `lower.includes("web")` matched `"webhook tool"` and
+		// returned "Web". Word-boundary regex prevents that.
+		expect(platformBucket("Webhook tool")).toBe("Other")
+	})
+
+	it("matches a multi-word keyword exactly within a longer phrase", () => {
+		// `"menu bar"` is a multi-word Mac keyword; should still match when
+		// surrounded by other words.
+		expect(platformBucket("Tiny menu bar app")).toBe("Mac")
+	})
+
+	it("matches a comma-separated platform string against any token", () => {
+		expect(platformBucket("iOS, Android")).toBe("iOS")
+	})
 })
 
 // #endregion
