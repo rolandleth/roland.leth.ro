@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/boundedCache"
 import { prisma } from "@/lib/db"
@@ -310,4 +310,15 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
 			})),
 		})),
 	}
+}
+
+/**
+ * Invalidates every cache tag tied to projects so an admin write surfaces
+ * immediately on the gallery, single-project page, and any cached lookup.
+ * Pass `slug` (current OR previous, on a slug-changing PUT) to also bust the
+ * single-project tag.
+ */
+export function revalidateProject(slug: string): void {
+	revalidateTag("projects", "max")
+	revalidateTag(`project-${slug}`, "max")
 }

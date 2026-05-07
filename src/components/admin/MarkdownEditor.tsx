@@ -53,11 +53,10 @@ export default function MarkdownEditor({
 					return
 				}
 
-				// eslint-disable-next-line no-console
-				console.error("Markdown preview failed to render:", err)
+				const message = err instanceof Error ? err.message : "unknown error"
 				setPreview(
 					<span className="text-sm text-red-500">
-						Preview failed to render. Check the console for details.
+						Preview failed to render: {message}
 					</span>
 				)
 			})

@@ -1,10 +1,14 @@
-import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
 import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
-import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
+import {
+	projectInclude,
+	revalidateProject,
+	toLinkCreate,
+	toSectionCreate,
+} from "@/lib/projects"
 import { projectCreateSchema } from "@/lib/schemas"
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -85,8 +89,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 		)
 
-		revalidateTag("projects", "max")
-		revalidateTag(`project-${project.slug}`, "max")
+		revalidateProject(project.slug)
 
 		return NextResponse.json(project, { status: 201 })
 	} catch (error) {

@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
 import {
@@ -9,7 +8,12 @@ import {
 } from "@/lib/apiErrors"
 import { prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
-import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
+import {
+	projectInclude,
+	revalidateProject,
+	toLinkCreate,
+	toSectionCreate,
+} from "@/lib/projects"
 import { projectUpdateSchema } from "@/lib/schemas"
 
 export async function GET(
@@ -141,8 +145,7 @@ export async function PUT(
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 		)
 
-		revalidateTag("projects", "max")
-		revalidateTag(`project-${project.slug}`, "max")
+		revalidateProject(project.slug)
 
 		return NextResponse.json(project)
 	} catch (error) {
@@ -187,8 +190,7 @@ export async function DELETE(
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 		)
 
-		revalidateTag("projects", "max")
-		revalidateTag(`project-${deleted.slug}`, "max")
+		revalidateProject(deleted.slug)
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

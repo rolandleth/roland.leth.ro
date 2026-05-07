@@ -44,8 +44,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.next()
 	}
 
+	// Match the `/api/admin` namespace explicitly: `startsWith("/api/admin/")`
+	// alone would let `/api/admin` (no trailing slash) bypass the auth gate
+	// and fall through to the generic `/api/*` pass-through. No route currently
+	// lives at the bare path, but the guard is cheap defense in depth.
 	const isAdminApi =
-		pathname.startsWith("/api/admin/") || pathname === "/api/upload"
+		pathname === "/api/admin" ||
+		pathname.startsWith("/api/admin/") ||
+		pathname === "/api/upload"
 	const isAdminPage =
 		pathname.startsWith("/admin") && pathname !== "/admin/login"
 

@@ -310,11 +310,13 @@ describe("proxy — pass-through", () => {
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 
-	it("passes through /api/admin without a trailing slash (boundary)", async () => {
-		// `startsWith("/api/admin/")` requires the trailing slash, so the bare
-		// path falls through to the generic /api pass-through, not admin auth.
+	it("gates /api/admin (bare path, boundary)", async () => {
+		// Defense in depth: the previous behavior let `/api/admin` (no trailing
+		// slash) fall through to the generic /api pass-through, leaving any
+		// future controller mounted at the bare path unauthenticated. Now it
+		// 401s like the trailing-slash variants when no session cookie is set.
 		const response = await proxy(makeRequest("/api/admin"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
+		expect(response.status).toBe(401)
 	})
 })
 

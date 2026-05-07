@@ -1,7 +1,6 @@
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google"
 import { cookies } from "next/headers"
-import AnalyticsWithFilter from "@/app/AnalyticsWithFilter"
-import SpeedInsightsWithFilter from "@/app/SpeedInsightsWithFilter"
+import ClientAnalytics from "@/app/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import ThemeProvider from "@/components/ThemeProvider"
@@ -75,8 +74,7 @@ export default async function RootLayout({
 				<ThemeProvider initialTheme={initialTheme}>
 					<Header />
 					{children}
-					<SpeedInsightsWithFilter />
-					<AnalyticsWithFilter />
+					<ClientAnalytics />
 					<Footer />
 				</ThemeProvider>
 			</body>
