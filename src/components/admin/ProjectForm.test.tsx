@@ -149,7 +149,7 @@ describe("ProjectForm — create mode", () => {
 		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
 
 		await waitFor(() =>
-			expect(screen.getByText("Name already taken")).toBeInTheDocument()
+			expect(screen.getByText(/Name already taken/)).toBeInTheDocument()
 		)
 	})
 

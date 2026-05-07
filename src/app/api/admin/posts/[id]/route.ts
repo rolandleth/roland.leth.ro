@@ -103,7 +103,7 @@ export async function PUT(
 
 		return NextResponse.json(post)
 	} catch (error) {
-		const notFound = handlePrismaError(error)
+		const notFound = handlePrismaError(error, "[api:admin:posts:PUT]")
 
 		if (notFound) {
 			return notFound
@@ -135,7 +135,7 @@ export async function DELETE(
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {
-		const notFound = handlePrismaError(error)
+		const notFound = handlePrismaError(error, "[api:admin:posts:DELETE]")
 
 		if (notFound) {
 			return notFound

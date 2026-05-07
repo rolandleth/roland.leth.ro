@@ -121,7 +121,7 @@ describe("PostForm — create mode", () => {
 		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() =>
-			expect(screen.getByText("Validation error")).toBeInTheDocument()
+			expect(screen.getByText(/Validation error/)).toBeInTheDocument()
 		)
 	})
 

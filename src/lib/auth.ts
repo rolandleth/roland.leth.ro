@@ -82,8 +82,18 @@ export async function verifyToken(
 				: error instanceof Error
 					? error.name
 					: "unknown"
-		// eslint-disable-next-line no-console
-		console.error("[auth:verifyToken]", code)
+
+		// Routine session expiry should not pollute the error log: an admin
+		// returning after a week generates one of these per request until they
+		// re-login. Signature failures stay at error level so a secret-rotation
+		// regression or token-tampering attempt is still visible as a spike.
+		if (code === "ERR_JWT_EXPIRED") {
+			// eslint-disable-next-line no-console
+			console.info("[auth:verifyToken]", code)
+		} else {
+			// eslint-disable-next-line no-console
+			console.error("[auth:verifyToken]", code)
+		}
 
 		return null
 	}

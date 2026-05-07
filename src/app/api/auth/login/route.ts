@@ -83,8 +83,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	const parsed = loginSchema.safeParse(body)
 
 	if (!parsed.success) {
+		// Log issue paths only (never values) so a real client bug is debuggable
+		// without leaking submitted credentials into the access log.
+		const issuePaths = parsed.error.issues
+			.map((issue) => issue.path.join("."))
+			.join(", ")
 		// eslint-disable-next-line no-console
-		console.error("[api:auth:login] schema validation failed")
+		console.warn(`[api:auth:login] schema validation failed: ${issuePaths}`)
 
 		return NextResponse.json(
 			{ error: "Missing email or password" },

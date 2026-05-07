@@ -42,19 +42,22 @@ export function useAdminResource<TPayload>({
 		response: Response,
 		fallback: string
 	): Promise<string> {
+		// Always include the HTTP status so a "Request failed" or fallback
+		// message is debuggable from the rendered UI without needing DevTools.
+		const statusSuffix = ` (HTTP ${response.status})`
 		const contentType = response.headers.get("content-type") ?? ""
 
 		if (!contentType.includes("application/json")) {
-			return fallback
+			return fallback + statusSuffix
 		}
 
 		try {
 			const data = (await response.json()) as { error?: string }
 
-			return data.error ?? fallback
+			return (data.error ?? fallback) + statusSuffix
 		} catch {
 			// Distinguish malformed JSON from the HTTP error itself.
-			return "Request failed"
+			return "Request failed" + statusSuffix
 		}
 	}
 

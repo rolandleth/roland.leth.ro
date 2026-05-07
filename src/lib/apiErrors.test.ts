@@ -67,20 +67,27 @@ describe("parseIdParam", () => {
 })
 
 describe("respondInternalError", () => {
-	it("returns a 500 JSON response with a generic error message", async () => {
+	it("returns a 500 JSON response with a generic error message and a request id", async () => {
 		const response = respondInternalError("[test]", new Error("boom"))
 		expect(response.status).toBe(500)
 		const body = await response.json()
-		expect(body).toEqual({ error: "Internal server error" })
+		expect(body.error).toBe("Internal server error")
+		// 12 hex chars from a UUID with dashes stripped — pinned so the contract
+		// is stable for log-correlation grep.
+		expect(body.requestId).toMatch(/^[0-9a-f]{12}$/)
 	})
 
-	it("logs the tag and the error to the console", () => {
+	it("logs the tag, the request id, and the error to the console", () => {
 		// `console.error` is silenced by the test setup, so read the mock calls
 		// directly instead of capturing stderr.
 		const err = new Error("db offline")
 		respondInternalError("[api:tag]", err)
 
 		const mock = vi.mocked(console.error)
-		expect(mock).toHaveBeenCalledWith("[api:tag]", err)
+		expect(mock).toHaveBeenCalledWith(
+			"[api:tag]",
+			expect.objectContaining({ requestId: expect.any(String) }),
+			err
+		)
 	})
 })

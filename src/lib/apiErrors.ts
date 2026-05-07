@@ -6,9 +6,21 @@ import type { z } from "zod"
 /**
  * Maps a caught error to a 404 response when it is a Prisma "record not found" error.
  * Returns `null` for every other case so the caller can log and return its own 500.
+ *
+ * The `tag` is logged at warn level on a 404 so operators can tell the
+ * difference between "stale UI tried to delete record N" and "DB lost the
+ * record" — both produce 404s, but the first is benign and the second is not.
  */
-export function handlePrismaError(error: unknown): NextResponse | null {
+export function handlePrismaError(
+	error: unknown,
+	tag?: string
+): NextResponse | null {
 	if (isPrismaNotFound(error)) {
+		if (tag != null) {
+			// eslint-disable-next-line no-console
+			console.warn(`${tag} record not found`)
+		}
+
 		return NextResponse.json({ error: "Not found" }, { status: 404 })
 	}
 
@@ -37,15 +49,30 @@ export async function parseIdParam(
  * 500 response. The tag (e.g. `[api:admin:posts:POST]`) is what shows up in
  * Vercel logs so operators can tell which handler failed without opening the
  * stack trace.
+ *
+ * A short request id is generated server-side, included in the response body,
+ * and logged alongside the stack so a self-hosted deploy can grep logs by id
+ * (Vercel surfaces its own platform request id, but that's only available on
+ * Vercel — the app should be debuggable elsewhere too).
  */
 export function respondInternalError(
 	tag: string,
 	error: unknown
 ): NextResponse {
+	const requestId = randomShortId()
 	// eslint-disable-next-line no-console
-	console.error(tag, error)
+	console.error(tag, { requestId }, error)
 
-	return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+	return NextResponse.json(
+		{ error: "Internal server error", requestId },
+		{ status: 500 }
+	)
+}
+
+function randomShortId(): string {
+	// 12-char URL-safe id is plenty for log correlation. Crypto-strong (no
+	// guessability needed but free enough not to bother with Math.random).
+	return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
 }
 
 /**

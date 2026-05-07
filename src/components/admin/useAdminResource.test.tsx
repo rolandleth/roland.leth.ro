@@ -105,7 +105,9 @@ describe("useAdminResource.save", () => {
 			await result.current.save({})
 		})
 
-		expect(result.current.error).toBe("Missing title")
+		// Status suffix is appended by readErrorMessage so the rendered error in
+		// the form is debuggable without opening DevTools.
+		expect(result.current.error).toBe("Missing title (HTTP 400)")
 		expect(result.current.isSubmitting).toBe(false)
 	})
 
@@ -219,7 +221,9 @@ describe("useAdminResource.remove", () => {
 			await result.current.remove()
 		})
 
-		await waitFor(() => expect(result.current.error).toBe("DB offline"))
+		await waitFor(() =>
+			expect(result.current.error).toBe("DB offline (HTTP 500)")
+		)
 		expect(result.current.isSubmitting).toBe(false)
 	})
 })
