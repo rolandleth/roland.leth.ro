@@ -73,6 +73,7 @@ describe("siteBase", () => {
 				ReturnType<typeof headers>
 			>
 		)
+		// eslint-disable-next-line sonarjs/no-clear-text-protocols
 		expect(await siteBase()).toBe("http://preview-abc123.vercel.app")
 	})
 
