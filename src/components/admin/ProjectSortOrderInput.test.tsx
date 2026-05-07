@@ -139,8 +139,10 @@ describe("ProjectSortOrderInput save behaviour", () => {
 		await userEvent.type(input, "3")
 		await userEvent.tab()
 
+		// The catch now surfaces err.message so the failure reason is visible
+		// without opening DevTools (e.g. "Network down" instead of "Failed to save").
 		await waitFor(() =>
-			expect(screen.getByText(/failed to save/i)).toBeInTheDocument()
+			expect(screen.getByText(/network down/i)).toBeInTheDocument()
 		)
 		expect(input).toHaveValue(1)
 		expect(input).not.toBeDisabled()

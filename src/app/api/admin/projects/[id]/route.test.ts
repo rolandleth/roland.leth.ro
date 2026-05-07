@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { DELETE, GET, PUT } from "./route"
@@ -223,6 +224,26 @@ describe("PUT /api/admin/projects/[id]", () => {
 
 		const response = await PUT(putRequest("1", { name: "X" }), params("1"))
 		expect(response.status).toBe(500)
+	})
+
+	it("invalidates both old and new slug tags when a name change produces a new slug", async () => {
+		// The pre-transaction read returns the current (old) slug; the transaction
+		// returns a project with the new slug. Both per-slug tags must be busted
+		// so cached lookups on the old URL also clear immediately.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
+		const renamed = { ...existingProject, name: "New Name", slug: "new-name" }
+		vi.mocked(prisma.project.update).mockResolvedValue(renamed)
+
+		await PUT(putRequest("1", { name: "New Name" }), params("1"))
+
+		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
+			"project-my-app",
+			"max"
+		)
+		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
+			"project-new-name",
+			"max"
+		)
 	})
 })
 

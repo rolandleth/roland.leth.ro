@@ -53,4 +53,15 @@ describe("filterAdminEvents", () => {
 		const event = { url: "https://site/projects", ts: 12345, extra: "hi" }
 		expect(filterAdminEvents(event)).toEqual(event)
 	})
+
+	it("drops a relative /admin URL that has a fragment but no query string", () => {
+		// Without stripping `#`, `split('?')[0]` on `/admin#section` returns
+		// `/admin#section`, which fails the exact `/admin` check and passes through.
+		expect(filterAdminEvents({ url: "/admin#section" })).toBeNull()
+	})
+
+	it("passes through /administrator (not a path-segment match)", () => {
+		const event = { url: "/administrator" }
+		expect(filterAdminEvents(event)).toBe(event)
+	})
 })

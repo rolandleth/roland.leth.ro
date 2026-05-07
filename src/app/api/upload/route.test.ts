@@ -224,6 +224,8 @@ describe("POST /api/upload", () => {
 		// Internal error message must not leak to the client.
 		expect(data.error).toBe("Upload failed")
 		expect(data.error).not.toContain("blob store unreachable")
+		// requestId must be present for log correlation (matches respondInternalError pattern).
+		expect(data.requestId).toMatch(/^[0-9a-f]{12}$/)
 	})
 })
 

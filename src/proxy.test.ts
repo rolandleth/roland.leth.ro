@@ -126,6 +126,7 @@ describe("proxy — admin API protection", () => {
 	// would be a silent auth regression; asserting each path here is the
 	// minimum backstop since the handlers themselves don't re-check sessions.
 	it.each([
+		"/api/admin",
 		"/api/admin/posts",
 		"/api/admin/posts/1",
 		"/api/admin/projects",
@@ -134,6 +135,12 @@ describe("proxy — admin API protection", () => {
 	])("returns 401 for unauthenticated %s", async (path) => {
 		const response = await proxy(makeRequest(path))
 		expect(response.status).toBe(401)
+	})
+
+	it("does not block /api/adminx (adjacent prefix, not a protected path)", async () => {
+		// Guards against the equality check being accidentally widened to startsWith.
+		const response = await proxy(makeRequest("/api/adminx"))
+		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 })
 

@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
 import {
@@ -7,6 +8,7 @@ import {
 	listProjectsForAdmin,
 	loadProject,
 	loadProjectForAdmin,
+	revalidateProject,
 	toLinkCreate,
 	toProjectFormInitialData,
 	toSectionCreate,
@@ -440,6 +442,21 @@ describe("toProjectFormInitialData", () => {
 		expect(data.name).toBe(detail.name)
 		expect(data.slug).toBe(detail.slug)
 		expect(data.links).toEqual(detail.links)
+	})
+})
+
+// #endregion
+
+// #region revalidateProject
+
+describe("revalidateProject", () => {
+	it("invalidates both the global projects tag and the per-slug tag", () => {
+		revalidateProject("my-app")
+		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", "max")
+		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
+			"project-my-app",
+			"max"
+		)
 	})
 })
 

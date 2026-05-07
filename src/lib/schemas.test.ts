@@ -102,6 +102,23 @@ describe("postCreateSchema", () => {
 		expect(postCreateSchema.safeParse(rest).success).toBe(false)
 	})
 
+	it.each([
+		// The regex is format-only (`/^\d{4}-\d{2}-\d{2}-\d{4}$/`), not semantic —
+		// out-of-range months or hours are NOT rejected here; the cases below
+		// validate that structural mismatches are caught at write time.
+		"garbage",
+		"2025-01-01",
+		"2025-01-01-25:00",
+		"2025-1-1-0000",
+		"25-01-01-0000",
+	])("rejects malformed datetime %s", (datetime) => {
+		// postDatetimeToISO throws on malformed values; the schema catches these
+		// at write time so invalid datetimes can never reach the feed/sitemap.
+		expect(postCreateSchema.safeParse({ ...valid, datetime }).success).toBe(
+			false
+		)
+	})
+
 	it("rejects an empty title", () => {
 		expect(postCreateSchema.safeParse({ ...valid, title: "" }).success).toBe(
 			false
@@ -551,6 +568,19 @@ describe("loginSchema", () => {
 	it("rejects a missing password field", () => {
 		const result = loginSchema.safeParse({ email: "admin@example.com" })
 		expect(result.success).toBe(false)
+	})
+
+	it("lowercases the email in the parsed output", () => {
+		// The transform runs after `.email()` validation and lowercases the value
+		// so a mixed-case typo still matches the configured admin address inside
+		// verifyCredentials. (Leading/trailing spaces are rejected by `.email()`
+		// before the transform runs — strip them client-side before submitting.)
+		const result = loginSchema.safeParse({
+			email: "ADMIN@Example.COM",
+			password: "secret-123",
+		})
+		expect(result.success).toBe(true)
+		expect(result.data?.email).toBe("admin@example.com")
 	})
 })
 

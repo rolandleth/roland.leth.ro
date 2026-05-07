@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
+import { projectInclude } from "@/lib/projects"
 import { generateMetadata, default as EditProjectPage } from "./page"
 
 vi.mock("@/lib/db", () => ({
@@ -90,7 +91,7 @@ describe("generateMetadata", () => {
 		await generateMetadata(makeParams("1"))
 		expect(vi.mocked(prisma.project.findUnique)).toHaveBeenCalledWith({
 			where: { id: 1 },
-			include: expect.anything(),
+			include: projectInclude,
 		})
 	})
 

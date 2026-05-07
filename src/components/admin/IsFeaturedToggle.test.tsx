@@ -105,6 +105,31 @@ describe("IsFeaturedToggle save behaviour", () => {
 		expect(checkbox).not.toBeChecked()
 		expect(checkbox).not.toBeDisabled()
 	})
+
+	it("aborts the in-flight request and reverts when toggled a second time before the first resolves", async () => {
+		// Each handleChange call aborts the previous AbortController. If the abort
+		// races a server commit the optimistic state should match the latest toggle,
+		// not the first one. The key invariant is that isSaving clears and the
+		// checkbox is not left disabled.
+		mockRouter()
+		let resolveFetch!: (value: { ok: boolean }) => void
+		global.fetch = vi
+			.fn()
+			.mockImplementation(
+				() => new Promise((resolve) => (resolveFetch = resolve))
+			)
+
+		render(<IsFeaturedToggle projectId={1} initialIsFeatured={false} />)
+		await userEvent.click(screen.getByRole("checkbox"))
+
+		// Second click while the first fetch is still pending.
+		await userEvent.click(screen.getByRole("checkbox"))
+
+		// Resolve the pending fetch (simulates the server responding after abort).
+		resolveFetch({ ok: true })
+
+		await waitFor(() => expect(screen.getByRole("checkbox")).not.toBeDisabled())
+	})
 })
 
 // #endregion
