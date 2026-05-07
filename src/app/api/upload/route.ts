@@ -91,11 +91,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 		return NextResponse.json({ url: blob.url })
 	} catch (error) {
+		const requestId = randomUUID().replace(/-/g, "").slice(0, 12)
 		// eslint-disable-next-line no-console
-		console.error("[api:upload:POST]", error)
+		console.error("[api:upload:POST]", { requestId }, error)
 
 		// Keep the user-facing message distinct from the generic 500 helper so
 		// the admin UI can show "Upload failed" rather than "Internal server error".
-		return NextResponse.json({ error: "Upload failed" }, { status: 500 })
+		return NextResponse.json(
+			{ error: "Upload failed", requestId },
+			{ status: 500 }
+		)
 	}
 }

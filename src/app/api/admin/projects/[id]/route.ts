@@ -78,6 +78,19 @@ export async function PUT(
 		data.slug = createSlug(name)
 	}
 
+	// Read the current slug before the update so a name change (which derives a
+	// new slug) can also invalidate the old per-slug cache tag. Without this,
+	// the old slug tag lingers until its next natural revalidation.
+	const previousSlug =
+		name != null
+			? ((
+					await prisma.project.findUnique({
+						where: { id },
+						select: { slug: true },
+					})
+				)?.slug ?? null)
+			: null
+
 	try {
 		// The sortOrder shift reads the current position, then updates the affected
 		// range. Under READ COMMITTED (Prisma/Postgres default), two simultaneous
@@ -146,6 +159,10 @@ export async function PUT(
 		)
 
 		revalidateProject(project.slug)
+
+		if (previousSlug != null && previousSlug !== project.slug) {
+			revalidateProject(previousSlug)
+		}
 
 		return NextResponse.json(project)
 	} catch (error) {

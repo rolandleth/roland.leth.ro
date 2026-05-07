@@ -84,7 +84,11 @@ export async function PUT(
 		// Read the previous section before the update so a cross-section move
 		// (e.g. tech → life) can invalidate the old section's caches too —
 		// otherwise the post would linger in the old section's archive/feed
-		// until the next 5-minute revalidate.
+		// until the next 5-minute revalidate. The two statements are not in a
+		// transaction: if a concurrent PUT runs between the read and the update,
+		// both writers bust their own new section and the old-section bust from
+		// this read may be stale. Acceptable: worst case is a 5-minute cache lag,
+		// not a data-integrity issue.
 		const previous = await prisma.post.findUnique({
 			where: { id },
 			select: { section: true },

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { readErrorMessage } from "@/components/admin/useAdminResource"
 
 interface Props {
 	projectId: number
@@ -73,8 +74,9 @@ export default function ProjectSortOrderInput({
 			})
 
 			if (!response.ok) {
+				const message = await readErrorMessage(response, "Failed to save")
 				setValue(String(initialSortOrder + 1))
-				setError("Failed to save")
+				setError(message)
 
 				return
 			}
@@ -88,7 +90,7 @@ export default function ProjectSortOrderInput({
 			// Without the catch, a network rejection left `isSaving=true` forever
 			// and disabled the input with no error feedback.
 			setValue(String(initialSortOrder + 1))
-			setError("Failed to save")
+			setError(err instanceof Error ? err.message : "Failed to save")
 		} finally {
 			if (abortRef.current === controller) {
 				setIsSaving(false)

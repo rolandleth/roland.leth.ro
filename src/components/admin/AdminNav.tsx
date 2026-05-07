@@ -18,6 +18,14 @@ export default function AdminNav() {
 			const response = await fetch("/api/auth/logout", { method: "POST" })
 
 			if (!response.ok) {
+				if (response.status === 401) {
+					// Session is already dead on the server — redirect directly
+					// rather than showing a retry message.
+					router.push("/admin/login")
+
+					return
+				}
+
 				// Hard server failure: the session cookie may still be alive on
 				// the server. Surface the error and block the redirect so the
 				// user knows they may need to retry instead of silently being

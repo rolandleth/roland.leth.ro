@@ -3,6 +3,31 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
+/**
+ * Reads a user-facing error message from a non-ok Response. Always appends the
+ * HTTP status so the message is debuggable from the rendered UI without DevTools.
+ */
+export async function readErrorMessage(
+	response: Response,
+	fallback: string
+): Promise<string> {
+	const statusSuffix = ` (HTTP ${response.status})`
+	const contentType = response.headers.get("content-type") ?? ""
+
+	if (!contentType.includes("application/json")) {
+		return fallback + statusSuffix
+	}
+
+	try {
+		const data = (await response.json()) as { error?: string }
+
+		return (data.error ?? fallback) + statusSuffix
+	} catch {
+		// Distinguish malformed JSON from the HTTP error itself.
+		return "Request failed" + statusSuffix
+	}
+}
+
 interface Config {
 	resource: "posts" | "projects"
 	id: number | null
@@ -41,29 +66,6 @@ export function useAdminResource<TPayload>({
 	}, [])
 
 	const isEditing = id !== null
-
-	async function readErrorMessage(
-		response: Response,
-		fallback: string
-	): Promise<string> {
-		// Always include the HTTP status so a "Request failed" or fallback
-		// message is debuggable from the rendered UI without needing DevTools.
-		const statusSuffix = ` (HTTP ${response.status})`
-		const contentType = response.headers.get("content-type") ?? ""
-
-		if (!contentType.includes("application/json")) {
-			return fallback + statusSuffix
-		}
-
-		try {
-			const data = (await response.json()) as { error?: string }
-
-			return (data.error ?? fallback) + statusSuffix
-		} catch {
-			// Distinguish malformed JSON from the HTTP error itself.
-			return "Request failed" + statusSuffix
-		}
-	}
 
 	function goBackToAdmin() {
 		router.push("/admin")
