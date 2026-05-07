@@ -14,8 +14,11 @@ vi.mock("next/navigation", () => ({
 	}),
 }))
 
-const mockProjectForm = vi.fn().mockReturnValue(null)
-vi.mock("@/components/admin/ProjectForm", () => ({ default: mockProjectForm }))
+vi.mock("@/components/admin/ProjectForm", () => ({
+	default: function MockProjectForm() {
+		return null
+	},
+}))
 
 function makeParams(id: string) {
 	return { params: Promise.resolve({ id }) }
@@ -60,7 +63,6 @@ const existingProject = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	mockProjectForm.mockReturnValue(null)
 })
 
 // ---------------------------------------------------------------------------
@@ -83,12 +85,12 @@ describe("generateMetadata", () => {
 		expect(result).toEqual({ title: "Edit: My App" })
 	})
 
-	it("queries only the name field", async () => {
+	it("queries by id (single fetch shared with the page body via React cache())", async () => {
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
 		await generateMetadata(makeParams("1"))
 		expect(vi.mocked(prisma.project.findUnique)).toHaveBeenCalledWith({
 			where: { id: 1 },
-			select: { name: true },
+			include: expect.anything(),
 		})
 	})
 
@@ -114,20 +116,16 @@ describe("EditProjectPage", () => {
 
 	it("renders ProjectForm with the project data", async () => {
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
-		await EditProjectPage(makeParams("1"))
-		expect(mockProjectForm).toHaveBeenCalledWith(
-			expect.objectContaining({
-				initialData: expect.objectContaining({ id: 1 }),
-			}),
-			expect.anything()
+		const element = await EditProjectPage(makeParams("1"))
+		expect(element.props.initialData).toEqual(
+			expect.objectContaining({ id: 1 })
 		)
 	})
 
 	it("normalizes null image captions to empty strings", async () => {
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
-		await EditProjectPage(makeParams("1"))
-		const { initialData } = mockProjectForm.mock.calls[0][0]
-		expect(initialData.sections[0].images[0].caption).toBe("")
+		const element = await EditProjectPage(makeParams("1"))
+		expect(element.props.initialData.sections[0].images[0].caption).toBe("")
 	})
 
 	it("preserves non-null image captions", async () => {
@@ -143,8 +141,9 @@ describe("EditProjectPage", () => {
 			],
 		}
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(project)
-		await EditProjectPage(makeParams("1"))
-		const { initialData } = mockProjectForm.mock.calls[0][0]
-		expect(initialData.sections[0].images[0].caption).toBe("A caption")
+		const element = await EditProjectPage(makeParams("1"))
+		expect(element.props.initialData.sections[0].images[0].caption).toBe(
+			"A caption"
+		)
 	})
 })

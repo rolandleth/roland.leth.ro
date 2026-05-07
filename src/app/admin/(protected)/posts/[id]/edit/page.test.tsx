@@ -14,8 +14,11 @@ vi.mock("next/navigation", () => ({
 	}),
 }))
 
-const mockPostForm = vi.fn().mockReturnValue(null)
-vi.mock("@/components/admin/PostForm", () => ({ default: mockPostForm }))
+vi.mock("@/components/admin/PostForm", () => ({
+	default: function MockPostForm() {
+		return null
+	},
+}))
 
 function makeParams(id: string) {
 	return { params: Promise.resolve({ id }) }
@@ -38,7 +41,6 @@ const existingPost = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	mockPostForm.mockReturnValue(null)
 })
 
 // ---------------------------------------------------------------------------
@@ -61,12 +63,11 @@ describe("generateMetadata", () => {
 		expect(result).toEqual({ title: "Edit: My Post" })
 	})
 
-	it("queries only the title field", async () => {
+	it("queries by id (single fetch shared with the page body via React cache())", async () => {
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		await generateMetadata(makeParams("1"))
 		expect(vi.mocked(prisma.post.findUnique)).toHaveBeenCalledWith({
 			where: { id: 1 },
-			select: { title: true },
 		})
 	})
 
@@ -90,11 +91,8 @@ describe("EditPostPage", () => {
 
 	it("renders PostForm with the post data", async () => {
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		await EditPostPage(makeParams("1"))
-		expect(mockPostForm).toHaveBeenCalledWith(
-			expect.objectContaining({ initialData: existingPost }),
-			expect.anything()
-		)
+		const element = await EditPostPage(makeParams("1"))
+		expect(element.props.initialData).toEqual(existingPost)
 	})
 
 	it("queries prisma with the correct id", async () => {
