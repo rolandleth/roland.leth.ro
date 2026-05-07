@@ -226,4 +226,26 @@ describe("POST /api/admin/projects", () => {
 		const response = await POST(makeRequest(validPayload))
 		expect(response.status).toBe(500)
 	})
+
+	it("returns 409 when the slug collides with an existing project", async () => {
+		vi.mocked(prisma.$transaction).mockRejectedValue({ code: "P2002" })
+		const { isPrismaUniqueConstraint } = await import("@/lib/db")
+		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
+
+		const response = await POST(makeRequest(validPayload))
+		expect(response.status).toBe(409)
+		const data = await response.json()
+		expect(data.error).toMatch(/already exists/)
+	})
+
+	it("returns 400 when the request body is not valid JSON", async () => {
+		const response = await POST(
+			new Request("http://localhost/api/admin/projects", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: "not-json",
+			})
+		)
+		expect(response.status).toBe(400)
+	})
 })

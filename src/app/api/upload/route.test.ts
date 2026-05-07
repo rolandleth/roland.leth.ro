@@ -136,6 +136,36 @@ describe("POST /api/upload", () => {
 		expect(put).toHaveBeenCalledTimes(1)
 	})
 
+	it("rejects oversize uploads via Content-Length precheck before parsing the body", async () => {
+		// formData() buffers the whole body before returning, so checking
+		// file.size afterwards is too late. The Content-Length header lets us
+		// short-circuit early. Build a Request with the header set, no body.
+		const oversizeRequest = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: { "content-length": String(10 * 1024 * 1024 + 1) },
+			body: new FormData(),
+		})
+
+		const response = await POST(oversizeRequest)
+		expect(response.status).toBe(413)
+		expect(put).not.toHaveBeenCalled()
+	})
+
+	it("returns 400 when the multipart body is malformed", async () => {
+		// formData() throws on a body that claims multipart but isn't.
+		const badRequest = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: {
+				"content-type": "multipart/form-data; boundary=---bad",
+			},
+			body: "garbage that does not match the boundary",
+		})
+
+		const response = await POST(badRequest)
+		expect(response.status).toBe(400)
+		expect(put).not.toHaveBeenCalled()
+	})
+
 	it("returns 415 for a disallowed MIME (text/html)", async () => {
 		const formData = new FormData()
 		formData.append("file", pngFile({ type: "text/html", name: "evil.html" }))

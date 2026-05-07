@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { POST } from "./route"
 
 vi.mock("next/cache", async () => {
@@ -138,5 +138,39 @@ describe("POST /api/admin/posts", () => {
 		await POST(makeRequest({ ...validPayload, section: "life" }))
 
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
+	})
+
+	it("returns 409 when the slug collides with an existing post", async () => {
+		// Two titles that slug-collide produce a Prisma unique-constraint error
+		// (P2002). Surface as 409 so the admin UI can show 'A post with this
+		// slug already exists' instead of a generic 500.
+		vi.mocked(prisma.post.create).mockRejectedValue({ code: "P2002" })
+		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
+
+		const response = await POST(makeRequest(validPayload))
+		expect(response.status).toBe(409)
+		const data = await response.json()
+		expect(data.error).toMatch(/already exists/)
+	})
+
+	it("returns 400 when the request body is not valid JSON", async () => {
+		// parseJsonBody helper short-circuits before schema validation.
+		const response = await POST(
+			new Request("http://localhost/api/admin/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: "not-json",
+			})
+		)
+		expect(response.status).toBe(400)
+	})
+
+	it("returns 400 when datetime is not yyyy-MM-dd-HHmm", async () => {
+		// postCreateSchema regex catches this at write time so a malformed
+		// value can't bubble as a 500 from postDatetimeToISO at feed-read time.
+		const response = await POST(
+			makeRequest({ ...validPayload, datetime: "garbage" })
+		)
+		expect(response.status).toBe(400)
 	})
 })

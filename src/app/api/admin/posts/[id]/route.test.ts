@@ -152,11 +152,44 @@ describe("PUT /api/admin/posts/[id]", () => {
 	})
 
 	it("invalidates the blog section cache after update", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 
 		await PUT(putRequest("1", { title: "Updated Title" }), params("1"))
 
 		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
+
+	it("invalidates BOTH section caches on a cross-section move (tech → life)", async () => {
+		// Without busting the previous section, the moved post would linger in
+		// `feed-tech` / `blog-tech` / archive until the 5-minute revalidate.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			...existingPost,
+			section: "tech",
+		})
+		vi.mocked(prisma.post.update).mockResolvedValue({
+			...existingPost,
+			section: "life",
+		})
+
+		await PUT(putRequest("1", { section: "life" }), params("1"))
+
+		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
+
+	it("does not double-bust when the section is unchanged", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { title: "x" }), params("1"))
+
+		// Only the current section's tags should fire — not both.
+		const blogCalls = vi
+			.mocked(revalidateTag)
+			.mock.calls.filter(([tag]) => tag === "blog-tech" || tag === "blog-life")
+		expect(blogCalls.filter(([t]) => t === "blog-tech")).toHaveLength(1)
+		expect(blogCalls.filter(([t]) => t === "blog-life")).toHaveLength(0)
 	})
 })
 

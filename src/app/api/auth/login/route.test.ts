@@ -109,6 +109,34 @@ describe("POST /api/auth/login — credentials", () => {
 			"a-long-password"
 		)
 	})
+
+	it("emits an info-level audit log on a successful login", async () => {
+		vi.mocked(verifyCredentials).mockResolvedValue(true)
+
+		await POST(
+			makeRequest({ email: "admin@example.com", password: "right" }) as never
+		)
+
+		// Successful logins are the audit trail; without this line, the access log
+		// can't answer "did the legitimate user log in at 3am?".
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:auth:login] success"
+		)
+	})
+
+	it("logs schema-validation failures at warn level with issue paths only", async () => {
+		await POST(
+			makeRequest({ email: "not-an-email", password: "secret" }) as never
+		)
+
+		// Path is logged so a real client bug is debuggable; values are NEVER
+		// included so the access log can't expose submitted credentials.
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			expect.stringMatching(
+				/^\[api:auth:login\] schema validation failed: (email|password)/
+			)
+		)
+	})
 })
 
 // #endregion
