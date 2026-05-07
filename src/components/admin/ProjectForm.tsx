@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
 import PlatformPicker from "@/components/admin/PlatformPicker"
@@ -310,11 +311,7 @@ export default function ProjectForm({ initialData }: Props) {
 				/>
 			</div>
 
-			{error && (
-				<p className="text-sm text-red-500" role="alert">
-					{error}
-				</p>
-			)}
+			{error && <ErrorMessage>{error}</ErrorMessage>}
 
 			<div className="flex items-center gap-4">
 				<button

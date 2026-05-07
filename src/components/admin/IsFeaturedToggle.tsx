@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 
 interface Props {
 	projectId: number
@@ -83,11 +84,7 @@ export default function IsFeaturedToggle({
 				/>
 				<span className="text-secondary text-xs">Featured</span>
 			</label>
-			{error && (
-				<p className="text-xs text-red-500" role="alert">
-					{error}
-				</p>
-			)}
+			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
 		</div>
 	)
 }

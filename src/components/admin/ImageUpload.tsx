@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 
 interface Props {
 	value: string
@@ -118,11 +119,7 @@ export default function ImageUpload({
 				/>
 			)}
 
-			{error && (
-				<p className="text-sm text-red-500" role="alert">
-					{error}
-				</p>
-			)}
+			{error && <ErrorMessage>{error}</ErrorMessage>}
 		</div>
 	)
 }

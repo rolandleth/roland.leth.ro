@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
@@ -178,11 +179,7 @@ export default function PostForm({ initialData }: Props) {
 				/>
 			</div>
 
-			{error && (
-				<p className="text-sm text-red-500" role="alert">
-					{error}
-				</p>
-			)}
+			{error && <ErrorMessage>{error}</ErrorMessage>}
 
 			<div className="flex items-center justify-between">
 				<button

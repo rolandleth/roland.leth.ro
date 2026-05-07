@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 
 export default function AdminNav() {
 	const router = useRouter()
@@ -73,13 +74,9 @@ export default function AdminNav() {
 			</nav>
 
 			{error && (
-				<p
-					role="alert"
-					aria-live="polite"
-					className="mx-auto max-w-4xl px-4 pb-2 text-xs text-red-500"
-				>
+				<ErrorMessage size="sm" className="mx-auto max-w-4xl px-4 pb-2">
 					{error}
-				</p>
+				</ErrorMessage>
 			)}
 		</header>
 	)

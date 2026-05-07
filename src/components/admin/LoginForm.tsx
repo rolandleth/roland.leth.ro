@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import ErrorMessage from "@/components/admin/ErrorMessage"
 
 export default function LoginForm() {
 	const router = useRouter()
@@ -73,11 +74,7 @@ export default function LoginForm() {
 				/>
 			</div>
 
-			{error && (
-				<p className="text-sm text-red-500" role="alert">
-					{error}
-				</p>
-			)}
+			{error && <ErrorMessage>{error}</ErrorMessage>}
 
 			<button
 				type="submit"
