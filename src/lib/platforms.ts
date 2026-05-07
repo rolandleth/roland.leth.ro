@@ -106,15 +106,25 @@ export function formatPlatformDisplay(platform: string): string {
 	return "Multiplatform"
 }
 
+function escapeRegex(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+// Word-boundary match per keyword so `"webhook"` never matches the `"web"`
+// keyword (substring false positive), while `"menu bar app"` still maps to the
+// `"menu bar"` keyword. `\b` aligns at word/non-word transitions so multi-word
+// keywords still match when surrounded by whitespace or punctuation.
+function hasKeyword(haystack: string, keyword: string): boolean {
+	return new RegExp(`\\b${escapeRegex(keyword)}\\b`, "i").test(haystack)
+}
+
 /** Returns the first bucket label that any keyword in `platform` matches, or "Other". */
 export function platformBucket(platform: string): string {
-	const lower = platform.toLowerCase()
-
 	for (const bucket of PLATFORM_BUCKETS) {
 		const keywords = BUCKET_KEYWORDS[bucket.label]
 
 		for (const keyword of keywords) {
-			if (lower.includes(keyword)) {
+			if (hasKeyword(platform, keyword)) {
 				return bucket.label
 			}
 		}

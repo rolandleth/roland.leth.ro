@@ -5,17 +5,32 @@ import readingTime from "reading-time"
 // the same regex so falls back to returning the raw input on non-match.
 const DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?$/
 
+// Strict so trailing garbage (`"12abc"`) is rejected — `Number.parseInt` would
+// silently return `12` and let `/admin/posts/12abc/edit` resolve to id=12.
+const INT_ID_REGEX = /^-?\d+$/
+
 /**
- * Parses a string into an integer, returning `null` if invalid.
+ * Parses a string into an integer, returning `null` if invalid (including
+ * trailing non-digit characters).
  */
 export function parseIntId(raw: string): number | null {
+	if (!INT_ID_REGEX.test(raw)) {
+		return null
+	}
+
 	const n = Number.parseInt(raw, 10)
 
 	return Number.isNaN(n) ? null : n
 }
 
+// Upper bound is generous (10k pages × PAGE_SIZE=12 = 120k posts) so legitimate
+// pagination is never clipped, while still rejecting `?page=999999999` which
+// would translate to a wasted Postgres `OFFSET` scan.
+const MAX_PAGE = 10_000
+
 /**
- * Parses a `?page=` query value into a positive integer, defaulting to `1` on invalid input.
+ * Parses a `?page=` query value into a positive integer in `[1, MAX_PAGE]`,
+ * defaulting to `1` on invalid input.
  */
 export function parsePageParam(raw: string | undefined | null): number {
 	const n = Number.parseInt(raw ?? "1", 10)
@@ -24,7 +39,7 @@ export function parsePageParam(raw: string | undefined | null): number {
 		return 1
 	}
 
-	return n
+	return Math.min(n, MAX_PAGE)
 }
 
 /**
@@ -99,13 +114,21 @@ export function currentDatetimeString(): string {
 /**
  * Converts a post title into a URL-safe slug.
  * Ported from `Post.createLink()` in the old blog.
+ *
+ * Steps: decompose accents (`é` → `e`), strip combining marks, drop punctuation,
+ * map `&` to `and`, replace whitespace/dots/dashes with `-`, lowercase, then
+ * collapse repeated `-` and trim leading/trailing `-`.
  */
 export function createSlug(title: string): string {
 	return title
+		.normalize("NFKD")
+		.replace(/[̀-ͯ]/g, "")
 		.replace(/(['"#,;!:?[\]{}($/)]+)/g, "")
 		.replace(/&/g, "and")
-		.replace(/\s|\./g, "-")
+		.replace(/[\s.‐-―]+/g, "-")
 		.toLowerCase()
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "")
 }
 
 /**

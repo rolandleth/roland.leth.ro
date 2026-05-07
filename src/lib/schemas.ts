@@ -78,6 +78,11 @@ export const projectUpdateSchema = projectCreateSchema.partial()
 // Auth
 
 export const loginSchema = z.object({
-	email: z.string().email(),
+	// Trim + lowercase so a typo with mixed casing or trailing whitespace
+	// matches the case-sensitive `email === ` check inside `verifyCredentials`.
+	email: z
+		.string()
+		.email()
+		.transform((v) => v.trim().toLowerCase()),
 	password: z.string().min(1),
 })

@@ -323,6 +323,12 @@ export interface PostSearchResult {
 	body: string
 }
 
+// Below this length, the ILIKE substring scan over `body` is essentially a
+// full-table scan with millions of needless comparisons. Two characters is the
+// shortest term that produces meaningful matches (single letters generate
+// thousands of hits anyway).
+const MIN_SEARCH_TERM_LENGTH = 2
+
 /** Full-text search across title and body for published posts in a section. */
 export async function searchPosts(
 	section: Section,
@@ -330,7 +336,7 @@ export async function searchPosts(
 ): Promise<PostSearchResult[]> {
 	const term = query.trim()
 
-	if (term.length === 0) {
+	if (term.length < MIN_SEARCH_TERM_LENGTH) {
 		return []
 	}
 

@@ -35,11 +35,16 @@ describe("filterAdminEvents", () => {
 		expect(filterAdminEvents(event)).toBe(event)
 	})
 
-	it("drops paths that happen to start with /admin- (known substring false positive)", () => {
-		// `.includes("/admin")` matches `/admin-notes` and similar prefixed
-		// paths even though they are not in the admin area. Pinned so a future
-		// word-boundary fix is an explicit change.
-		expect(filterAdminEvents({ url: "https://site/admin-notes" })).toBeNull()
+	it("does not drop paths that merely start with /admin- (anchored on path segment)", () => {
+		// Prior bug: `.includes("/admin")` ate `/admin-notes`. Fix splits on URL
+		// pathname and matches `/admin/...` boundary so adjacent prefixes are safe.
+		const event = { url: "https://site/admin-notes" }
+		expect(filterAdminEvents(event)).toBe(event)
+	})
+
+	it("does not drop nested paths that contain `/admin` mid-segment", () => {
+		const event = { url: "https://site/blog/tech/admin-tools" }
+		expect(filterAdminEvents(event)).toBe(event)
 	})
 
 	it("preserves extra fields on the event shape", () => {

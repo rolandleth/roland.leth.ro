@@ -26,8 +26,19 @@ describe("parseIntId", () => {
 		expect(parseIntId("-5")).toBe(-5)
 	})
 
-	it("truncates a float string to its integer part", () => {
-		expect(parseIntId("3.7")).toBe(3)
+	it("returns null for a float string (strict integer regex)", () => {
+		// `Number.parseInt("3.7", 10)` returns 3, which would let `/admin/posts/3.7/edit`
+		// resolve to id=3 instead of 404. The strict regex rejects it.
+		expect(parseIntId("3.7")).toBeNull()
+	})
+
+	it("returns null for trailing non-digit characters", () => {
+		// Same hole as floats: `parseInt("12abc")` returns 12. Strict regex blocks.
+		expect(parseIntId("12abc")).toBeNull()
+	})
+
+	it("returns null for leading non-digit characters", () => {
+		expect(parseIntId("abc12")).toBeNull()
 	})
 
 	it("returns null for a non-numeric string", () => {
@@ -78,6 +89,11 @@ describe("parsePageParam", () => {
 
 	it("truncates floats to their integer part", () => {
 		expect(parsePageParam("4.7")).toBe(4)
+	})
+
+	it("clamps overly large input to MAX_PAGE", () => {
+		// `?page=999999999` would translate to a wasted Postgres OFFSET scan.
+		expect(parsePageParam("999999999")).toBe(10_000)
 	})
 })
 
@@ -246,7 +262,28 @@ describe("createSlug", () => {
 	})
 
 	it("returns an empty string for whitespace-only input", () => {
-		expect(createSlug("   ")).toBe("---")
+		// Whitespace collapses to a single `-`, then leading/trailing trim drops it.
+		expect(createSlug("   ")).toBe("")
+	})
+
+	it("strips accents (é → e)", () => {
+		expect(createSlug("Café au lait")).toBe("cafe-au-lait")
+	})
+
+	it("strips combining marks (à → a, ñ → n)", () => {
+		expect(createSlug("Año Nuevo")).toBe("ano-nuevo")
+	})
+
+	it("collapses an em-dash with surrounding spaces into a single hyphen", () => {
+		expect(createSlug("Hello — World")).toBe("hello-world")
+	})
+
+	it("collapses repeated hyphens", () => {
+		expect(createSlug("foo---bar")).toBe("foo-bar")
+	})
+
+	it("trims leading and trailing hyphens", () => {
+		expect(createSlug("---hello---")).toBe("hello")
 	})
 })
 

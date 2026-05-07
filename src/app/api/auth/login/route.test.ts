@@ -101,8 +101,11 @@ describe("POST /api/auth/login — credentials", () => {
 			}) as never
 		)
 
+		// loginSchema normalizes the email to lowercase + trim before reaching
+		// `verifyCredentials`, so a mixed-case typo still matches the configured
+		// admin email.
 		expect(verifyCredentials).toHaveBeenCalledWith(
-			"ADMIN@example.com",
+			"admin@example.com",
 			"a-long-password"
 		)
 	})

@@ -13,20 +13,21 @@ const baseParams = {
 // #region formatNumber
 
 describe("formatNumber", () => {
+	// Pinned to en-US so SSR and client never disagree on hydration.
 	it("formats with 2 decimal digits by default", () => {
-		expect(formatNumber(1234.5)).toMatch(/1,234\.50$|1\.234,50$/)
+		expect(formatNumber(1234.5)).toBe("1,234.50")
 	})
 
 	it("pads short fractions to the requested precision", () => {
-		expect(formatNumber(7, 3)).toMatch(/7\.000$|7,000$/)
+		expect(formatNumber(7, 3)).toBe("7.000")
 	})
 
 	it("truncates to the requested maximum digits", () => {
-		expect(formatNumber(1.2345, 2)).toMatch(/1\.23|1,23/)
+		expect(formatNumber(1.2345, 2)).toBe("1.23")
 	})
 
 	it("handles zero", () => {
-		expect(formatNumber(0)).toMatch(/0\.00|0,00/)
+		expect(formatNumber(0)).toBe("0.00")
 	})
 })
 
@@ -81,6 +82,20 @@ describe("computeLoan — input validation", () => {
 				extraPayments: { limit: 0, value: 100, frequency: -1 },
 			})
 		).toThrow(/frequency/)
+	})
+
+	it("throws on negative annualInterestRate (would produce a negative totalInterest)", () => {
+		expect(() =>
+			computeLoan({ ...baseParams, annualInterestRate: -1 })
+		).toThrow(/annualInterestRate/)
+	})
+
+	it("throws on zero period", () => {
+		expect(() => computeLoan({ ...baseParams, period: 0 })).toThrow(/period/)
+	})
+
+	it("throws on negative period", () => {
+		expect(() => computeLoan({ ...baseParams, period: -10 })).toThrow(/period/)
 	})
 })
 

@@ -21,9 +21,13 @@ const envSchema = z.object({
 	DATABASE_URL: z.string().optional(),
 	SESSION_SECRET: z.string().optional(),
 	ADMIN_EMAIL: z.string().optional(),
+	// Even-length hex only: `Buffer.from(odd, "hex")` silently drops the last
+	// nibble, which would let `verifyCredentials` compare bcrypt against a
+	// truncated hash. Empty string is still allowed so the `nonEmpty` path can
+	// produce a "not set" error instead of a Zod regex failure.
 	ADMIN_HASH_PASSWORD: z
 		.string()
-		.regex(/^[0-9a-f]*$/i, "must be hex-encoded")
+		.regex(/^([0-9a-f]{2})*$/i, "must be even-length hex")
 		.optional(),
 	CRON_SECRET: z.string().optional(),
 	KV_REST_API_TOKEN: z.string().optional(),

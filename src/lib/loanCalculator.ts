@@ -38,8 +38,10 @@ export type ComputeReturn = {
 	repayDurationDifference: number
 }
 
+// Pinned locale so server-rendered numbers don't disagree with the client's
+// runtime locale on hydration (different thousands separators trip React).
 export function formatNumber(value: number, digits: number = 2): string {
-	return value.toLocaleString(undefined, {
+	return value.toLocaleString("en-US", {
 		maximumFractionDigits: digits,
 		minimumFractionDigits: digits,
 	})
@@ -94,6 +96,16 @@ export default function computeLoan({
 		throw new Error(
 			`extraPayments.frequency must be >= 1, got ${extraPayments.frequency}`
 		)
+	}
+
+	if (annualInterestRate < 0) {
+		throw new Error(
+			`annualInterestRate must be >= 0, got ${annualInterestRate}`
+		)
+	}
+
+	if (period < 1) {
+		throw new Error(`period must be >= 1, got ${period}`)
 	}
 
 	const monthlyInterestRate = (annualInterestRate * 0.01) / 12
