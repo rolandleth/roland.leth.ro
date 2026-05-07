@@ -2,26 +2,38 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export default function AdminNav() {
 	const router = useRouter()
+	const [error, setError] = useState<string | null>(null)
+	const [isLoggingOut, setIsLoggingOut] = useState(false)
 
 	async function handleLogout() {
+		setError(null)
+		setIsLoggingOut(true)
+
 		try {
 			const response = await fetch("/api/auth/logout", { method: "POST" })
 
 			if (!response.ok) {
-				// eslint-disable-next-line no-console
-				console.error(
-					"[AdminNav:handleLogout] logout returned non-ok",
-					response.status
-				)
+				// Hard server failure: the session cookie may still be alive on
+				// the server. Surface the error and block the redirect so the
+				// user knows they may need to retry instead of silently being
+				// dropped on /admin/login while still logged in.
+				setError(`Logout failed (HTTP ${response.status}). Please retry.`)
+				setIsLoggingOut(false)
+
+				return
 			}
-		} catch (error) {
-			// Network failure: the cookie may still be valid, but the user has
-			// asked to leave. Log and still redirect so they're not trapped.
-			// eslint-disable-next-line no-console
-			console.error("[AdminNav:handleLogout] logout fetch failed", error)
+		} catch {
+			// Network failure: the cookie may still be valid, but the request
+			// never reached the server. Surface the error rather than silently
+			// redirecting — same reasoning as above.
+			setError("Logout failed (network error). Please retry.")
+			setIsLoggingOut(false)
+
+			return
 		}
 
 		router.push("/admin/login")
@@ -52,12 +64,23 @@ export default function AdminNav() {
 					</Link>
 					<button
 						onClick={handleLogout}
-						className="text-secondary cursor-pointer text-sm transition-colors hover:text-red-500"
+						disabled={isLoggingOut}
+						className="text-secondary cursor-pointer text-sm transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						Logout
 					</button>
 				</div>
 			</nav>
+
+			{error && (
+				<p
+					role="alert"
+					aria-live="polite"
+					className="mx-auto max-w-4xl px-4 pb-2 text-xs text-red-500"
+				>
+					{error}
+				</p>
+			)}
 		</header>
 	)
 }
