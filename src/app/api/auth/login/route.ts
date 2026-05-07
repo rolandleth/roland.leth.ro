@@ -18,16 +18,54 @@ const ratelimit =
 			})
 		: null
 
+/**
+ * Returns the best-effort client IP for rate-limit bucketing. Vercel sets
+ * `x-forwarded-for` with a comma-separated list (leftmost is the original
+ * client). Falls back to the literal string `"unknown"` so requests with no
+ * forwarded header still bucket together (and don't piggyback on each other).
+ */
+function clientBucketKey(request: NextRequest): string {
+	const forwarded = request.headers.get("x-forwarded-for")
+
+	if (forwarded != null && forwarded !== "") {
+		const first = forwarded.split(",")[0]?.trim()
+
+		if (first !== undefined && first !== "") {
+			return first
+		}
+	}
+
+	return "unknown"
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
 	if (ratelimit) {
-		// Global key — this is a single-user site; IP-based limits can be spoofed.
-		const { success } = await ratelimit.limit("global")
+		// Per-IP keying replaces the previous single global bucket: a stale
+		// botnet of 5 failed attempts/15min could otherwise lock the legitimate
+		// admin out of the only public auth entry point. With per-IP buckets,
+		// each origin gets its own 5/15min budget.
+		const key = clientBucketKey(request)
 
-		if (!success) {
+		try {
+			const { success } = await ratelimit.limit(key)
+
+			if (!success) {
+				// eslint-disable-next-line no-console
+				console.error("[api:auth:login] rate limit exceeded", { key })
+
+				return NextResponse.json(
+					{ error: "Too many requests" },
+					{ status: 429 }
+				)
+			}
+		} catch (error) {
+			// Fail-open: a transient Upstash blip should not lock the admin out.
+			// Logged so the operator can correlate auth failures with Redis health.
 			// eslint-disable-next-line no-console
-			console.error("[api:auth:login] rate limit exceeded")
-
-			return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+			console.warn(
+				"[api:auth:login] rate limit unavailable, failing open",
+				error
+			)
 		}
 	}
 

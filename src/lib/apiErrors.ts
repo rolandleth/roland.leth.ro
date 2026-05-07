@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isPrismaNotFound } from "@/lib/db"
 import { parseIntId } from "@/lib/format"
+import type { z } from "zod"
 
 /**
  * Maps a caught error to a 404 response when it is a Prisma "record not found" error.
@@ -45,4 +46,35 @@ export function respondInternalError(
 	console.error(tag, error)
 
 	return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+}
+
+/**
+ * Parses the request JSON body and validates it against `schema`. Returns the
+ * parsed data on success, or a NextResponse on any failure (malformed JSON →
+ * 400, schema mismatch → 400 with zod issues). Centralised so every admin
+ * write handler treats parser errors identically.
+ */
+export async function parseJsonBody<T extends z.ZodTypeAny>(
+	request: Request,
+	schema: T,
+	tag: string
+): Promise<z.infer<T> | NextResponse> {
+	let body: unknown
+
+	try {
+		body = await request.json()
+	} catch {
+		// eslint-disable-next-line no-console
+		console.error(`${tag} invalid JSON body`)
+
+		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+	}
+
+	const parsed = schema.safeParse(body)
+
+	if (!parsed.success) {
+		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+	}
+
+	return parsed.data as z.infer<T>
 }

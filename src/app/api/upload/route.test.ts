@@ -55,7 +55,7 @@ describe("sanitizeFilename", () => {
 
 describe("POST /api/upload", () => {
 	beforeEach(() => {
-		vi.stubEnv("NODE_ENV", "production")
+		vi.stubEnv("ALLOW_UPLOADS", "true")
 		// `restoreMocks: true` in the global config restores spies but does
 		// not clear call history on `vi.fn()`s declared inside `vi.mock(...)`
 		// factories. Without this, `not.toHaveBeenCalled()` and
@@ -87,11 +87,13 @@ describe("POST /api/upload", () => {
 		return new File([new Uint8Array(size)], name, { type })
 	}
 
-	it("returns 403 when not running in production", async () => {
+	it("returns 403 when ALLOW_UPLOADS is not enabled", async () => {
 		// Guard against accidentally writing to the real Vercel Blob store
-		// from a dev shell. The single-user admin's upload UI is gated behind
-		// auth, but the route itself is the load-bearing check.
-		vi.stubEnv("NODE_ENV", "development")
+		// from a dev shell or unconfigured deploy. The single-user admin's
+		// upload UI is gated behind auth, but the route itself is the
+		// load-bearing check. Explicit env flag (instead of NODE_ENV gating)
+		// so dev/test/preview/production are configurable independently.
+		vi.stubEnv("ALLOW_UPLOADS", "")
 		const formData = new FormData()
 		formData.append("file", pngFile())
 

@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server"
-import { respondInternalError } from "@/lib/apiErrors"
+import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
 import { postCreateSchema } from "@/lib/schemas"
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const parsed = postCreateSchema.safeParse(await request.json())
+	const parsed = await parseJsonBody(
+		request,
+		postCreateSchema,
+		"[api:admin:posts:POST]"
+	)
 
-	if (!parsed.success) {
-		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+	if (parsed instanceof NextResponse) {
+		return parsed
 	}
 
 	const {
@@ -20,7 +24,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		imageUrl,
 		section,
 		published,
-	} = parsed.data
+	} = parsed
 
 	try {
 		const post = await prisma.post.create({

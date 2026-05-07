@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client"
 import {
 	handlePrismaError,
 	parseIdParam,
+	parseJsonBody,
 	respondInternalError,
 } from "@/lib/apiErrors"
 import { prisma } from "@/lib/db"
@@ -51,13 +52,17 @@ export async function PUT(
 
 	const { id } = idResult
 
-	const parsed = projectUpdateSchema.safeParse(await request.json())
+	const parsed = await parseJsonBody(
+		request,
+		projectUpdateSchema,
+		"[api:admin:projects:PUT]"
+	)
 
-	if (!parsed.success) {
-		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+	if (parsed instanceof NextResponse) {
+		return parsed
 	}
 
-	const { name, sections, links, ...rest } = parsed.data
+	const { name, sections, links, ...rest } = parsed
 	// `rest` carries the Zod-inferred field types; Prisma treats `undefined`
 	// as "skip this column" and `null` as "set to null" natively, so we don't
 	// need to strip undefineds. `name` is folded in alongside a derived `slug`.

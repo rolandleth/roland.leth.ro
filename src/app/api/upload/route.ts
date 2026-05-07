@@ -22,10 +22,28 @@ export function sanitizeFilename(name: string): string {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-	if (process.env.NODE_ENV !== "production") {
+	// Explicit env flag rather than gating on `NODE_ENV !== "production"`, which
+	// collapses dev/test/preview into one bucket and produces a misleading 403
+	// message on Vercel preview deploys (where Vercel sets NODE_ENV=production
+	// but uploads should still work). Read lazily so `vi.stubEnv` works.
+	if (process.env.ALLOW_UPLOADS !== "true") {
 		return NextResponse.json(
-			{ error: "File uploads are only allowed in production" },
+			{ error: "Uploads are disabled (set ALLOW_UPLOADS=true to enable)" },
 			{ status: 403 }
+		)
+	}
+
+	// `request.formData()` buffers the entire body before returning, so checking
+	// `file.size` afterwards is too late to short-circuit a giant upload. The
+	// `Content-Length` header is set by every well-formed multipart client and
+	// gives us a cheap pre-parse rejection. Off by ~the multipart boundary
+	// overhead (a few hundred bytes), but that's irrelevant against a 10 MiB cap.
+	const contentLength = request.headers.get("content-length")
+
+	if (contentLength != null && Number(contentLength) > MAX_UPLOAD_BYTES) {
+		return NextResponse.json(
+			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
+			{ status: 413 }
 		)
 	}
 

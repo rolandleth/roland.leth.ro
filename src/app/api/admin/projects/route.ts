@@ -1,17 +1,21 @@
 import { revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
-import { respondInternalError } from "@/lib/apiErrors"
+import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
 import { projectInclude, toLinkCreate, toSectionCreate } from "@/lib/projects"
 import { projectCreateSchema } from "@/lib/schemas"
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const parsed = projectCreateSchema.safeParse(await request.json())
+	const parsed = await parseJsonBody(
+		request,
+		projectCreateSchema,
+		"[api:admin:projects:POST]"
+	)
 
-	if (!parsed.success) {
-		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+	if (parsed instanceof NextResponse) {
+		return parsed
 	}
 
 	const {
@@ -28,7 +32,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		sortOrder,
 		sections,
 		links,
-	} = parsed.data
+	} = parsed
 
 	try {
 		// Serializable isolation for the same reason as the PUT handler: a concurrent

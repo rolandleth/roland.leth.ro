@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import {
 	handlePrismaError,
 	parseIdParam,
+	parseJsonBody,
 	respondInternalError,
 } from "@/lib/apiErrors"
 import { prisma } from "@/lib/db"
@@ -46,13 +47,17 @@ export async function PUT(
 
 	const { id } = idResult
 
-	const parsed = postUpdateSchema.safeParse(await request.json())
+	const parsed = await parseJsonBody(
+		request,
+		postUpdateSchema,
+		"[api:admin:posts:PUT]"
+	)
 
-	if (!parsed.success) {
-		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+	if (parsed instanceof NextResponse) {
+		return parsed
 	}
 
-	const { title, body: postBody, ...rest } = parsed.data
+	const { title, body: postBody, ...rest } = parsed
 	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
 	// so the validated payload flows straight in. `title`/`body` are folded back
 	// with their derived columns (`slug`, `readingTime`) only when they were set.
@@ -76,12 +81,25 @@ export async function PUT(
 	}
 
 	try {
+		// Read the previous section before the update so a cross-section move
+		// (e.g. tech → life) can invalidate the old section's caches too —
+		// otherwise the post would linger in the old section's archive/feed
+		// until the next 5-minute revalidate.
+		const previous = await prisma.post.findUnique({
+			where: { id },
+			select: { section: true },
+		})
+
 		const post = await prisma.post.update({
 			where: { id },
 			data,
 		})
 
 		revalidatePostSection(post.section)
+
+		if (previous != null && previous.section !== post.section) {
+			revalidatePostSection(previous.section)
+		}
 
 		return NextResponse.json(post)
 	} catch (error) {
