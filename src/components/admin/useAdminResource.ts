@@ -27,12 +27,16 @@ export function useAdminResource<TPayload>({
 	// dev-time warning is the only signal that the handler is updating a dead
 	// component.
 	const isMountedRef = useRef(true)
+	// Cancels any in-flight save/remove on unmount so the network call doesn't
+	// outlive the form (relevant when the admin navigates away mid-PUT).
+	const abortRef = useRef<AbortController | null>(null)
 
 	useEffect(() => {
 		isMountedRef.current = true
 
 		return () => {
 			isMountedRef.current = false
+			abortRef.current?.abort()
 		}
 	}, [])
 
@@ -70,6 +74,10 @@ export function useAdminResource<TPayload>({
 		setError(null)
 		setIsSubmitting(true)
 
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
+
 		try {
 			const url = isEditing
 				? `/api/admin/${resource}/${id}`
@@ -80,6 +88,7 @@ export function useAdminResource<TPayload>({
 				method,
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
+				signal: controller.signal,
 			})
 
 			if (!response.ok) {
@@ -93,6 +102,11 @@ export function useAdminResource<TPayload>({
 			goBackToAdmin()
 		} catch (err) {
 			if (!isMountedRef.current) {
+				return
+			}
+
+			// Aborts are silent: the unmount or a newer save already moved on.
+			if (err instanceof Error && err.name === "AbortError") {
 				return
 			}
 
@@ -120,9 +134,14 @@ export function useAdminResource<TPayload>({
 		setError(null)
 		setIsSubmitting(true)
 
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
+
 		try {
 			const response = await fetch(`/api/admin/${resource}/${id}`, {
 				method: "DELETE",
+				signal: controller.signal,
 			})
 
 			if (!response.ok) {
@@ -136,6 +155,10 @@ export function useAdminResource<TPayload>({
 			goBackToAdmin()
 		} catch (err) {
 			if (!isMountedRef.current) {
+				return
+			}
+
+			if (err instanceof Error && err.name === "AbortError") {
 				return
 			}
 

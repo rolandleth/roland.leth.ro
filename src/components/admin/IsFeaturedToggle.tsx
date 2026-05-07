@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Props {
 	projectId: number
@@ -16,6 +16,16 @@ export default function IsFeaturedToggle({
 	const [isFeatured, setIsFeatured] = useState(initialIsFeatured)
 	const [isSaving, setIsSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	// Cancel any in-flight PUT on unmount so the response handler doesn't
+	// setState after the component is gone, and so navigation aborts the
+	// network call instead of letting it race with the next page render.
+	const abortRef = useRef<AbortController | null>(null)
+
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort()
+		}
+	}, [])
 
 	async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const next = e.target.checked
@@ -23,11 +33,16 @@ export default function IsFeaturedToggle({
 		setError(null)
 		setIsSaving(true)
 
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
+
 		try {
 			const response = await fetch(`/api/admin/projects/${projectId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ isFeatured: next }),
+				signal: controller.signal,
 			})
 
 			if (!response.ok) {
@@ -38,14 +53,21 @@ export default function IsFeaturedToggle({
 			}
 
 			router.refresh()
-		} catch {
-			// A thrown fetch rejection (network down, CORS, abort) would otherwise
-			// leave `isSaving=true` forever and block further toggles. Reverting
-			// the optimistic update and surfacing the error is the recovery path.
+		} catch (err) {
+			// Aborted on unmount or by a newer toggle — drop the result silently.
+			if (err instanceof Error && err.name === "AbortError") {
+				return
+			}
+
+			// A thrown fetch rejection (network down, CORS) would otherwise leave
+			// `isSaving=true` forever and block further toggles. Reverting the
+			// optimistic update and surfacing the error is the recovery path.
 			setIsFeatured(initialIsFeatured)
 			setError("Failed to save")
 		} finally {
-			setIsSaving(false)
+			if (abortRef.current === controller) {
+				setIsSaving(false)
+			}
 		}
 	}
 

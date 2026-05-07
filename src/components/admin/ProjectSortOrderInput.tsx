@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Props {
 	projectId: number
@@ -27,6 +27,16 @@ export default function ProjectSortOrderInput({
 	const [value, setValue] = useState(String(initialSortOrder + 1))
 	const [isSaving, setIsSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	// Tabbing through multiple sort-order inputs fires parallel PUTs; aborting
+	// the previous in-flight request prevents the response of an older blur
+	// from clobbering the latest committed value.
+	const abortRef = useRef<AbortController | null>(null)
+
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort()
+		}
+	}, [])
 
 	async function handleBlur() {
 		const parsed = parseInt(value, 10)
@@ -49,11 +59,16 @@ export default function ProjectSortOrderInput({
 		setError(null)
 		setIsSaving(true)
 
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
+
 		try {
 			const response = await fetch(`/api/admin/projects/${projectId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ sortOrder: nextSortOrder }),
+				signal: controller.signal,
 			})
 
 			if (!response.ok) {
@@ -64,13 +79,19 @@ export default function ProjectSortOrderInput({
 			}
 
 			router.refresh()
-		} catch {
+		} catch (err) {
+			if (err instanceof Error && err.name === "AbortError") {
+				return
+			}
+
 			// Without the catch, a network rejection left `isSaving=true` forever
 			// and disabled the input with no error feedback.
 			setValue(String(initialSortOrder + 1))
 			setError("Failed to save")
 		} finally {
-			setIsSaving(false)
+			if (abortRef.current === controller) {
+				setIsSaving(false)
+			}
 		}
 	}
 
