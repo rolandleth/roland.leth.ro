@@ -145,6 +145,46 @@ describe("ProjectSortOrderInput save behaviour", () => {
 		expect(input).toHaveValue(1)
 		expect(input).not.toBeDisabled()
 	})
+
+	it("clamps display value to totalCount on input above the cap", async () => {
+		// Pinning the upper-bound clamp so future regressions don't let the
+		// admin send an out-of-range sortOrder past the API.
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={0}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		await userEvent.clear(input)
+		await userEvent.type(input, "999")
+		await userEvent.tab()
+
+		expect(input).toHaveValue(5)
+	})
+
+	it("clamps display value to 1 on input below the floor", async () => {
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={2}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		await userEvent.clear(input)
+		await userEvent.type(input, "0")
+		await userEvent.tab()
+
+		expect(input).toHaveValue(1)
+	})
 })
 
 // #endregion
