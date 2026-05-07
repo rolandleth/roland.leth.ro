@@ -117,6 +117,8 @@ describe("POST /api/admin/projects", () => {
 
 	it("shifts projects at or after the target position when sortOrder is provided", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		// Count=5 so sortOrder=3 is in-range and not clamped.
+		vi.mocked(prisma.project.count).mockResolvedValue(5)
 		const updateMany = vi.fn()
 		vi.mocked(prisma.$transaction).mockImplementation(
 			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
@@ -124,6 +126,27 @@ describe("POST /api/admin/projects", () => {
 		)
 
 		await POST(makeRequest({ ...validPayload, sortOrder: 3 }))
+
+		expect(updateMany).toHaveBeenCalledWith({
+			where: { sortOrder: { gte: 3 } },
+			data: { sortOrder: { increment: 1 } },
+		})
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.sortOrder).toBe(3)
+	})
+
+	it("clamps sortOrder to the current count to avoid leaving gaps", async () => {
+		// count=3, sortOrder=10: without clamping, the new project would land
+		// at slot 10 leaving slots 3..9 empty. Clamp to 3 (the next free slot).
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		vi.mocked(prisma.project.count).mockResolvedValue(3)
+		const updateMany = vi.fn()
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn(makeTx(updateMany))
+		)
+
+		await POST(makeRequest({ ...validPayload, sortOrder: 10 }))
 
 		expect(updateMany).toHaveBeenCalledWith({
 			where: { sortOrder: { gte: 3 } },

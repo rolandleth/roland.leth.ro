@@ -12,10 +12,18 @@ const httpUrl = z
 
 // Posts
 
+// `yyyy-MM-dd-HHmm` — same shape as `currentDatetimeString()` and consumed by
+// `postDatetimeToISO`, which throws on bad input. Validating here means a
+// malformed `datetime` is rejected at write time (clean 400) rather than
+// surfacing as a 500 deep inside feed/sitemap rendering.
+const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
+	message: "datetime must be `yyyy-MM-dd-HHmm`",
+})
+
 export const postCreateSchema = z.object({
 	title: z.string().min(1).max(200),
 	body: z.string().min(1).max(100_000),
-	datetime: z.string().min(1),
+	datetime: postDatetime,
 	summary: z.string().max(300).nullable().optional(),
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),

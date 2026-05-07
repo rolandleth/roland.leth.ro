@@ -38,18 +38,24 @@ export async function POST(request: Request): Promise<NextResponse> {
 			async (tx) => {
 				let targetOrder: number
 
+				const count = await tx.project.count()
+
 				if (sortOrder != null) {
+					// Clamp into [0, count] so a value past the end (e.g. count=3,
+					// sortOrder=10) doesn't leave gaps `[3..9]` between the existing
+					// rows and the newly inserted one — `updateMany({ gte: 10 })`
+					// would match nothing and the new project would land at slot 10.
+					targetOrder = Math.min(sortOrder, count)
 					// Shift everything at or after the target position down to make room.
 					await tx.project.updateMany({
-						where: { sortOrder: { gte: sortOrder } },
+						where: { sortOrder: { gte: targetOrder } },
 						data: { sortOrder: { increment: 1 } },
 					})
-					targetOrder = sortOrder
 				} else {
 					// No position given — append at the end. `sortOrder` is 0-indexed
 					// everywhere else (reorder helper, DELETE reindex), so `count` is
 					// the next free slot, not `count + 1`.
-					targetOrder = await tx.project.count()
+					targetOrder = count
 				}
 
 				return tx.project.create({
