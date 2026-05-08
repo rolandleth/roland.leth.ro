@@ -129,7 +129,9 @@ export default function AboutContent() {
 						</p>
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
-							freelancer and contractor, or led teams at big companies like
+							freelancer and contractor, in{" "}
+							<a href="https://db.com">big corporations</a>, or led teams at big
+							companies like
 							<a href="https://deindeal.ch/">DeinDeal</a>—part of{" "}
 							<a href="https://ringier.ch/">Ringier</a>—or{" "}
 							<a href="https://therme.media/">Therme Media</a>—part of{" "}
