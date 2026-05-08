@@ -121,6 +121,13 @@ export default function AboutContent() {
 							products.
 						</p>
 						<p className="text-secondary leading-relaxed">
+							In the past year I&apos;ve shifted to building products primarily
+							by directing AI agents: they design the UI and write the code,
+							while I review their output and own the architecture, the call on
+							what ships, and the security boundaries they operate within,
+							shipping three complex projects to date.
+						</p>
+						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
 							freelancer and contractor, or led teams at big companies like
 							DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
