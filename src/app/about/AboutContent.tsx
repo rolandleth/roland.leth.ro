@@ -130,9 +130,17 @@ export default function AboutContent() {
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
 							freelancer and contractor, or led teams at big companies like
-							DeinDeal—part of Ringier—or Therme Media—part of Therme Group. I
-							also started my own software company, Runtime Sharks, and
-							co-founded startups like Eventa and Qality Tech.
+							<a href="https://deindeal.ch/">DeinDeal</a>—part of{" "}
+							<a href="https://ringier.ch/">Ringier</a>—or{" "}
+							<a href="https://therme.media/">Therme Media</a>—part of{" "}
+							<a href="https://thermegroup.com/">Therme Group</a>. I also
+							started my own software company, and co-founded startups like{" "}
+							<a href="https://eventa.rsvp/">Eventa</a> and{" "}
+							<a href="https://qality.tech/">Qality Tech</a>. In addition, I
+							contribute to{" "}
+							<a href="https://github.com/rolandleth">open source</a>{" "}
+							(occasionally) and publish articles on
+							<a href="https://roland.leth.ro">this blog</a>.
 						</p>
 					</div>
 				</FadeIn>
