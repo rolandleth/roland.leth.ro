@@ -30,10 +30,7 @@ export default async function PostCard({ post }: Props) {
 			</div>
 
 			{isTruncated && (
-				<Link
-					href={href}
-					className="text-accent mt-3 inline-block text-sm underline decoration-transparent underline-offset-4 hover:decoration-current"
-				>
+				<Link href={href} className="link mt-3 inline-block text-sm">
 					Continue reading →
 				</Link>
 			)}

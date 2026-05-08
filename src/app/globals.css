@@ -163,4 +163,13 @@ code[data-theme*=" "] span {
 	.admin-input {
 		@apply border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none;
 	}
+
+	.link,
+	.prose a {
+		@apply text-accent underline decoration-transparent underline-offset-4 hover:decoration-current;
+	}
+
+	.prose a {
+		font-weight: inherit;
+	}
 }

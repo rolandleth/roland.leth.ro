@@ -130,19 +130,43 @@ export default function AboutContent() {
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
 							freelancer and contractor, in{" "}
-							<a href="https://db.com">big corporations</a>, or led teams at big
-							companies like
-							<a href="https://deindeal.ch/">DeinDeal</a>—part of{" "}
-							<a href="https://ringier.ch/">Ringier</a>—or{" "}
-							<a href="https://therme.media/">Therme Media</a>—part of{" "}
-							<a href="https://thermegroup.com/">Therme Group</a>. I also
-							started my own software company, and co-founded startups like{" "}
-							<a href="https://eventa.rsvp/">Eventa</a> and{" "}
-							<a href="https://qality.tech/">Qality Tech</a>. In addition, I
-							contribute to{" "}
-							<a href="https://github.com/rolandleth">open source</a>{" "}
-							(occasionally) and publish articles on
-							<a href="https://roland.leth.ro">this blog</a>.
+							<Link className="link" href="https://db.com">
+								big corporations
+							</Link>
+							, or led teams at big companies like{" "}
+							<Link className="link" href="https://deindeal.ch/">
+								DeinDeal
+							</Link>
+							—part of{" "}
+							<Link className="link" href="https://ringier.ch/">
+								Ringier
+							</Link>
+							—or{" "}
+							<Link className="link" href="https://therme.media/">
+								Therme Media
+							</Link>
+							—part of{" "}
+							<Link className="link" href="https://thermegroup.com/">
+								Therme Group
+							</Link>
+							. I also started my own software company, and co-founded startups
+							like{" "}
+							<Link className="link" href="https://eventa.rsvp/">
+								Eventa
+							</Link>{" "}
+							and{" "}
+							<Link className="link" href="https://qality.tech/">
+								Qality Tech
+							</Link>
+							. In addition, I contribute to{" "}
+							<Link className="link" href="https://github.com/rolandleth">
+								open source
+							</Link>{" "}
+							(occasionally) and publish articles on{" "}
+							<Link className="link" href="https://roland.leth.ro">
+								this blog
+							</Link>
+							.
 						</p>
 					</div>
 				</FadeIn>

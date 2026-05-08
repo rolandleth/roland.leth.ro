@@ -22,6 +22,7 @@ export default function ErrorMessage({
 	return (
 		<p
 			role="alert"
+			// eslint-disable-next-line sonarjs/no-nested-template-literals
 			className={`${sizeClass} text-red-500${className ? ` ${className}` : ""}`}
 		>
 			{children}
