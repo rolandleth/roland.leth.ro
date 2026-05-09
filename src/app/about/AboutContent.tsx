@@ -120,11 +120,12 @@ export default function AboutContent() {
 							products.
 						</p>
 						<p className="text-secondary leading-relaxed">
-							In the past year I&apos;ve shifted to building products primarily
-							by directing AI agents: they design the UI and write the code,
-							while I review their output and own the architecture, the call on
-							what ships, and the security boundaries they operate within,
-							shipping three complex projects to date.
+							Over the past year I&apos;ve shifted to building products
+							primarily by directing AI agents: I drive the strategy,
+							architecture, and tradeoffs; they design the UI and write the
+							code. I review what they ship and own their harness: security
+							boundaries, workflows, tooling, shipping three complex projects to
+							date.
 						</p>
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
