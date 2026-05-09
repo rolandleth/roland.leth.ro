@@ -1,7 +1,7 @@
-# Lookup Map — overview (through commit c945b8a on 2026-05-07)
+# Lookup Map — overview (through commit 1ff35b6 on 2026-05-09)
 
 - `src/` — Next.js middleware (`proxy.ts`): admin-API/page auth gate, legacy URL redirects (section-blog, archive, search, feed, privacy-policy).
-- `src/app/` — root layout, landing page, sitemap, `not-found`, `ClientAnalytics` client island. Sitemap currently does NOT filter future-dated posts.
+- `src/app/` — root layout, landing page, sitemap, `not-found`, error boundaries (`error`, `global-error` — `global-error` uses inline styles since the root layout's CSS is unavailable when it fires), `ClientAnalytics` client island. Sitemap currently does NOT filter future-dated posts.
 - `src/app/[slug]/` — root-level catch-all for legacy URLs; runs only when no static top-level route matches. `permanentRedirect`/`notFound` based on `lookupLegacySlug`.
 - `src/app/about/` — about page server component + content.
 - `src/app/admin/(protected)/` — protected admin shell; `layout.tsx` adds defense-in-depth `verifySession`. `page.tsx` is the tab-router.
