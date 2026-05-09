@@ -18,13 +18,10 @@ export default function ErrorMessage({
 	className,
 }: Props) {
 	const sizeClass = size === "sm" ? "text-xs" : "text-sm"
+	const extraClass = className ? ` ${className}` : ""
 
 	return (
-		<p
-			role="alert"
-			// eslint-disable-next-line sonarjs/no-nested-template-literals
-			className={`${sizeClass} text-red-500${className ? ` ${className}` : ""}`}
-		>
+		<p role="alert" className={`${sizeClass} text-red-500${extraClass}`}>
 			{children}
 		</p>
 	)

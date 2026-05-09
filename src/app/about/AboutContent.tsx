@@ -1,5 +1,4 @@
 import Image from "next/image"
-import Link from "next/link"
 import FadeIn from "@/components/about/FadeIn"
 
 const chips = [
@@ -94,14 +93,14 @@ export default function AboutContent() {
 
 					<div className="flex flex-col gap-2">
 						{contactLinks.map(({ label, href, download }) => (
-							<Link
+							<a
 								key={label}
 								href={href}
 								download={download}
 								className="text-secondary hover:text-accent text-sm transition-colors duration-300"
 							>
 								{label} →
-							</Link>
+							</a>
 						))}
 					</div>
 				</div>
@@ -130,42 +129,42 @@ export default function AboutContent() {
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
 							freelancer and contractor, in{" "}
-							<Link className="link" href="https://db.com">
+							<a className="link" href="https://db.com">
 								big corporations
-							</Link>
+							</a>
 							, or led teams at big companies like{" "}
-							<Link className="link" href="https://deindeal.ch/">
+							<a className="link" href="https://deindeal.ch/">
 								DeinDeal
-							</Link>
+							</a>
 							—part of{" "}
-							<Link className="link" href="https://ringier.ch/">
+							<a className="link" href="https://ringier.ch/">
 								Ringier
-							</Link>
-							—or{" "}
-							<Link className="link" href="https://therme.media/">
+							</a>
+							, or{" "}
+							<a className="link" href="https://therme.media/">
 								Therme Media
-							</Link>
+							</a>
 							—part of{" "}
-							<Link className="link" href="https://thermegroup.com/">
+							<a className="link" href="https://thermegroup.com/">
 								Therme Group
-							</Link>
+							</a>
 							. I also started my own software company, and co-founded startups
 							like{" "}
-							<Link className="link" href="https://eventa.rsvp/">
+							<a className="link" href="https://eventa.rsvp/">
 								Eventa
-							</Link>{" "}
+							</a>{" "}
 							and{" "}
-							<Link className="link" href="https://qality.tech/">
+							<a className="link" href="https://qality.tech/">
 								Qality Tech
-							</Link>
+							</a>
 							. In addition, I contribute to{" "}
-							<Link className="link" href="https://github.com/rolandleth">
+							<a className="link" href="https://github.com/rolandleth">
 								open source
-							</Link>{" "}
+							</a>{" "}
 							(occasionally) and publish articles on{" "}
-							<Link className="link" href="https://roland.leth.ro">
+							<a className="link" href="https://roland.leth.ro">
 								this blog
-							</Link>
+							</a>
 							.
 						</p>
 					</div>

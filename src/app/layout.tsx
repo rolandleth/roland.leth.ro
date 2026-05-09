@@ -1,6 +1,6 @@
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google"
 import { cookies } from "next/headers"
-import ClientAnalytics from "@/app/ClientAnalytics"
+import ClientAnalytics from "@/components/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import ThemeProvider from "@/components/ThemeProvider"

@@ -167,9 +167,6 @@ code[data-theme*=" "] span {
 	.link,
 	.prose a {
 		@apply text-accent underline decoration-transparent underline-offset-4 hover:decoration-current;
-	}
-
-	.prose a {
 		font-weight: inherit;
 	}
 }

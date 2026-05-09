@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect } from "react"
 
 interface Props {
-	error: Error & { digest?: string }
+	error: Error
 	reset: () => void
 }
 

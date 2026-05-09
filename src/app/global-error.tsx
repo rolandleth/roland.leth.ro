@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 
 interface Props {
-	error: Error & { digest?: string }
+	error: Error
 	reset: () => void
 }
 
@@ -38,19 +38,6 @@ export default function GlobalError({ error, reset }: Props) {
 					<p style={{ marginBottom: "1.5rem", opacity: 0.7 }}>
 						An unexpected error interrupted the application.
 					</p>
-
-					{error.digest && (
-						<p
-							style={{
-								marginBottom: "1.5rem",
-								fontFamily: "monospace",
-								fontSize: "0.75rem",
-								opacity: 0.5,
-							}}
-						>
-							{error.digest}
-						</p>
-					)}
 
 					<button
 						type="button"
