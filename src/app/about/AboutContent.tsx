@@ -97,6 +97,9 @@ export default function AboutContent() {
 								key={label}
 								href={href}
 								download={download}
+								rel={
+									href.startsWith("http") ? "noopener noreferrer" : undefined
+								}
 								className="text-secondary hover:text-accent text-sm transition-colors duration-300"
 							>
 								{label} →
@@ -124,46 +127,82 @@ export default function AboutContent() {
 							primarily by directing AI agents: I drive the strategy,
 							architecture, and tradeoffs; they design the UI and write the
 							code. I review what they ship and own their harness: security
-							boundaries, workflows, tooling, shipping three complex projects to
+							boundaries, workflows, tooling. Shipped three complex projects to
 							date.
 						</p>
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
-							freelancer and contractor, in{" "}
-							<a className="link" href="https://db.com">
-								big corporations
+							freelancer and contractor, in large corporations like
+							<a
+								className="link"
+								href="https://db.com"
+								rel="noopener noreferrer"
+							>
+								Deutsche Bank
 							</a>
 							, or led teams at big companies like{" "}
-							<a className="link" href="https://deindeal.ch/">
+							<a
+								className="link"
+								href="https://deindeal.ch/"
+								rel="noopener noreferrer"
+							>
 								DeinDeal
 							</a>
 							—part of{" "}
-							<a className="link" href="https://ringier.ch/">
+							<a
+								className="link"
+								href="https://ringier.ch/"
+								rel="noopener noreferrer"
+							>
 								Ringier
 							</a>
 							, or{" "}
-							<a className="link" href="https://therme.media/">
+							<a
+								className="link"
+								href="https://therme.media/"
+								rel="noopener noreferrer"
+							>
 								Therme Media
 							</a>
 							—part of{" "}
-							<a className="link" href="https://thermegroup.com/">
+							<a
+								className="link"
+								href="https://thermegroup.com/"
+								rel="noopener noreferrer"
+							>
 								Therme Group
 							</a>
 							. I also started my own software company, and co-founded startups
 							like{" "}
-							<a className="link" href="https://eventa.rsvp/">
+							<a
+								className="link"
+								href="https://eventa.rsvp/"
+								rel="noopener noreferrer"
+							>
 								Eventa
 							</a>{" "}
 							and{" "}
-							<a className="link" href="https://qality.tech/">
+							<a
+								className="link"
+								href="https://qality.tech/"
+								rel="noopener noreferrer"
+							>
 								Qality Tech
 							</a>
 							. In addition, I contribute to{" "}
-							<a className="link" href="https://github.com/rolandleth">
+							<a
+								className="link"
+								href="https://github.com/rolandleth"
+								rel="noopener noreferrer"
+							>
 								open source
 							</a>{" "}
 							(occasionally) and publish articles on{" "}
-							<a className="link" href="https://roland.leth.ro">
+							<a
+								className="link"
+								href="https://roland.leth.ro"
+								rel="noopener noreferrer"
+							>
 								this blog
 							</a>
 							.

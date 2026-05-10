@@ -31,4 +31,15 @@ describe("GlobalError", () => {
 
 		expect(console.error).toHaveBeenCalledWith("[app:global-error]", error)
 	})
+
+	// Locks the dev-journal decision: the digest is intentionally not surfaced
+	// without external error aggregation. Re-introduce paired with Sentry-or-equivalent.
+	it("does not render the error digest", () => {
+		const error = Object.assign(new Error("boom"), {
+			digest: "abc123def456abcdef0123456789",
+		})
+		const { container } = render(<GlobalError error={error} reset={vi.fn()} />)
+
+		expect(container.textContent).not.toContain(error.digest)
+	})
 })
