@@ -167,6 +167,14 @@ export async function PUT(
 		if (previousSlug != null && previousSlug !== project.slug) {
 			revalidateProject(previousSlug)
 		}
+		// Audit trail. Includes prior slug so name-driven slug renames are
+		// distinguishable in logs from in-place edits.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:projects:PUT] success", {
+			id: project.id,
+			slug: project.slug,
+			previousSlug,
+		})
 
 		return NextResponse.json(project)
 	} catch (error) {
@@ -212,6 +220,12 @@ export async function DELETE(
 		)
 
 		revalidateProject(deleted.slug)
+		// Audit trail — deletions are the highest-stakes admin write.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:projects:DELETE] success", {
+			id,
+			slug: deleted.slug,
+		})
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

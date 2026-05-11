@@ -247,6 +247,21 @@ describe("PUT /api/admin/projects/[id]", () => {
 		)
 	})
 
+	it("emits an info-level audit log on successful update including previousSlug", async () => {
+		// Renames vs in-place edits are indistinguishable in the access log;
+		// the audit line is the only signal that separates them.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
+		const renamed = { ...existingProject, name: "New Name", slug: "new-name" }
+		vi.mocked(prisma.project.update).mockResolvedValue(renamed)
+
+		await PUT(putRequest("1", { name: "New Name" }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:projects:PUT] success",
+			{ id: renamed.id, slug: "new-name", previousSlug: "my-app" }
+		)
+	})
+
 	it("reads the previous slug inside the same Serializable transaction as the update", async () => {
 		// Without the in-txn read, two concurrent rename PUTs could both see
 		// the same `previousSlug` and skip one of the per-slug tag busts. The
@@ -285,6 +300,19 @@ describe("DELETE /api/admin/projects/[id]", () => {
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(204)
+	})
+
+	it("emits an info-level audit log on successful deletion", async () => {
+		// Deletions are the highest-stakes admin write; the audit line is the
+		// only structured signal a deletion happened.
+		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject)
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:projects:DELETE] success",
+			{ id: 1, slug: existingProject.slug }
+		)
 	})
 
 	it("shifts remaining projects down after deletion", async () => {

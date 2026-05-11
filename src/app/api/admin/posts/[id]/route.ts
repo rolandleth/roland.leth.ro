@@ -106,6 +106,15 @@ export async function PUT(
 		if (previous != null && previous.section !== post.section) {
 			revalidatePostSection(previous.section)
 		}
+		// Audit trail. Includes prior section so cross-section moves are visible
+		// in logs distinct from in-place edits.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:posts:PUT] success", {
+			id: post.id,
+			slug: post.slug,
+			section: post.section,
+			previousSection: previous?.section ?? null,
+		})
 
 		return NextResponse.json(post)
 	} catch (error) {
@@ -138,6 +147,12 @@ export async function DELETE(
 		})
 
 		revalidatePostSection(post.section)
+		// Audit trail — deletions are the highest-stakes admin write.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:posts:DELETE] success", {
+			id,
+			section: post.section,
+		})
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

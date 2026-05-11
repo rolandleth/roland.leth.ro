@@ -88,6 +88,23 @@ describe("POST /api/admin/projects", () => {
 		expect(data.id).toBe(1)
 	})
 
+	it("emits an info-level audit log on successful create", async () => {
+		// Without this line, an out-of-band project creation has no trace once
+		// the access log rolls over.
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(makeRequest(validPayload))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:projects:POST] success",
+			{
+				id: createdProject.id,
+				slug: createdProject.slug,
+				sortOrder: createdProject.sortOrder,
+			}
+		)
+	})
+
 	it("generates a slug from the project name", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 		await POST(makeRequest(validPayload))

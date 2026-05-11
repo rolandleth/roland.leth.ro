@@ -42,6 +42,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 		})
 
 		revalidatePostSection(post.section)
+		// Audit trail. Vercel Hobby retains runtime logs ~1h, but the structured
+		// payload makes it greppable while it's live and is the only signal that
+		// answers "did someone create a post at 3am" until external aggregation lands.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:posts:POST] success", {
+			id: post.id,
+			slug: post.slug,
+			section: post.section,
+		})
 
 		return NextResponse.json(post, { status: 201 })
 	} catch (error) {

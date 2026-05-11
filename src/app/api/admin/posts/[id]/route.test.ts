@@ -210,6 +210,31 @@ describe("PUT /api/admin/posts/[id]", () => {
 		expect(blogCalls.filter(([t]) => t === "blog-life")).toHaveLength(0)
 	})
 
+	it("emits an info-level audit log on successful update including previousSection", async () => {
+		// Cross-section moves and in-place edits look identical in the access log;
+		// the audit line is the only signal that distinguishes them.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			...existingPost,
+			section: "tech",
+		})
+		vi.mocked(prisma.post.update).mockResolvedValue({
+			...existingPost,
+			section: "life",
+		})
+
+		await PUT(putRequest("1", { section: "life" }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:PUT] success",
+			{
+				id: 1,
+				slug: existingPost.slug,
+				section: "life",
+				previousSection: "tech",
+			}
+		)
+	})
+
 	it("reads the previous section inside the same transaction as the update", async () => {
 		// Without the transaction, two concurrent PUTs could observe the same
 		// `previous.section`, leaving one side of a cross-section move with a
@@ -236,6 +261,19 @@ describe("DELETE /api/admin/posts/[id]", () => {
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(204)
+	})
+
+	it("emits an info-level audit log on successful deletion", async () => {
+		// Deletions are the highest-stakes admin write; the audit line is the
+		// only structured signal a deletion happened.
+		vi.mocked(prisma.post.delete).mockResolvedValue(existingPost)
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:DELETE] success",
+			{ id: 1, section: existingPost.section }
+		)
 	})
 
 	it("returns 400 for a non-numeric id", async () => {

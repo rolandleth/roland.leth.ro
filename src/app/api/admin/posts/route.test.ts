@@ -60,6 +60,20 @@ describe("POST /api/admin/posts", () => {
 		expect(data.id).toBe(1)
 	})
 
+	it("emits an info-level audit log on successful create", async () => {
+		// Without this line, an out-of-band post creation has no trace once the
+		// access log rolls over. Pinned format so log-pipeline configs can grep
+		// reliably.
+		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
+
+		await POST(makeRequest(validPayload))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:POST] success",
+			{ id: 1, slug: createdPost.slug, section: createdPost.section }
+		)
+	})
+
 	it("generates a slug from the title", async () => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
 		await POST(makeRequest(validPayload))
