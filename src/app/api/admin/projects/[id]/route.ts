@@ -78,19 +78,6 @@ export async function PUT(
 		data.slug = createSlug(name)
 	}
 
-	// Read the current slug before the update so a name change (which derives a
-	// new slug) can also invalidate the old per-slug cache tag. Without this,
-	// the old slug tag lingers until its next natural revalidation.
-	const previousSlug =
-		name != null
-			? ((
-					await prisma.project.findUnique({
-						where: { id },
-						select: { slug: true },
-					})
-				)?.slug ?? null)
-			: null
-
 	try {
 		// The sortOrder shift reads the current position, then updates the affected
 		// range. Under READ COMMITTED (Prisma/Postgres default), two simultaneous
@@ -102,8 +89,23 @@ export async function PUT(
 		// aborts one of the conflicting txns with a serialization_failure instead
 		// of letting both commit. At single-admin volumes conflicts are essentially
 		// impossible, so no retry loop.
-		const project = await prisma.$transaction(
+		const { project, previousSlug } = await prisma.$transaction(
 			async (tx) => {
+				// Read the current slug inside the txn so a name-change rename
+				// atomically learns the old slug — otherwise two concurrent
+				// renames could both see the same `previousSlug` and skip one
+				// of the per-slug tag busts. Only read when `name` is being
+				// updated; an unrelated PUT doesn't need to know the old slug.
+				const previousSlug =
+					name != null
+						? ((
+								await tx.project.findUnique({
+									where: { id },
+									select: { slug: true },
+								})
+							)?.slug ?? null)
+						: null
+
 				if (data.sortOrder != null) {
 					const current = await tx.project.findUnique({
 						where: { id },
@@ -145,7 +147,7 @@ export async function PUT(
 					await tx.projectLink.deleteMany({ where: { projectId: id } })
 				}
 
-				return tx.project.update({
+				const project = await tx.project.update({
 					where: { id },
 					data: {
 						...data,
@@ -154,6 +156,8 @@ export async function PUT(
 					},
 					include: projectInclude,
 				})
+
+				return { project, previousSlug }
 			},
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 		)

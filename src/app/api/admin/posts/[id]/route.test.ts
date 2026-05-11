@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { isPrismaNotFound, prisma } from "@/lib/db"
 import { DELETE, GET, PUT } from "./route"
+import type { Prisma } from "@/generated/prisma/client"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
 			update: vi.fn(),
 			delete: vi.fn(),
 		},
+		$transaction: vi.fn(),
 	},
 	isPrismaNotFound: vi.fn(),
 }))
@@ -89,6 +91,22 @@ describe("GET /api/admin/posts/[id]", () => {
 // ---------------------------------------------------------------------------
 
 describe("PUT /api/admin/posts/[id]", () => {
+	// PUT wraps `findUnique(previous section)` + `update` in a single
+	// `prisma.$transaction`; the mock delegates `tx.post.*` straight back to
+	// the top-level `prisma.post.*` mocks so existing tests can keep stubbing
+	// via `prisma.post.update.mockResolvedValue(...)`.
+	beforeEach(() => {
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+				fn({
+					post: {
+						findUnique: vi.mocked(prisma.post.findUnique),
+						update: vi.mocked(prisma.post.update),
+					},
+				} as unknown as Prisma.TransactionClient)
+		)
+	})
+
 	it("returns 200 with the updated post", async () => {
 		const updated = {
 			...existingPost,
@@ -190,6 +208,21 @@ describe("PUT /api/admin/posts/[id]", () => {
 			.mock.calls.filter(([tag]) => tag === "blog-tech" || tag === "blog-life")
 		expect(blogCalls.filter(([t]) => t === "blog-tech")).toHaveLength(1)
 		expect(blogCalls.filter(([t]) => t === "blog-life")).toHaveLength(0)
+	})
+
+	it("reads the previous section inside the same transaction as the update", async () => {
+		// Without the transaction, two concurrent PUTs could observe the same
+		// `previous.section`, leaving one side of a cross-section move with a
+		// stale cache. The transaction is the load-bearing fix for that race.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { title: "x" }), params("1"))
+
+		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+		expect(prisma.post.findUnique).toHaveBeenCalledWith(
+			expect.objectContaining({ select: { section: true } })
+		)
 	})
 })
 

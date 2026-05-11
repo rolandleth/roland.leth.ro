@@ -227,9 +227,10 @@ describe("PUT /api/admin/projects/[id]", () => {
 	})
 
 	it("invalidates both old and new slug tags when a name change produces a new slug", async () => {
-		// The pre-transaction read returns the current (old) slug; the transaction
-		// returns a project with the new slug. Both per-slug tags must be busted
-		// so cached lookups on the old URL also clear immediately.
+		// The previous-slug read happens inside the same Serializable txn as
+		// the update; the transaction returns a project with the new slug. Both
+		// per-slug tags must be busted so cached lookups on the old URL also
+		// clear immediately.
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
 		const renamed = { ...existingProject, name: "New Name", slug: "new-name" }
 		vi.mocked(prisma.project.update).mockResolvedValue(renamed)
@@ -243,6 +244,21 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
 			"project-new-name",
 			"max"
+		)
+	})
+
+	it("reads the previous slug inside the same Serializable transaction as the update", async () => {
+		// Without the in-txn read, two concurrent rename PUTs could both see
+		// the same `previousSlug` and skip one of the per-slug tag busts. The
+		// transaction is the load-bearing fix.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+
+		await PUT(putRequest("1", { name: "Other Name" }), params("1"))
+
+		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+		expect(prisma.project.findUnique).toHaveBeenCalledWith(
+			expect.objectContaining({ select: { slug: true } })
 		)
 	})
 })
