@@ -10,10 +10,12 @@ vi.mock("next/navigation", () => ({
 
 function mockRouter() {
 	const push = vi.fn()
-	vi.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<
-		typeof useRouter
-	>)
-	return { push }
+	const refresh = vi.fn()
+	vi.mocked(useRouter).mockReturnValue({
+		push,
+		refresh,
+	} as unknown as ReturnType<typeof useRouter>)
+	return { push, refresh }
 }
 
 function mockFetch(ok: boolean, body: object = {}) {
@@ -62,8 +64,11 @@ describe("LoginForm rendering", () => {
 // ---------------------------------------------------------------------------
 
 describe("LoginForm submission", () => {
-	it("navigates to /admin on a successful login", async () => {
-		const { push } = mockRouter()
+	it("navigates to /admin and refreshes the RSC tree on a successful login", async () => {
+		// `refresh()` is the load-bearing call: without it, the RSC tree can
+		// briefly render unauthenticated state after the cookie is set but
+		// before the next request rehydrates. Mirrors `useAdminResource`.
+		const { push, refresh } = mockRouter()
 		mockFetch(true)
 
 		render(<LoginForm />)
@@ -72,6 +77,7 @@ describe("LoginForm submission", () => {
 		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
+		expect(refresh).toHaveBeenCalledOnce()
 	})
 
 	it("POSTs email and password to /api/auth/login", async () => {
@@ -148,5 +154,47 @@ describe("LoginForm submission", () => {
 		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
 		expect(screen.getByRole("button")).toHaveTextContent("Signing in…")
+	})
+
+	it("logs a warn line and surfaces the fallback message on a network rejection", async () => {
+		// Bare-catch previously dropped the cause; a flapping login had no
+		// signal in logs. Tagged warn so the failure mode is debuggable.
+		mockRouter()
+		global.fetch = vi.fn().mockRejectedValue(new Error("network down"))
+
+		render(<LoginForm />)
+		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await userEvent.type(screen.getByLabelText(/password/i), "password")
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+
+		await waitFor(() =>
+			expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
+		)
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[admin:LoginForm] submit failed",
+			expect.any(Error)
+		)
+	})
+
+	it("aborts the in-flight request on unmount", async () => {
+		mockRouter()
+		// Capture the AbortSignal handed to fetch so we can assert it aborts.
+		let capturedSignal: AbortSignal | undefined
+		global.fetch = vi.fn().mockImplementation((_url, options) => {
+			capturedSignal = options.signal
+			return new Promise(() => {})
+		})
+
+		const { unmount } = render(<LoginForm />)
+		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await userEvent.type(screen.getByLabelText(/password/i), "password")
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		expect(capturedSignal?.aborted).toBe(false)
+
+		unmount()
+
+		expect(capturedSignal?.aborted).toBe(true)
 	})
 })

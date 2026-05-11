@@ -71,4 +71,38 @@ describe("AdminNav — handleLogout", () => {
 		await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument())
 		expect(button).not.toBeDisabled()
 	})
+
+	it("logs a warn line on a network rejection (so a flapping logout is debuggable)", async () => {
+		mockRouter()
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network down"))
+
+		render(<AdminNav />)
+		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+
+		await waitFor(() =>
+			expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+				"[admin:AdminNav] logout failed",
+				expect.any(Error)
+			)
+		)
+	})
+
+	it("aborts the in-flight logout on unmount", async () => {
+		mockRouter()
+		let capturedSignal: AbortSignal | undefined
+		global.fetch = vi.fn().mockImplementation((_url, options) => {
+			capturedSignal = options.signal
+			return new Promise(() => {})
+		})
+
+		const { unmount } = render(<AdminNav />)
+		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		expect(capturedSignal?.aborted).toBe(false)
+
+		unmount()
+
+		expect(capturedSignal?.aborted).toBe(true)
+	})
 })

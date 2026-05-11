@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 
 export default function LoginForm() {
@@ -11,29 +11,63 @@ export default function LoginForm() {
 	const [error, setError] = useState<string | null>(null)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 
+	// Mirror the abort discipline used by `useAdminResource` and the inline
+	// admin mutations (`IsFeaturedToggle`, `ImageUpload`, `ProjectSortOrderInput`):
+	// cancel any in-flight login on unmount so a navigation away mid-POST
+	// doesn't leave a dangling request, and a second submit supersedes the first.
+	const abortRef = useRef<AbortController | null>(null)
+
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort()
+		}
+	}, [])
+
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
 		setError(null)
 		setIsSubmitting(true)
+
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
 
 		try {
 			const response = await fetch("/api/auth/login", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, password }),
+				signal: controller.signal,
 			})
 
 			if (response.ok) {
+				// `refresh()` re-runs the server component tree so the RSC cache
+				// picks up the new session cookie before the navigation lands —
+				// otherwise the admin shell can briefly render unauthenticated
+				// state on slow networks. Same pattern as `useAdminResource`.
 				router.push("/admin")
+				router.refresh()
 				return
 			}
 
 			const data = await response.json().catch(() => ({}))
 			setError(data.error ?? "Something went wrong. Please try again.")
-		} catch {
+		} catch (err) {
+			// Swallow user-initiated aborts (unmount mid-request, repeated submit).
+			if (err instanceof DOMException && err.name === "AbortError") {
+				return
+			}
+
+			// Network/JSON-parse failure: previously this catch was bare and the
+			// error was completely opaque to logs. Tagged warn so a flapping
+			// login surfaces in server logs.
+			// eslint-disable-next-line no-console
+			console.warn("[admin:LoginForm] submit failed", err)
 			setError("Something went wrong. Please try again.")
 		} finally {
-			setIsSubmitting(false)
+			if (abortRef.current === controller) {
+				setIsSubmitting(false)
+			}
 		}
 	}
 

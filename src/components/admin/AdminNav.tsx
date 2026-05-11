@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 
 export default function AdminNav() {
@@ -10,12 +10,29 @@ export default function AdminNav() {
 	const [error, setError] = useState<string | null>(null)
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
 
+	// Cancel an in-flight logout on unmount so it doesn't outlive the component.
+	// Same shape as `useAdminResource` and the other admin mutations.
+	const abortRef = useRef<AbortController | null>(null)
+
+	useEffect(() => {
+		return () => {
+			abortRef.current?.abort()
+		}
+	}, [])
+
 	async function handleLogout() {
 		setError(null)
 		setIsLoggingOut(true)
 
+		const controller = new AbortController()
+		abortRef.current?.abort()
+		abortRef.current = controller
+
 		try {
-			const response = await fetch("/api/auth/logout", { method: "POST" })
+			const response = await fetch("/api/auth/logout", {
+				method: "POST",
+				signal: controller.signal,
+			})
 
 			if (!response.ok) {
 				if (response.status === 401) {
@@ -35,10 +52,17 @@ export default function AdminNav() {
 
 				return
 			}
-		} catch {
+		} catch (err) {
+			// Swallow user-initiated aborts (unmount mid-request).
+			if (err instanceof DOMException && err.name === "AbortError") {
+				return
+			}
+
 			// Network failure: the cookie may still be valid, but the request
-			// never reached the server. Surface the error rather than silently
-			// redirecting — same reasoning as above.
+			// never reached the server. Tagged warn so a flapping logout
+			// surfaces in server logs (previous bare catch produced no signal).
+			// eslint-disable-next-line no-console
+			console.warn("[admin:AdminNav] logout failed", err)
 			setError("Logout failed (network error). Please retry.")
 			setIsLoggingOut(false)
 
