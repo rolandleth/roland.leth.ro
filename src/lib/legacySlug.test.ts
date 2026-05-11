@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
+import { currentDatetimeString } from "@/lib/format"
 import { lookupLegacySlug } from "@/lib/legacySlug"
 
 vi.mock("next/cache", async () => {
@@ -15,10 +16,18 @@ vi.mock("@/lib/db", () => ({
 	},
 }))
 
+vi.mock("@/lib/format", () => ({
+	currentDatetimeString: vi.fn().mockReturnValue("2025-06-01-1200"),
+}))
+
 beforeEach(() => {
 	vi.clearAllMocks()
 	vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 	vi.mocked(prisma.project.findFirst).mockResolvedValue(null)
+	// `cachedLookup` reads `currentDatetimeString()` inside the cached fn for
+	// the `datetime <= now` filter; `clearAllMocks` clears the factory's
+	// `mockReturnValue` so restore it here.
+	vi.mocked(currentDatetimeString).mockReturnValue("2025-06-01-1200")
 })
 
 describe("lookupLegacySlug", () => {
@@ -69,10 +78,14 @@ describe("lookupLegacySlug", () => {
 		expect(prisma.project.findFirst).toHaveBeenCalled()
 	})
 
-	it("queries published posts by the slug arg, selecting only section and slug", async () => {
+	it("queries published posts by the slug arg with `datetime <= now`, selecting only section and slug", async () => {
 		await lookupLegacySlug("specific")
 		expect(prisma.post.findFirst).toHaveBeenCalledWith({
-			where: { slug: "specific", published: true },
+			where: {
+				slug: "specific",
+				published: true,
+				datetime: { lte: "2025-06-01-1200" },
+			},
 			select: { section: true, slug: true },
 		})
 	})
@@ -83,5 +96,17 @@ describe("lookupLegacySlug", () => {
 			where: { slug: "specific" },
 			select: { slug: true },
 		})
+	})
+
+	it("excludes future-dated published posts (Prisma returns null even if a draft row exists)", async () => {
+		// Prisma applies the `datetime: { lte: now }` filter server-side, so a
+		// future-dated post simply doesn't match and `findFirst` resolves to
+		// null. This pins the filter contract: if a future regression drops
+		// `datetime: { lte: now }` from the `where` clause, the assertion
+		// above (`queries published posts ... with datetime <= now`) catches it;
+		// this test additionally documents the user-visible outcome.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+		vi.mocked(prisma.project.findFirst).mockResolvedValue(null)
+		expect(await lookupLegacySlug("future-dated")).toBeNull()
 	})
 })

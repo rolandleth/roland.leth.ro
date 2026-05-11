@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
+import { currentDatetimeString } from "@/lib/format"
 import type { Section } from "@/lib/sections"
 
 export type LegacyMatch =
@@ -12,9 +13,14 @@ export type LegacyMatch =
 // call (which would defeat memoization and spam revalidation logs).
 const cachedLookup = unstable_cache(
 	async (slug: string): Promise<LegacyMatch> => {
+		// Same `datetime <= now` snapshot as `getPostBySlug` / sitemap /
+		// generateStaticParams — without it a future-dated published post whose
+		// slug matches a legacy URL 308-redirects to a canonical page that itself
+		// 404s on the same filter, giving inconsistent UX.
+		const now = currentDatetimeString()
 		const [post, project] = await Promise.all([
 			prisma.post.findFirst({
-				where: { slug, published: true },
+				where: { slug, published: true, datetime: { lte: now } },
 				select: { section: true, slug: true },
 			}),
 			prisma.project.findFirst({
