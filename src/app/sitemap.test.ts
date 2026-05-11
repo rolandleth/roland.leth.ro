@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import sitemap from "@/app/sitemap"
 import { prisma } from "@/lib/db"
+import { currentDatetimeString } from "@/lib/format"
 import { siteBase } from "@/lib/request"
 
 vi.mock("next/cache", async () => {
@@ -51,6 +52,10 @@ beforeEach(() => {
 	vi.resetAllMocks()
 	vi.mocked(siteBase).mockResolvedValue(BASE)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
+	// `getAllPublishedPostSlugs` now reads `currentDatetimeString()` inside the
+	// cached fn for the `datetime <= now` filter; `resetAllMocks` clears the
+	// factory's `mockReturnValue`, so restore it here.
+	vi.mocked(currentDatetimeString).mockReturnValue("2025-06-01-1200")
 })
 
 // #region Static routes
@@ -169,13 +174,16 @@ describe("sitemap — post routes", () => {
 		expect(result).toHaveLength(7)
 	})
 
-	it("filters to published posts only at the DB query", async () => {
+	it("filters to published, currently-live posts at the DB query", async () => {
+		// Both `published: true` AND `datetime <= now` so search engines don't
+		// crawl scheduled posts before their publish time, mirroring the public
+		// listing/feed behavior.
 		await sitemap()
-		expect(prisma.post.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { published: true },
-			})
-		)
+		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+		expect(call.where.published).toBe(true)
+		expect(call.where.datetime).toEqual({ lte: expect.any(String) })
 	})
 
 	it("does not crash when a post has a malformed datetime string", async () => {

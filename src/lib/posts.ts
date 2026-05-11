@@ -145,9 +145,18 @@ export function getPostBySlug(
 	const key = `${section}:${slug}`
 	const wrapper = postBySlugWrappers.get(key, () =>
 		unstable_cache(
-			() =>
-				prisma.post.findUnique({
-					where: { section_slug: { section, slug } },
+			() => {
+				// `findFirst` (not `findUnique`) so we can layer the same
+				// `published: true` + `datetime <= now` filter as the section
+				// list / feed / sitemap; otherwise the canonical post URL serves
+				// drafts and future-dated posts that listings hide. `now` is
+				// captured inside the cached fn — future-dated published posts
+				// auto-surface when the cache organically expires or a mutation
+				// fires `revalidatePostSection` (covers the manual publish flow;
+				// time-based scheduled publishing is not a supported feature).
+				const now = currentDatetimeString()
+				return prisma.post.findFirst({
+					where: { section, slug, published: true, datetime: { lte: now } },
 					select: {
 						id: true,
 						title: true,
@@ -159,7 +168,8 @@ export function getPostBySlug(
 						imageUrl: true,
 						readingTime: true,
 					},
-				}),
+				})
+			},
 			[`post-${section}-${slug}`],
 			{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
 		)
@@ -243,14 +253,17 @@ export async function listPostsForAdmin({
 }
 
 /**
- * Cached list of every published post's slug/section/datetime/updatedAt for use
- * by `generateStaticParams` and the sitemap. Tagged `posts` so post mutations
- * bust this alongside section-scoped caches.
+ * Cached list of every published, currently-live post's slug/section/datetime/
+ * updatedAt for use by `generateStaticParams` and the sitemap. Excludes
+ * future-dated posts so search engines don't crawl scheduled content before
+ * its publish time and `generateStaticParams` doesn't prerender it at build.
+ * Tagged `posts` so post mutations bust this alongside section-scoped caches.
  */
 export const getAllPublishedPostSlugs = unstable_cache(
-	async () =>
-		prisma.post.findMany({
-			where: { published: true },
+	async () => {
+		const now = currentDatetimeString()
+		return prisma.post.findMany({
+			where: { published: true, datetime: { lte: now } },
 			select: {
 				slug: true,
 				section: true,
@@ -258,7 +271,8 @@ export const getAllPublishedPostSlugs = unstable_cache(
 				updatedAt: true,
 			},
 			orderBy: { datetime: "desc" },
-		}),
+		})
+	},
 	["all-published-post-slugs"],
 	{ tags: ["posts"] }
 )
