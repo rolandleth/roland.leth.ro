@@ -68,11 +68,13 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 				{/* Prev / Next arrows */}
 				{isMultiple && (
 					<>
+						{/* `focus-visible:opacity-100` reveals the arrows for keyboard
+							focus too; without it, Tab landed on a transparent button. */}
 						<button
 							type="button"
 							onClick={() => paginate(-1)}
 							aria-label="Previous image"
-							className="absolute top-1/2 left-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+							className="absolute top-1/2 left-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
 						>
 							<ChevronLeft size={18} />
 						</button>
@@ -81,7 +83,7 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 							type="button"
 							onClick={() => paginate(1)}
 							aria-label="Next image"
-							className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+							className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
 						>
 							<ChevronRight size={18} />
 						</button>
@@ -100,13 +102,16 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 			{isMultiple && (
 				<div className="mt-3 flex justify-center gap-1.5">
 					{images.map((_, i) => (
+						// `before:` pseudo extends the click region to ~24px without
+						// inflating the visual dot — keeps the indicator subtle while
+						// meeting WCAG AAA 24px hit-target guidance.
 						<button
 							key={i}
 							type="button"
 							onClick={() => setPage([i, i > currentIndex ? 1 : -1])}
 							aria-label={`Go to image ${i + 1}`}
 							aria-current={i === currentIndex ? true : undefined}
-							className={`h-1.5 rounded-full transition-all duration-300 ${
+							className={`relative h-1.5 rounded-full transition-all duration-300 before:absolute before:inset-0 before:-m-2.5 before:content-[''] ${
 								i === currentIndex
 									? "w-4 bg-(--color-accent)"
 									: "w-1.5 bg-(--color-border) hover:bg-(--color-secondary)"

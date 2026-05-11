@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { fadeUp } from "@/lib/motion"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { ProjectDetail } from "@/lib/projects"
@@ -30,8 +30,42 @@ export default function ProjectContent({
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
 	const [activeTab, setActiveTab] = useState(0)
+	// Refs to each tab button so arrow-key navigation can move focus along
+	// with selection (APG roving-tabindex pattern).
+	const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
 
 	const activeSection = sections[activeTab]
+
+	function selectTab(index: number) {
+		setActiveTab(index)
+		tabRefs.current[index]?.focus()
+	}
+
+	function handleTabKeyDown(
+		event: React.KeyboardEvent<HTMLButtonElement>,
+		index: number
+	) {
+		const last = sections.length - 1
+
+		switch (event.key) {
+			case "ArrowRight":
+				event.preventDefault()
+				selectTab(index === last ? 0 : index + 1)
+				break
+			case "ArrowLeft":
+				event.preventDefault()
+				selectTab(index === 0 ? last : index - 1)
+				break
+			case "Home":
+				event.preventDefault()
+				selectTab(0)
+				break
+			case "End":
+				event.preventDefault()
+				selectTab(last)
+				break
+		}
+	}
 
 	return (
 		<>
@@ -171,12 +205,21 @@ export default function ProjectContent({
 								{sections.map((section, i) => (
 									<button
 										key={`tab-${section.id}`}
+										ref={(node) => {
+											tabRefs.current[i] = node
+										}}
 										type="button"
 										role="tab"
 										id={`tab-${section.id}`}
 										aria-selected={i === activeTab}
 										aria-controls={`panel-${section.id}`}
+										// Roving tabIndex: only the active tab is in the page's
+										// tab order; arrow keys move focus between the rest.
+										// Without this, Tab cycles through every tab button,
+										// which is the wrong APG behaviour for a tablist.
+										tabIndex={i === activeTab ? 0 : -1}
 										onClick={() => setActiveTab(i)}
+										onKeyDown={(e) => handleTabKeyDown(e, i)}
 										className="relative cursor-pointer px-4 py-2 text-sm font-medium transition-colors duration-300"
 										style={{
 											color:

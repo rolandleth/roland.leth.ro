@@ -1,6 +1,12 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useState,
+	useSyncExternalStore,
+} from "react"
 import type { Theme } from "@/lib/theme"
 
 export type { Theme } from "@/lib/theme"
@@ -28,6 +34,22 @@ function applyTheme(isDark: boolean) {
 	document.documentElement.classList.add(isDark ? "dark" : "light")
 }
 
+function subscribeToColorScheme(notify: () => void): () => void {
+	const media = window.matchMedia("(prefers-color-scheme: dark)")
+	media.addEventListener("change", notify)
+	return () => media.removeEventListener("change", notify)
+}
+
+function getColorSchemeSnapshot(): boolean {
+	return window.matchMedia("(prefers-color-scheme: dark)").matches
+}
+
+function getServerColorSchemeSnapshot(): boolean {
+	// SSR fallback — the server can't read the OS preference; resolution
+	// happens client-side on first paint via this hook's subscribe path.
+	return false
+}
+
 export default function ThemeProvider({
 	initialTheme,
 	children,
@@ -36,10 +58,16 @@ export default function ThemeProvider({
 	children: React.ReactNode
 }) {
 	const [theme, setTheme] = useState<Theme>(initialTheme)
-	const [systemIsDark, setSystemIsDark] = useState(
-		() =>
-			typeof window !== "undefined" &&
-			window.matchMedia("(prefers-color-scheme: dark)").matches
+	// `useSyncExternalStore` reads the media-query value at every render so it
+	// can never go stale when the OS preference changes while a non-"system"
+	// theme is active. Earlier we mirrored the value into local state seeded
+	// from the snapshot at first mount; that snapshot went stale across theme
+	// → light → system flips because the subscription effect's re-attach did
+	// not refresh the captured value.
+	const systemIsDark = useSyncExternalStore(
+		subscribeToColorScheme,
+		getColorSchemeSnapshot,
+		getServerColorSchemeSnapshot
 	)
 
 	const isDark = theme === "dark" || (theme === "system" && systemIsDark)
@@ -47,22 +75,6 @@ export default function ThemeProvider({
 	useEffect(() => {
 		applyTheme(isDark)
 	}, [isDark])
-
-	useEffect(() => {
-		if (theme !== "system") {
-			return
-		}
-
-		const media = window.matchMedia("(prefers-color-scheme: dark)")
-
-		const handleChange = (e: MediaQueryListEvent) => {
-			setSystemIsDark(e.matches)
-		}
-
-		media.addEventListener("change", handleChange)
-
-		return () => media.removeEventListener("change", handleChange)
-	}, [theme])
 
 	// Sync cookie whenever theme preference or resolved dark state changes.
 	// "system" is encoded as "system-dark" / "system-light" so the server can

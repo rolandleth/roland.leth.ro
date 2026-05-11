@@ -24,16 +24,21 @@ export default function CompactProjectCard({
 	const href = hrefProp ?? `/projects/${slug}`
 
 	return (
-		<div
-			className={`group transition-all duration-300 hover:-translate-y-0.5 ${
-				isDiscontinued ? "opacity-50 grayscale" : ""
-			}`}
-		>
+		<div className="group transition-all duration-300 hover:-translate-y-0.5">
 			<Link
 				href={href}
 				className="flex flex-col items-center gap-2.5 rounded-xl p-3 text-center hover:bg-(--color-background)"
 			>
-				<div className="relative">
+				<div
+					className={`relative ${
+						// Visual "discontinued" signal lives on the icon only.
+						// Applying `opacity-50 grayscale` to the whole card dropped
+						// `text-secondary` (already low-contrast) below WCAG AA against
+						// the background. Scoping the fade to the icon keeps the
+						// signal visible while letting the name remain legible.
+						isDiscontinued ? "opacity-60 grayscale" : ""
+					}`}
+				>
 					<div
 						className="overflow-hidden rounded-2xl shadow-sm transition-shadow duration-300 group-hover:shadow-md"
 						style={
