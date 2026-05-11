@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { readErrorMessage } from "@/components/admin/useAdminResource"
 
 interface Props {
 	projectId: number
@@ -47,8 +48,13 @@ export default function IsFeaturedToggle({
 			})
 
 			if (!response.ok) {
+				// Surface the server's actual error body (e.g. 409 / 413 / 500
+				// distinct messages) with the HTTP status suffix appended —
+				// matches the `useAdminResource` contract so the admin UI's
+				// error surfaces stay consistent across handlers.
+				const message = await readErrorMessage(response, "Failed to save")
 				setIsFeatured(initialIsFeatured)
-				setError("Failed to save")
+				setError(message)
 
 				return
 			}

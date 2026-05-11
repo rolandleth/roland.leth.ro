@@ -7,9 +7,16 @@ function pngFile(name: string) {
 	return new File(["x"], name, { type: "image/png" })
 }
 
-function mockFetchJson(ok: boolean, body: object) {
+function mockFetchJson(ok: boolean, body: object, status = ok ? 200 : 500) {
 	global.fetch = vi.fn().mockResolvedValue({
 		ok,
+		status,
+		// `readErrorMessage` (now shared with `IsFeaturedToggle`) gates JSON
+		// parsing on the content-type header; the mock must mirror reality.
+		headers: {
+			get: (name: string) =>
+				name === "content-type" ? "application/json" : null,
+		},
 		json: () => Promise.resolve(body),
 	})
 }
@@ -61,8 +68,10 @@ describe("ImageUpload upload", () => {
 		)
 	})
 
-	it("shows the error message from a non-ok response", async () => {
-		mockFetchJson(false, { error: "File too large" })
+	it("shows the error message from a non-ok response with the HTTP status suffix", async () => {
+		// Pinned through `readErrorMessage`: server's `data.error` plus the
+		// `(HTTP NNN)` suffix that all admin error surfaces now share.
+		mockFetchJson(false, { error: "File too large" }, 413)
 
 		render(<ImageUpload value="" onChange={vi.fn()} />)
 		const fileInput = document.querySelector(
@@ -71,7 +80,7 @@ describe("ImageUpload upload", () => {
 		await userEvent.upload(fileInput, pngFile("a.png"))
 
 		await waitFor(() =>
-			expect(screen.getByText(/file too large/i)).toBeInTheDocument()
+			expect(screen.getByText("File too large (HTTP 413)")).toBeInTheDocument()
 		)
 	})
 })

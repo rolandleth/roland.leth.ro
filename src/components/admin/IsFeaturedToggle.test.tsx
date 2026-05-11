@@ -16,8 +16,21 @@ function mockRouter() {
 	return { refresh }
 }
 
-function mockFetchResolved(ok: boolean) {
-	global.fetch = vi.fn().mockResolvedValue({ ok })
+function mockFetchResolved(
+	ok: boolean,
+	{ status = ok ? 200 : 500, body }: { status?: number; body?: object } = {}
+) {
+	global.fetch = vi.fn().mockResolvedValue({
+		ok,
+		status,
+		// `IsFeaturedToggle` now reads through the shared `readErrorMessage`,
+		// which gates JSON parsing on the content-type header. Mirror reality.
+		headers: {
+			get: (name: string) =>
+				name === "content-type" ? "application/json" : null,
+		},
+		json: () => Promise.resolve(body ?? {}),
+	})
 }
 
 function mockFetchRejected(reason: unknown) {
@@ -85,6 +98,22 @@ describe("IsFeaturedToggle save behaviour", () => {
 			expect(screen.getByText(/failed to save/i)).toBeInTheDocument()
 		)
 		expect(screen.getByRole("checkbox")).not.toBeChecked()
+	})
+
+	it("surfaces the server's error body with the HTTP status suffix on non-ok response", async () => {
+		// Previously the toggle showed a generic "Failed to save" regardless of
+		// the server's response — a 409 / 413 / 500 looked identical. Now the
+		// server's `data.error` flows through `readErrorMessage` with the
+		// `(HTTP NNN)` suffix appended, matching every other admin handler.
+		mockRouter()
+		mockFetchResolved(false, { status: 409, body: { error: "Project locked" } })
+
+		render(<IsFeaturedToggle projectId={1} initialIsFeatured={false} />)
+		await userEvent.click(screen.getByRole("checkbox"))
+
+		await waitFor(() =>
+			expect(screen.getByText("Project locked (HTTP 409)")).toBeInTheDocument()
+		)
 	})
 
 	it("recovers from a thrown fetch rejection without getting stuck saving", async () => {

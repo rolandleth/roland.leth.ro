@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { readErrorMessage } from "@/components/admin/useAdminResource"
 
 interface Props {
 	value: string
@@ -52,8 +53,10 @@ export default function ImageUpload({
 			})
 
 			if (!response.ok) {
-				const data = await response.json().catch(() => ({}))
-				throw new Error(data.error ?? "Upload failed")
+				// Use the shared reader so the admin UI's error surfaces stay
+				// consistent across handlers (status suffix, JSON-parse fallback).
+				const message = await readErrorMessage(response, "Upload failed")
+				throw new Error(message)
 			}
 
 			const { url } = await response.json()
