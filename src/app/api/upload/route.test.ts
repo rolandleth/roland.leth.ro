@@ -330,6 +330,57 @@ describe("POST /api/upload", () => {
 		)
 	})
 
+	it("does not short-circuit on a negative Content-Length (precheck guards on non-negative finite numbers)", async () => {
+		// `Number("-1") === -1`, which is `< MAX_UPLOAD_BYTES`, so without the
+		// `>= 0` guard the precheck would silently let an obviously malformed
+		// header bypass into `formData()`. The post-parse cap still catches
+		// the real size, but the precheck should reject before parsing.
+		const formData = new FormData()
+		formData.append("file", pngFile())
+		const request = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: { "content-length": "-1" },
+			body: formData,
+		})
+
+		const response = await POST(request)
+
+		// Reaches the happy path because the file itself is valid; what we're
+		// pinning is that the precheck does NOT log an oversize warn for a
+		// negative declared size.
+		expect(response.status).toBe(200)
+		const oversizeCalls = vi
+			.mocked(console.warn)
+			.mock.calls.filter(
+				(args) => args[0] === "[api:upload:POST] oversize precheck"
+			)
+		expect(oversizeCalls).toHaveLength(0)
+	})
+
+	it("does not short-circuit on a non-numeric Content-Length", async () => {
+		// `Number("abc") === NaN`, which is `> MAX_UPLOAD_BYTES` is false but
+		// the previous guard treated `null` and `NaN` differently; the explicit
+		// `Number.isFinite` check makes the contract clear and survives a
+		// future refactor that flips the comparison.
+		const formData = new FormData()
+		formData.append("file", pngFile())
+		const request = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: { "content-length": "abc" },
+			body: formData,
+		})
+
+		const response = await POST(request)
+
+		expect(response.status).toBe(200)
+		const oversizeCalls = vi
+			.mocked(console.warn)
+			.mock.calls.filter(
+				(args) => args[0] === "[api:upload:POST] oversize precheck"
+			)
+		expect(oversizeCalls).toHaveLength(0)
+	})
+
 	it("logs a warn line on the disallowed-mime 415 path", async () => {
 		const formData = new FormData()
 		formData.append("file", pngFile({ type: "text/html", name: "evil.html" }))

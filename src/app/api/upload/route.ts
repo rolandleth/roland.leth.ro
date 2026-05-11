@@ -73,9 +73,11 @@ export function detectImageMime(bytes: Uint8Array): string | null {
 		return "image/webp"
 	}
 
-	// AVIF: `ftyp` at 4-7, common AVIF/HEIF brands at 8-11. `avif` is the
-	// dominant major brand; `avis` (image sequence), `heic`/`heix`/`mif1`
-	// also produce files browsers render as AVIF.
+	// AVIF: `ftyp` at 4-7, AVIF brand at 8-11. `avif` is the dominant major
+	// brand; `avis` (image sequence) and `mif1` (HEIF-family marker also used
+	// by AVIF encoders) round out the set. HEIC brands (`heic`/`heix`) are
+	// deliberately excluded — they are not browser-renderable on most
+	// platforms and the allowlist is `image/avif` only, not `image/heic`.
 	if (
 		bytes[4] === 0x66 &&
 		bytes[5] === 0x74 &&
@@ -109,10 +111,18 @@ export async function POST(request: Request): Promise<NextResponse> {
 	// `Content-Length` header is set by every well-formed multipart client and
 	// gives us a cheap pre-parse rejection. Off by ~the multipart boundary
 	// overhead (a few hundred bytes), but that's irrelevant against a 10 MiB cap.
+	//
+	// Only act on the precheck when the declared size parses as a non-negative
+	// finite number. A negative or non-numeric `Content-Length` would coerce
+	// past the `> MAX_UPLOAD_BYTES` guard (e.g. `Number("-1") === -1`); the
+	// post-parse cap still catches the real size, but the precheck should not
+	// silently wave through obviously malformed headers.
 	const contentLength = request.headers.get("content-length")
 	const declaredSize = contentLength === null ? null : Number(contentLength)
+	const isValidDeclaredSize =
+		declaredSize !== null && Number.isFinite(declaredSize) && declaredSize >= 0
 
-	if (declaredSize !== null && declaredSize > MAX_UPLOAD_BYTES) {
+	if (isValidDeclaredSize && declaredSize > MAX_UPLOAD_BYTES) {
 		// Log key matches the post-parse 413 below (`size: number`) so one grep
 		// covers both branches; the precheck previously logged
 		// `{ contentLength: string }` and required two greps.
