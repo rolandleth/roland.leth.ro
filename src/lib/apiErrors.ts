@@ -100,6 +100,16 @@ export async function parseJsonBody<T extends z.ZodTypeAny>(
 	const parsed = schema.safeParse(body)
 
 	if (!parsed.success) {
+		// Log issue paths only (never values) so a real client bug is debuggable
+		// without leaking submitted payloads into the access log. Mirrors the
+		// login route's pattern and closes the gap where every admin POST/PUT
+		// with a malformed body was silently rejecting in logs.
+		const issuePaths = parsed.error.issues
+			.map((issue) => issue.path.join("."))
+			.join(", ")
+		// eslint-disable-next-line no-console
+		console.warn(`${tag} schema validation failed: ${issuePaths}`)
+
 		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 	}
 

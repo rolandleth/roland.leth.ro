@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import { describe, expect, it, vi } from "vitest"
+import { z } from "zod"
 import {
 	handlePrismaError,
 	parseIdParam,
+	parseJsonBody,
 	respondInternalError,
 } from "@/lib/apiErrors"
 
@@ -63,6 +65,72 @@ describe("parseIdParam", () => {
 	it("parses negative integers", async () => {
 		const result = await parseIdParam(Promise.resolve({ id: "-1" }))
 		expect(result).toEqual({ id: -1 })
+	})
+})
+
+describe("parseJsonBody", () => {
+	const schema = z.object({ name: z.string().min(1) })
+
+	function jsonRequest(body: string): Request {
+		return new Request("http://localhost/", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body,
+		})
+	}
+
+	it("returns the parsed data on a valid payload", async () => {
+		const result = await parseJsonBody(
+			jsonRequest(JSON.stringify({ name: "hello" })),
+			schema,
+			"[test]"
+		)
+		expect(result).toEqual({ name: "hello" })
+	})
+
+	it("returns a 400 NextResponse on malformed JSON and logs the tag", async () => {
+		const response = await parseJsonBody(
+			jsonRequest("not-json"),
+			schema,
+			"[test]"
+		)
+		expect(response).toBeInstanceOf(NextResponse)
+		expect((response as NextResponse).status).toBe(400)
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			"[test] invalid JSON body"
+		)
+	})
+
+	it("returns a 400 NextResponse on schema mismatch and logs paths-only at warn", async () => {
+		// Mirrors the login route's pattern: log issue paths so a real client
+		// bug is debuggable without leaking submitted values into the access
+		// log. Before this lived in the shared helper, every admin POST/PUT
+		// with a malformed body was rejected silently.
+		const response = await parseJsonBody(
+			jsonRequest(JSON.stringify({ name: "" })),
+			schema,
+			"[api:test]"
+		)
+		expect(response).toBeInstanceOf(NextResponse)
+		expect((response as NextResponse).status).toBe(400)
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:test] schema validation failed: name"
+		)
+	})
+
+	it("never logs submitted field values", async () => {
+		// Defense against a future refactor that adds values to the log line.
+		// If anyone reads a request log to debug a schema failure, they must
+		// not see "secret-password-123" simply because the user typo'd it.
+		await parseJsonBody(
+			jsonRequest(JSON.stringify({ name: "secret-password-123" })),
+			z.object({ name: z.number() }),
+			"[api:test]"
+		)
+		const warnCalls = vi.mocked(console.warn).mock.calls
+		for (const call of warnCalls) {
+			expect(call.join(" ")).not.toContain("secret-password-123")
+		}
 	})
 })
 
