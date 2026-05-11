@@ -71,9 +71,18 @@ export default async function RootLayout({
 			suppressHydrationWarning
 		>
 			<body className="bg-background text-primary flex min-h-full flex-col font-sans">
+				<a
+					href="#main-content"
+					className="bg-background text-primary focus-visible:border-accent sr-only z-50 rounded-md border px-3 py-2 text-sm font-medium focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3"
+				>
+					Skip to main content
+				</a>
+
 				<ThemeProvider initialTheme={initialTheme}>
 					<Header />
-					{children}
+					<div id="main-content" tabIndex={-1} className="flex flex-1 flex-col">
+						{children}
+					</div>
 					<ClientAnalytics />
 					<Footer />
 				</ThemeProvider>

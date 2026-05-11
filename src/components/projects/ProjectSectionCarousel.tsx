@@ -40,9 +40,17 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 	}
 
 	return (
-		<div>
+		<div
+			role="group"
+			aria-roledescription="carousel"
+			aria-label={`${altPrefix} screenshots`}
+		>
 			{/* Image area — fixed height so layout never shifts between slides */}
-			<div className="group relative h-120 overflow-hidden rounded-xl">
+			<div
+				className="group relative h-120 overflow-hidden rounded-xl"
+				aria-live="polite"
+				aria-atomic="true"
+			>
 				<AnimatePresence initial={false} custom={direction}>
 					<motion.div
 						key={currentIndex}
@@ -100,23 +108,28 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 
 			{/* Dot indicators */}
 			{isMultiple && (
-				<div className="mt-3 flex justify-center gap-1.5">
+				<div className="mt-1 flex justify-center">
 					{images.map((_, i) => (
-						// `before:` pseudo extends the click region to ~24px without
-						// inflating the visual dot — keeps the indicator subtle while
-						// meeting WCAG AAA 24px hit-target guidance.
+						// Padded button gives a ~26px square hit region (meets WCAG AAA
+						// 24px guidance) while the inner span keeps the visible indicator
+						// subtle. The prior `before:-m-2.5` pseudo overlapped adjacent
+						// dots by ~14px so a click in the visible gap mis-routed.
 						<button
 							key={i}
 							type="button"
 							onClick={() => setPage([i, i > currentIndex ? 1 : -1])}
 							aria-label={`Go to image ${i + 1}`}
 							aria-current={i === currentIndex ? true : undefined}
-							className={`relative h-1.5 rounded-full transition-all duration-300 before:absolute before:inset-0 before:-m-2.5 before:content-[''] ${
-								i === currentIndex
-									? "w-4 bg-(--color-accent)"
-									: "w-1.5 bg-(--color-border) hover:bg-(--color-secondary)"
-							}`}
-						/>
+							className="group cursor-pointer p-2.5"
+						>
+							<span
+								className={`block h-1.5 rounded-full transition-all duration-300 ${
+									i === currentIndex
+										? "w-4 bg-(--color-accent)"
+										: "w-1.5 bg-(--color-border) group-hover:bg-(--color-secondary)"
+								}`}
+							/>
+						</button>
 					))}
 				</div>
 			)}

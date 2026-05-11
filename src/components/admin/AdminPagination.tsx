@@ -21,7 +21,10 @@ export default function AdminPagination({
 	}
 
 	return (
-		<nav className="mt-6 flex items-center justify-between">
+		<nav
+			aria-label="Pagination"
+			className="mt-6 flex items-center justify-between"
+		>
 			{page > 1 ? (
 				<Link
 					href={urlForPage(page - 1)}

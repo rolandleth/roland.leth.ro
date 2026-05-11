@@ -21,6 +21,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 			<div className="border-border flex items-end border-b">
 				<Link
 					href="/admin"
+					aria-current={tab === "posts" ? "page" : undefined}
 					className={`px-4 pb-3 text-sm font-medium transition-colors ${
 						tab === "posts"
 							? "border-accent text-primary -mb-px border-b-2"
@@ -31,6 +32,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 				</Link>
 				<Link
 					href="/admin?tab=projects"
+					aria-current={tab === "projects" ? "page" : undefined}
 					className={`px-4 pb-3 text-sm font-medium transition-colors ${
 						tab === "projects"
 							? "border-accent text-primary -mb-px border-b-2"
