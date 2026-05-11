@@ -1,12 +1,14 @@
 import PrivacyPageLayout, {
 	type PrivacySectionEntry,
 } from "@/components/privacy/PrivacyPageLayout"
+import { buildPageMetadata } from "@/lib/metadata"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
 	title: "Privacy Policy",
 	description: "Privacy policy for roland.leth.ro.",
-}
+	path: "/privacy",
+})
 
 const LAST_UPDATED = "Apr 7, 2026"
 

@@ -1,12 +1,14 @@
 import LoanCalculatorClient from "@/components/loan-calculator/LoanCalculatorClient"
 import PageGlow from "@/components/PageGlow"
+import { buildPageMetadata } from "@/lib/metadata"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
 	title: "Loan Calculator",
 	description:
 		"Calculate loan payment schedules and compare different scenarios.",
-}
+	path: "/tools/loan-calculator",
+})
 
 export default function LoanCalculatorPage() {
 	return (

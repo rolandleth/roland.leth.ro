@@ -1,12 +1,14 @@
 import PrivacyPageLayout, {
 	type PrivacySectionEntry,
 } from "@/components/privacy/PrivacyPageLayout"
+import { buildPageMetadata } from "@/lib/metadata"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
 	title: "Body Tracking – Privacy Policy",
 	description: "Privacy policy for the Body Tracking app.",
-}
+	path: "/privacy/body-tracking",
+})
 
 const LAST_UPDATED = "Apr 7, 2026"
 
