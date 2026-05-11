@@ -1,7 +1,26 @@
-import { render } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import ProjectContent from "./ProjectContent"
 import type { ProjectDetail } from "@/lib/projects"
+
+type ProjectSection = ProjectDetail["sections"][number]
+
+function makeSection(
+	id: number,
+	title: string,
+	overrides: Partial<ProjectSection> = {}
+): ProjectSection {
+	return {
+		id,
+		projectId: 1,
+		title,
+		description: `Description for ${title}`,
+		sortOrder: id - 1,
+		images: [],
+		...overrides,
+	}
+}
 
 function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 	return {
@@ -25,6 +44,74 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		...overrides,
 	}
 }
+
+describe("ProjectContent — tablist keyboard nav (Phase 8 a11y)", () => {
+	function renderTabs() {
+		const sections = [
+			makeSection(1, "Overview"),
+			makeSection(2, "Features"),
+			makeSection(3, "Tech"),
+		]
+
+		return render(
+			<ProjectContent
+				project={makeProject({ sections })}
+				renderedDescriptions={sections.map((s) => (
+					<p key={s.id}>{s.description}</p>
+				))}
+			/>
+		)
+	}
+
+	it("starts with the first tab selected and the rest tabIndex=-1 (roving)", () => {
+		renderTabs()
+		const tabs = screen.getAllByRole("tab")
+		expect(tabs).toHaveLength(3)
+		expect(tabs[0]).toHaveAttribute("aria-selected", "true")
+		expect(tabs[0]).toHaveAttribute("tabindex", "0")
+		expect(tabs[1]).toHaveAttribute("tabindex", "-1")
+		expect(tabs[2]).toHaveAttribute("tabindex", "-1")
+	})
+
+	it("ArrowRight moves selection + focus to the next tab", async () => {
+		renderTabs()
+		const tabs = screen.getAllByRole("tab")
+		tabs[0].focus()
+		await userEvent.keyboard("{ArrowRight}")
+		expect(tabs[1]).toHaveAttribute("aria-selected", "true")
+		expect(tabs[1]).toHaveAttribute("tabindex", "0")
+	})
+
+	it("ArrowLeft wraps from the first tab to the last", async () => {
+		renderTabs()
+		const tabs = screen.getAllByRole("tab")
+		tabs[0].focus()
+		await userEvent.keyboard("{ArrowLeft}")
+		expect(tabs[2]).toHaveAttribute("aria-selected", "true")
+	})
+
+	it("ArrowRight wraps from the last tab to the first", async () => {
+		renderTabs()
+		const tabs = screen.getAllByRole("tab")
+		tabs[2].focus()
+		// Click first to make ArrowRight target the third tab, then it should wrap.
+		await userEvent.click(tabs[2])
+		await userEvent.keyboard("{ArrowRight}")
+		expect(tabs[0]).toHaveAttribute("aria-selected", "true")
+	})
+
+	it("Home jumps to the first tab, End jumps to the last", async () => {
+		renderTabs()
+		const tabs = screen.getAllByRole("tab")
+		await userEvent.click(tabs[1])
+
+		await userEvent.keyboard("{End}")
+		expect(tabs[2]).toHaveAttribute("aria-selected", "true")
+
+		await userEvent.keyboard("{Home}")
+		expect(tabs[0]).toHaveAttribute("aria-selected", "true")
+	})
+})
 
 describe("ProjectContent — null accentColor", () => {
 	// Regression guard for the icon-fallback color-mix: a previous version
