@@ -15,6 +15,9 @@ vi.mock("@/lib/db", () => ({
 		post: {
 			findMany: vi.fn(),
 		},
+		project: {
+			findMany: vi.fn(),
+		},
 	},
 }))
 
@@ -52,6 +55,7 @@ beforeEach(() => {
 	vi.resetAllMocks()
 	vi.mocked(siteBase).mockResolvedValue(BASE)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
+	vi.mocked(prisma.project.findMany).mockResolvedValue([])
 	// `getAllPublishedPostSlugs` now reads `currentDatetimeString()` inside the
 	// cached fn for the `datetime <= now` filter; `resetAllMocks` clears the
 	// factory's `mockReturnValue`, so restore it here.
@@ -73,6 +77,34 @@ describe("sitemap — static routes", () => {
 		const route = result.find((r) => r.url === `${BASE}/about`)
 		expect(route).toBeDefined()
 		expect(route?.priority).toBe(0.7)
+	})
+
+	it("includes the projects gallery with priority 0.8", async () => {
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/projects`)
+		expect(route).toBeDefined()
+		expect(route?.priority).toBe(0.8)
+	})
+
+	it("includes the loan calculator tool", async () => {
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/tools/loan-calculator`)
+		expect(route).toBeDefined()
+		expect(route?.changeFrequency).toBe("monthly")
+	})
+
+	it("includes the privacy index", async () => {
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/privacy`)
+		expect(route).toBeDefined()
+		expect(route?.changeFrequency).toBe("yearly")
+	})
+
+	it("includes the body-tracking privacy subpage", async () => {
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/privacy/body-tracking`)
+		expect(route).toBeDefined()
+		expect(route?.changeFrequency).toBe("yearly")
 	})
 
 	it("includes the tech blog index with priority 0.8", async () => {
@@ -103,16 +135,29 @@ describe("sitemap — static routes", () => {
 		expect(route?.priority).toBe(0.5)
 	})
 
-	it("returns only 6 static routes when there are no posts", async () => {
+	it("returns 10 static routes when there are no posts or projects", async () => {
 		const result = await sitemap()
-		// home + about + 2 section indexes + 2 archives
-		expect(result).toHaveLength(6)
+		// home + about + projects + tools/loan-calculator + privacy + privacy/body-tracking
+		// + 2 section indexes + 2 archives
+		expect(result).toHaveLength(10)
 	})
 
-	it("marks all static routes as changeFrequency 'weekly'", async () => {
+	it("marks home/about/projects/blog-index/archive routes as 'weekly'", async () => {
 		const result = await sitemap()
-		const allWeekly = result.every((r) => r.changeFrequency === "weekly")
-		expect(allWeekly).toBe(true)
+		const weeklyRoutes = [
+			`${BASE}/`,
+			`${BASE}/about`,
+			`${BASE}/projects`,
+			`${BASE}/blog/tech`,
+			`${BASE}/blog/life`,
+			`${BASE}/blog/tech/archive`,
+			`${BASE}/blog/life/archive`,
+		]
+
+		for (const url of weeklyRoutes) {
+			const route = result.find((r) => r.url === url)
+			expect(route?.changeFrequency).toBe("weekly")
+		}
 	})
 })
 
@@ -170,8 +215,8 @@ describe("sitemap — post routes", () => {
 	it("combines static and post routes", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([postStub() as never])
 		const result = await sitemap()
-		// 6 static + 1 post
-		expect(result).toHaveLength(7)
+		// 10 static + 1 post
+		expect(result).toHaveLength(11)
 	})
 
 	it("filters to published, currently-live posts at the DB query", async () => {
@@ -202,6 +247,49 @@ describe("sitemap — post routes", () => {
 		const route = result.find((r) => r.url.includes("/blog/tech/weird-post"))
 		expect(route).toBeDefined()
 		expect(route?.lastModified).toEqual(new Date("2024-01-01"))
+	})
+})
+
+// #endregion
+
+// #region Project routes
+
+describe("sitemap — project routes", () => {
+	it("includes a route for each project", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			{ slug: "my-app", updatedAt: new Date("2024-04-01") },
+			{ slug: "another-app", updatedAt: new Date("2024-05-01") },
+		] as never)
+
+		const result = await sitemap()
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/projects/my-app` })
+		)
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/projects/another-app` })
+		)
+	})
+
+	it("sets project priority to 0.6 and changeFrequency 'monthly'", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			{ slug: "my-app", updatedAt: new Date("2024-04-01") },
+		] as never)
+
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/projects/my-app`)
+		expect(route?.priority).toBe(0.6)
+		expect(route?.changeFrequency).toBe("monthly")
+	})
+
+	it("propagates updatedAt to lastModified", async () => {
+		const updatedAt = new Date("2024-04-15")
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			{ slug: "my-app", updatedAt },
+		] as never)
+
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/projects/my-app`)
+		expect(route?.lastModified).toEqual(updatedAt)
 	})
 })
 

@@ -112,6 +112,20 @@ export async function getAllProjectsForGallery({
 	})
 }
 
+/**
+ * Cached list of every project's slug + `updatedAt` for the sitemap.
+ * Tagged `projects` so any project mutation busts it alongside the gallery cache.
+ */
+export const getAllProjectSlugs = unstable_cache(
+	async () =>
+		prisma.project.findMany({
+			select: { slug: true, updatedAt: true },
+			orderBy: { sortOrder: "asc" },
+		}),
+	["all-project-slugs"],
+	{ tags: ["projects"] }
+)
+
 /** Returns all projects ordered by sortOrder ascending then name. */
 export async function getAllProjects(): Promise<ProjectListItem[]> {
 	return prisma.project.findMany({

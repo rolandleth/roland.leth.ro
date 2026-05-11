@@ -1,5 +1,10 @@
 import Link from "next/link"
-import { formatDate, calculateReadingTime, truncateBody } from "@/lib/format"
+import {
+	formatDate,
+	postDatetimeToISO,
+	calculateReadingTime,
+	truncateBody,
+} from "@/lib/format"
 import PostMarkdownContent from "./PostMarkdownContent"
 import type { PostListItem } from "@/lib/posts"
 
@@ -21,7 +26,9 @@ export default async function PostCard({ post }: Props) {
 			</h2>
 
 			<div className="text-secondary mb-4 flex gap-4 text-sm">
-				<time dateTime={post.datetime}>{formatDate(post.datetime)}</time>
+				<time dateTime={postDatetimeToISO(post.datetime)}>
+					{formatDate(post.datetime)}
+				</time>
 				{readingTime && <span>{readingTime}</span>}
 			</div>
 

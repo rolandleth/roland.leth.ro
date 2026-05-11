@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { postDatetimeToISO } from "@/lib/format"
 import { fadeUp } from "@/lib/motion"
 
 interface Props {
@@ -23,7 +24,7 @@ export default function PostContent({
 			<motion.header className="mb-10" {...fadeUp(0)}>
 				<h1 className="mb-3 text-4xl font-bold">{title}</h1>
 				<div className="text-secondary flex gap-4 text-sm">
-					<time dateTime={datetime}>{formattedDate}</time>
+					<time dateTime={postDatetimeToISO(datetime)}>{formattedDate}</time>
 					{readingTime && <span>{readingTime}</span>}
 				</div>
 			</motion.header>
