@@ -75,6 +75,16 @@ export default function ProjectSortOrderInput({
 			})
 
 			if (!response.ok) {
+				// Belt-and-suspenders against the abort-races-error path: if a
+				// newer blur has already committed, don't revert that commit
+				// to the SSR-snapshot. The `disabled={isSaving}` prop blocks
+				// user-initiated re-blur while a request is in flight, so this
+				// guard is dead code today — kept so a future refactor that
+				// lifts the disable doesn't silently re-open the race.
+				if (abortRef.current !== controller) {
+					return
+				}
+
 				const message = await readErrorMessage(response, "Failed to save")
 				setValue(String(initialSortOrder + 1))
 				setError(message)
@@ -85,6 +95,11 @@ export default function ProjectSortOrderInput({
 			router.refresh()
 		} catch (err) {
 			if (isAbortError(err)) {
+				return
+			}
+
+			// Same belt-and-suspenders guard as the non-ok branch.
+			if (abortRef.current !== controller) {
 				return
 			}
 

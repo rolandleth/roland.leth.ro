@@ -49,6 +49,16 @@ export default function IsFeaturedToggle({
 			})
 
 			if (!response.ok) {
+				// Belt-and-suspenders against the abort-races-error path: if a
+				// newer toggle has already committed, don't revert that commit
+				// to the SSR-snapshot. The `disabled={isSaving}` prop already
+				// blocks user-initiated re-toggle while a request is in flight,
+				// so this guard is dead code today — kept so a future refactor
+				// that lifts the disable doesn't silently re-open the race.
+				if (abortRef.current !== controller) {
+					return
+				}
+
 				// Surface the server's actual error body (e.g. 409 / 413 / 500
 				// distinct messages) with the HTTP status suffix appended —
 				// matches the `useAdminResource` contract so the admin UI's
@@ -64,6 +74,11 @@ export default function IsFeaturedToggle({
 		} catch (err) {
 			// Aborted on unmount or by a newer toggle — drop the result silently.
 			if (isAbortError(err)) {
+				return
+			}
+
+			// Same belt-and-suspenders guard as the non-ok branch.
+			if (abortRef.current !== controller) {
 				return
 			}
 
