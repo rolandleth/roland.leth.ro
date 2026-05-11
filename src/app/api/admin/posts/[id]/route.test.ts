@@ -248,7 +248,31 @@ describe("PUT /api/admin/posts/[id]", () => {
 
 		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
 		expect(prisma.post.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({ select: { section: true } })
+			expect.objectContaining({ select: { section: true, slug: true } })
+		)
+	})
+
+	it("audits previousSlug when a title rename changes the slug", async () => {
+		// A title edit derives a new slug via `createSlug(title)`; the audit line
+		// must show the prior slug so a rename is distinguishable from an in-place
+		// edit in logs.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			...existingPost,
+			slug: "old-slug",
+		})
+		vi.mocked(prisma.post.update).mockResolvedValue({
+			...existingPost,
+			slug: "new-slug",
+		})
+
+		await PUT(putRequest("1", { title: "Brand new title" }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:PUT] success",
+			expect.objectContaining({
+				slug: "new-slug",
+				previousSlug: "old-slug",
+			})
 		)
 	})
 })

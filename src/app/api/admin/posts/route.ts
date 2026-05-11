@@ -50,6 +50,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 			id: post.id,
 			slug: post.slug,
 			section: post.section,
+			sortOrder: null,
+			previousSection: null,
+			previousSlug: null,
 		})
 
 		return NextResponse.json(post, { status: 201 })

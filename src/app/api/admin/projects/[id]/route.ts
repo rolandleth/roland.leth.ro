@@ -173,6 +173,9 @@ export async function PUT(
 		auditLog("[api:admin:projects:PUT]", {
 			id: project.id,
 			slug: project.slug,
+			section: null,
+			sortOrder: project.sortOrder,
+			previousSection: null,
 			previousSlug,
 		})
 
@@ -224,6 +227,10 @@ export async function DELETE(
 		auditLog("[api:admin:projects:DELETE]", {
 			id,
 			slug: deleted.slug,
+			section: null,
+			sortOrder: null,
+			previousSection: null,
+			previousSlug: null,
 		})
 
 		return new NextResponse(null, { status: 204 })

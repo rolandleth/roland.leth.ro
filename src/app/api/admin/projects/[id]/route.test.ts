@@ -262,10 +262,27 @@ describe("PUT /api/admin/projects/[id]", () => {
 				id: renamed.id,
 				slug: "new-name",
 				section: null,
-				sortOrder: null,
+				sortOrder: renamed.sortOrder,
 				previousSection: null,
 				previousSlug: "my-app",
 			}
+		)
+	})
+
+	it("audits sortOrder on every PUT so reorders are distinguishable from in-place edits", async () => {
+		// A reorder updates `sortOrder` but no other observable column; without
+		// the field on the audit line, a reorder is indistinguishable from a
+		// metadata edit. Pin the contract so a future "drop the field" PR
+		// surfaces.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
+		const reordered = { ...existingProject, sortOrder: 7 }
+		vi.mocked(prisma.project.update).mockResolvedValue(reordered)
+
+		await PUT(putRequest("1", { sortOrder: 7 }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:projects:PUT] success",
+			expect.objectContaining({ sortOrder: 7 })
 		)
 	})
 

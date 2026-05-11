@@ -97,7 +97,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 		auditLog("[api:admin:projects:POST]", {
 			id: project.id,
 			slug: project.slug,
+			section: null,
 			sortOrder: project.sortOrder,
+			previousSection: null,
+			previousSlug: null,
 		})
 
 		return NextResponse.json(project, { status: 201 })

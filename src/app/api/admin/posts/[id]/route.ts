@@ -91,7 +91,7 @@ export async function PUT(
 		const { previous, post } = await prisma.$transaction(async (tx) => {
 			const previous = await tx.post.findUnique({
 				where: { id },
-				select: { section: true },
+				select: { section: true, slug: true },
 			})
 
 			const post = await tx.post.update({
@@ -107,13 +107,17 @@ export async function PUT(
 		if (previous != null && previous.section !== post.section) {
 			revalidatePostSection(previous.section)
 		}
-		// Audit trail. Includes prior section so cross-section moves are visible
-		// in logs distinct from in-place edits.
+		// Audit trail. Includes prior section + slug so cross-section moves and
+		// slug renames (driven by a title edit) are visible in logs distinct from
+		// in-place body edits.
 		auditLog("[api:admin:posts:PUT]", {
 			id: post.id,
 			slug: post.slug,
 			section: post.section,
+			sortOrder: null,
 			previousSection: previous?.section ?? null,
+			previousSlug:
+				previous != null && previous.slug !== post.slug ? previous.slug : null,
 		})
 
 		return NextResponse.json(post)
@@ -152,6 +156,9 @@ export async function DELETE(
 			id,
 			slug: post.slug,
 			section: post.section,
+			sortOrder: null,
+			previousSection: null,
+			previousSlug: null,
 		})
 
 		return new NextResponse(null, { status: 204 })
