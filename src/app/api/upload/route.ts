@@ -21,6 +21,77 @@ export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/\0\s]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "")
 }
 
+/**
+ * Returns the image MIME type implied by the file's leading bytes, or `null`
+ * if the bytes don't match any of the allowed image formats. Inspected after
+ * the `file.type` allowlist so a spoofed Content-Type (`image/png` claimed,
+ * `text/html` payload) is rejected before reaching Blob storage. Exported
+ * for unit testing.
+ */
+export function detectImageMime(bytes: Uint8Array): string | null {
+	if (bytes.length < 12) return null
+
+	if (
+		bytes[0] === 0x89 &&
+		bytes[1] === 0x50 &&
+		bytes[2] === 0x4e &&
+		bytes[3] === 0x47 &&
+		bytes[4] === 0x0d &&
+		bytes[5] === 0x0a &&
+		bytes[6] === 0x1a &&
+		bytes[7] === 0x0a
+	) {
+		return "image/png"
+	}
+
+	if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+		return "image/jpeg"
+	}
+
+	if (
+		bytes[0] === 0x47 &&
+		bytes[1] === 0x49 &&
+		bytes[2] === 0x46 &&
+		bytes[3] === 0x38 &&
+		(bytes[4] === 0x37 || bytes[4] === 0x39) &&
+		bytes[5] === 0x61
+	) {
+		return "image/gif"
+	}
+
+	// WebP: `RIFF` at 0-3, `WEBP` at 8-11 (file size in 4-7 is variable).
+	if (
+		bytes[0] === 0x52 &&
+		bytes[1] === 0x49 &&
+		bytes[2] === 0x46 &&
+		bytes[3] === 0x46 &&
+		bytes[8] === 0x57 &&
+		bytes[9] === 0x45 &&
+		bytes[10] === 0x42 &&
+		bytes[11] === 0x50
+	) {
+		return "image/webp"
+	}
+
+	// AVIF: `ftyp` at 4-7, common AVIF/HEIF brands at 8-11. `avif` is the
+	// dominant major brand; `avis` (image sequence), `heic`/`heix`/`mif1`
+	// also produce files browsers render as AVIF.
+	if (
+		bytes[4] === 0x66 &&
+		bytes[5] === 0x74 &&
+		bytes[6] === 0x79 &&
+		bytes[7] === 0x70
+	) {
+		const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])
+
+		if (brand === "avif" || brand === "avis" || brand === "mif1") {
+			return "image/avif"
+		}
+	}
+
+	return null
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
 	// Explicit env flag rather than gating on `NODE_ENV !== "production"`, which
 	// collapses dev/test/preview into one bucket and produces a misleading 403
@@ -41,6 +112,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const contentLength = request.headers.get("content-length")
 
 	if (contentLength != null && Number(contentLength) > MAX_UPLOAD_BYTES) {
+		// eslint-disable-next-line no-console
+		console.warn("[api:upload:POST] oversize precheck", { contentLength })
+
 		return NextResponse.json(
 			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
 			{ status: 413 }
@@ -64,18 +138,44 @@ export async function POST(request: Request): Promise<NextResponse> {
 	}
 
 	if (file.size > MAX_UPLOAD_BYTES) {
+		// eslint-disable-next-line no-console
+		console.warn("[api:upload:POST] oversize after parse", { size: file.size })
+
 		return NextResponse.json(
 			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
 			{ status: 413 }
 		)
 	}
 
-	// `file.type` is set by the client and trivially spoofable; this allowlist
-	// guards against the casual case (drag-and-drop of a `.html`) and against
-	// SVG specifically (XSS-shaped). It is NOT a defence against a malicious
-	// uploader — sniff magic bytes server-side if that threat model matters.
-	// Acceptable here because the only caller is the single-user admin UI.
+	// `file.type` is set by the client and trivially spoofable; the allowlist
+	// blocks the obvious case (drag-and-drop of a `.html`) and SVG specifically
+	// (XSS-shaped). Magic-byte sniff below catches the deliberate case of a
+	// payload mislabelled as an allowed image type.
 	if (!ALLOWED_UPLOAD_MIMES.has(file.type)) {
+		// eslint-disable-next-line no-console
+		console.warn("[api:upload:POST] disallowed mime", {
+			claimedType: file.type,
+		})
+
+		return NextResponse.json(
+			{ error: "Unsupported file type" },
+			{ status: 415 }
+		)
+	}
+
+	// Bytes are already buffered by `formData()`; reading 12 more bytes here is
+	// cheap and lets us reject a payload whose Content-Type lies about its
+	// contents (e.g. `image/png` header on a `text/html` body).
+	const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+	const detectedMime = detectImageMime(headerBytes)
+
+	if (detectedMime === null || detectedMime !== file.type) {
+		// eslint-disable-next-line no-console
+		console.warn("[api:upload:POST] mime mismatch", {
+			claimedType: file.type,
+			detectedMime,
+		})
+
 		return NextResponse.json(
 			{ error: "Unsupported file type" },
 			{ status: 415 }

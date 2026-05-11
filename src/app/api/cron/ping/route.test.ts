@@ -29,14 +29,23 @@ afterEach(() => {
 // #region Auth guard
 
 describe("GET /api/cron/ping — auth guard", () => {
-	it("returns 500 when CRON_SECRET is not configured", async () => {
+	it("returns 401 (not 500) when CRON_SECRET is not configured, without naming the env var", async () => {
+		// Pre-auth probes must not learn the server is missing CRON_SECRET;
+		// the previous 500 body `{ error: "CRON_SECRET not configured" }`
+		// leaked the env-var name to any unauthenticated caller. The
+		// server-side log stays at error level so a Vercel deploy regression
+		// is still visible.
 		vi.stubEnv("CRON_SECRET", "")
 
 		const response = await GET(makeRequest("Bearer test-secret"))
 
-		expect(response.status).toBe(500)
+		expect(response.status).toBe(401)
 		const data = await response.json()
-		expect(data.error).toMatch(/CRON_SECRET/)
+		expect(data.error).toBe("Unauthorized")
+		expect(JSON.stringify(data)).not.toMatch(/CRON_SECRET/)
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			"[api:cron:ping] CRON_SECRET not configured"
+		)
 	})
 
 	it("returns 401 when the authorization header is missing", async () => {
@@ -56,6 +65,18 @@ describe("GET /api/cron/ping — auth guard", () => {
 		const response = await GET(makeRequest("test-secret"))
 
 		expect(response.status).toBe(401)
+	})
+
+	it("logs unauthorized attempts at warn level (not error)", async () => {
+		// Routine bot scans should not dominate the error log. Demoting to warn
+		// keeps the signal visible without burying credential-misconfig errors
+		// (which stay at error level).
+		await GET(makeRequest("Bearer wrong-secret"))
+
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:cron:ping] unauthorized"
+		)
+		expect(vi.mocked(console.error)).not.toHaveBeenCalled()
 	})
 })
 

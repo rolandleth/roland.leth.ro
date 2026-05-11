@@ -50,8 +50,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 			const { success } = await ratelimit.limit(key)
 
 			if (!success) {
+				// Routine adversarial signal — a botnet hitting the limiter is
+				// expected; warn rather than error so it doesn't dominate the
+				// error log. Credential-misconfig and code bugs stay at error.
 				// eslint-disable-next-line no-console
-				console.error("[api:auth:login] rate limit exceeded", { key })
+				console.warn("[api:auth:login] rate limit exceeded", { key })
 
 				return NextResponse.json(
 					{ error: "Too many requests" },
@@ -101,9 +104,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 	if (!(await verifyCredentials(email, password))) {
 		// Logs the attempt (not the credentials) so repeated failures are visible
-		// without leaking secrets. Correlate spikes with rate-limit hits above.
+		// without leaking secrets. Include the client bucket key so credential
+		// failures can be correlated with the rate-limit log above.
 		// eslint-disable-next-line no-console
-		console.error("[api:auth:login] invalid credentials")
+		console.error("[api:auth:login] invalid credentials", {
+			key: clientBucketKey(request),
+		})
 
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 	}

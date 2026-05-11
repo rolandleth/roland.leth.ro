@@ -32,20 +32,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const expected = getCronSecret()
 
 	if (expected === null) {
-		// Silent 500s here would let the keepalive cron quietly stop working after
-		// an env-var regression; logging the cause makes it visible in Vercel logs.
+		// Server config error: cron can't function. Log at error level so a
+		// Vercel-side env regression is visible, but surface as 401 (not 500
+		// naming the env var) to the unauthenticated caller — otherwise a
+		// pre-auth probe learns the server is missing CRON_SECRET.
 		// eslint-disable-next-line no-console
 		console.error("[api:cron:ping] CRON_SECRET not configured")
 
-		return NextResponse.json(
-			{ error: "CRON_SECRET not configured" },
-			{ status: 500 }
-		)
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 	}
 
 	if (!isAuthorized(request.headers.get("authorization"), expected)) {
+		// Routine adversarial signal (port scanners, stale cron config); warn
+		// rather than error so a scan doesn't dominate the error log.
 		// eslint-disable-next-line no-console
-		console.error("[api:cron:ping] unauthorized")
+		console.warn("[api:cron:ping] unauthorized")
 
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 	}

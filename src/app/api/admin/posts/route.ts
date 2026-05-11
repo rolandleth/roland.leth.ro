@@ -46,6 +46,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 		return NextResponse.json(post, { status: 201 })
 	} catch (error) {
 		if (isPrismaUniqueConstraint(error)) {
+			// Surfaces a flapping admin form submitting the same draft twice, or
+			// an attempt to publish two titles that slug-collide. Without this,
+			// the 409 path is invisible in logs.
+			// eslint-disable-next-line no-console
+			console.warn("[api:admin:posts:POST] slug already exists", {
+				slug: createSlug(title),
+			})
+
 			return NextResponse.json(
 				{ error: "A post with this slug already exists" },
 				{ status: 409 }

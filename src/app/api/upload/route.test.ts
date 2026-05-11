@@ -1,6 +1,12 @@
 import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { POST, sanitizeFilename } from "./route"
+import { POST, detectImageMime, sanitizeFilename } from "./route"
+
+// Real PNG signature so files built by `pngFile()` pass the magic-byte sniff.
+// Tests for mismatched bytes use `pngFile({ headerBytes: ... })` to override.
+const PNG_HEADER = new Uint8Array([
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+])
 
 vi.mock("@vercel/blob", () => ({
 	put: vi.fn(),
@@ -51,6 +57,94 @@ describe("sanitizeFilename", () => {
 
 // #endregion
 
+// #region detectImageMime
+
+describe("detectImageMime", () => {
+	function bytes(...hex: number[]): Uint8Array {
+		// Pad to 12 bytes so the check passes the length guard for callers
+		// asserting on header-only inputs.
+		const buf = new Uint8Array(Math.max(12, hex.length))
+		hex.forEach((b, i) => {
+			buf[i] = b
+		})
+		return buf
+	}
+
+	it("returns null for inputs shorter than 12 bytes", () => {
+		// A truncated header is treated as unknown rather than guessed.
+		expect(detectImageMime(new Uint8Array([0x89, 0x50, 0x4e]))).toBeNull()
+	})
+
+	it("detects PNG", () => {
+		expect(
+			detectImageMime(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a))
+		).toBe("image/png")
+	})
+
+	it("detects JPEG", () => {
+		expect(detectImageMime(bytes(0xff, 0xd8, 0xff))).toBe("image/jpeg")
+	})
+
+	it("detects GIF (87a and 89a)", () => {
+		expect(detectImageMime(bytes(0x47, 0x49, 0x46, 0x38, 0x37, 0x61))).toBe(
+			"image/gif"
+		)
+		expect(detectImageMime(bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61))).toBe(
+			"image/gif"
+		)
+	})
+
+	it("detects WebP", () => {
+		expect(
+			detectImageMime(
+				bytes(
+					0x52,
+					0x49,
+					0x46,
+					0x46,
+					0x00,
+					0x00,
+					0x00,
+					0x00,
+					0x57,
+					0x45,
+					0x42,
+					0x50
+				)
+			)
+		).toBe("image/webp")
+	})
+
+	it("detects AVIF major brands (avif, avis, mif1)", () => {
+		for (const brand of ["avif", "avis", "mif1"]) {
+			const b = bytes(0x00, 0x00, 0x00, 0x00, 0x66, 0x74, 0x79, 0x70)
+			b[8] = brand.charCodeAt(0)
+			b[9] = brand.charCodeAt(1)
+			b[10] = brand.charCodeAt(2)
+			b[11] = brand.charCodeAt(3)
+			expect(detectImageMime(b)).toBe("image/avif")
+		}
+	})
+
+	it("returns null for HTML disguised as an image", () => {
+		// `<!DOCTYPE` would be a typical XSS-shaped payload.
+		const html = new TextEncoder().encode("<!DOCTYPE html><html>")
+		expect(detectImageMime(html)).toBeNull()
+	})
+
+	it("returns null for a bare ftyp with an unknown brand", () => {
+		// `mp4 ` is a valid ftyp brand but not in the allowlist.
+		const b = bytes(0x00, 0x00, 0x00, 0x00, 0x66, 0x74, 0x79, 0x70)
+		b[8] = 0x6d
+		b[9] = 0x70
+		b[10] = 0x34
+		b[11] = 0x20
+		expect(detectImageMime(b)).toBeNull()
+	})
+})
+
+// #endregion
+
 // #region POST /api/upload
 
 describe("POST /api/upload", () => {
@@ -81,10 +175,19 @@ describe("POST /api/upload", () => {
 		name = "test.png",
 		type = "image/png",
 		size = 1024,
-	}: { name?: string; type?: string; size?: number } = {}): File {
-		// `new File([new Uint8Array(size)], …)` lets us control reported
-		// size without allocating real image data.
-		return new File([new Uint8Array(size)], name, { type })
+		headerBytes = PNG_HEADER,
+	}: {
+		name?: string
+		type?: string
+		size?: number
+		headerBytes?: Uint8Array
+	} = {}): File {
+		// First N bytes are a real magic-byte header (so the route's
+		// `detectImageMime` accepts the file); the rest is zero padding. Tests
+		// that need a mismatched header pass a different `headerBytes`.
+		const buffer = new Uint8Array(Math.max(size, headerBytes.length))
+		buffer.set(headerBytes, 0)
+		return new File([buffer], name, { type })
 	}
 
 	it("returns 403 when ALLOW_UPLOADS is not enabled", async () => {
@@ -184,6 +287,57 @@ describe("POST /api/upload", () => {
 		const response = await POST(uploadRequest(formData))
 		expect(response.status).toBe(415)
 		expect(put).not.toHaveBeenCalled()
+	})
+
+	it("returns 415 when the file's bytes don't match the claimed image MIME", async () => {
+		// Defends against a payload mislabelled as an allowed type — e.g.
+		// HTML bytes inside a file announced as `image/png`. The allowlist
+		// trusts `file.type`; the magic-byte sniff is the catch.
+		const htmlBytes = new TextEncoder().encode(
+			"<!DOCTYPE html><html><script>alert(1)</script></html>"
+		)
+		const formData = new FormData()
+		formData.append(
+			"file",
+			pngFile({ type: "image/png", headerBytes: htmlBytes })
+		)
+
+		const response = await POST(uploadRequest(formData))
+		expect(response.status).toBe(415)
+		expect(put).not.toHaveBeenCalled()
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:upload:POST] mime mismatch",
+			expect.objectContaining({ claimedType: "image/png" })
+		)
+	})
+
+	it("logs a warn line on the Content-Length oversize precheck", async () => {
+		// 413 paths are interesting signals (potentially attempted abuse);
+		// surface to logs rather than silently rejecting.
+		const oversizeRequest = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: { "content-length": String(10 * 1024 * 1024 + 1) },
+			body: new FormData(),
+		})
+
+		await POST(oversizeRequest)
+
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:upload:POST] oversize precheck",
+			expect.objectContaining({ contentLength: expect.any(String) })
+		)
+	})
+
+	it("logs a warn line on the disallowed-mime 415 path", async () => {
+		const formData = new FormData()
+		formData.append("file", pngFile({ type: "text/html", name: "evil.html" }))
+
+		await POST(uploadRequest(formData))
+
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:upload:POST] disallowed mime",
+			{ claimedType: "text/html" }
+		)
 	})
 
 	it("returns 200 with the blob URL on success", async () => {

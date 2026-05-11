@@ -236,6 +236,12 @@ describe("POST /api/admin/projects", () => {
 		expect(response.status).toBe(409)
 		const data = await response.json()
 		expect(data.error).toMatch(/already exists/)
+		// 409s are interesting signal (admin form flap, intentional collision);
+		// without this log, the path is invisible in production.
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:admin:projects:POST] slug already exists",
+			expect.objectContaining({ slug: expect.any(String) })
+		)
 	})
 
 	it("returns 400 when the request body is not valid JSON", async () => {
