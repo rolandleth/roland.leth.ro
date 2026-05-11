@@ -1,5 +1,16 @@
 import { z } from "zod"
+import { createSlug } from "@/lib/format"
 import { SECTIONS } from "@/lib/sections"
+
+// Rejects titles/names that pass `min(1)` but `createSlug` reduces to "" (all
+// punctuation, soft hyphens, U+2212 minus runs). Without this gate, the DB
+// insert blows up with a unique-constraint or empty-slug error far from the
+// admin form, surfacing as a 409/500 that hides the real cause.
+function producesNonEmptySlug(value: string): boolean {
+	return createSlug(value) !== ""
+}
+const SLUG_EMPTY_MESSAGE =
+	"Must produce a non-empty slug (try fewer punctuation marks)"
 
 // Only http/https allowed — prevents javascript: or data: XSS vectors.
 // Add rel="noopener noreferrer" to any <a> rendering these on public pages.
@@ -21,7 +32,11 @@ const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
 })
 
 export const postCreateSchema = z.object({
-	title: z.string().min(1).max(200),
+	title: z
+		.string()
+		.min(1)
+		.max(200)
+		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
 	summary: z.string().max(300).nullable().optional(),
@@ -66,7 +81,11 @@ const hexColor = z
 	})
 
 export const projectCreateSchema = z.object({
-	name: z.string().min(1).max(80),
+	name: z
+		.string()
+		.min(1)
+		.max(80)
+		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	summary: z.string().min(1).max(300),
 	platform: z.string().min(1),
 	role: z.string().max(80).nullable().optional(),

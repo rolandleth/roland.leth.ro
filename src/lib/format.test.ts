@@ -278,6 +278,18 @@ describe("createSlug", () => {
 		expect(createSlug("Hello — World")).toBe("hello-world")
 	})
 
+	it("folds U+2212 minus and soft hyphen into the dash class", () => {
+		// Pre-fix these characters passed `\s.‐-―` and survived to the slug,
+		// producing technically-valid-but-weird URLs like `/blog/tech/−−−`.
+		expect(createSlug("Hello − World")).toBe("hello-world")
+		expect(createSlug("Hello ­ World")).toBe("hello-world")
+		// All-minus / all-soft-hyphen titles reduce to empty after collapse +
+		// trim — paired with the `producesNonEmptySlug` schema refine, the
+		// admin form rejects them with a clean 400.
+		expect(createSlug("−−−")).toBe("")
+		expect(createSlug("­­­")).toBe("")
+	})
+
 	it("collapses repeated hyphens", () => {
 		expect(createSlug("foo---bar")).toBe("foo-bar")
 	})

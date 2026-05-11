@@ -125,6 +125,29 @@ describe("postCreateSchema", () => {
 		)
 	})
 
+	it.each([
+		// All-punctuation titles pass `min(1)` but `createSlug` reduces them to
+		// "", which would either fail the DB insert (unique-empty-slug) or
+		// produce an unreachable post URL. The refine rejects them at the form
+		// boundary so the admin sees a clean 400 with a helpful message.
+		["all punctuation", "!!!???"],
+		["U+2212 minus run", "−−−"],
+		// `createSlug` normalises NFKD + strips combining marks; soft hyphens
+		// collapse to nothing.
+		["soft hyphen run", "­­­"],
+		["whitespace only", "   "],
+	])("rejects titles that produce an empty slug (%s)", (_label, title) => {
+		expect(postCreateSchema.safeParse({ ...valid, title }).success).toBe(false)
+	})
+
+	it("accepts a title with punctuation as long as it slugs to something", () => {
+		// Mixed punctuation + letters is fine — `createSlug` strips the
+		// punctuation but the letters survive.
+		expect(
+			postCreateSchema.safeParse({ ...valid, title: "!!!Hello???" }).success
+		).toBe(true)
+	})
+
 	it("rejects an empty body", () => {
 		expect(postCreateSchema.safeParse({ ...valid, body: "" }).success).toBe(
 			false
@@ -216,6 +239,20 @@ describe("projectCreateSchema", () => {
 	it("rejects when name is missing", () => {
 		const { name: _, ...rest } = valid
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it.each([
+		// Mirrors `postCreateSchema`: names that pass `min(1)` but slug to ""
+		// can't produce a valid URL and would surface the failure deep in the
+		// DB layer. Reject at the form boundary instead.
+		["all punctuation", "!!!???"],
+		["U+2212 minus run", "−−−"],
+		["soft hyphen run", "­­­"],
+		["whitespace only", "   "],
+	])("rejects names that produce an empty slug (%s)", (_label, name) => {
+		expect(projectCreateSchema.safeParse({ ...valid, name }).success).toBe(
+			false
+		)
 	})
 
 	it("rejects when summary is missing", () => {

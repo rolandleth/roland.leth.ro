@@ -120,15 +120,23 @@ export function currentDatetimeString(): string {
  * collapse repeated `-` and trim leading/trailing `-`.
  */
 export function createSlug(title: string): string {
-	return title
-		.normalize("NFKD")
-		.replace(/[̀-ͯ]/g, "")
-		.replace(/(['"#,;!:?[\]{}($/)]+)/g, "")
-		.replace(/&/g, "and")
-		.replace(/[\s.‐-―]+/g, "-")
-		.toLowerCase()
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "")
+	return (
+		title
+			.normalize("NFKD")
+			.replace(/[̀-ͯ]/g, "")
+			.replace(/['"#,;!:?[\]{}($/)]+/g, "")
+			.replace(/&/g, "and")
+			// Dash-equivalents folded into a single ASCII hyphen. `‐-―` covers
+			// the typographic hyphens/dashes (hyphen, non-breaking hyphen,
+			// figure dash, en dash, em dash, horizontal bar). `−` U+2212 is the
+			// math minus sign and `­` U+00AD is the soft hyphen — both pass
+			// NFKD unchanged and previously survived to the slug, producing
+			// technically-valid-but-weird URLs.
+			.replace(/[\s.‐-―−­]+/g, "-")
+			.toLowerCase()
+			.replace(/-+/g, "-")
+			.replace(/^-|-$/g, "")
+	)
 }
 
 /**
