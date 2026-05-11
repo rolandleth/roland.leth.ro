@@ -42,13 +42,17 @@ export default function ProjectSortOrderInput({
 	}, [])
 
 	async function handleBlur() {
-		const parsed = parseInt(value, 10)
-
-		if (isNaN(parsed)) {
+		// Strict digit-only parse: rejects `"3abc"`, `"3.7"`, `"-5"`, `""`.
+		// `parseInt` accepted trailing garbage (`"3abc" → 3`) so a user typing
+		// `"3.7"` silently committed `3`. Snap back to the SSR value on any
+		// non-integer input.
+		const trimmed = value.trim()
+		if (!/^\d+$/.test(trimmed)) {
 			setValue(String(initialSortOrder + 1))
 			return
 		}
 
+		const parsed = Number(trimmed)
 		const clamped = Math.max(1, Math.min(totalCount, parsed))
 		setValue(String(clamped))
 

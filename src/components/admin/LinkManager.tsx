@@ -50,6 +50,7 @@ function LinkRow({
 				onChange={onLabelChange}
 				presets={LINK_LABEL_OPTIONS}
 				presetLabel="Select a label…"
+				ariaLabel="Link label"
 				className="min-w-0 flex-1"
 			/>
 			<input
@@ -57,6 +58,7 @@ function LinkRow({
 				value={link.url}
 				onChange={(e) => onUrlChange(e.target.value)}
 				placeholder="https://..."
+				aria-label="Link URL"
 				className="admin-input min-w-0 flex-1"
 			/>
 

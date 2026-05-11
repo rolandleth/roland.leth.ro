@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { readErrorMessage } from "@/components/admin/useAdminResource"
 import { isAbortError } from "@/lib/isAbortError"
@@ -16,6 +16,7 @@ export default function ImageUpload({
 	onChange,
 	label = "Image URL",
 }: Props) {
+	const inputId = useId()
 	const inputRef = useRef<HTMLInputElement>(null)
 	// Tracks the currently in-flight upload so a newly-picked file can abort
 	// the previous request. Without this, selecting file A and then file B
@@ -86,10 +87,13 @@ export default function ImageUpload({
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			<label className="text-secondary text-sm font-medium">{label}</label>
+			<label htmlFor={inputId} className="text-secondary text-sm font-medium">
+				{label}
+			</label>
 
 			<div className="flex gap-2">
 				<input
+					id={inputId}
 					type="text"
 					value={value}
 					onChange={(e) => onChange(e.target.value)}

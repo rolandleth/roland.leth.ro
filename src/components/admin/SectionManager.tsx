@@ -64,6 +64,7 @@ function SectionCard({
 					value={section.title}
 					onChange={(e) => onPatch({ title: e.target.value })}
 					placeholder="Section title"
+					aria-label="Section title"
 					className="admin-input min-w-0 flex-1 py-1.5"
 				/>
 
@@ -79,9 +80,9 @@ function SectionCard({
 			{isOpen && (
 				<div className="border-border flex flex-col gap-6 border-t p-4">
 					<div className="flex flex-col gap-1.5">
-						<label className="text-secondary text-sm font-medium">
+						<span className="text-secondary text-sm font-medium">
 							Description
-						</label>
+						</span>
 						<MarkdownEditor
 							value={section.description}
 							onChange={(v) => onPatch({ description: v })}
@@ -90,7 +91,7 @@ function SectionCard({
 					</div>
 
 					<div className="flex flex-col gap-3">
-						<label className="text-secondary text-sm font-medium">Images</label>
+						<span className="text-secondary text-sm font-medium">Images</span>
 
 						{section.images.map((image, imageIndex) => (
 							<div

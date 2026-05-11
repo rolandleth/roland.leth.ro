@@ -11,6 +11,7 @@ interface Props {
 	id?: string
 	className?: string
 	required?: boolean
+	ariaLabel?: string
 }
 
 /**
@@ -34,6 +35,7 @@ export default function PresetOrFreeformInput({
 	id,
 	className,
 	required = false,
+	ariaLabel,
 }: Props) {
 	const isPreset = value !== "" && presets.includes(value)
 	const isFreeform = value !== "" && !isPreset
@@ -60,6 +62,7 @@ export default function PresetOrFreeformInput({
 				onChange={(e) => handleDropdownChange(e.target.value)}
 				disabled={isFreeform}
 				required={required && !isFreeform}
+				aria-label={ariaLabel}
 				className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			>
 				<option value="" disabled>
@@ -79,6 +82,7 @@ export default function PresetOrFreeformInput({
 				onChange={(e) => onChange(e.target.value)}
 				disabled={isPreset}
 				required={required && !isPreset}
+				aria-label={ariaLabel}
 				className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			/>
 		</div>
