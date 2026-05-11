@@ -63,6 +63,44 @@ describe("MarkdownEditor preview mode", () => {
 		)
 	})
 
+	it("clears the previous render synchronously on a cache miss so the Rendering placeholder shows", async () => {
+		// Phase 6 fix: when the user edits the text and re-opens Preview, the
+		// effect previously kept the prior parsed body in `preview` until the
+		// async pipeline resolved, so the stale render flashed briefly. Now
+		// the cache-miss branch calls `setPreview(null)` synchronously so the
+		// "Rendering…" placeholder appears while parsing runs.
+		let resolveParse: ((node: React.ReactNode) => void) | undefined
+		vi.mocked(markdownToReact)
+			.mockResolvedValueOnce(<p>first</p>)
+			.mockImplementationOnce(
+				() =>
+					new Promise<React.ReactNode>((resolve) => {
+						resolveParse = resolve
+					})
+			)
+
+		const { rerender } = render(
+			<MarkdownEditor value="first text" onChange={vi.fn()} />
+		)
+		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await waitFor(() => expect(screen.getByText("first")).toBeInTheDocument())
+
+		// Edit happens behind the scenes (textarea unmounted while in Preview),
+		// so simulate by re-rendering with a new value still in Preview mode.
+		rerender(<MarkdownEditor value="second text" onChange={vi.fn()} />)
+
+		// The pipeline hasn't resolved for "second text" yet; the prior render
+		// must NOT be on screen, and the placeholder must be.
+		await waitFor(() =>
+			expect(screen.getByText(/rendering…/i)).toBeInTheDocument()
+		)
+		expect(screen.queryByText("first")).not.toBeInTheDocument()
+
+		// Resolve the second parse so React doesn't warn about pending state.
+		resolveParse?.(<p>second</p>)
+		await waitFor(() => expect(screen.getByText("second")).toBeInTheDocument())
+	})
+
 	it("reuses the last parse when toggling preview off and back on unchanged", async () => {
 		// The cache avoids a full unified → rehype re-parse when the user just
 		// clicks Edit then Preview without touching the text. Without the cache,

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -186,6 +186,101 @@ describe("ProjectSortOrderInput save behaviour", () => {
 		await userEvent.tab()
 
 		expect(input).toHaveValue(1)
+	})
+})
+
+// #endregion
+
+// #region Strict digit-only parse (Phase 6 peer fix)
+
+describe("ProjectSortOrderInput strict digit parse", () => {
+	// The blur handler previously used `parseInt(value, 10)`, which silently
+	// accepted trailing garbage (`"3abc" → 3`) and decimals (`"3.7" → 3`). The
+	// peer `ProjectForm.sortOrder` was tightened in Phase 6 but this per-row
+	// input was missed. Now: any non-`/^\d+$/` input snaps back to the SSR
+	// value without firing a PUT. Tests use `fireEvent.change` because
+	// `userEvent.type` on `type="number"` strips non-numeric characters at the
+	// DOM layer, which would short-circuit the contract under test.
+
+	function setValue(input: HTMLElement, raw: string) {
+		fireEvent.change(input, { target: { value: raw } })
+	}
+
+	it("rejects '3.7' (decimal) and resets to the initial value without firing a PUT", async () => {
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={2}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		setValue(input, "3.7")
+		fireEvent.blur(input)
+
+		expect(input).toHaveValue(3)
+		expect(global.fetch).not.toHaveBeenCalled()
+	})
+
+	it("rejects '3abc' (trailing garbage) and resets without firing a PUT", async () => {
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={2}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		setValue(input, "3abc")
+		fireEvent.blur(input)
+
+		expect(input).toHaveValue(3)
+		expect(global.fetch).not.toHaveBeenCalled()
+	})
+
+	it("rejects '-5' (negative) and resets without firing a PUT", async () => {
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={2}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		setValue(input, "-5")
+		fireEvent.blur(input)
+
+		expect(input).toHaveValue(3)
+		expect(global.fetch).not.toHaveBeenCalled()
+	})
+
+	it("accepts a plain integer string and PUTs the 0-indexed value", async () => {
+		mockRouter()
+		mockFetchResolved(true)
+
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={0}
+				totalCount={5}
+			/>
+		)
+		const input = screen.getByRole("spinbutton")
+		setValue(input, "4")
+		fireEvent.blur(input)
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const options = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]
+		expect(JSON.parse(options.body)).toEqual({ sortOrder: 3 })
 	})
 })
 
