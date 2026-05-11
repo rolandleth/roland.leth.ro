@@ -110,10 +110,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 	// gives us a cheap pre-parse rejection. Off by ~the multipart boundary
 	// overhead (a few hundred bytes), but that's irrelevant against a 10 MiB cap.
 	const contentLength = request.headers.get("content-length")
+	const declaredSize = contentLength === null ? null : Number(contentLength)
 
-	if (contentLength != null && Number(contentLength) > MAX_UPLOAD_BYTES) {
+	if (declaredSize !== null && declaredSize > MAX_UPLOAD_BYTES) {
+		// Log key matches the post-parse 413 below (`size: number`) so one grep
+		// covers both branches; the precheck previously logged
+		// `{ contentLength: string }` and required two greps.
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] oversize precheck", { contentLength })
+		console.warn("[api:upload:POST] oversize precheck", { size: declaredSize })
 
 		return NextResponse.json(
 			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },

@@ -6,6 +6,7 @@ import {
 	parseJsonBody,
 	respondInternalError,
 } from "@/lib/apiErrors"
+import { auditLog } from "@/lib/auditLog"
 import { prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
 import {
@@ -169,8 +170,7 @@ export async function PUT(
 		}
 		// Audit trail. Includes prior slug so name-driven slug renames are
 		// distinguishable in logs from in-place edits.
-		// eslint-disable-next-line no-console
-		console.info("[api:admin:projects:PUT] success", {
+		auditLog("[api:admin:projects:PUT]", {
 			id: project.id,
 			slug: project.slug,
 			previousSlug,
@@ -221,8 +221,7 @@ export async function DELETE(
 
 		revalidateProject(deleted.slug)
 		// Audit trail — deletions are the highest-stakes admin write.
-		// eslint-disable-next-line no-console
-		console.info("[api:admin:projects:DELETE] success", {
+		auditLog("[api:admin:projects:DELETE]", {
 			id,
 			slug: deleted.slug,
 		})

@@ -5,6 +5,7 @@ import {
 	parseJsonBody,
 	respondInternalError,
 } from "@/lib/apiErrors"
+import { auditLog } from "@/lib/auditLog"
 import { prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
@@ -108,8 +109,7 @@ export async function PUT(
 		}
 		// Audit trail. Includes prior section so cross-section moves are visible
 		// in logs distinct from in-place edits.
-		// eslint-disable-next-line no-console
-		console.info("[api:admin:posts:PUT] success", {
+		auditLog("[api:admin:posts:PUT]", {
 			id: post.id,
 			slug: post.slug,
 			section: post.section,
@@ -143,14 +143,14 @@ export async function DELETE(
 	try {
 		const post = await prisma.post.delete({
 			where: { id },
-			select: { section: true },
+			select: { section: true, slug: true },
 		})
 
 		revalidatePostSection(post.section)
 		// Audit trail — deletions are the highest-stakes admin write.
-		// eslint-disable-next-line no-console
-		console.info("[api:admin:posts:DELETE] success", {
+		auditLog("[api:admin:posts:DELETE]", {
 			id,
+			slug: post.slug,
 			section: post.section,
 		})
 

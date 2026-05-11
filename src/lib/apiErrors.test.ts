@@ -88,7 +88,10 @@ describe("parseJsonBody", () => {
 		expect(result).toEqual({ name: "hello" })
 	})
 
-	it("returns a 400 NextResponse on malformed JSON and logs the tag", async () => {
+	it("returns a 400 NextResponse on malformed JSON and logs the tag at warn", async () => {
+		// Routine client-bug signal (peer of the schema-validation warn below).
+		// Logging at error would let any malformed-body probe dominate the error
+		// log; warn keeps the line greppable without flooding alerts.
 		const response = await parseJsonBody(
 			jsonRequest("not-json"),
 			schema,
@@ -96,9 +99,10 @@ describe("parseJsonBody", () => {
 		)
 		expect(response).toBeInstanceOf(NextResponse)
 		expect((response as NextResponse).status).toBe(400)
-		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[test] invalid JSON body"
 		)
+		expect(vi.mocked(console.error)).not.toHaveBeenCalled()
 	})
 
 	it("returns a 400 NextResponse on schema mismatch and logs paths-only at warn", async () => {
@@ -116,6 +120,28 @@ describe("parseJsonBody", () => {
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[api:test] schema validation failed: name"
 		)
+	})
+
+	it("falls back to issue codes when every path is empty (top-level mismatch)", async () => {
+		// A body that fails at the top of the schema (e.g. `5` against
+		// `z.object`) produces issues with empty `path`; without a fallback the
+		// log line degenerates to "schema validation failed:" with nothing
+		// after, giving operators no signal.
+		const response = await parseJsonBody(
+			jsonRequest("5"),
+			z.object({ name: z.string() }),
+			"[api:test]"
+		)
+		expect(response).toBeInstanceOf(NextResponse)
+		expect((response as NextResponse).status).toBe(400)
+		const warnCall = vi
+			.mocked(console.warn)
+			.mock.calls.find((args) =>
+				String(args[0]).startsWith("[api:test] schema validation failed:")
+			)
+		expect(warnCall).toBeDefined()
+		// Whatever the code is, the line must not end with "failed: " (empty tail).
+		expect(String(warnCall?.[0])).not.toMatch(/failed:\s*$/)
 	})
 
 	it("never logs submitted field values", async () => {

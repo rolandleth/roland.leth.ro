@@ -91,8 +91,12 @@ export async function parseJsonBody<T extends z.ZodTypeAny>(
 	try {
 		body = await request.json()
 	} catch {
+		// Routine client-bug signal (malformed JSON from a flapping admin form,
+		// a probe, or a stale tab); warn rather than error so it doesn't dominate
+		// the error log under sustained traffic. Same level as the peer
+		// schema-validation log below.
 		// eslint-disable-next-line no-console
-		console.error(`${tag} invalid JSON body`)
+		console.warn(`${tag} invalid JSON body`)
 
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 	}
@@ -104,14 +108,35 @@ export async function parseJsonBody<T extends z.ZodTypeAny>(
 		// without leaking submitted payloads into the access log. Mirrors the
 		// login route's pattern and closes the gap where every admin POST/PUT
 		// with a malformed body was silently rejecting in logs.
-		const issuePaths = parsed.error.issues
-			.map((issue) => issue.path.join("."))
-			.join(", ")
+		const issueSignature = describeZodIssues(parsed.error.issues)
 		// eslint-disable-next-line no-console
-		console.warn(`${tag} schema validation failed: ${issuePaths}`)
+		console.warn(`${tag} schema validation failed: ${issueSignature}`)
 
 		return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
 	}
 
 	return parsed.data as z.infer<T>
+}
+
+/**
+ * Renders a Zod issue list as a values-free signature suitable for log lines.
+ * Prefers the `path.join(".")` of each issue; falls back to `issue.code` joins
+ * when every path is empty (top-level type mismatch, e.g. `body = 5`), so the
+ * log line never degenerates to `schema validation failed:` with nothing after.
+ *
+ * Typed structurally rather than against Zod's exported `ZodIssue` (deprecated
+ * in v4) so this helper stays decoupled from Zod's internal type churn.
+ */
+function describeZodIssues(
+	issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; code: string }>
+): string {
+	const paths = issues
+		.map((issue) => issue.path.join("."))
+		.filter((path) => path !== "")
+
+	if (paths.length > 0) {
+		return paths.join(", ")
+	}
+
+	return issues.map((issue) => issue.code).join(", ")
 }

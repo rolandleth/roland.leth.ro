@@ -258,7 +258,14 @@ describe("PUT /api/admin/projects/[id]", () => {
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:projects:PUT] success",
-			{ id: renamed.id, slug: "new-name", previousSlug: "my-app" }
+			{
+				id: renamed.id,
+				slug: "new-name",
+				section: null,
+				sortOrder: null,
+				previousSection: null,
+				previousSlug: "my-app",
+			}
 		)
 	})
 
@@ -311,7 +318,14 @@ describe("DELETE /api/admin/projects/[id]", () => {
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:projects:DELETE] success",
-			{ id: 1, slug: existingProject.slug }
+			{
+				id: 1,
+				slug: existingProject.slug,
+				section: null,
+				sortOrder: null,
+				previousSection: null,
+				previousSlug: null,
+			}
 		)
 	})
 

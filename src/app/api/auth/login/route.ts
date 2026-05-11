@@ -77,8 +77,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	try {
 		body = await request.json()
 	} catch {
+		// Routine client-bug signal (peer of the schema-validation warn below);
+		// warn so it doesn't dominate the error log under botnet probing.
 		// eslint-disable-next-line no-console
-		console.error("[api:auth:login] invalid JSON body")
+		console.warn("[api:auth:login] invalid JSON body")
 
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 	}
@@ -105,9 +107,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 	if (!(await verifyCredentials(email, password))) {
 		// Logs the attempt (not the credentials) so repeated failures are visible
 		// without leaking secrets. Include the client bucket key so credential
-		// failures can be correlated with the rate-limit log above.
+		// failures can be correlated with the rate-limit log above. Warn (not
+		// error) for the same reason as the rate-limit demotion: credential
+		// stuffing is a routine adversarial signal that would otherwise dominate
+		// the error log under any sustained probe.
 		// eslint-disable-next-line no-console
-		console.error("[api:auth:login] invalid credentials", {
+		console.warn("[api:auth:login] invalid credentials", {
 			key: clientBucketKey(request),
 		})
 

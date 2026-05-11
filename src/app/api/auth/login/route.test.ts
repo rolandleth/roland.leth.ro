@@ -77,6 +77,22 @@ describe("POST /api/auth/login — credentials", () => {
 		expect(createSession).not.toHaveBeenCalled()
 	})
 
+	it("logs invalid credentials at warn (not error) so credential-stuffing doesn't dominate the error log", async () => {
+		// Peer of the rate-limit warn demotion: routine adversarial probing
+		// should not raise the error-log noise floor.
+		vi.mocked(verifyCredentials).mockResolvedValue(false)
+
+		await POST(
+			makeRequest({ email: "admin@example.com", password: "wrong" }) as never
+		)
+
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:auth:login] invalid credentials",
+			expect.objectContaining({ key: expect.any(String) })
+		)
+		expect(vi.mocked(console.error)).not.toHaveBeenCalled()
+	})
+
 	it("creates a session and returns 200 on valid credentials", async () => {
 		vi.mocked(verifyCredentials).mockResolvedValue(true)
 		vi.mocked(createSession).mockResolvedValue(undefined)

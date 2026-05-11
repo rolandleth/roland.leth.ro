@@ -100,7 +100,10 @@ describe("POST /api/admin/projects", () => {
 			{
 				id: createdProject.id,
 				slug: createdProject.slug,
+				section: null,
 				sortOrder: createdProject.sortOrder,
+				previousSection: null,
+				previousSlug: null,
 			}
 		)
 	})

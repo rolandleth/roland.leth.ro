@@ -230,7 +230,9 @@ describe("PUT /api/admin/posts/[id]", () => {
 				id: 1,
 				slug: existingPost.slug,
 				section: "life",
+				sortOrder: null,
 				previousSection: "tech",
+				previousSlug: null,
 			}
 		)
 	})
@@ -272,7 +274,14 @@ describe("DELETE /api/admin/posts/[id]", () => {
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:posts:DELETE] success",
-			{ id: 1, section: existingPost.section }
+			{
+				id: 1,
+				slug: existingPost.slug,
+				section: existingPost.section,
+				sortOrder: null,
+				previousSection: null,
+				previousSlug: null,
+			}
 		)
 	})
 

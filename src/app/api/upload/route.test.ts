@@ -313,10 +313,12 @@ describe("POST /api/upload", () => {
 
 	it("logs a warn line on the Content-Length oversize precheck", async () => {
 		// 413 paths are interesting signals (potentially attempted abuse);
-		// surface to logs rather than silently rejecting.
+		// surface to logs rather than silently rejecting. Key is `size: number`
+		// to match the post-parse 413 below, so one grep covers both branches.
+		const declaredSize = 10 * 1024 * 1024 + 1
 		const oversizeRequest = new Request("http://localhost/api/upload", {
 			method: "POST",
-			headers: { "content-length": String(10 * 1024 * 1024 + 1) },
+			headers: { "content-length": String(declaredSize) },
 			body: new FormData(),
 		})
 
@@ -324,7 +326,7 @@ describe("POST /api/upload", () => {
 
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[api:upload:POST] oversize precheck",
-			expect.objectContaining({ contentLength: expect.any(String) })
+			{ size: declaredSize }
 		)
 	})
 

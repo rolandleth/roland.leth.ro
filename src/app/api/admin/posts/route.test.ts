@@ -70,7 +70,14 @@ describe("POST /api/admin/posts", () => {
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:posts:POST] success",
-			{ id: 1, slug: createdPost.slug, section: createdPost.section }
+			{
+				id: 1,
+				slug: createdPost.slug,
+				section: createdPost.section,
+				sortOrder: null,
+				previousSection: null,
+				previousSlug: null,
+			}
 		)
 	})
 

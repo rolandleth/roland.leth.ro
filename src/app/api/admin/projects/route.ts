@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
 import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
+import { auditLog } from "@/lib/auditLog"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { createSlug } from "@/lib/format"
 import {
@@ -93,8 +94,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		// Audit trail. Vercel Hobby retains runtime logs ~1h, but the structured
 		// payload makes it greppable while it's live and is the only signal that
 		// answers "did someone create a project at 3am" until external aggregation lands.
-		// eslint-disable-next-line no-console
-		console.info("[api:admin:projects:POST] success", {
+		auditLog("[api:admin:projects:POST]", {
 			id: project.id,
 			slug: project.slug,
 			sortOrder: project.sortOrder,
