@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { readErrorMessage } from "@/components/admin/useAdminResource"
 import { isAbortError } from "@/lib/isAbortError"
 
 export default function LoginForm() {
@@ -51,8 +52,14 @@ export default function LoginForm() {
 				return
 			}
 
-			const data = await response.json().catch(() => ({}))
-			setError(data.error ?? "Something went wrong. Please try again.")
+			// Route the body through the shared reader so login surfaces stay in
+			// step with the rest of the admin UI: handles `string` + `ZodIssue[]`
+			// shapes, appends `(HTTP NNN)`, falls back on JSON-parse failure.
+			const message = await readErrorMessage(
+				response,
+				"Something went wrong. Please try again."
+			)
+			setError(message)
 		} catch (err) {
 			// Swallow user-initiated aborts (unmount mid-request, repeated submit).
 			if (isAbortError(err)) {

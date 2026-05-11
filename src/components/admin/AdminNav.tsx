@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { readErrorMessage } from "@/components/admin/useAdminResource"
 import { isAbortError } from "@/lib/isAbortError"
 
 export default function AdminNav() {
@@ -47,8 +48,11 @@ export default function AdminNav() {
 				// Hard server failure: the session cookie may still be alive on
 				// the server. Surface the error and block the redirect so the
 				// user knows they may need to retry instead of silently being
-				// dropped on /admin/login while still logged in.
-				setError(`Logout failed (HTTP ${response.status}). Please retry.`)
+				// dropped on /admin/login while still logged in. Route through
+				// the shared reader so the body's `{ error }` shows up alongside
+				// the `(HTTP NNN)` suffix, matching the rest of the admin UI.
+				const message = await readErrorMessage(response, "Logout failed")
+				setError(`${message} Please retry.`)
 				setIsLoggingOut(false)
 
 				return

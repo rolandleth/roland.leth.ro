@@ -36,13 +36,20 @@ describe("AdminNav — handleLogout", () => {
 		// the session cookie may still be alive on the server. Now: error shown,
 		// no redirect, user can retry.
 		const { push } = mockRouter()
-		global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 })
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 500,
+			headers: new Headers({ "content-type": "application/json" }),
+			json: () => Promise.resolve({ error: "Internal server error" }),
+		})
 
 		render(<AdminNav />)
 		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() =>
-			expect(screen.getByRole("alert")).toHaveTextContent(/HTTP 500/)
+			expect(screen.getByRole("alert")).toHaveTextContent(
+				/Internal server error \(HTTP 500\)/
+			)
 		)
 		expect(push).not.toHaveBeenCalled()
 	})
@@ -62,7 +69,12 @@ describe("AdminNav — handleLogout", () => {
 
 	it("re-enables the logout button after a failed attempt so the user can retry", async () => {
 		mockRouter()
-		global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 })
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 500,
+			headers: new Headers({ "content-type": "application/json" }),
+			json: () => Promise.resolve({ error: "Internal server error" }),
+		})
 
 		render(<AdminNav />)
 		const button = screen.getByRole("button", { name: /logout/i })

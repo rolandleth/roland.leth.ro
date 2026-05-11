@@ -18,9 +18,12 @@ function mockRouter() {
 	return { push, refresh }
 }
 
-function mockFetch(ok: boolean, body: object = {}) {
+function mockFetch(ok: boolean, body: object = {}, status?: number) {
+	const resolvedStatus = status ?? (ok ? 200 : 401)
 	global.fetch = vi.fn().mockResolvedValue({
 		ok,
+		status: resolvedStatus,
+		headers: new Headers({ "content-type": "application/json" }),
 		json: () => Promise.resolve(body),
 	})
 }
@@ -111,7 +114,9 @@ describe("LoginForm submission", () => {
 		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() =>
-			expect(screen.getByText("Invalid credentials")).toBeInTheDocument()
+			expect(
+				screen.getByText(/Invalid credentials \(HTTP 401\)/i)
+			).toBeInTheDocument()
 		)
 	})
 

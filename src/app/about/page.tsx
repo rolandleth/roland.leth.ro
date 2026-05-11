@@ -1,12 +1,14 @@
 import PageGlow from "@/components/PageGlow"
+import { buildPageMetadata } from "@/lib/metadata"
 import AboutContent from "./AboutContent"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
 	title: "About",
 	description:
 		"iOS developer, full-stack engineer, and founder. Learn more about Roland Leth.",
-}
+	path: "/about",
+})
 
 export default function AboutPage() {
 	return (
