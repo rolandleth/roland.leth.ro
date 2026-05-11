@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
+import { isAbortError } from "@/lib/isAbortError"
 
 /**
  * Reads a user-facing error message from a non-ok Response. Always appends the
@@ -148,7 +149,7 @@ export function useAdminResource<TPayload>({
 			}
 
 			// Aborts are silent: the unmount or a newer save already moved on.
-			if (err instanceof Error && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 
@@ -200,7 +201,7 @@ export function useAdminResource<TPayload>({
 				return
 			}
 
-			if (err instanceof Error && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 

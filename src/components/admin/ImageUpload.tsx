@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { readErrorMessage } from "@/components/admin/useAdminResource"
+import { isAbortError } from "@/lib/isAbortError"
 
 interface Props {
 	value: string
@@ -64,7 +65,7 @@ export default function ImageUpload({
 		} catch (err) {
 			// Aborts are intentional — a newer upload or an unmount cancelled this
 			// one. Don't surface that as an error to the user.
-			if (err instanceof Error && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 

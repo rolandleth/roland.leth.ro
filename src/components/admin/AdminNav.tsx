@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { isAbortError } from "@/lib/isAbortError"
 
 export default function AdminNav() {
 	const router = useRouter()
@@ -54,13 +55,15 @@ export default function AdminNav() {
 			}
 		} catch (err) {
 			// Swallow user-initiated aborts (unmount mid-request).
-			if (err instanceof DOMException && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 
 			// Network failure: the cookie may still be valid, but the request
-			// never reached the server. Tagged warn so a flapping logout
-			// surfaces in server logs (previous bare catch produced no signal).
+			// never reached the server. Tagged warn so a flapping logout is
+			// visible in the browser DevTools console; this is a `"use client"`
+			// component so the warn does NOT reach Vercel server logs (would
+			// need a `/api/log` hop for that).
 			// eslint-disable-next-line no-console
 			console.warn("[admin:AdminNav] logout failed", err)
 			setError("Logout failed (network error). Please retry.")

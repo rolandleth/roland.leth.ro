@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { readErrorMessage } from "@/components/admin/useAdminResource"
+import { isAbortError } from "@/lib/isAbortError"
 
 interface Props {
 	projectId: number
@@ -62,7 +63,7 @@ export default function IsFeaturedToggle({
 			router.refresh()
 		} catch (err) {
 			// Aborted on unmount or by a newer toggle — drop the result silently.
-			if (err instanceof Error && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 

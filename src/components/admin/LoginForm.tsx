@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import { isAbortError } from "@/lib/isAbortError"
 
 export default function LoginForm() {
 	const router = useRouter()
@@ -54,13 +55,15 @@ export default function LoginForm() {
 			setError(data.error ?? "Something went wrong. Please try again.")
 		} catch (err) {
 			// Swallow user-initiated aborts (unmount mid-request, repeated submit).
-			if (err instanceof DOMException && err.name === "AbortError") {
+			if (isAbortError(err)) {
 				return
 			}
 
 			// Network/JSON-parse failure: previously this catch was bare and the
-			// error was completely opaque to logs. Tagged warn so a flapping
-			// login surfaces in server logs.
+			// error was completely opaque. Tagged warn so a flapping login is
+			// visible in the browser DevTools console for the admin debugging
+			// locally; this is a `"use client"` component so the warn does NOT
+			// reach Vercel server logs (would need a `/api/log` hop for that).
 			// eslint-disable-next-line no-console
 			console.warn("[admin:LoginForm] submit failed", err)
 			setError("Something went wrong. Please try again.")
