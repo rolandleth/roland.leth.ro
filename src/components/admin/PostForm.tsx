@@ -136,7 +136,11 @@ export default function PostForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<label className="text-secondary text-sm font-medium">Published</label>
+				{/* Section heading, not a form control label — the inner `<label>`
+					below wraps and toggles the checkbox. Rendered as a `<span>` so
+					clicking it doesn't appear to be tied to a control and assistive
+					tech doesn't announce it as an empty label. */}
+				<span className="text-secondary text-sm font-medium">Published</span>
 				<label className="flex items-center gap-2">
 					<input
 						type="checkbox"
@@ -171,7 +175,10 @@ export default function PostForm({ initialData }: Props) {
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				<label className="text-secondary text-sm font-medium">Body</label>
+				{/* `MarkdownEditor` is a composite component (toolbar + textarea + preview),
+					so there's no single input element to bind via `htmlFor`. Heading
+					styled like a label rather than declared as one. */}
+				<span className="text-secondary text-sm font-medium">Body</span>
 				<MarkdownEditor
 					value={state.body}
 					onChange={(v) => setField("body", v)}

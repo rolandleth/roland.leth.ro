@@ -37,6 +37,13 @@ export default function MarkdownEditor({
 			return
 		}
 
+		// Cache miss: clear the stale preview synchronously so the "Rendering…"
+		// placeholder shows while the async pipeline runs. Without this the
+		// user sees the PREVIOUS parsed body until `markdownToReact` resolves
+		// (e.g. edit text → Preview → see the pre-edit render flash before the
+		// new one).
+		setPreview(null)
+
 		let cancelled = false
 
 		markdownToReact(deferredValue)

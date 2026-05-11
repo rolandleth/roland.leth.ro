@@ -111,25 +111,26 @@ describe("useAdminResource.save", () => {
 		expect(result.current.isSubmitting).toBe(false)
 	})
 
-	it("skips setState when the consumer unmounts mid-request", async () => {
-		// Keep the fetch pending so we can unmount before it resolves. Without
-		// the mount guard, the post-fetch `setError`/`setIsSubmitting` would run
-		// on an unmounted component and React would warn.
+	it("aborts the in-flight fetch when the consumer unmounts mid-request", async () => {
+		// The unmount cleanup calls `abortRef.current?.abort()` so a navigation
+		// away mid-PUT does not leave a dangling network call. Earlier the
+		// assertion was an indirect check on `console.error` for the "state
+		// update on an unmounted component" message — React 18 silently
+		// ignores that case, so the assertion couldn't fail. Asserting the
+		// AbortController signal directly pins the actual contract.
 		mockRouter()
-		let rejectFetch: ((err: Error) => void) | undefined
+		let capturedSignal: AbortSignal | undefined
 		global.fetch = vi.fn().mockImplementation(
-			() =>
+			(_url: string, init: RequestInit) =>
 				new Promise((_resolve, reject) => {
-					rejectFetch = reject
+					capturedSignal = init.signal ?? undefined
+					// Reject on abort so the awaited fetch in `useAdminResource`
+					// settles after unmount (matches real fetch semantics).
+					init.signal?.addEventListener("abort", () => {
+						reject(Object.assign(new Error("aborted"), { name: "AbortError" }))
+					})
 				})
 		)
-		// Suppress + record so we can assert React did NOT log the
-		// "state update on an unmounted component" warning. React 18 silently
-		// ignores it (no warning), so this assertion mainly documents intent and
-		// pins behavior against a future strict-mode regression.
-		const consoleErrorSpy = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => {})
 
 		const { result, unmount } = renderHook(() =>
 			useAdminResource({ resource: "posts", id: null })
@@ -138,17 +139,10 @@ describe("useAdminResource.save", () => {
 		const savePromise = result.current.save({}).catch(() => {})
 
 		unmount()
-		// Reject after unmount — the catch block runs against the stale instance.
-		rejectFetch?.(new Error("Network error"))
 		await savePromise
-		// Microtask flush so any post-rejection setState would fire.
-		await new Promise((r) => setTimeout(r, 0))
 
-		expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-			expect.stringMatching(/unmounted component/)
-		)
-
-		consoleErrorSpy.mockRestore()
+		expect(capturedSignal).toBeDefined()
+		expect(capturedSignal?.aborted).toBe(true)
 	})
 })
 

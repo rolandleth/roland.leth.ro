@@ -219,11 +219,14 @@ export default function ProjectForm({ initialData }: Props) {
 					min={0}
 					value={state.sortOrder}
 					onChange={(e) => {
-						// Empty input or partial entry ("-", ".") yields NaN; fall back to
-						// 0 so the payload stays a valid number and downstream Zod doesn't
-						// reject with a confusing "expected number, got null" message.
-						const num = Number(e.target.value)
-						setField("sortOrder", Number.isFinite(num) ? num : 0)
+						// Reject any non-integer value (including `""`, `"-5"`, `"3.7"`,
+						// `"3abc"`) at the form boundary. Without the integer regex,
+						// `Number("")` and `Number("-1")` both pass `Number.isFinite`
+						// and silently coerce to `0` or `-1`, neither of which is a
+						// valid sortOrder (the DB expects a dense non-negative index).
+						const raw = e.target.value
+						const isNonNegativeInteger = /^\d+$/.test(raw)
+						setField("sortOrder", isNonNegativeInteger ? Number(raw) : 0)
 					}}
 					className="admin-input"
 				/>
@@ -296,7 +299,10 @@ export default function ProjectForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<label className="text-secondary text-sm font-medium">Sections</label>
+				{/* `SectionManager` / `LinkManager` are composite controls with no
+					single input to bind via `htmlFor`. Heading styled like a label
+					rather than declared as one. */}
+				<span className="text-secondary text-sm font-medium">Sections</span>
 				<SectionManager
 					value={state.sections}
 					onChange={(v) => setField("sections", v)}
@@ -304,7 +310,7 @@ export default function ProjectForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<label className="text-secondary text-sm font-medium">Links</label>
+				<span className="text-secondary text-sm font-medium">Links</span>
 				<LinkManager
 					value={state.links}
 					onChange={(v) => setField("links", v)}

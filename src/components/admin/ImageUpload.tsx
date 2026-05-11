@@ -94,7 +94,8 @@ export default function ImageUpload({
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="https://..."
-					className="admin-input min-w-0 flex-1"
+					disabled={isUploading}
+					className="admin-input min-w-0 flex-1 disabled:opacity-50"
 				/>
 				<button
 					type="button"
