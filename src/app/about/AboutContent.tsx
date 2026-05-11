@@ -123,16 +123,15 @@ export default function AboutContent() {
 							products.
 						</p>
 						<p className="text-secondary leading-relaxed">
-							Over the past year I&apos;ve shifted to building products
-							primarily by directing AI agents: I drive the strategy,
-							architecture, and tradeoffs; they design the UI and write the
-							code. I review what they ship and own their harness: security
-							boundaries, workflows, tooling. Shipped three complex projects to
-							date.
+							In the past year I&apos;ve shifted to building products primarily
+							by directing AI agents: I drive the strategy, architecture, and
+							tradeoffs; they design the UI and write the code. I review what
+							they ship and own their harness: security boundaries, workflows,
+							tooling. Shipped three complex projects to date.
 						</p>
 						<p className="text-secondary leading-relaxed">
 							I&apos;ve worked on my own projects, on remote teams, as a
-							freelancer and contractor, in large corporations like
+							freelancer and contractor, in large corporations like{" "}
 							<a
 								className="link"
 								href="https://db.com"

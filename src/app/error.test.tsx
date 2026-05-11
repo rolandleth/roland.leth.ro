@@ -45,5 +45,6 @@ describe("InlineError", () => {
 		const { container } = render(<InlineError error={error} reset={vi.fn()} />)
 
 		expect(container.textContent).not.toContain(error.digest)
+		expect(container.textContent).not.toMatch(/[a-f0-9]{8,}/)
 	})
 })
