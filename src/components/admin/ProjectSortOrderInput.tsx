@@ -1,10 +1,9 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { isAbortError } from "@/lib/isAbortError"
-import { readErrorMessage } from "@/lib/readErrorMessage"
+import { useOptimisticMutation } from "@/lib/useOptimisticMutation"
 
 interface Props {
 	projectId: number
@@ -28,18 +27,11 @@ export default function ProjectSortOrderInput({
 }: Props) {
 	const router = useRouter()
 	const [value, setValue] = useState(String(initialSortOrder + 1))
-	const [isSaving, setIsSaving] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-	// Tabbing through multiple sort-order inputs fires parallel PUTs; aborting
-	// the previous in-flight request prevents the response of an older blur
-	// from clobbering the latest committed value.
-	const abortRef = useRef<AbortController | null>(null)
-
-	useEffect(() => {
-		return () => {
-			abortRef.current?.abort()
-		}
-	}, [])
+	const { mutate, isSaving, error } = useOptimisticMutation<{
+		sortOrder: number
+	}>({
+		url: `/api/admin/projects/${projectId}`,
+	})
 
 	async function handleBlur() {
 		// Strict digit-only parse: rejects `"3abc"`, `"3.7"`, `"-5"`, `""`.
@@ -63,58 +55,13 @@ export default function ProjectSortOrderInput({
 			return
 		}
 
-		setError(null)
-		setIsSaving(true)
+		const { ok } = await mutate(
+			{ sortOrder: nextSortOrder },
+			{ onRevert: () => setValue(String(initialSortOrder + 1)) }
+		)
 
-		const controller = new AbortController()
-		abortRef.current?.abort()
-		abortRef.current = controller
-
-		try {
-			const response = await fetch(`/api/admin/projects/${projectId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ sortOrder: nextSortOrder }),
-				signal: controller.signal,
-			})
-
-			if (!response.ok) {
-				// Belt-and-suspenders against the abort-races-error path: if a
-				// newer blur has already committed, don't revert that commit
-				// to the SSR-snapshot. The `disabled={isSaving}` prop blocks
-				// user-initiated re-blur while a request is in flight, so this
-				// guard is dead code today — kept so a future refactor that
-				// lifts the disable doesn't silently re-open the race.
-				if (abortRef.current !== controller) {
-					return
-				}
-
-				const message = await readErrorMessage(response, "Failed to save")
-				setValue(String(initialSortOrder + 1))
-				setError(message)
-
-				return
-			}
-
+		if (ok) {
 			router.refresh()
-		} catch (err) {
-			if (isAbortError(err)) {
-				return
-			}
-
-			// Same belt-and-suspenders guard as the non-ok branch.
-			if (abortRef.current !== controller) {
-				return
-			}
-
-			// Without the catch, a network rejection left `isSaving=true` forever
-			// and disabled the input with no error feedback.
-			setValue(String(initialSortOrder + 1))
-			setError(err instanceof Error ? err.message : "Failed to save")
-		} finally {
-			if (abortRef.current === controller) {
-				setIsSaving(false)
-			}
 		}
 	}
 
