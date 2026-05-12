@@ -24,7 +24,7 @@ const httpUrl = z
 // Posts
 
 // `yyyy-MM-dd-HHmm` — same shape as `currentDatetimeString()` and consumed by
-// `postDatetimeToISO`, which now returns `null` on bad input (callers omit
+// `postDatetimeToISO`, which returns `undefined` on bad input (callers omit
 // the dependent attribute or fall back). Validating here keeps malformed
 // `datetime` out of the DB on writes; the regex is the load-bearing gate.
 const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {

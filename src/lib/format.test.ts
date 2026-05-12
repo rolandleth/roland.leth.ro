@@ -114,22 +114,22 @@ describe("postDatetimeToISO", () => {
 		expect(iso?.slice(0, 10)).toBe("2025-01-02")
 	})
 
-	it("returns null for a malformed datetime", () => {
-		expect(postDatetimeToISO("not-a-date")).toBeNull()
+	it("returns undefined for a malformed datetime", () => {
+		expect(postDatetimeToISO("not-a-date")).toBeUndefined()
 	})
 
-	it("returns null for an empty string", () => {
-		expect(postDatetimeToISO("")).toBeNull()
+	it("returns undefined for an empty string", () => {
+		expect(postDatetimeToISO("")).toBeUndefined()
 	})
 
-	it("returns null when a valid date is embedded with trailing garbage", () => {
+	it("returns undefined when a valid date is embedded with trailing garbage", () => {
 		// Anchored regex: a leading match must consume the whole string, so
 		// `"2024-06-15-0930 extra"` is rejected instead of silently parsing.
-		expect(postDatetimeToISO("2024-06-15-0930 extra")).toBeNull()
+		expect(postDatetimeToISO("2024-06-15-0930 extra")).toBeUndefined()
 	})
 
-	it("returns null when a valid date is embedded with leading garbage", () => {
-		expect(postDatetimeToISO("prefix-2024-06-15-0930")).toBeNull()
+	it("returns undefined when a valid date is embedded with leading garbage", () => {
+		expect(postDatetimeToISO("prefix-2024-06-15-0930")).toBeUndefined()
 	})
 })
 

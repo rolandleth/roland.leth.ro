@@ -26,7 +26,7 @@ export default async function PostCard({ post }: Props) {
 			</h2>
 
 			<div className="text-secondary mb-4 flex gap-4 text-sm">
-				<time dateTime={postDatetimeToISO(post.datetime) ?? undefined}>
+				<time dateTime={postDatetimeToISO(post.datetime)}>
 					{formatDate(post.datetime)}
 				</time>
 				{readingTime && <span>{readingTime}</span>}

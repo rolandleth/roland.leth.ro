@@ -68,18 +68,19 @@ export function formatDate(datetime: string): string {
 
 /**
  * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 string.
- * Returns `null` on malformed input — callers should omit the
- * dependent attribute (e.g. `<time dateTime>`) or skip the field rather
- * than 500ing the surrounding render. Schema regex on writes catches the
- * common case; legacy DB rows are the practical path to malformed input.
+ * Returns `undefined` on malformed input — `undefined` (not `null`) so
+ * callers can pass the result straight into React props / Next.js
+ * `Metadata` fields without a `?? undefined` shim. Schema regex on writes
+ * catches the common case; legacy DB rows are the practical path to
+ * malformed input.
  */
-export function postDatetimeToISO(datetime: string): string | null {
+export function postDatetimeToISO(datetime: string): string | undefined {
 	const match = datetime.match(DATETIME_REGEX)
 
 	if (!match) {
 		console.warn("[format:postDatetimeToISO] invalid datetime", { datetime })
 
-		return null
+		return undefined
 	}
 
 	const [, year, month, day, hours, minutes] = match
