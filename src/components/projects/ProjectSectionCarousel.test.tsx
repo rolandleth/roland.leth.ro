@@ -69,4 +69,32 @@ describe("ProjectSectionCarousel — a11y (Phase 8)", () => {
 		expect(dots[1]).toHaveAttribute("aria-current", "true")
 		expect(dots[0]).not.toHaveAttribute("aria-current")
 	})
+
+	it("renders nothing when images is empty (defensive guard)", () => {
+		// Callers gate on `section.images.length > 0`, but enforcing the
+		// contract locally means `current.url` can never throw if a future
+		// caller forgets the parent gate.
+		const { container } = render(
+			<ProjectSectionCarousel images={[]} altPrefix="MyApp" />
+		)
+		expect(container.firstChild).toBeNull()
+	})
+
+	it("does not render arrows or dots for a single image", () => {
+		render(
+			<ProjectSectionCarousel
+				images={[{ id: 1, url: "/only.jpg", caption: "Only one" }]}
+				altPrefix="MyApp"
+			/>
+		)
+		expect(
+			screen.queryByRole("button", { name: /previous image/i })
+		).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("button", { name: /next image/i })
+		).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("button", { name: /go to image/i })
+		).not.toBeInTheDocument()
+	})
 })

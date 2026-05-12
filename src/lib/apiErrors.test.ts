@@ -144,6 +144,40 @@ describe("parseJsonBody", () => {
 		expect(String(warnCall?.[0])).not.toMatch(/failed:\s*$/)
 	})
 
+	it("caps the schema-failure log line and appends '+N more' for long issue lists", async () => {
+		// Without the cap, a payload with hundreds of nested issues produces a
+		// multi-KB log line per request — log spam under the warn-level demote.
+		// The cap is set to 10 segments; verify a 15-issue payload truncates.
+		const wideSchema = z.object({
+			f0: z.string(),
+			f1: z.string(),
+			f2: z.string(),
+			f3: z.string(),
+			f4: z.string(),
+			f5: z.string(),
+			f6: z.string(),
+			f7: z.string(),
+			f8: z.string(),
+			f9: z.string(),
+			f10: z.string(),
+			f11: z.string(),
+			f12: z.string(),
+			f13: z.string(),
+			f14: z.string(),
+		})
+
+		await parseJsonBody(jsonRequest("{}"), wideSchema, "[api:test]")
+
+		const warnCall = vi
+			.mocked(console.warn)
+			.mock.calls.find((args) =>
+				String(args[0]).startsWith("[api:test] schema validation failed:")
+			)
+		expect(warnCall).toBeDefined()
+		// 15 issues - 10 cap = 5 more.
+		expect(String(warnCall?.[0])).toMatch(/\+5 more$/)
+	})
+
 	it("never logs submitted field values", async () => {
 		// Defense against a future refactor that adds values to the log line.
 		// If anyone reads a request log to debug a schema failure, they must

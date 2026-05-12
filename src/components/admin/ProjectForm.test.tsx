@@ -244,3 +244,47 @@ describe("ProjectForm — edit mode", () => {
 })
 
 // #endregion
+
+// #region sortOrder display state
+
+describe("ProjectForm — sortOrder field", () => {
+	it("commits a valid digit-only value to the payload", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
+		await userEvent.clear(sortOrder)
+		await userEvent.type(sortOrder, "5")
+		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const payload = JSON.parse(options.body)
+		expect(payload.sortOrder).toBe(5)
+	})
+
+	it("does not silently coerce invalid input to 0 (regression: empty + tab)", async () => {
+		// Pre-fix: clearing the input committed sortOrder=0, erasing the prior
+		// value. Now invalid input is held in the display until blur, then
+		// snaps back to the last committed value, leaving state untouched.
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
+		await userEvent.clear(sortOrder)
+		// Tab away to trigger blur and snap-back.
+		await userEvent.tab()
+
+		expect(sortOrder.value).toBe(String(initialData.sortOrder))
+
+		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const payload = JSON.parse(options.body)
+		expect(payload.sortOrder).toBe(initialData.sortOrder)
+	})
+})
+
+// #endregion

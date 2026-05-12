@@ -269,6 +269,27 @@ describe("POST /api/upload", () => {
 		expect(put).not.toHaveBeenCalled()
 	})
 
+	it("logs a tagged warn on malformed multipart so the 400 isn't silent", async () => {
+		// Regression: previously the only un-logged 4xx in the route. A botnet
+		// sending garbage bodies got a clean 400 with zero log signal,
+		// inconsistent with the route's other 4xx (oversize / mime / mismatch).
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+		const badRequest = new Request("http://localhost/api/upload", {
+			method: "POST",
+			headers: {
+				"content-type": "multipart/form-data; boundary=---bad",
+			},
+			body: "garbage that does not match the boundary",
+		})
+
+		await POST(badRequest)
+		expect(warn).toHaveBeenCalledWith(
+			"[api:upload:POST] malformed multipart",
+			expect.objectContaining({ message: expect.any(String) })
+		)
+		warn.mockRestore()
+	})
+
 	it("returns 415 for a disallowed MIME (text/html)", async () => {
 		const formData = new FormData()
 		formData.append("file", pngFile({ type: "text/html", name: "evil.html" }))

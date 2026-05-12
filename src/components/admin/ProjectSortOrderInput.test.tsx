@@ -54,6 +54,23 @@ describe("ProjectSortOrderInput display translation", () => {
 		)
 		expect(screen.getByRole("spinbutton")).toHaveValue(5)
 	})
+
+	it("exposes an accessible name on the spinbutton (a11y)", () => {
+		// Phase 2 a11y: without an aria-label, the spinbutton announced as
+		// "spin button, 3" with no context — there's no visible label in the
+		// dashboard row this control lives in.
+		mockRouter()
+		render(
+			<ProjectSortOrderInput
+				projectId={1}
+				initialSortOrder={0}
+				totalCount={5}
+			/>
+		)
+		expect(
+			screen.getByRole("spinbutton", { name: /project sort order/i })
+		).toBeInTheDocument()
+	})
 })
 
 // #endregion

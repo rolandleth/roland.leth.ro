@@ -269,6 +269,26 @@ describe("PUT /api/admin/projects/[id]", () => {
 		)
 	})
 
+	it("audits previousSlug as null when the name is updated but the slug stays identical", async () => {
+		// Aligns with the posts PUT contract: `previousSlug` semantically means
+		// "the slug renamed, here's what it was", not "name was edited". A
+		// no-op rename whose normalized slug stays identical doesn't surface.
+		// Pre-fix: projects PUT emitted `previousSlug = "my-app"` even when the
+		// slug didn't change, which crowded the audit log with non-events.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+
+		// New name normalizes to the same slug — the schema/route don't enforce
+		// equality, but the test mock keeps `slug: "my-app"` so we control the
+		// branch.
+		await PUT(putRequest("1", { name: "My App" }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:projects:PUT] success",
+			expect.objectContaining({ previousSlug: null })
+		)
+	})
+
 	it("audits sortOrder on every PUT so reorders are distinguishable from in-place edits", async () => {
 		// A reorder updates `sortOrder` but no other observable column; without
 		// the field on the audit line, a reorder is indistinguishable from a

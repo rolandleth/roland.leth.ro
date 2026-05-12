@@ -275,6 +275,24 @@ describe("PUT /api/admin/posts/[id]", () => {
 			})
 		)
 	})
+
+	it("audits previousSlug as null when the body is updated but the slug is unchanged", async () => {
+		// `previousSlug` semantically means "the slug renamed, here's what it
+		// was". An in-place body or section edit must NOT surface a previousSlug
+		// that equals the current slug; the field would be misread as a rename.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { body: "Updated body" }), params("1"))
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:PUT] success",
+			expect.objectContaining({
+				slug: existingPost.slug,
+				previousSlug: null,
+			})
+		)
+	})
 })
 
 // ---------------------------------------------------------------------------
