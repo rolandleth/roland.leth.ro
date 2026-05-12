@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@/generated/prisma/client"
 import {
 	handlePrismaError,
 	parseIdParam,
@@ -82,27 +83,30 @@ export async function PUT(
 	}
 
 	try {
-		// Read the previous section in the same transaction as the update so the
-		// audit log and cache-invalidation see a consistent before/after pair for
-		// this PUT. The transaction does NOT serialize against another concurrent
-		// transaction's read — at default READ COMMITTED, two concurrent PUTs
-		// can still both observe the same `previous.section` (the project PUT
-		// uses Serializable because of its sortOrder shift; this PUT does not
-		// need Serializable because cache double-invalidation on a same-section
-		// race is a no-op, not a corruption).
-		const { previous, post } = await prisma.$transaction(async (tx) => {
-			const previous = await tx.post.findUnique({
-				where: { id },
-				select: { section: true, slug: true },
-			})
+		// Serializable isolation matches the project PUT. Two concurrent
+		// cross-section moves at READ COMMITTED could both observe the same
+		// `previous.section` and miss one side's cache invalidation. The race
+		// is benign (stale cache for one revalidate window, not corruption),
+		// but Serializable closes it cheaply at single-admin volumes where
+		// `serialization_failure` is essentially impossible. Under conflict
+		// the route surfaces a generic 500 (no retry loop) — same shape as
+		// the project PUT.
+		const { previous, post } = await prisma.$transaction(
+			async (tx) => {
+				const previous = await tx.post.findUnique({
+					where: { id },
+					select: { section: true, slug: true },
+				})
 
-			const post = await tx.post.update({
-				where: { id },
-				data,
-			})
+				const post = await tx.post.update({
+					where: { id },
+					data,
+				})
 
-			return { previous, post }
-		})
+				return { previous, post }
+			},
+			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+		)
 
 		revalidatePostSection(post.section)
 
