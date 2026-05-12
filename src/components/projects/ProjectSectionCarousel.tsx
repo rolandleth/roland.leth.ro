@@ -28,6 +28,13 @@ const variants = {
 export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 	const [[currentIndex, direction], setPage] = useState([0, 0])
 
+	// Defensive: callers gate on `section.images.length > 0`, but enforcing
+	// the contract locally means `current.url` can never throw if a future
+	// caller forgets the parent gate.
+	if (images.length === 0) {
+		return null
+	}
+
 	const isMultiple = images.length > 1
 	const current = images[currentIndex]
 

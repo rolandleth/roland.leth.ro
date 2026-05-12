@@ -24,7 +24,9 @@ export default function PostContent({
 			<motion.header className="mb-10" {...fadeUp(0)}>
 				<h1 className="mb-3 text-4xl font-bold">{title}</h1>
 				<div className="text-secondary flex gap-4 text-sm">
-					<time dateTime={postDatetimeToISO(datetime)}>{formattedDate}</time>
+					<time dateTime={postDatetimeToISO(datetime) ?? undefined}>
+						{formattedDate}
+					</time>
 					{readingTime && <span>{readingTime}</span>}
 				</div>
 			</motion.header>

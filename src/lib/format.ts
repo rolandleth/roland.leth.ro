@@ -68,13 +68,18 @@ export function formatDate(datetime: string): string {
 
 /**
  * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 string.
- * Throws on malformed input so callers don't silently render a bad date.
+ * Returns `null` on malformed input — callers should omit the
+ * dependent attribute (e.g. `<time dateTime>`) or skip the field rather
+ * than 500ing the surrounding render. Schema regex on writes catches the
+ * common case; legacy DB rows are the practical path to malformed input.
  */
-export function postDatetimeToISO(datetime: string): string {
+export function postDatetimeToISO(datetime: string): string | null {
 	const match = datetime.match(DATETIME_REGEX)
 
 	if (!match) {
-		throw new Error(`Invalid post datetime: ${datetime}`)
+		console.warn("[format:postDatetimeToISO] invalid datetime", { datetime })
+
+		return null
 	}
 
 	const [, year, month, day, hours, minutes] = match

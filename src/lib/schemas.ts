@@ -24,9 +24,9 @@ const httpUrl = z
 // Posts
 
 // `yyyy-MM-dd-HHmm` — same shape as `currentDatetimeString()` and consumed by
-// `postDatetimeToISO`, which throws on bad input. Validating here means a
-// malformed `datetime` is rejected at write time (clean 400) rather than
-// surfacing as a 500 deep inside feed/sitemap rendering.
+// `postDatetimeToISO`, which now returns `null` on bad input (callers omit
+// the dependent attribute or fall back). Validating here keeps malformed
+// `datetime` out of the DB on writes; the regex is the load-bearing gate.
 const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
 	message: "datetime must be `yyyy-MM-dd-HHmm`",
 })

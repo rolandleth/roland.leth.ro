@@ -85,8 +85,10 @@ export default function IsFeaturedToggle({
 			// A thrown fetch rejection (network down, CORS) would otherwise leave
 			// `isSaving=true` forever and block further toggles. Reverting the
 			// optimistic update and surfacing the error is the recovery path.
+			// Surface `err.message` (matches `ProjectSortOrderInput`) so DevTools
+			// users see the underlying cause rather than a generic placeholder.
 			setIsFeatured(initialIsFeatured)
-			setError("Failed to save")
+			setError(err instanceof Error ? err.message : "Failed to save")
 		} finally {
 			if (abortRef.current === controller) {
 				setIsSaving(false)

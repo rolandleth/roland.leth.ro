@@ -126,8 +126,10 @@ describe("IsFeaturedToggle save behaviour", () => {
 		render(<IsFeaturedToggle projectId={1} initialIsFeatured={false} />)
 		await userEvent.click(screen.getByRole("checkbox"))
 
+		// Surfaces the underlying error message (from `err.message`) rather
+		// than a generic placeholder.
 		await waitFor(() =>
-			expect(screen.getByText(/failed to save/i)).toBeInTheDocument()
+			expect(screen.getByText(/network down/i)).toBeInTheDocument()
 		)
 
 		const checkbox = screen.getByRole("checkbox")

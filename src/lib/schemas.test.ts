@@ -112,8 +112,8 @@ describe("postCreateSchema", () => {
 		"2025-1-1-0000",
 		"25-01-01-0000",
 	])("rejects malformed datetime %s", (datetime) => {
-		// postDatetimeToISO throws on malformed values; the schema catches these
-		// at write time so invalid datetimes can never reach the feed/sitemap.
+		// postDatetimeToISO returns null on malformed values; the schema catches
+		// these at write time so invalid datetimes don't reach the DB at all.
 		expect(postCreateSchema.safeParse({ ...valid, datetime }).success).toBe(
 			false
 		)

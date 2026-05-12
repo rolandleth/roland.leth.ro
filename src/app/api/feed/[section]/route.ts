@@ -122,7 +122,12 @@ export async function GET(
 	const entries = posts
 		.map((post) => {
 			const postUrl = `${SITE_URL}/blog/${post.section}/${post.slug}`
-			const published = postDatetimeToISO(post.datetime)
+			// Fall back to `updatedAt` if the stored `datetime` is malformed; an
+			// Atom `<published>null</published>` would invalidate the whole feed
+			// for strict readers.
+			const published =
+				postDatetimeToISO(post.datetime) ??
+				new Date(post.updatedAt).toISOString()
 
 			return `  <entry>
     <title>${escapeXml(post.title)}</title>

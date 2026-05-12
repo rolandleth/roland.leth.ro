@@ -122,6 +122,17 @@ export default function ProjectForm({ initialData }: Props) {
 		})),
 	})
 
+	// Tracks the literal text in the sortOrder input so the user sees what
+	// they typed during edits (including transient invalid states like `""`
+	// while clearing). Committed `state.sortOrder` only updates on valid
+	// digit-only input; on blur, invalid text snaps back to the committed
+	// value. Mirrors the contract in `ProjectSortOrderInput.handleBlur` —
+	// without this, invalid input silently coerced to `0` and erased the
+	// previous value.
+	const [sortOrderText, setSortOrderText] = useState(
+		String(initialData?.sortOrder ?? 0)
+	)
+
 	const setField = useCallback(
 		<K extends keyof FormState>(field: K, value: FormState[K]) => {
 			setState((prev) => ({ ...prev, [field]: value }))
@@ -217,16 +228,26 @@ export default function ProjectForm({ initialData }: Props) {
 					id="sortOrder"
 					type="number"
 					min={0}
-					value={state.sortOrder}
+					value={sortOrderText}
 					onChange={(e) => {
-						// Reject any non-integer value (including `""`, `"-5"`, `"3.7"`,
-						// `"3abc"`) at the form boundary. Without the integer regex,
-						// `Number("")` and `Number("-1")` both pass `Number.isFinite`
-						// and silently coerce to `0` or `-1`, neither of which is a
-						// valid sortOrder (the DB expects a dense non-negative index).
+						// Echo what the user typed so transient invalid states (e.g.
+						// `""` mid-edit) don't get clobbered by the controlled value.
+						// Only commit valid non-negative integers to `state.sortOrder`;
+						// invalid input is held in the display until blur.
 						const raw = e.target.value
-						const isNonNegativeInteger = /^\d+$/.test(raw)
-						setField("sortOrder", isNonNegativeInteger ? Number(raw) : 0)
+						setSortOrderText(raw)
+						if (/^\d+$/.test(raw)) {
+							setField("sortOrder", Number(raw))
+						}
+					}}
+					onBlur={() => {
+						// Snap the visible text back to the last committed value if the
+						// user left the input in an invalid state. Mirrors
+						// `ProjectSortOrderInput.handleBlur`. Without this, the input
+						// could keep showing `"3.7"` while state holds the prior value.
+						if (!/^\d+$/.test(sortOrderText.trim())) {
+							setSortOrderText(String(state.sortOrder))
+						}
 					}}
 					className="admin-input"
 				/>

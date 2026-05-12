@@ -111,25 +111,25 @@ describe("postDatetimeToISO", () => {
 		// `new Date(y, m, d, h, min)` uses local time; midday keeps the UTC date
 		// on the same calendar day across every reasonable zone.
 		const iso = postDatetimeToISO("2025-01-02-1200")
-		expect(iso.slice(0, 10)).toBe("2025-01-02")
+		expect(iso?.slice(0, 10)).toBe("2025-01-02")
 	})
 
-	it("throws for a malformed datetime", () => {
-		expect(() => postDatetimeToISO("not-a-date")).toThrow()
+	it("returns null for a malformed datetime", () => {
+		expect(postDatetimeToISO("not-a-date")).toBeNull()
 	})
 
-	it("throws for an empty string", () => {
-		expect(() => postDatetimeToISO("")).toThrow()
+	it("returns null for an empty string", () => {
+		expect(postDatetimeToISO("")).toBeNull()
 	})
 
-	it("throws when a valid date is embedded with trailing garbage", () => {
+	it("returns null when a valid date is embedded with trailing garbage", () => {
 		// Anchored regex: a leading match must consume the whole string, so
 		// `"2024-06-15-0930 extra"` is rejected instead of silently parsing.
-		expect(() => postDatetimeToISO("2024-06-15-0930 extra")).toThrow()
+		expect(postDatetimeToISO("2024-06-15-0930 extra")).toBeNull()
 	})
 
-	it("throws when a valid date is embedded with leading garbage", () => {
-		expect(() => postDatetimeToISO("prefix-2024-06-15-0930")).toThrow()
+	it("returns null when a valid date is embedded with leading garbage", () => {
+		expect(postDatetimeToISO("prefix-2024-06-15-0930")).toBeNull()
 	})
 })
 
