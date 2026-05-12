@@ -139,9 +139,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	try {
 		formData = await request.formData()
-	} catch {
+	} catch (error) {
 		// A malformed multipart body throws from `formData()`; surface a 400
 		// rather than letting the rejection bubble as an uncaught exception.
+		// Logged at warn so a botnet probing this endpoint with garbage bodies
+		// shows up in logs alongside the other 4xx (oversize / mime / mismatch).
+		// eslint-disable-next-line no-console
+		console.warn("[api:upload:POST] malformed multipart", {
+			message: error instanceof Error ? error.message : String(error),
+		})
+
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 	}
 

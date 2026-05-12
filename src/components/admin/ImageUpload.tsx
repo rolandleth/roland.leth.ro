@@ -70,6 +70,12 @@ export default function ImageUpload({
 				return
 			}
 
+			// Tagged warn matches the LoginForm/AdminNav pattern; this is a
+			// `"use client"` component so the warn does NOT reach Vercel server
+			// logs (would need a `/api/log` hop for that), but it surfaces in
+			// browser DevTools for the admin debugging a flapping upload.
+			// eslint-disable-next-line no-console
+			console.warn("[admin:ImageUpload] upload failed", err)
 			setError(err instanceof Error ? err.message : "Upload failed")
 		} finally {
 			// Only reset saving state for the most recent request. An older aborted
