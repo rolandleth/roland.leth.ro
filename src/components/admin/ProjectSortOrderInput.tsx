@@ -122,6 +122,7 @@ export default function ProjectSortOrderInput({
 		<div className="flex flex-col items-center gap-1">
 			<input
 				type="number"
+				aria-label="Project sort order"
 				value={value}
 				min={1}
 				max={totalCount}

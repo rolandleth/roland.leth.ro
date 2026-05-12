@@ -12,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function LoanCalculatorPage() {
 	return (
-		<main className="relative mx-auto max-w-5xl px-4 py-12">
+		<div className="relative mx-auto max-w-5xl px-4 py-12">
 			<PageGlow />
 
 			<div className="mb-8">
@@ -23,6 +23,6 @@ export default function LoanCalculatorPage() {
 			</div>
 
 			<LoanCalculatorClient />
-		</main>
+		</div>
 	)
 }

@@ -41,7 +41,7 @@ export default async function ArchivePage({ params }: Props) {
 	const years = Object.keys(grouped).sort((a, b) => Number(b) - Number(a))
 
 	return (
-		<main className="mx-auto max-w-4xl px-4 py-12">
+		<div className="mx-auto max-w-4xl px-4 py-12">
 			<h1 className="mb-8 text-3xl font-bold">Archive</h1>
 
 			{years.length === 0 ? (
@@ -75,6 +75,6 @@ export default async function ArchivePage({ params }: Props) {
 					))}
 				</div>
 			)}
-		</main>
+		</div>
 	)
 }

@@ -56,13 +56,16 @@ export default function PresetOrFreeformInput({
 
 	return (
 		<div className={wrapperClassName}>
+			{/* Differentiate the two controls' accessible names so SR users can
+				distinguish the preset dropdown from the freeform input in the
+				rotor — the same `ariaLabel` on both made them indistinguishable. */}
 			<select
 				id={id}
 				value={isPreset ? value : ""}
 				onChange={(e) => handleDropdownChange(e.target.value)}
 				disabled={isFreeform}
 				required={required && !isFreeform}
-				aria-label={ariaLabel}
+				aria-label={ariaLabel ? `${ariaLabel} (preset)` : undefined}
 				className="border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			>
 				<option value="" disabled>
@@ -82,7 +85,7 @@ export default function PresetOrFreeformInput({
 				onChange={(e) => onChange(e.target.value)}
 				disabled={isPreset}
 				required={required && !isPreset}
-				aria-label={ariaLabel}
+				aria-label={ariaLabel ? `${ariaLabel} (custom)` : undefined}
 				className="border-border bg-background text-primary focus:border-accent min-w-0 flex-1 rounded-md border px-3 py-2 text-sm transition-colors outline-none disabled:opacity-40"
 			/>
 		</div>

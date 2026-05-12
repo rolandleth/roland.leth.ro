@@ -12,9 +12,9 @@ export const metadata: Metadata = buildPageMetadata({
 
 export default function AboutPage() {
 	return (
-		<main className="relative mx-auto max-w-4xl px-4 py-12">
+		<div className="relative mx-auto max-w-4xl px-4 py-12">
 			<PageGlow />
 			<AboutContent />
-		</main>
+		</div>
 	)
 }

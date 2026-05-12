@@ -19,7 +19,7 @@ function PostCardSkeleton() {
 
 export default function BlogListLoading() {
 	return (
-		<main className="relative mx-auto w-full max-w-3xl px-4 py-12">
+		<div className="relative mx-auto w-full max-w-3xl px-4 py-12">
 			<PageGlow />
 			<div className="mb-2 flex h-10 items-center">
 				<div className="bg-border h-8 w-24 animate-pulse rounded" />
@@ -29,6 +29,6 @@ export default function BlogListLoading() {
 					<PostCardSkeleton key={i} />
 				))}
 			</div>
-		</main>
+		</div>
 	)
 }

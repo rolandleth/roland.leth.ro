@@ -33,7 +33,7 @@ function CompactCardSkeleton() {
 
 export default function ProjectsLoading() {
 	return (
-		<main className="relative mx-auto max-w-5xl px-4 py-12">
+		<div className="relative mx-auto max-w-5xl px-4 py-12">
 			<PageGlow />
 
 			<div className="mb-10">
@@ -56,6 +56,6 @@ export default function ProjectsLoading() {
 					))}
 				</div>
 			</section>
-		</main>
+		</div>
 	)
 }

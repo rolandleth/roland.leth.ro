@@ -80,9 +80,18 @@ export default async function RootLayout({
 
 				<ThemeProvider initialTheme={initialTheme}>
 					<Header />
-					<div id="main-content" tabIndex={-1} className="flex flex-1 flex-col">
+					{/* Single document `<main>` lives here so the skip link targets
+						the actual landmark. Pages render their content as plain
+						wrappers (`<div>`/`<section>`) inside this. `tabIndex={-1}`
+						lets the skip link move keyboard focus into the landmark
+						without making it a tab stop. */}
+					<main
+						id="main-content"
+						tabIndex={-1}
+						className="flex flex-1 flex-col"
+					>
 						{children}
-					</div>
+					</main>
 					<ClientAnalytics />
 					<Footer />
 				</ThemeProvider>

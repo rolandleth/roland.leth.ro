@@ -1,6 +1,6 @@
 export default function ArchiveLoading() {
 	return (
-		<main className="mx-auto max-w-4xl px-4 py-12">
+		<div className="mx-auto max-w-4xl px-4 py-12">
 			<div className="bg-border mb-8 h-8 w-24 animate-pulse rounded" />
 
 			<div className="space-y-10">
@@ -24,6 +24,6 @@ export default function ArchiveLoading() {
 					</section>
 				))}
 			</div>
-		</main>
+		</div>
 	)
 }

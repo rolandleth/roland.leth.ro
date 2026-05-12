@@ -41,7 +41,7 @@ export default async function SearchPage({ params, searchParams }: Props) {
 	const results = query.length > 0 ? await searchPosts(section, query) : []
 
 	return (
-		<main className="mx-auto w-full max-w-3xl px-4 py-12">
+		<div className="mx-auto w-full max-w-3xl px-4 py-12">
 			<div className="mb-10">
 				<SearchForm
 					section={section}
@@ -88,6 +88,6 @@ export default async function SearchPage({ params, searchParams }: Props) {
 					)}
 				</div>
 			)}
-		</main>
+		</div>
 	)
 }

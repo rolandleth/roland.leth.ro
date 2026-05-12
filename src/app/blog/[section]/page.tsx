@@ -48,7 +48,7 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 	const label = capitalizeSection(section)
 
 	return (
-		<main className="relative mx-auto w-full max-w-3xl px-4 py-12">
+		<div className="relative mx-auto w-full max-w-3xl px-4 py-12">
 			<PageGlow />
 			<BlogSectionHeader section={section} label={label} />
 
@@ -63,6 +63,6 @@ export default async function BlogListPage({ params, searchParams }: Props) {
 			{totalPages > 1 && (
 				<Pagination page={page} totalPages={totalPages} section={section} />
 			)}
-		</main>
+		</div>
 	)
 }

@@ -15,13 +15,13 @@ export default async function LoginPage() {
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center px-4">
+		<div className="flex min-h-screen items-center justify-center px-4">
 			<div className="w-full max-w-sm">
 				<h1 className="text-primary mb-8 text-center text-2xl font-semibold">
 					Admin
 				</h1>
 				<LoginForm />
 			</div>
-		</main>
+		</div>
 	)
 }
