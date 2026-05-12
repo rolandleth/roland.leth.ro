@@ -15,6 +15,11 @@ export interface PageMetadataInput {
  * `title` is passed as the plain page title and picks up the layout's
  * `"%s | Roland Leth"` template; `openGraph.title` is expanded here because
  * OG fields do not honor the template.
+ *
+ * If a page's `title` already contains "Roland Leth", do NOT route it through
+ * here — use `title: { absolute: "..." }` directly so the layout template
+ * doesn't double-brand the result (e.g. "Roland Leth — Foo | Roland Leth").
+ * The landing page (`src/app/page.tsx`) is the canonical example.
  */
 export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	const { title, description, path, image, publishedTime, type } = input

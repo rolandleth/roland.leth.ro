@@ -82,12 +82,14 @@ export async function PUT(
 	}
 
 	try {
-		// Read the previous section in the same transaction as the update so a
-		// cross-section move (e.g. tech → life) atomically learns both sides and
-		// can invalidate both caches. Without the transaction, two concurrent
-		// PUTs could read the same `previous.section`, leaving one side stale.
-		// At single-admin volumes this is mostly theoretical; matches the same
-		// shape as the project PUT below.
+		// Read the previous section in the same transaction as the update so the
+		// audit log and cache-invalidation see a consistent before/after pair for
+		// this PUT. The transaction does NOT serialize against another concurrent
+		// transaction's read — at default READ COMMITTED, two concurrent PUTs
+		// can still both observe the same `previous.section` (the project PUT
+		// uses Serializable because of its sortOrder shift; this PUT does not
+		// need Serializable because cache double-invalidation on a same-section
+		// race is a no-op, not a corruption).
 		const { previous, post } = await prisma.$transaction(async (tx) => {
 			const previous = await tx.post.findUnique({
 				where: { id },

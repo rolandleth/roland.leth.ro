@@ -13,10 +13,15 @@ export type LegacyMatch =
 // call (which would defeat memoization and spam revalidation logs).
 const cachedLookup = unstable_cache(
 	async (slug: string): Promise<LegacyMatch> => {
-		// Same `datetime <= now` snapshot as `getPostBySlug` / sitemap /
-		// generateStaticParams — without it a future-dated published post whose
-		// slug matches a legacy URL 308-redirects to a canonical page that itself
-		// 404s on the same filter, giving inconsistent UX.
+		// `now` is captured inside the cached fn — the entry is "valid for
+		// this `now`-snapshot, evicted on mutation bus or organic expire."
+		// Same `datetime <= now` filter as `getPostBySlug` /
+		// `getAllPublishedPostSlugs`; without it a future-dated published post
+		// whose slug matches a legacy URL 308-redirects to a canonical page
+		// that itself 404s on the same filter. A post crossing its publish
+		// minute is hidden from legacy redirects for up to `revalidate=300s`
+		// after the boundary unless a mutation fires. Same trade as the other
+		// cached fetchers — revisit if time-based scheduling becomes a feature.
 		const now = currentDatetimeString()
 		const [post, project] = await Promise.all([
 			prisma.post.findFirst({

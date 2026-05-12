@@ -261,6 +261,14 @@ export async function listPostsForAdmin({
  */
 export const getAllPublishedPostSlugs = unstable_cache(
 	async () => {
+		// `now` is captured inside the cached fn, so the entry naturally
+		// becomes "valid for this `now`-snapshot, evicted on mutation bus or
+		// organic expire." A post scheduled for a future `datetime` and
+		// published won't auto-surface at its scheduled time — sitemap and
+		// `generateStaticParams` only see it once the cache expires or a
+		// mutation fires. Same trade as `getPostBySlug` and
+		// `legacySlug.cachedLookup`. Revisit if time-based scheduling
+		// becomes a feature.
 		const now = currentDatetimeString()
 		return prisma.post.findMany({
 			where: { published: true, datetime: { lte: now } },

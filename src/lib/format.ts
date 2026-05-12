@@ -131,12 +131,15 @@ export function createSlug(title: string): string {
 			.replace(/[̀-ͯ]/g, "")
 			.replace(/['"#,;!:?[\]{}($/)]+/g, "")
 			.replace(/&/g, "and")
-			// Dash-equivalents folded into a single ASCII hyphen. `‐-―` covers
-			// the typographic hyphens/dashes (hyphen, non-breaking hyphen,
-			// figure dash, en dash, em dash, horizontal bar). `−` U+2212 is the
-			// math minus sign and `­` U+00AD is the soft hyphen — both pass
-			// NFKD unchanged and previously survived to the slug, producing
-			// technically-valid-but-weird URLs.
+			// Dash-equivalents folded into a single ASCII hyphen. Unicode
+			// escapes (rather than literals) so the invisible soft hyphen
+			// (U+00AD) doesn't look like a typo to a future reader.
+			//   ‐-― — hyphen, non-breaking hyphen, figure dash,
+			//                   en dash, em dash, horizontal bar
+			//   −        — math minus sign
+			//   ­        — soft hyphen
+			// All pass NFKD unchanged and previously survived to the slug,
+			// producing technically-valid-but-weird URLs.
 			.replace(/[\s.‐-―−­]+/g, "-")
 			.toLowerCase()
 			.replace(/-+/g, "-")
