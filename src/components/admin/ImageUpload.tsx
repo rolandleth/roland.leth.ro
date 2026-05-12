@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { readErrorMessage } from "@/components/admin/useAdminResource"
 import { isAbortError } from "@/lib/isAbortError"
+import { readErrorMessage } from "@/lib/readErrorMessage"
 
 interface Props {
 	value: string
