@@ -168,15 +168,20 @@ export async function PUT(
 		if (previousSlug != null && previousSlug !== project.slug) {
 			revalidateProject(previousSlug)
 		}
-		// Audit trail. Includes prior slug so name-driven slug renames are
-		// distinguishable in logs from in-place edits.
+		// Audit trail. Includes prior slug ONLY when the slug actually changed
+		// (matches the posts PUT contract — `previousSlug` semantically means
+		// "the slug renamed, here's what it was", not "name was edited"). A
+		// no-op rename whose normalized slug stays identical doesn't surface.
 		auditLog("[api:admin:projects:PUT]", {
 			id: project.id,
 			slug: project.slug,
 			section: null,
 			sortOrder: project.sortOrder,
 			previousSection: null,
-			previousSlug,
+			previousSlug:
+				previousSlug != null && previousSlug !== project.slug
+					? previousSlug
+					: null,
 		})
 
 		return NextResponse.json(project)

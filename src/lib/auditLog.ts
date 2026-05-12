@@ -19,11 +19,25 @@ export interface AdminAuditPayload {
 }
 
 /**
+ * Closed enum of audit-log tags. Typing the `tag` parameter prevents a typo
+ * call site (`"[api:admin:psots:PUT]"`) from silently emitting a malformed
+ * line that breaks log-aggregator greps. New admin write surfaces extend this
+ * union so every audit line is greppable from a single source of tag values.
+ */
+export type AdminAuditTag =
+	| "[api:admin:posts:POST]"
+	| "[api:admin:posts:PUT]"
+	| "[api:admin:posts:DELETE]"
+	| "[api:admin:projects:POST]"
+	| "[api:admin:projects:PUT]"
+	| "[api:admin:projects:DELETE]"
+
+/**
  * Emits a structured `console.info` audit line for admin writes. Every call
  * site provides every key (with `null` for fields that don't apply) so the
  * line shape is stable across post/project POST/PUT/DELETE.
  */
-export function auditLog(tag: string, payload: AdminAuditPayload): void {
+export function auditLog(tag: AdminAuditTag, payload: AdminAuditPayload): void {
 	// eslint-disable-next-line no-console
 	console.info(`${tag} success`, payload)
 }

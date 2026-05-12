@@ -53,10 +53,11 @@ export default function AdminNav() {
 				// the `(HTTP NNN)` suffix, matching the rest of the admin UI.
 				const message = await readErrorMessage(response, "Logout failed")
 				setError(`${message} Please retry.`)
-				setIsLoggingOut(false)
 
 				return
 			}
+
+			router.push("/admin/login")
 		} catch (err) {
 			// Swallow user-initiated aborts (unmount mid-request).
 			if (isAbortError(err)) {
@@ -71,12 +72,15 @@ export default function AdminNav() {
 			// eslint-disable-next-line no-console
 			console.warn("[admin:AdminNav] logout failed", err)
 			setError("Logout failed (network error). Please retry.")
-			setIsLoggingOut(false)
-
-			return
+		} finally {
+			// Same supersession guard as `LoginForm.handleSubmit` and the inline
+			// admin mutations: only reset `isLoggingOut` if this controller is
+			// still the latest. Without the guard, a stale handler firing after
+			// a newer logout started would re-enable the button mid-flight.
+			if (abortRef.current === controller) {
+				setIsLoggingOut(false)
+			}
 		}
-
-		router.push("/admin/login")
 	}
 
 	return (
