@@ -30,8 +30,17 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 
 	// Defensive: callers gate on `section.images.length > 0`, but enforcing
 	// the contract locally means `current.url` can never throw if a future
-	// caller forgets the parent gate.
+	// caller forgets the parent gate. A silent `return null` would otherwise
+	// mask the missing parent gate — surface it loudly in dev so the
+	// regression is debuggable, while keeping the render no-op in prod.
 	if (images.length === 0) {
+		if (process.env.NODE_ENV !== "production") {
+			// eslint-disable-next-line no-console
+			console.warn(
+				`[ProjectSectionCarousel] rendered with empty images for "${altPrefix}" — caller should gate on \`images.length > 0\``
+			)
+		}
+
 		return null
 	}
 

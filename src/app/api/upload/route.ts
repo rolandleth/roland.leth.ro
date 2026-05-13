@@ -22,6 +22,23 @@ export function sanitizeFilename(name: string): string {
 }
 
 /**
+ * Renders an arbitrary string as a single, bounded log payload — strips
+ * CR / LF / TAB / NUL so attacker-controlled bytes from the multipart
+ * parser's error message can't forge fake log lines beneath the real one,
+ * and clamps the length so a megabyte-sized message can't blow up the log
+ * line. Exported for unit testing.
+ */
+const MAX_LOG_MESSAGE_LEN = 200
+
+export function sanitizeLogString(value: string): string {
+	const collapsed = value.replace(/[\r\n\t\0]+/g, " ")
+
+	return collapsed.length > MAX_LOG_MESSAGE_LEN
+		? `${collapsed.slice(0, MAX_LOG_MESSAGE_LEN)}…`
+		: collapsed
+}
+
+/**
  * Returns the image MIME type implied by the file's leading bytes, or `null`
  * if the bytes don't match any of the allowed image formats. Inspected after
  * the `file.type` allowlist so a spoofed Content-Type (`image/png` claimed,
@@ -144,9 +161,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 		// rather than letting the rejection bubble as an uncaught exception.
 		// Logged at warn so a botnet probing this endpoint with garbage bodies
 		// shows up in logs alongside the other 4xx (oversize / mime / mismatch).
+		//
+		// The parser's error message can echo bytes from the offending
+		// boundary back into the log line — including newlines, which
+		// would let an attacker forge fake log lines below this one
+		// ("log injection"). Strip CR/LF/NUL and clamp the length before
+		// logging so the payload stays single-line and bounded.
+		const rawMessage = error instanceof Error ? error.message : String(error)
+		const safeMessage = sanitizeLogString(rawMessage)
 		// eslint-disable-next-line no-console
 		console.warn("[api:upload:POST] malformed multipart", {
-			message: error instanceof Error ? error.message : String(error),
+			message: safeMessage,
 		})
 
 		return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
