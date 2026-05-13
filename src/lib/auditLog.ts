@@ -22,15 +22,22 @@ export interface AdminAuditPayload {
  * Closed enum of audit-log tags. Typing the `tag` parameter prevents a typo
  * call site (`"[api:admin:psots:PUT]"`) from silently emitting a malformed
  * line that breaks log-aggregator greps. New admin write surfaces extend this
- * union so every audit line is greppable from a single source of tag values.
+ * list so every audit line is greppable from a single source of tag values.
+ *
+ * Exported as a `const` array (not a hand-written union) so the runtime list
+ * is greppable too — adding a new admin resource only edits one place, and
+ * the union type is derived from `typeof ADMIN_AUDIT_TAGS[number]`.
  */
-export type AdminAuditTag =
-	| "[api:admin:posts:POST]"
-	| "[api:admin:posts:PUT]"
-	| "[api:admin:posts:DELETE]"
-	| "[api:admin:projects:POST]"
-	| "[api:admin:projects:PUT]"
-	| "[api:admin:projects:DELETE]"
+export const ADMIN_AUDIT_TAGS = [
+	"[api:admin:posts:POST]",
+	"[api:admin:posts:PUT]",
+	"[api:admin:posts:DELETE]",
+	"[api:admin:projects:POST]",
+	"[api:admin:projects:PUT]",
+	"[api:admin:projects:DELETE]",
+] as const
+
+export type AdminAuditTag = (typeof ADMIN_AUDIT_TAGS)[number]
 
 /**
  * Emits a structured `console.info` audit line for admin writes. Every call

@@ -124,10 +124,15 @@ export async function parseJsonBody<T extends z.ZodTypeAny>(
  * when every path is empty (top-level type mismatch, e.g. `body = 5`), so the
  * log line never degenerates to `schema validation failed:` with nothing after.
  *
- * Capped at `MAX_ISSUE_SEGMENTS` segments so a pathological payload with
- * hundreds of nested issues doesn't produce a multi-KB log line per request —
- * with the warn-level demotion above, an unbounded line is log spam per
- * malformed probe.
+ * Segments are de-duplicated before counting against the cap: a pathological
+ * payload that triggers the same code 30× (e.g. 30 `invalid_type` issues with
+ * empty paths) compresses to one segment, not `"invalid_type, invalid_type,
+ * …, +20 more"` which carries no extra signal.
+ *
+ * Capped at `MAX_ISSUE_SEGMENTS` distinct segments so a pathological payload
+ * with hundreds of nested issues doesn't produce a multi-KB log line per
+ * request — with the warn-level demotion above, an unbounded line is log spam
+ * per malformed probe.
  *
  * Typed structurally rather than against Zod's exported `ZodIssue` (deprecated
  * in v4) so this helper stays decoupled from Zod's internal type churn.
@@ -141,7 +146,9 @@ function describeZodIssues(
 		.map((issue) => issue.path.join("."))
 		.filter((path) => path !== "")
 
-	const segments = paths.length > 0 ? paths : issues.map((issue) => issue.code)
+	const rawSegments =
+		paths.length > 0 ? paths : issues.map((issue) => issue.code)
+	const segments = Array.from(new Set(rawSegments))
 
 	if (segments.length <= MAX_ISSUE_SEGMENTS) {
 		return segments.join(", ")

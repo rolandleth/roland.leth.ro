@@ -45,7 +45,7 @@ export async function readErrorMessage(
 	}
 }
 
-export function formatZodIssues(issues: ZodIssueLike[]): string | null {
+function formatZodIssues(issues: ZodIssueLike[]): string | null {
 	const parts = issues.flatMap((issue) => {
 		const message = issue.message
 
@@ -53,8 +53,16 @@ export function formatZodIssues(issues: ZodIssueLike[]): string | null {
 			return []
 		}
 
+		// Defensive filter: the declared shape is `Array<string | number>`, but
+		// Zod's runtime path occasionally surfaces `undefined` segments (older
+		// internal types, custom-issue contributions). Coercing those into
+		// `"undefined"` would surface a confusing message to the admin; drop
+		// instead so the path collapses cleanly.
 		const path = (issue.path ?? [])
-			.filter((segment) => segment !== "")
+			.filter(
+				(segment): segment is string | number =>
+					segment != null && segment !== ""
+			)
 			.join(".")
 
 		return path === "" ? [message] : [`${path}: ${message}`]
