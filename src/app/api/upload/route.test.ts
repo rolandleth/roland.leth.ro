@@ -1,6 +1,11 @@
 import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { POST, detectImageMime, sanitizeFilename } from "./route"
+import {
+	POST,
+	detectImageMime,
+	sanitizeFilename,
+	sanitizeLogString,
+} from "./route"
 
 // Real PNG signature so files built by `pngFile()` pass the magic-byte sniff.
 // Tests for mismatched bytes use `pngFile({ headerBytes: ... })` to override.
@@ -52,6 +57,45 @@ describe("sanitizeFilename", () => {
 		// refactor that changes the contract is forced to acknowledge it.
 		expect(sanitizeFilename("///")).toBe("-")
 		expect(sanitizeFilename("📸")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region sanitizeLogString
+
+describe("sanitizeLogString", () => {
+	it("collapses CR / LF / TAB / NUL into single spaces", () => {
+		// Log injection: attacker-controlled bytes in `error.message` from the
+		// multipart parser could otherwise forge fake log lines beneath the
+		// real one. Newlines are the primary vector — strip them.
+		expect(sanitizeLogString("line1\nline2")).toBe("line1 line2")
+		expect(sanitizeLogString("line1\r\nline2")).toBe("line1 line2")
+		expect(sanitizeLogString("col1\tcol2")).toBe("col1 col2")
+		expect(sanitizeLogString("a\0b")).toBe("a b")
+	})
+
+	it("collapses runs of mixed control characters into a single space", () => {
+		expect(sanitizeLogString("foo\n\n\r\tbar")).toBe("foo bar")
+	})
+
+	it("preserves printable characters", () => {
+		expect(sanitizeLogString("Invalid boundary — got --x")).toBe(
+			"Invalid boundary — got --x"
+		)
+	})
+
+	it("clamps absurdly long messages", () => {
+		const long = "a".repeat(500)
+		const out = sanitizeLogString(long)
+		// 200-char cap + ellipsis. Pin the exact length so a future refactor
+		// can't silently uncap.
+		expect(out.length).toBe(201)
+		expect(out.endsWith("…")).toBe(true)
+	})
+
+	it("returns the input unchanged when it has no control characters and is short", () => {
+		expect(sanitizeLogString("ok")).toBe("ok")
 	})
 })
 
@@ -287,6 +331,12 @@ describe("POST /api/upload", () => {
 			"[api:upload:POST] malformed multipart",
 			expect.objectContaining({ message: expect.any(String) })
 		)
+		// Log-injection guard: whatever the parser said, the message field
+		// must be single-line. A multi-line `error.message` would let an
+		// attacker forge fake log lines below the real one.
+		const loggedMessage = (warn.mock.calls.at(-1)?.[1] as { message: string })
+			.message
+		expect(loggedMessage).not.toMatch(/[\r\n\t\0]/)
 		warn.mockRestore()
 	})
 

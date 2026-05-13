@@ -98,4 +98,27 @@ describe("readErrorMessage", () => {
 			"Save failed (HTTP 400)"
 		)
 	})
+
+	it("drops null/undefined/empty-string path segments rather than rendering them literally", async () => {
+		// `ZodIssue['path']` is declared `Array<string | number>`, but in
+		// practice some Zod versions surface `null` / `undefined` segments
+		// (older internal types, custom-issue contributions). Coercing those
+		// to `"null"` / `"undefined"` would produce confusing admin messages
+		// like `"sections.0.undefined: Required"`.
+		const response = jsonResponse(400, {
+			error: [
+				{
+					// `null` and `undefined` shouldn't show up in the rendered
+					// path; the surrounding segments should connect cleanly.
+					path: ["sections", null, "title", undefined, ""] as unknown as Array<
+						string | number
+					>,
+					message: "Required",
+				},
+			],
+		})
+		expect(await readErrorMessage(response, "Save failed")).toBe(
+			"sections.title: Required (HTTP 400)"
+		)
+	})
 })

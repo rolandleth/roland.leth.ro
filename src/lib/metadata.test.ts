@@ -73,4 +73,23 @@ describe("buildPageMetadata", () => {
 		const og = meta.openGraph as { publishedTime?: string }
 		expect(og.publishedTime).toBe("2024-06-15T09:00:00.000Z")
 	})
+
+	// Dev-only guard: the layout applies a `"%s | Roland Leth"` template to
+	// `metadata.title`, so a caller routing a pre-branded title through this
+	// helper would silently produce `"Roland Leth — Foo | Roland Leth"`. The
+	// throw surfaces the misuse in dev/test where it can be caught locally,
+	// without changing prod behavior.
+	describe("double-brand dev guard", () => {
+		it("throws when title contains 'Roland Leth' (dev/test)", () => {
+			expect(() =>
+				buildPageMetadata({ title: "Roland Leth — Apps", path: "/" })
+			).toThrow(/already contains "Roland Leth"/)
+		})
+
+		it("does not throw for an unbranded title", () => {
+			expect(() =>
+				buildPageMetadata({ title: "Apps", path: "/apps" })
+			).not.toThrow()
+		})
+	})
 })

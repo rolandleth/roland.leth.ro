@@ -78,6 +78,7 @@ export function postDatetimeToISO(datetime: string): string | undefined {
 	const match = datetime.match(DATETIME_REGEX)
 
 	if (!match) {
+		// eslint-disable-next-line no-console
 		console.warn("[format:postDatetimeToISO] invalid datetime", { datetime })
 
 		return undefined

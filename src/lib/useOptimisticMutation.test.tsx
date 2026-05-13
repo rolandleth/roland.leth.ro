@@ -176,7 +176,7 @@ describe("useOptimisticMutation — abort and supersession", () => {
 		)
 
 		act(() => {
-			void result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
+			result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
 		})
 
 		await waitFor(() => expect(capturedSignal).toBeDefined())
@@ -198,13 +198,13 @@ describe("useOptimisticMutation — abort and supersession", () => {
 		)
 
 		act(() => {
-			void result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
+			result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
 		})
 		await waitFor(() => expect(signals).toHaveLength(1))
 		expect(signals[0].aborted).toBe(false)
 
 		act(() => {
-			void result.current.mutate({ x: 2 }, { onRevert: vi.fn() })
+			result.current.mutate({ x: 2 }, { onRevert: vi.fn() })
 		})
 		await waitFor(() => expect(signals).toHaveLength(2))
 
@@ -231,7 +231,7 @@ describe("useOptimisticMutation — abort and supersession", () => {
 
 		let firstOutcome: MutateResult | undefined
 		act(() => {
-			void result.current
+			result.current
 				.mutate({ x: 1 }, { onRevert })
 				.then((r) => (firstOutcome = r))
 		})
@@ -240,7 +240,7 @@ describe("useOptimisticMutation — abort and supersession", () => {
 		// Start a second mutate before the first resolves — this aborts the first
 		// AbortController and makes its `controller` no longer current.
 		act(() => {
-			void result.current.mutate({ x: 2 }, { onRevert })
+			result.current.mutate({ x: 2 }, { onRevert })
 		})
 		await waitFor(() => expect(resolvers).toHaveLength(2))
 
@@ -337,9 +337,7 @@ describe("useOptimisticMutation — unmount after fetch resolves", () => {
 
 		let outcome: MutateResult | undefined
 		act(() => {
-			void result.current
-				.mutate({ x: 1 }, { onRevert })
-				.then((r) => (outcome = r))
+			result.current.mutate({ x: 1 }, { onRevert }).then((r) => (outcome = r))
 		})
 		await waitFor(() => expect(resolvers).toHaveLength(1))
 

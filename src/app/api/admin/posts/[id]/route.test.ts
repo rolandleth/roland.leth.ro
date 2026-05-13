@@ -293,6 +293,32 @@ describe("PUT /api/admin/posts/[id]", () => {
 			})
 		)
 	})
+
+	it("returns 500 on a Serializable serialization_failure (P2034)", async () => {
+		// The PUT runs at Serializable isolation to close the cross-section
+		// cache-invalidation race; a `serialization_failure` (Prisma error
+		// code P2034) is essentially impossible at single-admin volumes but
+		// must surface as a generic 500 with no retry loop (matches projects
+		// PUT). Pin the contract so a future refactor that swallows or
+		// retries the error has a guard.
+		vi.mocked(prisma.$transaction).mockRejectedValueOnce({
+			code: "P2034",
+			message: "Transaction failed due to a write conflict",
+		})
+
+		const response = await PUT(
+			putRequest("1", { title: "Renamed under contention" }),
+			params("1")
+		)
+		expect(response.status).toBe(500)
+
+		// Audit-tag must NOT emit on failure — a serialization_failure means
+		// the txn was rolled back, so the write never happened.
+		expect(vi.mocked(console.info)).not.toHaveBeenCalledWith(
+			"[api:admin:posts:PUT] success",
+			expect.anything()
+		)
+	})
 })
 
 // ---------------------------------------------------------------------------

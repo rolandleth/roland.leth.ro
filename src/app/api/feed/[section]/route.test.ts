@@ -200,4 +200,25 @@ describe("GET /api/feed/:section", () => {
 			"<![CDATA[<p>before]]]]><![CDATA[>after</p>]]></content>"
 		)
 	})
+
+	it("falls back to updatedAt for <published> when post.datetime is malformed", async () => {
+		// `postDatetimeToISO` returns `undefined` (not `null`) for legacy DB
+		// rows whose `datetime` doesn't match the schema regex. The whole point
+		// of the `undefined`-not-throw contract is so this feed-route fallback
+		// can exist; a missing fallback would surface `<published>null</published>`
+		// or worse `<published>undefined</published>` to strict readers.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{
+				...basePost,
+				datetime: "not-a-valid-datetime",
+				updatedAt: new Date("2024-07-15T12:34:56.000Z"),
+			},
+		])
+
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(text).toContain("<published>2024-07-15T12:34:56.000Z</published>")
+		expect(text).not.toContain("<published>null</published>")
+		expect(text).not.toContain("<published>undefined</published>")
+	})
 })
