@@ -89,8 +89,12 @@ export async function PUT(
 		// is benign (stale cache for one revalidate window, not corruption),
 		// but Serializable closes it cheaply at single-admin volumes where
 		// `serialization_failure` is essentially impossible. Under conflict
-		// the route surfaces a generic 500 (no retry loop) — same shape as
-		// the project PUT.
+		// the route surfaces a generic 500 — same shape as the project PUT.
+		// No retry loop: Prisma does NOT auto-retry serialization failures,
+		// and re-running the txn from the client would need idempotency
+		// guards on `auditLog` (must not double-fire) before that's safe.
+		// The 500 is therefore NOT client-retriable — admin must re-issue
+		// the PUT manually if it ever surfaces in practice.
 		const { previous, post } = await prisma.$transaction(
 			async (tx) => {
 				const previous = await tx.post.findUnique({
