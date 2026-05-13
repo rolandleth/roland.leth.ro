@@ -23,9 +23,25 @@ interface MutateOptions {
 	errorFallback?: string
 }
 
-interface MutateResult {
-	ok: boolean
-}
+/**
+ * Discriminated outcome of a `mutate` call:
+ * - `{ ok: true }` — the server returned 2xx and this controller is still
+ *   the latest; the caller may run success-path side effects.
+ * - `{ ok: false, reason: "failure" }` — the server returned non-ok OR fetch
+ *   threw (network/CORS). `onRevert` already ran and `error` is set.
+ * - `{ ok: false, reason: "superseded" }` — a newer `mutate` started before
+ *   this one resolved (or the component unmounted). `onRevert` did NOT run,
+ *   `error` was NOT set; the caller should treat this as "no-op, the newer
+ *   call owns the outcome" and avoid surfacing a toast / refreshing state.
+ *
+ * Today's two callers don't differentiate the failure modes, but the
+ * discriminant lands so future consumers (e.g. one that wants to skip a
+ * post-mutate `router.refresh()` on supersession) don't pay the extraction
+ * tax twice.
+ */
+export type MutateResult =
+	| { ok: true }
+	| { ok: false; reason: "failure" | "superseded" }
 
 /**
  * Optimistic-mutation hook for inline admin widgets that commit their
@@ -53,6 +69,14 @@ export function useOptimisticMutation<TPayload>({
 	useEffect(() => {
 		return () => {
 			abortRef.current?.abort()
+			// Null the ref AS WELL as aborting: in the narrow window where
+			// `fetch` resolves before the abort signal is observed (short
+			// buffered bodies, or a mock that ignores signals), the non-ok
+			// branch's `abortRef.current !== controller` guard would otherwise
+			// be FALSE and the branch would `setState` on an unmounted
+			// component. Nulling makes the guard correct for every
+			// post-unmount continuation, not just the abort-rejection path.
+			abortRef.current = null
 		}
 	}, [])
 
@@ -83,26 +107,26 @@ export function useOptimisticMutation<TPayload>({
 				// the disable, and for the parent-prop-drift case where
 				// `router.refresh()` re-renders with new initial values.
 				if (abortRef.current !== controller) {
-					return { ok: false }
+					return { ok: false, reason: "superseded" }
 				}
 
 				const message = await readErrorMessage(response, errorFallback)
 				onRevert()
 				setError(message)
 
-				return { ok: false }
+				return { ok: false, reason: "failure" }
 			}
 
 			return { ok: true }
 		} catch (err) {
 			// Aborts are silent: the unmount or a newer mutate already moved on.
 			if (isAbortError(err)) {
-				return { ok: false }
+				return { ok: false, reason: "superseded" }
 			}
 
 			// Same belt-and-suspenders guard as the non-ok branch.
 			if (abortRef.current !== controller) {
-				return { ok: false }
+				return { ok: false, reason: "superseded" }
 			}
 
 			// A thrown fetch rejection (network down, CORS) would otherwise
@@ -111,7 +135,7 @@ export function useOptimisticMutation<TPayload>({
 			onRevert()
 			setError(err instanceof Error ? err.message : errorFallback)
 
-			return { ok: false }
+			return { ok: false, reason: "failure" }
 		} finally {
 			if (abortRef.current === controller) {
 				setIsSaving(false)

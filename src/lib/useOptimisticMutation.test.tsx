@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useOptimisticMutation } from "./useOptimisticMutation"
+import {
+	type MutateResult,
+	useOptimisticMutation,
+} from "./useOptimisticMutation"
 
 function jsonResponse(status: number, body: unknown): Response {
 	return new Response(JSON.stringify(body), {
@@ -226,7 +229,7 @@ describe("useOptimisticMutation — abort and supersession", () => {
 			useOptimisticMutation<{ x: number }>({ url: "/api/test" })
 		)
 
-		let firstOutcome: { ok: boolean } | undefined
+		let firstOutcome: MutateResult | undefined
 		act(() => {
 			void result.current
 				.mutate({ x: 1 }, { onRevert })
@@ -247,7 +250,110 @@ describe("useOptimisticMutation — abort and supersession", () => {
 			resolvers[0](jsonResponse(500, { error: "stale" }))
 		})
 
-		expect(firstOutcome).toEqual({ ok: false })
+		// Supersession is now distinct from a genuine failure in the result
+		// shape so future callers can decide whether to surface a toast.
+		expect(firstOutcome).toEqual({ ok: false, reason: "superseded" })
+		expect(onRevert).not.toHaveBeenCalled()
+	})
+})
+
+describe("useOptimisticMutation — errorFallback plumbing", () => {
+	it("uses errorFallback on non-ok when the body has no recognisable error field", async () => {
+		// Body is JSON but neither `error: string` nor `error: ZodIssue[]` —
+		// `readErrorMessage` returns the fallback + status suffix. Pins the
+		// argument plumbing from `mutate({ ...errorFallback })` →
+		// `readErrorMessage(response, errorFallback)`.
+		global.fetch = vi
+			.fn()
+			.mockResolvedValue(jsonResponse(500, { unexpected: "shape" }))
+
+		const { result } = renderHook(() =>
+			useOptimisticMutation<{ x: number }>({ url: "/api/test" })
+		)
+
+		await act(async () => {
+			await result.current.mutate(
+				{ x: 1 },
+				{ onRevert: vi.fn(), errorFallback: "Custom non-ok fallback" }
+			)
+		})
+
+		expect(result.current.error).toBe("Custom non-ok fallback (HTTP 500)")
+	})
+
+	it("returns { ok: false, reason: 'failure' } on non-ok", async () => {
+		// Tightens the failure discriminant so future callers can rely on it
+		// for "don't show toast on supersession but do show on failure" UX.
+		global.fetch = vi.fn().mockResolvedValue(jsonResponse(500, { error: "x" }))
+
+		const { result } = renderHook(() =>
+			useOptimisticMutation<{ x: number }>({ url: "/api/test" })
+		)
+
+		let outcome: MutateResult | undefined
+		await act(async () => {
+			outcome = await result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
+		})
+
+		expect(outcome).toEqual({ ok: false, reason: "failure" })
+	})
+
+	it("returns { ok: false, reason: 'failure' } on a thrown non-abort rejection", async () => {
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network down"))
+
+		const { result } = renderHook(() =>
+			useOptimisticMutation<{ x: number }>({ url: "/api/test" })
+		)
+
+		let outcome: MutateResult | undefined
+		await act(async () => {
+			outcome = await result.current.mutate({ x: 1 }, { onRevert: vi.fn() })
+		})
+
+		expect(outcome).toEqual({ ok: false, reason: "failure" })
+	})
+})
+
+describe("useOptimisticMutation — unmount after fetch resolves", () => {
+	it("does not setState after unmount when a non-ok response resolves post-cleanup", async () => {
+		// Narrow race: `fetch` resolves non-ok, but the component unmounts
+		// before the `await response.json()` inside `readErrorMessage`
+		// settles. The unmount cleanup aborts the controller AND nulls
+		// abortRef.current. The supersession guard at the top of the non-ok
+		// branch (`abortRef.current !== controller`) suppresses onRevert/
+		// setError. This pins the absence of "setState on unmounted component"
+		// warnings and confirms the guard catches this exact ordering.
+		const resolvers: Array<(value: Response) => void> = []
+		global.fetch = vi.fn().mockImplementation(() => {
+			return new Promise((resolve) => {
+				resolvers.push(resolve)
+			})
+		})
+
+		const onRevert = vi.fn()
+		const { result, unmount } = renderHook(() =>
+			useOptimisticMutation<{ x: number }>({ url: "/api/test" })
+		)
+
+		let outcome: MutateResult | undefined
+		act(() => {
+			void result.current
+				.mutate({ x: 1 }, { onRevert })
+				.then((r) => (outcome = r))
+		})
+		await waitFor(() => expect(resolvers).toHaveLength(1))
+
+		// Unmount BEFORE the response settles. Cleanup aborts the controller.
+		unmount()
+
+		// Now resolve the request with a non-ok response. The guard must
+		// suppress onRevert + setError because abortRef.current is null after
+		// cleanup, so it cannot equal the still-live controller.
+		await act(async () => {
+			resolvers[0](jsonResponse(500, { error: "stale" }))
+		})
+
+		expect(outcome).toEqual({ ok: false, reason: "superseded" })
 		expect(onRevert).not.toHaveBeenCalled()
 	})
 })
