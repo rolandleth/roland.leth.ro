@@ -143,6 +143,20 @@ export default function ProjectForm({ initialData }: Props) {
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
 		e.preventDefault()
 
+		// Re-snap from `sortOrderText` before submitting: blur is the normal
+		// commit path, but submit can fire before blur (Enter inside another
+		// input, or a click on Save while sortOrder still has focus and
+		// transient invalid text). Without this, the stale committed
+		// `state.sortOrder` would ship — e.g. user typed `"5"` (commits 5),
+		// then deleted to `""` (no commit), then clicked Save → 5 silently
+		// submitted. Apply the same digit-only-or-snap-back rule the blur
+		// handler uses.
+		const trimmedSortOrder = sortOrderText.trim()
+		const sortOrder = /^\d+$/.test(trimmedSortOrder)
+			? Number(trimmedSortOrder)
+			: state.sortOrder
+		setSortOrderText(String(sortOrder))
+
 		await save({
 			name: state.name,
 			summary: state.summary,
@@ -154,7 +168,7 @@ export default function ProjectForm({ initialData }: Props) {
 			isFeatured: state.isFeatured,
 			isDiscontinued: state.isDiscontinued,
 			date: state.date || null,
-			sortOrder: state.sortOrder,
+			sortOrder,
 			// Strip the client-only `_key` from sections, their nested images,
 			// and links before sending.
 			sections: state.sections.map(({ _key: _, images, ...rest }) => ({

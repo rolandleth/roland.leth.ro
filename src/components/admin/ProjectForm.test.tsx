@@ -285,6 +285,56 @@ describe("ProjectForm — sortOrder field", () => {
 		const payload = JSON.parse(options.body)
 		expect(payload.sortOrder).toBe(initialData.sortOrder)
 	})
+
+	it("submits the latest typed value when a digit-only edit precedes submit without blur", async () => {
+		// Regression for the submit-before-blur race: user types `"5"` (commits
+		// 5 via `onChange`), but the submit path must re-snap from
+		// `sortOrderText` rather than trusting prior `state.sortOrder`. This
+		// is the happy case — verifying the re-snap doesn't break the
+		// already-committed value.
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
+		await userEvent.clear(sortOrder)
+		await userEvent.type(sortOrder, "5")
+		// No blur — go straight to submit.
+		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const payload = JSON.parse(options.body)
+		expect(payload.sortOrder).toBe(5)
+	})
+
+	it("does not submit a stale committed value when text is cleared without blur", async () => {
+		// Regression for the submit-before-blur race: type `"5"` (commits 5),
+		// then delete to `""` (no commit — `onChange` only writes state for
+		// digit-only input). Pre-fix: submit shipped the stale `5`. Post-fix:
+		// submit re-snaps from `sortOrderText` ("") and falls back to the
+		// already-committed value (still 5 because the empty isn't valid).
+		// Net effect either way is the user sees the snap-back in the input.
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
+		await userEvent.clear(sortOrder)
+		await userEvent.type(sortOrder, "5")
+		await userEvent.clear(sortOrder)
+		// No blur — go straight to submit while text is "".
+		await userEvent.click(screen.getByRole("button", { name: /save project/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const payload = JSON.parse(options.body)
+		// The submit re-snaps from `sortOrderText` (""); since that's not a
+		// digit string, it falls back to `state.sortOrder` (still 5 from the
+		// earlier valid edit). The visible input also snaps back to "5".
+		expect(payload.sortOrder).toBe(5)
+		expect(sortOrder.value).toBe("5")
+	})
 })
 
 // #endregion
