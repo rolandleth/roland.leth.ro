@@ -1,16 +1,23 @@
+import { createHmac } from "node:crypto"
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { verifyCredentials, createSession } from "@/lib/auth"
-import { getRedisConfig } from "@/lib/env"
+import { getIpHashSecret, getRedisConfig } from "@/lib/env"
 import { loginSchema } from "@/lib/schemas"
 
 // Construct from the resolved config object so the abstraction in `env.ts`
 // stays the single source of truth — `Redis.fromEnv()` would re-read
 // `process.env` directly and silently desync if the var names ever change.
 const redisConfig = getRedisConfig()
+const ipHashSecret = getIpHashSecret()
+// Rate limiting needs both Redis (to hold the buckets) and the HMAC secret (to
+// pseudonymize IPs before they're written). Missing either falls open — the
+// admin shouldn't be locked out by a config gap, and we'd rather skip the
+// limiter than regress to plain-IP keys (GDPR posture: the IPv4 keyspace is
+// small enough that a plain hash is reversible by brute force).
 const ratelimit =
-	redisConfig !== null
+	redisConfig !== null && ipHashSecret !== null
 		? new Ratelimit({
 				redis: new Redis(redisConfig),
 				limiter: Ratelimit.slidingWindow(5, "15 m"),
@@ -18,33 +25,52 @@ const ratelimit =
 			})
 		: null
 
+if (redisConfig !== null && ipHashSecret === null) {
+	// Visible config gap: Redis is wired but the HMAC secret isn't, so the
+	// limiter is silently off. Surface at warn so a missed env var on deploy
+	// is discoverable from the function logs.
+	// eslint-disable-next-line no-console
+	console.warn(
+		"[api:auth:login] IP_HASH_SECRET not configured, rate limiting disabled"
+	)
+}
+
 /**
- * Returns the best-effort client IP for rate-limit bucketing. Vercel sets
- * `x-forwarded-for` with a comma-separated list (leftmost is the original
- * client). Falls back to the literal string `"unknown"` so requests with no
- * forwarded header still bucket together (and don't piggyback on each other).
+ * Returns the HMAC-pseudonymized client IP used as the rate-limit bucket key.
+ * Vercel sets `x-forwarded-for` with a comma-separated list (leftmost is the
+ * original client). Requests with no forwarded header bucket together under
+ * the literal `"unknown"` so they don't piggyback on each other's budget.
+ *
+ * Hashing the IP — rather than storing it plain — keeps the bucket stable per
+ * client without writing personal data to Upstash or to the audit log. The
+ * IPv4 keyspace is only ~4B, so a plain SHA-256 is reversible by brute force;
+ * HMAC with a server-side secret blocks that.
  */
-function clientBucketKey(request: NextRequest): string {
+function clientBucketKey(request: NextRequest, secret: string): string {
 	const forwarded = request.headers.get("x-forwarded-for")
+	let rawIp = "unknown"
 
 	if (forwarded != null && forwarded !== "") {
 		const first = forwarded.split(",")[0]?.trim()
 
 		if (first !== undefined && first !== "") {
-			return first
+			rawIp = first
 		}
 	}
 
-	return "unknown"
+	return createHmac("sha256", secret)
+		.update(rawIp)
+		.digest("base64url")
+		.slice(0, 22)
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-	if (ratelimit) {
+	if (ratelimit && ipHashSecret) {
 		// Per-IP keying replaces the previous single global bucket: a stale
 		// botnet of 5 failed attempts/15min could otherwise lock the legitimate
 		// admin out of the only public auth entry point. With per-IP buckets,
 		// each origin gets its own 5/15min budget.
-		const key = clientBucketKey(request)
+		const key = clientBucketKey(request, ipHashSecret)
 
 		try {
 			const { success } = await ratelimit.limit(key)
@@ -106,15 +132,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 	if (!(await verifyCredentials(email, password))) {
 		// Logs the attempt (not the credentials) so repeated failures are visible
-		// without leaking secrets. Include the client bucket key so credential
-		// failures can be correlated with the rate-limit log above. Warn (not
-		// error) for the same reason as the rate-limit demotion: credential
-		// stuffing is a routine adversarial signal that would otherwise dominate
-		// the error log under any sustained probe.
+		// without leaking secrets. When the HMAC secret is configured, include
+		// the pseudonymized bucket key so failures can be correlated with the
+		// rate-limit log above; omit it entirely otherwise rather than fall back
+		// to a plain IP. Warn (not error) for the same reason as the rate-limit
+		// demotion: credential stuffing is a routine adversarial signal that
+		// would otherwise dominate the error log under any sustained probe.
 		// eslint-disable-next-line no-console
-		console.warn("[api:auth:login] invalid credentials", {
-			key: clientBucketKey(request),
-		})
+		console.warn(
+			"[api:auth:login] invalid credentials",
+			ipHashSecret !== null
+				? { key: clientBucketKey(request, ipHashSecret) }
+				: {}
+		)
 
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 	}

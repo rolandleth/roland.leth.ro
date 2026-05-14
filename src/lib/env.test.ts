@@ -4,6 +4,7 @@ import {
 	getAdminCredentials,
 	getCronSecret,
 	getDatabaseUrl,
+	getIpHashSecret,
 	getRedisConfig,
 	getSessionSecret,
 } from "./env"
@@ -113,6 +114,22 @@ describe("getCronSecret", () => {
 	it("returns null when missing", () => {
 		vi.stubEnv("CRON_SECRET", "")
 		expect(getCronSecret()).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region optional — ip hash secret
+
+describe("getIpHashSecret", () => {
+	it("returns the value when set", () => {
+		vi.stubEnv("IP_HASH_SECRET", "hmac-secret")
+		expect(getIpHashSecret()).toBe("hmac-secret")
+	})
+
+	it("returns null when missing", () => {
+		vi.stubEnv("IP_HASH_SECRET", "")
+		expect(getIpHashSecret()).toBeNull()
 	})
 })
 

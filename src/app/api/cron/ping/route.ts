@@ -2,8 +2,7 @@ import { timingSafeEqual } from "node:crypto"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { getCronSecret, getRedisConfig } from "@/lib/env"
-
-export const KEEPALIVE_KEY = "keepalive:last"
+import { KEEPALIVE_KEY } from "@/lib/keepalive"
 
 // Construct from the resolved config object so the abstraction in `env.ts`
 // stays the single source of truth — `Redis.fromEnv()` would re-read

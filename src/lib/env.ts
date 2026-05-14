@@ -32,6 +32,7 @@ const envSchema = z.object({
 	CRON_SECRET: z.string().optional(),
 	KV_REST_API_TOKEN: z.string().optional(),
 	KV_REST_API_URL: z.string().optional(),
+	IP_HASH_SECRET: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>
@@ -119,6 +120,16 @@ export function getAdminCredentials(): {
 /** Cron route bearer token. `null` means no cron auth is configured. */
 export function getCronSecret(): string | null {
 	return nonEmpty(readEnv().CRON_SECRET)
+}
+
+/**
+ * HMAC secret used to pseudonymize client IPs before they're written to the
+ * rate-limit bucket key. `null` means no secret is configured — the login
+ * route then skips rate-limiting (fail-open), matching the no-Redis path,
+ * rather than fall back to plain-IP keys (GDPR posture regression).
+ */
+export function getIpHashSecret(): string | null {
+	return nonEmpty(readEnv().IP_HASH_SECRET)
 }
 
 /**

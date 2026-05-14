@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { GET, KEEPALIVE_KEY } from "./route"
+import { KEEPALIVE_KEY } from "@/lib/keepalive"
+import { GET } from "./route"
 
 // `hasRedis` in the route is evaluated at module-load from
 // `process.env.KV_REST_API_TOKEN`. `.env.test` leaves it unset, so `redis` is

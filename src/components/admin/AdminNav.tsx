@@ -11,16 +11,61 @@ export default function AdminNav() {
 	const router = useRouter()
 	const [error, setError] = useState<string | null>(null)
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
+	const [isKeepaliveRunning, setIsKeepaliveRunning] = useState(false)
+	const [keepaliveResult, setKeepaliveResult] = useState<string | null>(null)
 
 	// Cancel an in-flight logout on unmount so it doesn't outlive the component.
 	// Same shape as `useAdminResource` and the other admin mutations.
 	const abortRef = useRef<AbortController | null>(null)
+	// Separate controller so a click on "Run keepalive" doesn't supersede an
+	// in-flight logout (and vice versa) — these are independent operations.
+	const keepaliveAbortRef = useRef<AbortController | null>(null)
 
 	useEffect(() => {
 		return () => {
 			abortRef.current?.abort()
+			keepaliveAbortRef.current?.abort()
 		}
 	}, [])
+
+	async function handleKeepalive() {
+		setError(null)
+		setKeepaliveResult(null)
+		setIsKeepaliveRunning(true)
+
+		const controller = new AbortController()
+		keepaliveAbortRef.current?.abort()
+		keepaliveAbortRef.current = controller
+
+		try {
+			const response = await fetch("/api/admin/keepalive", {
+				method: "POST",
+				signal: controller.signal,
+			})
+
+			if (!response.ok) {
+				const message = await readErrorMessage(response, "Keepalive failed")
+				setError(message)
+
+				return
+			}
+
+			const data = (await response.json()) as { ok: boolean; value: string }
+			setKeepaliveResult(data.value)
+		} catch (err) {
+			if (isAbortError(err)) {
+				return
+			}
+
+			// eslint-disable-next-line no-console
+			console.warn("[admin:AdminNav] keepalive failed", err)
+			setError("Keepalive failed (network error). Please retry.")
+		} finally {
+			if (keepaliveAbortRef.current === controller) {
+				setIsKeepaliveRunning(false)
+			}
+		}
+	}
 
 	async function handleLogout() {
 		setError(null)
@@ -107,6 +152,13 @@ export default function AdminNav() {
 						New project
 					</Link>
 					<button
+						onClick={handleKeepalive}
+						disabled={isKeepaliveRunning}
+						className="text-secondary cursor-pointer text-sm transition-colors hover:text-(--color-accent) disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{isKeepaliveRunning ? "Running…" : "Run keepalive"}
+					</button>
+					<button
 						onClick={handleLogout}
 						disabled={isLoggingOut}
 						className="text-secondary cursor-pointer text-sm transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -115,6 +167,13 @@ export default function AdminNav() {
 					</button>
 				</div>
 			</nav>
+
+			{keepaliveResult && (
+				<p className="text-secondary mx-auto max-w-4xl px-4 pb-2 text-xs">
+					Keepalive OK — wrote{" "}
+					<code className="font-mono">{keepaliveResult}</code>
+				</p>
+			)}
 
 			{error && (
 				<ErrorMessage size="sm" className="mx-auto max-w-4xl px-4 pb-2">
