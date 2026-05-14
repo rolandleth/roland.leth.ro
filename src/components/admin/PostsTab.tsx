@@ -47,6 +47,7 @@ export default async function PostsTab({ query, page }: Props) {
 						</div>
 						<Link
 							href={`/admin/posts/${post.id}/edit`}
+							prefetch={false}
 							className="text-secondary hover:text-primary text-xs transition-colors"
 						>
 							Edit
