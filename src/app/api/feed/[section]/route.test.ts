@@ -15,7 +15,7 @@ vi.mock("next/cache", async () => {
 })
 
 vi.mock("@/lib/db", () => ({
-	prisma: { post: { findMany: vi.fn() } },
+	prisma: { post: { findMany: vi.fn(), count: vi.fn() } },
 }))
 
 vi.mock("@/lib/markdown", () => ({
@@ -61,6 +61,7 @@ beforeEach(() => {
 	vi.mocked(markdownToHtml).mockImplementation(async (md) => `<p>${md}</p>`)
 	vi.mocked(stripMarkdown).mockImplementation((md) => md)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
+	vi.mocked(prisma.post.count).mockResolvedValue(0)
 	vi.mocked(siteBase).mockResolvedValue("http://localhost")
 })
 
@@ -207,10 +208,17 @@ describe("GET /api/feed/:section", () => {
 		// of the `undefined`-not-throw contract is so this feed-route fallback
 		// can exist; a missing fallback would surface `<published>null</published>`
 		// or worse `<published>undefined</published>` to strict readers.
+		//
+		// The datetime must still be lex-`<=` the current time so the
+		// scheduled-post read-time filter doesn't exclude the row before this
+		// rendering fallback is exercised. `"2020-bad-format"` is past-lex
+		// (`"2020"` < the current year prefix) and fails the `yyyy-MM-dd`
+		// / `yyyy-MM-dd-HHmm` regex so `postDatetimeToISO` returns
+		// `undefined`.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([
 			{
 				...basePost,
-				datetime: "not-a-valid-datetime",
+				datetime: "2020-bad-format",
 				updatedAt: new Date("2024-07-15T12:34:56.000Z"),
 			},
 		])

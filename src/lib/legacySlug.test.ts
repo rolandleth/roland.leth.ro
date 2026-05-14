@@ -24,8 +24,8 @@ beforeEach(() => {
 	vi.clearAllMocks()
 	vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 	vi.mocked(prisma.project.findFirst).mockResolvedValue(null)
-	// `cachedLookup` reads `currentDatetimeString()` inside the cached fn for
-	// the `datetime <= now` filter; `clearAllMocks` clears the factory's
+	// `lookupLegacySlug` reads `currentDatetimeString()` at the read-time
+	// filter step (post-cache). `clearAllMocks` clears the factory's
 	// `mockReturnValue` so restore it here.
 	vi.mocked(currentDatetimeString).mockReturnValue("2025-06-01-1200")
 })
@@ -39,6 +39,7 @@ describe("lookupLegacySlug", () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue({
 			section: "tech",
 			slug: "my-post",
+			datetime: "2024-06-01-1200",
 		} as never)
 		expect(await lookupLegacySlug("my-post")).toEqual({
 			kind: "post",
@@ -61,6 +62,7 @@ describe("lookupLegacySlug", () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue({
 			section: "life",
 			slug: "shared",
+			datetime: "2024-06-01-1200",
 		} as never)
 		vi.mocked(prisma.project.findFirst).mockResolvedValue({
 			slug: "shared",
@@ -78,15 +80,17 @@ describe("lookupLegacySlug", () => {
 		expect(prisma.project.findFirst).toHaveBeenCalled()
 	})
 
-	it("queries published posts by the slug arg with `datetime <= now`, selecting only section and slug", async () => {
+	it("queries published posts by the slug arg, selecting section/slug/datetime for the read-time filter", async () => {
+		// `datetime <= now` is NOT in the where clause — the cache stores the
+		// row regardless and the filter happens at read time so a scheduled
+		// post's legacy alias auto-redirects once its `datetime` passes.
 		await lookupLegacySlug("specific")
 		expect(prisma.post.findFirst).toHaveBeenCalledWith({
 			where: {
 				slug: "specific",
 				published: true,
-				datetime: { lte: "2025-06-01-1200" },
 			},
-			select: { section: true, slug: true },
+			select: { section: true, slug: true, datetime: true },
 		})
 	})
 
@@ -98,15 +102,16 @@ describe("lookupLegacySlug", () => {
 		})
 	})
 
-	it("excludes future-dated published posts (Prisma returns null even if a draft row exists)", async () => {
-		// Prisma applies the `datetime: { lte: now }` filter server-side, so a
-		// future-dated post simply doesn't match and `findFirst` resolves to
-		// null. This pins the filter contract: if a future regression drops
-		// `datetime: { lte: now }` from the `where` clause, the assertion
-		// above (`queries published posts ... with datetime <= now`) catches it;
-		// this test additionally documents the user-visible outcome.
-		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+	it("returns null for a future-dated post (read-time filter)", async () => {
+		// The cached row exists so it can auto-surface as its `datetime`
+		// passes; until then `lookupLegacySlug` keeps the legacy alias from
+		// 308-redirecting to a canonical page that itself would 404.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue({
+			section: "tech",
+			slug: "scheduled",
+			datetime: "9999-12-31-2359",
+		} as never)
 		vi.mocked(prisma.project.findFirst).mockResolvedValue(null)
-		expect(await lookupLegacySlug("future-dated")).toBeNull()
+		expect(await lookupLegacySlug("scheduled")).toBeNull()
 	})
 })

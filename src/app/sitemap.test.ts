@@ -219,26 +219,44 @@ describe("sitemap — post routes", () => {
 		expect(result).toHaveLength(11)
 	})
 
-	it("filters to published, currently-live posts at the DB query", async () => {
-		// Both `published: true` AND `datetime <= now` so search engines don't
-		// crawl scheduled posts before their publish time, mirroring the public
-		// listing/feed behavior.
+	it("queries every published post (including scheduled) so the read-time filter can surface them", async () => {
+		// The cache holds scheduled rows so they auto-surface in the sitemap
+		// once their `datetime` passes; the read-time filter (in
+		// `getAllPublishedPostSlugs`) keeps search engines from crawling them
+		// in the meantime.
 		await sitemap()
 		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
 			where: Record<string, unknown>
 		}
 		expect(call.where.published).toBe(true)
-		expect(call.where.datetime).toEqual({ lte: expect.any(String) })
+		expect(call.where).not.toHaveProperty("datetime")
+	})
+
+	it("excludes scheduled (future-dated) post URLs from the sitemap output", async () => {
+		// End-to-end check of the read-time filter: `getAllPublishedPostSlugs`
+		// strips scheduled rows so the sitemap reflects only currently-live
+		// posts, mirroring the public listing/feed behavior.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			postStub({ slug: "live", datetime: "2024-01-01-1200" }) as never,
+			postStub({ slug: "scheduled", datetime: "9999-12-31-2359" }) as never,
+		])
+
+		const result = await sitemap()
+		expect(result.find((r) => r.url.endsWith("/live"))).toBeDefined()
+		expect(result.find((r) => r.url.endsWith("/scheduled"))).toBeUndefined()
 	})
 
 	it("does not crash when a post has a malformed datetime string", async () => {
 		// Sitemap uses `post.updatedAt` (a Date), not `datetime`, so a malformed
 		// datetime string should be irrelevant to route emission. This pins that
 		// contract so a future refactor that swaps in a parser can't regress silently.
+		// The datetime must still be lex-`<=` the current time so the
+		// scheduled-post read-time filter in `getAllPublishedPostSlugs` doesn't
+		// exclude the row before this contract is exercised.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([
 			postStub({
 				slug: "weird-post",
-				datetime: "not-a-date",
+				datetime: "2020-bad-format",
 				updatedAt: new Date("2024-01-01"),
 			}) as never,
 		])

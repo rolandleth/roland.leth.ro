@@ -70,25 +70,32 @@ export function bySection<T>(fn: (section: Section) => T): Record<Section, T> {
  * Creates a cached fetcher for the first page of blog posts scoped to a single section.
  * Each section gets its own cache entry and tag so revalidation is precise:
  * invalidating `blog-tech` only busts the tech section, not life, and vice versa.
+ *
+ * The cached payload is padded by the current scheduled-post count: we take
+ * `PAGE_SIZE + futureCount` rows so that the read path can filter `datetime
+ * <= now` and still slice a full `PAGE_SIZE`. Scheduled posts therefore live
+ * inside the cache and auto-surface the first request after their `datetime`
+ * passes — no cron, no manual revalidate. Adding/editing a post still busts
+ * the cache via `revalidatePostSection`, which is how new future posts get
+ * picked up into the padding window.
  */
 function makeBlogPage1Cache(section: Section) {
 	return unstable_cache(
 		async () => {
-			const now = currentDatetimeString()
-			const where = publishedWhere(section, now)
+			const futureCount = await prisma.post.count({
+				where: {
+					section,
+					published: true,
+					datetime: { gt: currentDatetimeString() },
+				},
+			})
 
-			const [posts, total] = await Promise.all([
-				prisma.post.findMany({
-					where,
-					select: postListItemSelect,
-					orderBy: { datetime: "desc" },
-					skip: 0,
-					take: PAGE_SIZE,
-				}),
-				prisma.post.count({ where }),
-			])
-
-			return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
+			return prisma.post.findMany({
+				where: { section, published: true },
+				select: postListItemSelect,
+				orderBy: { datetime: "desc" },
+				take: PAGE_SIZE + futureCount,
+			})
 		},
 		[`blog-page1-${section}`],
 		{ tags: [`blog-${section}`] }
@@ -101,17 +108,30 @@ const blogPage1Cache = bySection(makeBlogPage1Cache)
  * Fetches a page of posts for a section. Callers are responsible for passing
  * a sane `page` (>= 1, integer) — always route through `parsePageParam` at the
  * route boundary. This function does not clamp, to surface misuse early.
+ *
+ * `totalPages` is computed from a request-time count of live posts so it
+ * stays accurate as scheduled posts cross their `datetime` boundary; a stale
+ * cached count would leave the last page inaccessible until the next bust.
  */
 export async function getPostsBySection(
 	section: Section,
 	page: number = 1
 ): Promise<{ posts: PostListItem[]; totalPages: number }> {
-	if (page === 1) {
-		return blogPage1Cache[section]()
-	}
-
 	const now = currentDatetimeString()
 	const where = publishedWhere(section, now)
+
+	if (page === 1) {
+		const [cached, total] = await Promise.all([
+			blogPage1Cache[section](),
+			prisma.post.count({ where }),
+		])
+
+		const posts = cached
+			.filter((post) => post.datetime <= now)
+			.slice(0, PAGE_SIZE)
+
+		return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
+	}
 
 	const [posts, total] = await Promise.all([
 		prisma.post.findMany({
@@ -138,25 +158,22 @@ export async function getPostsBySection(
 const postBySlugWrappers =
 	createBoundedWrapperCache<() => Promise<PostDetail | null>>()
 
-export function getPostBySlug(
+export async function getPostBySlug(
 	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
 	const key = `${section}:${slug}`
 	const wrapper = postBySlugWrappers.get(key, () =>
 		unstable_cache(
-			() => {
-				// `findFirst` (not `findUnique`) so we can layer the same
-				// `published: true` + `datetime <= now` filter as the section
-				// list / feed / sitemap; otherwise the canonical post URL serves
-				// drafts and future-dated posts that listings hide. `now` is
-				// captured inside the cached fn — future-dated published posts
-				// auto-surface when the cache organically expires or a mutation
-				// fires `revalidatePostSection` (covers the manual publish flow;
-				// time-based scheduled publishing is not a supported feature).
-				const now = currentDatetimeString()
-				return prisma.post.findFirst({
-					where: { section, slug, published: true, datetime: { lte: now } },
+			// `findFirst` (not `findUnique`) so `published: true` can be enforced
+			// at the query boundary; otherwise the canonical post URL would
+			// serve drafts. The `datetime <= now` check is intentionally NOT
+			// here — it's applied to the cached row at read time so a scheduled
+			// post auto-surfaces the first request after its `datetime` passes,
+			// without a cache bust.
+			() =>
+				prisma.post.findFirst({
+					where: { section, slug, published: true },
 					select: {
 						id: true,
 						title: true,
@@ -168,14 +185,21 @@ export function getPostBySlug(
 						imageUrl: true,
 						readingTime: true,
 					},
-				})
-			},
+				}),
 			[`post-${section}-${slug}`],
 			{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
 		)
 	)
 
-	return wrapper()
+	const post = await wrapper()
+
+	if (!post) {
+		return null
+	}
+
+	const now = currentDatetimeString()
+
+	return post.datetime <= now ? post : null
 }
 
 /**
@@ -253,25 +277,18 @@ export async function listPostsForAdmin({
 }
 
 /**
- * Cached list of every published, currently-live post's slug/section/datetime/
- * updatedAt for use by `generateStaticParams` and the sitemap. Excludes
- * future-dated posts so search engines don't crawl scheduled content before
- * its publish time and `generateStaticParams` doesn't prerender it at build.
- * Tagged `posts` so post mutations bust this alongside section-scoped caches.
+ * Cached list of every published post's slug/section/datetime/updatedAt,
+ * including scheduled (future-dated) rows. The public-facing
+ * `getAllPublishedPostSlugs` filters by `datetime <= now` at read time so
+ * scheduled posts stay out of the sitemap / `generateStaticParams` until
+ * their `datetime` passes, then auto-surface without waiting for a cache
+ * bust. Tagged `posts` so post mutations bust this alongside section-scoped
+ * caches.
  */
-export const getAllPublishedPostSlugs = unstable_cache(
-	async () => {
-		// `now` is captured inside the cached fn, so the entry naturally
-		// becomes "valid for this `now`-snapshot, evicted on mutation bus or
-		// organic expire." A post scheduled for a future `datetime` and
-		// published won't auto-surface at its scheduled time — sitemap and
-		// `generateStaticParams` only see it once the cache expires or a
-		// mutation fires. Same trade as `getPostBySlug` and
-		// `legacySlug.cachedLookup`. Revisit if time-based scheduling
-		// becomes a feature.
-		const now = currentDatetimeString()
-		return prisma.post.findMany({
-			where: { published: true, datetime: { lte: now } },
+const allPublishedPostSlugsCache = unstable_cache(
+	async () =>
+		prisma.post.findMany({
+			where: { published: true },
 			select: {
 				slug: true,
 				section: true,
@@ -279,11 +296,17 @@ export const getAllPublishedPostSlugs = unstable_cache(
 				updatedAt: true,
 			},
 			orderBy: { datetime: "desc" },
-		})
-	},
+		}),
 	["all-published-post-slugs"],
 	{ tags: ["posts"] }
 )
+
+export async function getAllPublishedPostSlugs() {
+	const slugs = await allPublishedPostSlugsCache()
+	const now = currentDatetimeString()
+
+	return slugs.filter((post) => post.datetime <= now)
+}
 
 export interface PostArchiveItem {
 	title: string
@@ -296,32 +319,19 @@ export interface PostArchiveItem {
  * Creates a cached fetcher for the archive page scoped to a single section.
  * Tagged with both `blog-archive-{section}` and `blog-{section}` so that any
  * post mutation (which revalidates `blog-{section}`) also busts the archive.
+ *
+ * Caches the raw published list including scheduled posts; year-grouping and
+ * `datetime <= now` filtering happen at read time in `getPostsGroupedByYear`
+ * so scheduled posts auto-surface in the archive as their `datetime` passes.
  */
 function makeArchiveCache(section: Section) {
 	return unstable_cache(
-		async () => {
-			const now = currentDatetimeString()
-
-			const posts = await prisma.post.findMany({
-				where: publishedWhere(section, now),
+		async () =>
+			prisma.post.findMany({
+				where: { section, published: true },
 				select: postArchiveItemSelect,
 				orderBy: { datetime: "desc" },
-			})
-
-			const groups: Record<string, PostArchiveItem[]> = {}
-
-			for (const post of posts) {
-				const year = yearFromDatetime(post.datetime)
-
-				if (!groups[year]) {
-					groups[year] = []
-				}
-
-				groups[year].push(post)
-			}
-
-			return groups
-		},
+			}),
 		[`blog-archive-${section}`],
 		{ tags: [`blog-archive-${section}`, `blog-${section}`] }
 	)
@@ -330,10 +340,29 @@ function makeArchiveCache(section: Section) {
 const archiveCache = bySection(makeArchiveCache)
 
 /** Returns all published posts for a section grouped by year, newest year first. */
-export function getPostsGroupedByYear(
+export async function getPostsGroupedByYear(
 	section: Section
 ): Promise<Record<string, PostArchiveItem[]>> {
-	return archiveCache[section]()
+	const posts = await archiveCache[section]()
+	const now = currentDatetimeString()
+
+	const groups: Record<string, PostArchiveItem[]> = {}
+
+	for (const post of posts) {
+		if (post.datetime > now) {
+			continue
+		}
+
+		const year = yearFromDatetime(post.datetime)
+
+		if (!groups[year]) {
+			groups[year] = []
+		}
+
+		groups[year].push(post)
+	}
+
+	return groups
 }
 
 export interface PostSearchResult {

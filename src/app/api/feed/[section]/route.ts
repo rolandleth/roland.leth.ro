@@ -40,14 +40,28 @@ function escapeCdata(html: string): string {
  * Creates a cached fetcher for feed posts scoped to a single section.
  * Each section gets its own cache entry and tag so revalidation is precise:
  * invalidating `feed-tech` only busts the tech feed, not life, and vice versa.
+ *
+ * The cached payload is padded by the current scheduled-post count: we take
+ * `FEED_ENTRY_LIMIT + futureCount` rows so that the handler can filter
+ * `datetime <= now` and still emit a full feed. Scheduled posts therefore
+ * live inside the cache and auto-surface the first request after their
+ * `datetime` passes, without waiting for a cache bust. Markdown rendering is
+ * done for the future rows too — small wasted compute traded for a simpler
+ * cache shape.
  */
 function makeFeedPostsCache(section: Section) {
 	return unstable_cache(
 		async () => {
-			const now = currentDatetimeString()
+			const futureCount = await prisma.post.count({
+				where: {
+					section,
+					published: true,
+					datetime: { gt: currentDatetimeString() },
+				},
+			})
 
 			const posts = await prisma.post.findMany({
-				where: { section, published: true, datetime: { lte: now } },
+				where: { section, published: true },
 				select: {
 					title: true,
 					slug: true,
@@ -58,7 +72,7 @@ function makeFeedPostsCache(section: Section) {
 					summary: true,
 				},
 				orderBy: { datetime: "desc" },
-				take: FEED_ENTRY_LIMIT,
+				take: FEED_ENTRY_LIMIT + futureCount,
 			})
 
 			// Pre-render markdown and resolve the summary fallback here so the
@@ -97,7 +111,11 @@ export async function GET(
 		return new Response("Not Found", { status: 404 })
 	}
 
-	const posts = await feedPostsCache[section]()
+	const cached = await feedPostsCache[section]()
+	const now = currentDatetimeString()
+	const posts = cached
+		.filter((post) => post.datetime <= now)
+		.slice(0, FEED_ENTRY_LIMIT)
 
 	// Atom `<id>` elements must be stable across callers; `request.url` varies
 	// with preview/proxy hosts, so feed readers would see different IDs for the

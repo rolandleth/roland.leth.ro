@@ -85,15 +85,54 @@ describe("getPostsBySection", () => {
 		expect(totalPages).toBe(0)
 	})
 
-	it("queries with skip: 0 for page 1", async () => {
+	it("uses the page 1 cache with `take: PAGE_SIZE` when no scheduled posts exist", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		vi.mocked(prisma.post.count).mockResolvedValue(0)
 
 		await getPostsBySection("tech", 1)
 
+		// `prisma.post.count` is mocked to 0 → futureCount = 0, so `take`
+		// collapses to PAGE_SIZE. The page 1 path also doesn't pass `skip`,
+		// because the cache holds the head of the list.
 		expect(prisma.post.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({ skip: 0, take: PAGE_SIZE })
+			expect.objectContaining({ take: PAGE_SIZE })
 		)
+	})
+
+	it("pads the page 1 cache by the future-post count", async () => {
+		// Two scheduled posts → cache takes `PAGE_SIZE + 2` rows so the
+		// read-time filter can strip them and still slice a full PAGE_SIZE.
+		// Both `prisma.post.count` calls (futureCount + totalPages) return 2
+		// via the same mock; the assertion targets the `findMany` `take`.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(2)
+
+		await getPostsBySection("tech", 1)
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ take: PAGE_SIZE + 2 })
+		)
+	})
+
+	it("filters future-dated rows out of page 1 at read time", async () => {
+		// Cache stores scheduled rows so they auto-surface as their datetime
+		// passes; until then the read-time filter keeps them off page 1.
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+		const livePost = makePost({
+			slug: "live",
+			datetime: "2024-06-01-1200",
+		})
+		const futurePost = makePost({
+			slug: "scheduled",
+			datetime: "9999-12-31-2359",
+		})
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			futurePost,
+			livePost,
+		] as unknown as Post[])
+
+		const { posts } = await getPostsBySection("tech", 1)
+		expect(posts.map((p) => p.slug)).toEqual(["live"])
 	})
 
 	it("queries with the correct skip offset for page 2", async () => {
@@ -161,6 +200,24 @@ describe("getPostsGroupedByYear", () => {
 		const groups = await getPostsGroupedByYear("tech")
 		expect(groups).toEqual({})
 	})
+
+	it("filters future-dated rows out of the year groups at read time", async () => {
+		// Cache stores scheduled rows so they auto-surface in the archive
+		// once their `datetime` passes; the read-time filter excludes them
+		// from the year groups in the meantime.
+		const posts = [
+			makePost({ datetime: "2024-06-20-1400", title: "Live" }),
+			makePost({ datetime: "9999-12-31-2359", title: "Scheduled" }),
+		]
+		vi.mocked(prisma.post.findMany).mockResolvedValue(
+			posts as unknown as Post[]
+		)
+
+		const groups = await getPostsGroupedByYear("tech")
+		expect(Object.keys(groups)).toEqual(["2024"])
+		expect(groups["2024"]).toHaveLength(1)
+		expect(groups["2024"][0].title).toBe("Live")
+	})
 })
 
 // #endregion
@@ -196,11 +253,11 @@ describe("getPostBySlug", () => {
 		expect(result).toBeNull()
 	})
 
-	it("filters drafts and future-dated posts at the query boundary", async () => {
-		// Closes the canonical-URL leak where a shared draft/future-scheduled
-		// URL would serve the post even though listings/feed/sitemap hide it.
-		// `findFirst` (not `findUnique`) so the filter applies; same shape as
-		// `publishedWhere` used by the section list and feed.
+	it("filters drafts at the query boundary via `published: true`", async () => {
+		// Drafts are server-side filtered so the canonical URL never serves an
+		// unpublished row. Future-dated posts are NOT filtered here; the
+		// boundary is enforced at read time so scheduled posts auto-surface
+		// the first request after their `datetime` passes.
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
 		await getPostBySlug("life", "some-slug")
@@ -211,13 +268,23 @@ describe("getPostBySlug", () => {
 		expect(call.where.section).toBe("life")
 		expect(call.where.slug).toBe("some-slug")
 		expect(call.where.published).toBe(true)
-		expect(call.where.datetime).toEqual({ lte: expect.any(String) })
+		expect(call.where).not.toHaveProperty("datetime")
 	})
 
-	it("returns null when DB returns null (e.g. draft or future-dated row filtered out)", async () => {
-		// `findFirst` returns null both when the row doesn't exist and when it
-		// fails the published/datetime filter; from the consumer's perspective
-		// these are indistinguishable, which is the intended contract.
+	it("returns null for a future-dated row (read-time filter)", async () => {
+		// The cached row exists so it can auto-surface as its `datetime`
+		// passes, but the read-time check keeps the canonical URL 404ing
+		// until then.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue({
+			...postDetail,
+			datetime: "9999-12-31-2359",
+		} as unknown as Post)
+
+		const result = await getPostBySlug("tech", "scheduled")
+		expect(result).toBeNull()
+	})
+
+	it("returns null when the row doesn't exist", async () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
 		const result = await getPostBySlug("tech", "scheduled-draft")
@@ -389,9 +456,10 @@ describe("bySection", () => {
 // #region datetime future filter
 
 describe("publishedWhere filter via getPostsBySection", () => {
-	it("includes `datetime: { lte: now }` in the where clause", async () => {
-		// Load-bearing for scheduled posts: removing the `lte` would make
-		// future-dated drafts visible to public list views. Pin explicitly.
+	it("includes `datetime: { lte: now }` in the where clause for page > 1", async () => {
+		// Page > 1 is uncached and queries the DB directly, so the `lte`
+		// filter belongs in the where clause. Page 1 uses a different shape
+		// (cache including future, filter at read time); covered separately.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		vi.mocked(prisma.post.count).mockResolvedValue(0)
 
@@ -411,7 +479,10 @@ describe("publishedWhere filter via getPostsBySection", () => {
 // #region getAllPublishedPostSlugs
 
 describe("getAllPublishedPostSlugs", () => {
-	it("queries only published, currently-live posts", async () => {
+	it("queries every published post (including scheduled) so the read-time filter can surface them", async () => {
+		// `datetime <= now` is NOT in the where clause — the filter is applied
+		// after the cache returns so scheduled posts auto-surface in the
+		// sitemap / `generateStaticParams` once their `datetime` passes.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		await getAllPublishedPostSlugs()
 
@@ -419,7 +490,7 @@ describe("getAllPublishedPostSlugs", () => {
 			where: Record<string, unknown>
 		}
 		expect(call.where.published).toBe(true)
-		expect(call.where.datetime).toEqual({ lte: expect.any(String) })
+		expect(call.where).not.toHaveProperty("datetime")
 	})
 
 	it("selects only the columns the sitemap and generateStaticParams need", async () => {
@@ -447,18 +518,28 @@ describe("getAllPublishedPostSlugs", () => {
 		)
 	})
 
-	it("filters future-dated posts so the sitemap and prerender list mirror public listings", async () => {
-		// Without `datetime: lte`, search engines would crawl scheduled posts
+	it("filters future-dated posts at read time so the sitemap mirrors public listings", async () => {
+		// Without this filter, search engines would crawl scheduled posts
 		// before their publish time and `generateStaticParams` would prerender
-		// them at build. The filter brings these in line with the section list
-		// / feed / archive behavior.
-		vi.mocked(prisma.post.findMany).mockResolvedValue([])
-		await getAllPublishedPostSlugs()
+		// them. With it, scheduled rows stay cached but stay out of the
+		// sitemap until their `datetime` passes.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{
+				slug: "live",
+				section: "tech",
+				datetime: "2024-06-01-1200",
+				updatedAt: new Date("2024-06-01"),
+			},
+			{
+				slug: "scheduled",
+				section: "tech",
+				datetime: "9999-12-31-2359",
+				updatedAt: new Date("2024-06-01"),
+			},
+		] as unknown as Post[])
 
-		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
-			where: Record<string, unknown>
-		}
-		expect(call.where).toHaveProperty("datetime")
+		const slugs = await getAllPublishedPostSlugs()
+		expect(slugs.map((s) => s.slug)).toEqual(["live"])
 	})
 })
 

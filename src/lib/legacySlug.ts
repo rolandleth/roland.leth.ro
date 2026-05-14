@@ -8,25 +8,26 @@ export type LegacyMatch =
 	| { kind: "project"; slug: string }
 	| null
 
+interface CachedLookup {
+	post: { section: Section; slug: string; datetime: string } | null
+	project: { slug: string } | null
+}
+
 // Instantiated once at module load. The `slug` argument is part of the cache
 // key, so every distinct slug gets its own entry without re-wrapping on each
 // call (which would defeat memoization and spam revalidation logs).
 const cachedLookup = unstable_cache(
-	async (slug: string): Promise<LegacyMatch> => {
-		// `now` is captured inside the cached fn — the entry is "valid for
-		// this `now`-snapshot, evicted on mutation bus or organic expire."
-		// Same `datetime <= now` filter as `getPostBySlug` /
-		// `getAllPublishedPostSlugs`; without it a future-dated published post
-		// whose slug matches a legacy URL 308-redirects to a canonical page
-		// that itself 404s on the same filter. A post crossing its publish
-		// minute is hidden from legacy redirects for up to `revalidate=300s`
-		// after the boundary unless a mutation fires. Same trade as the other
-		// cached fetchers — revisit if time-based scheduling becomes a feature.
-		const now = currentDatetimeString()
+	async (slug: string): Promise<CachedLookup> => {
+		// Scheduled-post handling matches `getPostBySlug` /
+		// `getAllPublishedPostSlugs`: the row is cached without a `datetime
+		// <= now` filter and the boundary is enforced at read time, so a
+		// future-dated post's legacy alias only 308-redirects once its
+		// `datetime` has passed (and the canonical page is therefore live).
+		// `datetime` is added to the select for the read-time check.
 		const [post, project] = await Promise.all([
 			prisma.post.findFirst({
-				where: { slug, published: true, datetime: { lte: now } },
-				select: { section: true, slug: true },
+				where: { slug, published: true },
+				select: { section: true, slug: true, datetime: true },
 			}),
 			prisma.project.findFirst({
 				where: { slug },
@@ -34,15 +35,7 @@ const cachedLookup = unstable_cache(
 			}),
 		])
 
-		if (post) {
-			return { kind: "post", section: post.section, slug: post.slug }
-		}
-
-		if (project) {
-			return { kind: "project", slug: project.slug }
-		}
-
-		return null
+		return { post, project }
 	},
 	["legacy-redirect"],
 	// Tagged with both `posts` and `projects` so the existing
@@ -58,6 +51,17 @@ const cachedLookup = unstable_cache(
  * Cached briefly so crawler hammering on dead slugs doesn't repeatedly hit the
  * DB. Posts win over projects when both share a slug (unlikely but possible).
  */
-export function lookupLegacySlug(slug: string): Promise<LegacyMatch> {
-	return cachedLookup(slug)
+export async function lookupLegacySlug(slug: string): Promise<LegacyMatch> {
+	const { post, project } = await cachedLookup(slug)
+	const now = currentDatetimeString()
+
+	if (post && post.datetime <= now) {
+		return { kind: "post", section: post.section, slug: post.slug }
+	}
+
+	if (project) {
+		return { kind: "project", slug: project.slug }
+	}
+
+	return null
 }
