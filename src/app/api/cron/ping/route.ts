@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
 import { getCronSecret, getRedisConfig } from "@/lib/env"
-import { KEEPALIVE_KEY } from "@/lib/keepalive"
+import { writeKeepalive } from "@/lib/keepalive"
 
 // Construct from the resolved config object so the abstraction in `env.ts`
 // stays the single source of truth — `Redis.fromEnv()` would re-read
@@ -54,15 +54,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.json({ ok: true })
 	}
 
-	try {
-		// `PING` is excluded from Upstash's idle-database detector, so a real data
-		// command is required to keep the free-tier DB from being flagged inactive.
-		// `SET keepalive:last <iso>` doubles as an observable "last successful run"
-		// marker visible in the Upstash data browser.
-		await redis.set(KEEPALIVE_KEY, new Date().toISOString())
-	} catch (error) {
+	// `PING` is excluded from Upstash's idle-database detector, so a real data
+	// command is required to keep the free-tier DB from being flagged inactive.
+	// `writeKeepalive` performs the `SET keepalive:last <iso>` write that
+	// doubles as an observable "last successful run" marker in the Upstash
+	// data browser; the helper is shared with `/api/admin/keepalive`.
+	const result = await writeKeepalive(redis)
+
+	if (!result.ok) {
 		// eslint-disable-next-line no-console
-		console.error("[api:cron:ping] redis.set() failed", error)
+		console.error("[api:cron:ping] redis.set() failed", result.error)
 
 		return NextResponse.json(
 			{ error: "Redis keepalive failed" },

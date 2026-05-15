@@ -1,7 +1,7 @@
 import { Redis } from "@upstash/redis"
 import { NextResponse } from "next/server"
 import { getRedisConfig } from "@/lib/env"
-import { KEEPALIVE_KEY } from "@/lib/keepalive"
+import { writeKeepalive } from "@/lib/keepalive"
 
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request requires a
 // valid JWT cookie). Mirrors the cron route's write so an admin can confirm
@@ -22,13 +22,11 @@ export async function POST(): Promise<NextResponse> {
 		)
 	}
 
-	const value = new Date().toISOString()
+	const result = await writeKeepalive(redis)
 
-	try {
-		await redis.set(KEEPALIVE_KEY, value)
-	} catch (error) {
+	if (!result.ok) {
 		// eslint-disable-next-line no-console
-		console.error("[api:admin:keepalive] redis.set() failed", error)
+		console.error("[api:admin:keepalive] redis.set() failed", result.error)
 
 		return NextResponse.json(
 			{ error: "Redis keepalive failed" },
@@ -40,7 +38,7 @@ export async function POST(): Promise<NextResponse> {
 	// cron in the logs (the cron route doesn't emit a success line; if it
 	// ever starts, both lines together answer "who wrote this timestamp").
 	// eslint-disable-next-line no-console
-	console.info("[api:admin:keepalive] success", { value })
+	console.info("[api:admin:keepalive] success", { value: result.value })
 
-	return NextResponse.json({ ok: true, value })
+	return NextResponse.json({ ok: true, value: result.value })
 }
