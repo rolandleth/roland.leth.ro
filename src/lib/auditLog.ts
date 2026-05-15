@@ -32,6 +32,7 @@ export const ADMIN_AUDIT_TAGS = [
 	"[api:admin:posts:POST]",
 	"[api:admin:posts:PUT]",
 	"[api:admin:posts:DELETE]",
+	"[api:admin:posts:BULK]",
 	"[api:admin:projects:POST]",
 	"[api:admin:projects:PUT]",
 	"[api:admin:projects:DELETE]",

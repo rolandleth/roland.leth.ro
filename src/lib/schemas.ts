@@ -47,6 +47,26 @@ export const postCreateSchema = z.object({
 
 export const postUpdateSchema = postCreateSchema.partial()
 
+// Per-file payload mirrors the strictest body limit from `postCreateSchema`,
+// so a malformed file is rejected at the parser before it ever reaches the
+// per-row insert. The 50-file cap keeps a single bulk request bounded
+// (50 × 100KB ≈ 5MB worst case) — well under any reasonable runtime body
+// limit and short enough that the in-memory pre-query for slug collisions
+// stays fast.
+const BULK_MAX_FILES = 50
+export const postBulkImportSchema = z.object({
+	section: z.enum(SECTIONS),
+	files: z
+		.array(
+			z.object({
+				filename: z.string().min(1).max(300),
+				content: z.string().min(1).max(100_000),
+			})
+		)
+		.min(1)
+		.max(BULK_MAX_FILES),
+})
+
 // Projects
 
 const projectLinkSchema = z.object({
