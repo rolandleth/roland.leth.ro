@@ -52,8 +52,9 @@ export const postUpdateSchema = postCreateSchema.partial()
 // per-row insert. The 50-file cap keeps a single bulk request bounded
 // (50 × 100KB ≈ 5MB worst case) — well under any reasonable runtime body
 // limit and short enough that the in-memory pre-query for slug collisions
-// stays fast.
-const BULK_MAX_FILES = 50
+// stays fast. Exported so the client form can render "first N of M" without
+// duplicating the constant and drifting from the server cap.
+export const BULK_MAX_FILES = 50
 export const postBulkImportSchema = z.object({
 	section: z.enum(SECTIONS),
 	files: z

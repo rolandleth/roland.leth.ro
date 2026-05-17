@@ -6,6 +6,7 @@ import ErrorMessage from "@/components/admin/ErrorMessage"
 import { parseBulkImportFilename } from "@/lib/bulkImportParser"
 import { isAbortError } from "@/lib/isAbortError"
 import { readErrorMessage } from "@/lib/readErrorMessage"
+import { BULK_MAX_FILES } from "@/lib/schemas"
 import { SECTIONS, type Section } from "@/lib/sections"
 
 interface ParsedFile {
@@ -18,12 +19,11 @@ interface ImportResult {
 	skipped: Array<{ filename: string; reason: string }>
 }
 
-const MAX_FILES = 50
-
 export default function PostBulkImport() {
 	const router = useRouter()
 	const [section, setSection] = useState<Section>("tech")
 	const [files, setFiles] = useState<ParsedFile[]>([])
+	const [truncatedCount, setTruncatedCount] = useState(0)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const [result, setResult] = useState<ImportResult | null>(null)
@@ -46,14 +46,20 @@ export default function PostBulkImport() {
 
 		if (!list || list.length === 0) {
 			setFiles([])
+			setTruncatedCount(0)
 			return
 		}
 
-		const next = Array.from(list)
-			.slice(0, MAX_FILES)
+		const all = Array.from(list)
+		const next = all
+			.slice(0, BULK_MAX_FILES)
 			.map((file) => ({ file, parse: parseBulkImportFilename(file.name) }))
 
 		setFiles(next)
+		// Visible signal when the selection was clipped, rather than silently
+		// dropping anything past the cap. Admin can re-split the batch instead
+		// of wondering why the result count is short.
+		setTruncatedCount(Math.max(0, all.length - BULK_MAX_FILES))
 	}
 
 	const validCount = files.filter((entry) => entry.parse.ok).length
@@ -110,6 +116,7 @@ export default function PostBulkImport() {
 
 			setResult(data)
 			setFiles([])
+			setTruncatedCount(0)
 
 			if (data.created > 0) {
 				router.refresh()
@@ -171,10 +178,18 @@ export default function PostBulkImport() {
 				/>
 				<p className="text-secondary text-xs">
 					Filename: <code>yyyy-MM-dd[-HHmm]-Title with spaces.md</code>. Up to{" "}
-					{MAX_FILES} files per upload. Future-dated posts will be published
-					automatically; past-dated posts saved as drafts.
+					{BULK_MAX_FILES} files per upload. Future-dated posts will be
+					published automatically; past-dated posts saved as drafts.
 				</p>
 			</div>
+
+			{truncatedCount > 0 && (
+				<p className="text-xs text-amber-600 dark:text-amber-400">
+					Selected {files.length + truncatedCount} files; importing the first{" "}
+					{BULK_MAX_FILES}. Re-run with the remaining {truncatedCount} after
+					this batch.
+				</p>
+			)}
 
 			{files.length > 0 && (
 				<div className="flex flex-col gap-2">
@@ -182,9 +197,13 @@ export default function PostBulkImport() {
 						{validCount} of {files.length} ready to import
 					</p>
 					<ul className="divide-border divide-y rounded-md border">
-						{files.map((entry) => (
+						{files.map((entry, index) => (
 							<li
-								key={entry.file.name}
+								// Composite key — two files with the same `name` from
+								// different directories or selections must not reuse the
+								// same React row, or the per-file parse result for one
+								// could render against the other on subsequent edits.
+								key={`${entry.file.name}-${index}-${entry.file.lastModified}`}
 								className="flex items-start justify-between gap-3 px-3 py-2"
 							>
 								<div className="min-w-0">

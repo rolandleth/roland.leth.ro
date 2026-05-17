@@ -1,6 +1,17 @@
 // `yyyy-MM-dd[-HHmm]-Title with spaces.md`. Title is captured verbatim — your
 // filenames already carry the literal display title, so no slug-decode is needed.
-const FILENAME_REGEX = /^(\d{4}-\d{2}-\d{2})(?:-(\d{4}))?-(.+)\.md$/
+//
+// Title char class explicitly excludes:
+//   - path separators `/` and `\` — block `../etc/passwd`-shaped filenames
+//     from ever reaching the audit log / result panel as a raw title.
+//   - ASCII control chars `\x00–\x1f` and DEL `\x7f` — tabs, newlines, NUL
+//     would otherwise survive into the stored `title` field and into log
+//     payloads, where they'd corrupt log line boundaries or render as
+//     `[object Object]`-style noise.
+// All other Unicode (accented letters, em-dashes, etc.) is kept verbatim;
+// `createSlug` separately sanitizes for the URL slug.
+const FILENAME_REGEX =
+	/^(\d{4}-\d{2}-\d{2})(?:-(\d{4}))?-([^/\\\x00-\x1f\x7f]+)\.md$/
 
 export type BulkParseResult =
 	| { ok: true; datetime: string; title: string }

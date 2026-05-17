@@ -47,6 +47,48 @@ describe("parseBulkImportFilename happy path", () => {
 			title: "1500 Reasons",
 		})
 	})
+
+	it("preserves Unicode titles verbatim (NFKD only applies to the derived slug, not the stored title)", () => {
+		// 2026-05-16 review: `createSlug` decomposes accents (`é` → `e`) but the
+		// stored `title` must keep the user-typed form. Pins that the parser
+		// doesn't fold characters before the title leaves it.
+		expect(parseBulkImportFilename("2026-05-15-Café Notes.md")).toEqual({
+			ok: true,
+			datetime: "2026-05-15-0000",
+			title: "Café Notes",
+		})
+	})
+})
+
+// #endregion
+
+// #region Hardened title character class
+
+describe("parseBulkImportFilename rejects unsafe title characters", () => {
+	// 2026-05-16 review: the raw `title` flows into audit log payloads and the
+	// per-file result panel. Path separators and ASCII control chars would
+	// either look like path traversal in audit text or corrupt log line
+	// boundaries, so the regex blocks them at parse time.
+
+	it("rejects a forward-slash in the title (path traversal shape)", () => {
+		const result = parseBulkImportFilename("2026-05-15-foo/bar.md")
+		expect(result.ok).toBe(false)
+	})
+
+	it("rejects a backslash in the title", () => {
+		const result = parseBulkImportFilename("2026-05-15-foo\\bar.md")
+		expect(result.ok).toBe(false)
+	})
+
+	it("rejects a control char (newline) in the title", () => {
+		const result = parseBulkImportFilename("2026-05-15-foo\nbar.md")
+		expect(result.ok).toBe(false)
+	})
+
+	it("rejects a control char (tab) in the title", () => {
+		const result = parseBulkImportFilename("2026-05-15-foo\tbar.md")
+		expect(result.ok).toBe(false)
+	})
 })
 
 // #endregion
