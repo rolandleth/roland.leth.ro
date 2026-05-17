@@ -48,7 +48,7 @@ export default function ImageUpload({
 			const formData = new FormData()
 			formData.append("file", file)
 
-			const response = await fetch("/api/upload", {
+			const response = await fetch("/api/admin/upload", {
 				method: "POST",
 				body: formData,
 				signal: controller.signal,

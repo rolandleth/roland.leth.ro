@@ -189,9 +189,9 @@ describe("detectImageMime", () => {
 
 // #endregion
 
-// #region POST /api/upload
+// #region POST /api/admin/upload
 
-describe("POST /api/upload", () => {
+describe("POST /api/admin/upload", () => {
 	beforeEach(() => {
 		vi.stubEnv("ALLOW_UPLOADS", "true")
 		// `restoreMocks: true` in the global config restores spies but does
@@ -209,7 +209,7 @@ describe("POST /api/upload", () => {
 	})
 
 	function uploadRequest(formData: FormData): Request {
-		return new Request("http://localhost/api/upload", {
+		return new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			body: formData,
 		})
@@ -287,7 +287,7 @@ describe("POST /api/upload", () => {
 		// formData() buffers the whole body before returning, so checking
 		// file.size afterwards is too late. The Content-Length header lets us
 		// short-circuit early. Build a Request with the header set, no body.
-		const oversizeRequest = new Request("http://localhost/api/upload", {
+		const oversizeRequest = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: { "content-length": String(10 * 1024 * 1024 + 1) },
 			body: new FormData(),
@@ -300,7 +300,7 @@ describe("POST /api/upload", () => {
 
 	it("returns 400 when the multipart body is malformed", async () => {
 		// formData() throws on a body that claims multipart but isn't.
-		const badRequest = new Request("http://localhost/api/upload", {
+		const badRequest = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: {
 				"content-type": "multipart/form-data; boundary=---bad",
@@ -318,7 +318,7 @@ describe("POST /api/upload", () => {
 		// sending garbage bodies got a clean 400 with zero log signal,
 		// inconsistent with the route's other 4xx (oversize / mime / mismatch).
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
-		const badRequest = new Request("http://localhost/api/upload", {
+		const badRequest = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: {
 				"content-type": "multipart/form-data; boundary=---bad",
@@ -328,7 +328,7 @@ describe("POST /api/upload", () => {
 
 		await POST(badRequest)
 		expect(warn).toHaveBeenCalledWith(
-			"[api:upload:POST] malformed multipart",
+			"[api:admin:upload:POST] malformed multipart",
 			expect.objectContaining({ message: expect.any(String) })
 		)
 		// Log-injection guard: whatever the parser said, the message field
@@ -377,7 +377,7 @@ describe("POST /api/upload", () => {
 		expect(response.status).toBe(415)
 		expect(put).not.toHaveBeenCalled()
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
-			"[api:upload:POST] mime mismatch",
+			"[api:admin:upload:POST] mime mismatch",
 			expect.objectContaining({ claimedType: "image/png" })
 		)
 	})
@@ -387,7 +387,7 @@ describe("POST /api/upload", () => {
 		// surface to logs rather than silently rejecting. Key is `size: number`
 		// to match the post-parse 413 below, so one grep covers both branches.
 		const declaredSize = 10 * 1024 * 1024 + 1
-		const oversizeRequest = new Request("http://localhost/api/upload", {
+		const oversizeRequest = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: { "content-length": String(declaredSize) },
 			body: new FormData(),
@@ -396,7 +396,7 @@ describe("POST /api/upload", () => {
 		await POST(oversizeRequest)
 
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
-			"[api:upload:POST] oversize precheck",
+			"[api:admin:upload:POST] oversize precheck",
 			{ size: declaredSize }
 		)
 	})
@@ -408,7 +408,7 @@ describe("POST /api/upload", () => {
 		// the real size, but the precheck should reject before parsing.
 		const formData = new FormData()
 		formData.append("file", pngFile())
-		const request = new Request("http://localhost/api/upload", {
+		const request = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: { "content-length": "-1" },
 			body: formData,
@@ -423,7 +423,7 @@ describe("POST /api/upload", () => {
 		const oversizeCalls = vi
 			.mocked(console.warn)
 			.mock.calls.filter(
-				(args) => args[0] === "[api:upload:POST] oversize precheck"
+				(args) => args[0] === "[api:admin:upload:POST] oversize precheck"
 			)
 		expect(oversizeCalls).toHaveLength(0)
 	})
@@ -435,7 +435,7 @@ describe("POST /api/upload", () => {
 		// future refactor that flips the comparison.
 		const formData = new FormData()
 		formData.append("file", pngFile())
-		const request = new Request("http://localhost/api/upload", {
+		const request = new Request("http://localhost/api/admin/upload", {
 			method: "POST",
 			headers: { "content-length": "abc" },
 			body: formData,
@@ -447,7 +447,7 @@ describe("POST /api/upload", () => {
 		const oversizeCalls = vi
 			.mocked(console.warn)
 			.mock.calls.filter(
-				(args) => args[0] === "[api:upload:POST] oversize precheck"
+				(args) => args[0] === "[api:admin:upload:POST] oversize precheck"
 			)
 		expect(oversizeCalls).toHaveLength(0)
 	})
@@ -459,7 +459,7 @@ describe("POST /api/upload", () => {
 		await POST(uploadRequest(formData))
 
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
-			"[api:upload:POST] disallowed mime",
+			"[api:admin:upload:POST] disallowed mime",
 			{ claimedType: "text/html" }
 		)
 	})

@@ -144,7 +144,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 		// covers both branches; the precheck previously logged
 		// `{ contentLength: string }` and required two greps.
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] oversize precheck", { size: declaredSize })
+		console.warn("[api:admin:upload:POST] oversize precheck", {
+			size: declaredSize,
+		})
 
 		return NextResponse.json(
 			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
@@ -170,7 +172,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		const rawMessage = error instanceof Error ? error.message : String(error)
 		const safeMessage = sanitizeLogString(rawMessage)
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] malformed multipart", {
+		console.warn("[api:admin:upload:POST] malformed multipart", {
 			message: safeMessage,
 		})
 
@@ -185,7 +187,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	if (file.size > MAX_UPLOAD_BYTES) {
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] oversize after parse", { size: file.size })
+		console.warn("[api:admin:upload:POST] oversize after parse", {
+			size: file.size,
+		})
 
 		return NextResponse.json(
 			{ error: `File exceeds ${MAX_UPLOAD_MIB} MiB limit` },
@@ -199,7 +203,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 	// payload mislabelled as an allowed image type.
 	if (!ALLOWED_UPLOAD_MIMES.has(file.type)) {
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] disallowed mime", {
+		console.warn("[api:admin:upload:POST] disallowed mime", {
 			claimedType: file.type,
 		})
 
@@ -217,7 +221,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	if (detectedMime === null || detectedMime !== file.type) {
 		// eslint-disable-next-line no-console
-		console.warn("[api:upload:POST] mime mismatch", {
+		console.warn("[api:admin:upload:POST] mime mismatch", {
 			claimedType: file.type,
 			detectedMime,
 		})
@@ -239,7 +243,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} catch (error) {
 		const requestId = randomUUID().replace(/-/g, "").slice(0, 12)
 		// eslint-disable-next-line no-console
-		console.error("[api:upload:POST]", { requestId }, error)
+		console.error("[api:admin:upload:POST]", { requestId }, error)
 
 		// Keep the user-facing message distinct from the generic 500 helper so
 		// the admin UI can show "Upload failed" rather than "Internal server error".

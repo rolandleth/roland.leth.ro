@@ -52,7 +52,7 @@ describe("ImageUpload rendering", () => {
 // #region Upload happy path
 
 describe("ImageUpload upload", () => {
-	it("POSTs the selected file to /api/upload and calls onChange with the returned URL", async () => {
+	it("POSTs the selected file to /api/admin/upload and calls onChange with the returned URL", async () => {
 		mockFetchJson(true, { url: "https://cdn.example.com/x.png" })
 		const onChange = vi.fn()
 

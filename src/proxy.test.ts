@@ -89,24 +89,11 @@ describe("proxy — admin API protection", () => {
 		expect(response.status).toBe(401)
 	})
 
-	it("returns 401 for unauthenticated /api/upload requests", async () => {
-		const response = await proxy(makeRequest("/api/upload"))
-		expect(response.status).toBe(401)
-	})
-
 	it("allows authenticated /api/admin/ requests through", async () => {
 		vi.mocked(jwtVerify).mockResolvedValue({
 			payload: { admin: true },
 		} as never)
 		const response = await proxy(makeRequest("/api/admin/posts", "valid-token"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("allows authenticated /api/upload requests through", async () => {
-		vi.mocked(jwtVerify).mockResolvedValue({
-			payload: { admin: true },
-		} as never)
-		const response = await proxy(makeRequest("/api/upload", "valid-token"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
 
@@ -131,7 +118,7 @@ describe("proxy — admin API protection", () => {
 		"/api/admin/posts/1",
 		"/api/admin/projects",
 		"/api/admin/projects/1",
-		"/api/upload",
+		"/api/admin/upload",
 	])("returns 401 for unauthenticated %s", async (path) => {
 		const response = await proxy(makeRequest(path))
 		expect(response.status).toBe(401)
@@ -453,27 +440,6 @@ describe("proxy — query-string preservation on redirects", () => {
 		expect(response.headers.get("location")).toContain(
 			"/blog/tech/search?q=react"
 		)
-	})
-})
-
-// #endregion
-
-// #region /api/upload boundary
-
-describe("proxy — /api/upload boundary", () => {
-	it("gates /api/upload itself behind admin auth", async () => {
-		const response = await proxy(makeRequest("/api/upload"))
-		expect(response.status).toBe(401)
-	})
-
-	it("does not gate /api/upload/<sub-path> (handler check is exact match)", async () => {
-		// `proxy.ts` matches /api/upload with `===`, so sub-paths fall through
-		// the admin gate. There is no actual /api/upload/* route today — this
-		// test pins the current contract so a future sub-route addition is an
-		// explicit decision, not a silent bypass.
-		const response = await proxy(makeRequest("/api/upload/sub-path"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.status).not.toBe(401)
 	})
 })
 

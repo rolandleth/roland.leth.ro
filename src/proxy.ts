@@ -49,9 +49,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 	// and fall through to the generic `/api/*` pass-through. No route currently
 	// lives at the bare path, but the guard is cheap defense in depth.
 	const isAdminApi =
-		pathname === "/api/admin" ||
-		pathname.startsWith("/api/admin/") ||
-		pathname === "/api/upload"
+		pathname === "/api/admin" || pathname.startsWith("/api/admin/")
 	const isAdminPage =
 		pathname.startsWith("/admin") && pathname !== "/admin/login"
 
