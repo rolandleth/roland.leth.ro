@@ -1,14 +1,9 @@
 import { timingSafeEqual } from "node:crypto"
-import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
-import { getCronSecret, getRedisConfig } from "@/lib/env"
-import { writeKeepalive } from "@/lib/keepalive"
+import { getCronSecret } from "@/lib/env"
+import { getKeepaliveRedis, writeKeepalive } from "@/lib/keepalive"
 
-// Construct from the resolved config object so the abstraction in `env.ts`
-// stays the single source of truth — `Redis.fromEnv()` would re-read
-// `process.env` directly and silently desync if the var names ever change.
-const redisConfig = getRedisConfig()
-const redis = redisConfig !== null ? new Redis(redisConfig) : null
+const redis = getKeepaliveRedis()
 
 function isAuthorized(auth: string | null, expected: string): boolean {
 	const expectedBuf = Buffer.from(`Bearer ${expected}`)
@@ -70,6 +65,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 			{ status: 502 }
 		)
 	}
+
+	// Positive heartbeat so an "alert if no cron success in N hours" check can
+	// be a log grep instead of scraping Upstash. Mirrors the admin route's
+	// success line; the two together answer "who wrote this timestamp".
+	// eslint-disable-next-line no-console
+	console.info("[api:cron:ping] success", { value: result.value })
 
 	return NextResponse.json({ ok: true })
 }

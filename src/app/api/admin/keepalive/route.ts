@@ -1,14 +1,11 @@
-import { Redis } from "@upstash/redis"
 import { NextResponse } from "next/server"
-import { getRedisConfig } from "@/lib/env"
-import { writeKeepalive } from "@/lib/keepalive"
+import { getKeepaliveRedis, writeKeepalive } from "@/lib/keepalive"
 
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request requires a
 // valid JWT cookie). Mirrors the cron route's write so an admin can confirm
 // from the dashboard that the Upstash keepalive path is actually working
 // without waiting for the next 00:00 UTC tick.
-const redisConfig = getRedisConfig()
-const redis = redisConfig !== null ? new Redis(redisConfig) : null
+const redis = getKeepaliveRedis()
 
 export async function POST(): Promise<NextResponse> {
 	if (!redis) {
