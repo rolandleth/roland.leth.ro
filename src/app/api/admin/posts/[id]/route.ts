@@ -128,6 +128,7 @@ export async function PUT(
 			previousSection: previous?.section ?? null,
 			previousSlug:
 				previous != null && previous.slug !== post.slug ? previous.slug : null,
+			batchId: null,
 		})
 
 		return NextResponse.json(post)
@@ -169,6 +170,7 @@ export async function DELETE(
 			sortOrder: null,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		return new NextResponse(null, { status: 204 })

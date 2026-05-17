@@ -233,6 +233,7 @@ describe("PUT /api/admin/posts/[id]", () => {
 				sortOrder: null,
 				previousSection: "tech",
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})
@@ -349,6 +350,7 @@ describe("DELETE /api/admin/posts/[id]", () => {
 				sortOrder: null,
 				previousSection: null,
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})

@@ -16,6 +16,13 @@ export interface AdminAuditPayload {
 	sortOrder: number | null
 	previousSection: Section | null
 	previousSlug: string | null
+	/**
+	 * Correlation id for bulk write surfaces (currently only `[api:admin:posts:BULK]`).
+	 * `null` for single-row handlers. With a `batchId` on every line of a bulk
+	 * batch, `rg "batchId\":\"<uuid>"` collapses a 50-file run interleaved with
+	 * unrelated traffic in the Vercel log retention window.
+	 */
+	batchId: string | null
 }
 
 /**

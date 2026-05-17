@@ -182,6 +182,7 @@ export async function PUT(
 			sortOrder: project.sortOrder,
 			previousSection: null,
 			previousSlug: isRenamed ? previousSlug : null,
+			batchId: null,
 		})
 
 		return NextResponse.json(project)
@@ -236,6 +237,7 @@ export async function DELETE(
 			sortOrder: null,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		return new NextResponse(null, { status: 204 })

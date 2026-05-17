@@ -77,6 +77,7 @@ describe("POST /api/admin/posts", () => {
 				sortOrder: null,
 				previousSection: null,
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})

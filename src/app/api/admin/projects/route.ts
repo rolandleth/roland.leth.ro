@@ -101,6 +101,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			sortOrder: project.sortOrder,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		return NextResponse.json(project, { status: 201 })

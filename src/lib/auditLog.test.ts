@@ -14,6 +14,7 @@ describe("auditLog", () => {
 			sortOrder: null,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
@@ -25,6 +26,7 @@ describe("auditLog", () => {
 				sortOrder: null,
 				previousSection: null,
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})
@@ -40,6 +42,7 @@ describe("auditLog", () => {
 			sortOrder: 0,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
@@ -56,10 +59,30 @@ describe("auditLog", () => {
 			sortOrder: null,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		const calls = vi.mocked(console.info).mock.calls
 		expect(calls[0][0]).toBe("[api:admin:posts:DELETE] success")
+	})
+
+	it("includes a non-null batchId for bulk surfaces so a run can be greppable as one unit", () => {
+		auditLog("[api:admin:posts:BULK]", {
+			id: 9,
+			slug: "x",
+			section: "tech",
+			sortOrder: null,
+			previousSection: null,
+			previousSlug: null,
+			batchId: "00000000-0000-0000-0000-000000000000",
+		})
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:BULK] success",
+			expect.objectContaining({
+				batchId: "00000000-0000-0000-0000-000000000000",
+			})
+		)
 	})
 
 	it("requires every field at the type level so call sites can't silently drop a relevant change", () => {
@@ -73,6 +96,7 @@ describe("auditLog", () => {
 			section: null,
 			sortOrder: null,
 			previousSection: null,
+			batchId: null,
 		}
 
 		expect(incomplete).toBeDefined()

@@ -53,6 +53,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			sortOrder: null,
 			previousSection: null,
 			previousSlug: null,
+			batchId: null,
 		})
 
 		return NextResponse.json(post, { status: 201 })

@@ -265,6 +265,7 @@ describe("PUT /api/admin/projects/[id]", () => {
 				sortOrder: renamed.sortOrder,
 				previousSection: null,
 				previousSlug: "my-app",
+				batchId: null,
 			}
 		)
 	})
@@ -362,6 +363,7 @@ describe("DELETE /api/admin/projects/[id]", () => {
 				sortOrder: null,
 				previousSection: null,
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})

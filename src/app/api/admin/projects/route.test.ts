@@ -104,6 +104,7 @@ describe("POST /api/admin/projects", () => {
 				sortOrder: createdProject.sortOrder,
 				previousSection: null,
 				previousSlug: null,
+				batchId: null,
 			}
 		)
 	})
