@@ -178,6 +178,97 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(response.status).toBe(200)
 		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
 	})
+
+	it("skips a file whose title sanitizes to an empty slug", async () => {
+		// Parser accepts `!!!` as a title; `createSlug("!!!")` returns "" because
+		// every char is in the punctuation-strip class. Route must surface this
+		// as a skip rather than attempting an empty-slug insert.
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [{ filename: "2026-05-15-!!!.md", content: "body" }],
+			})
+		)
+
+		expect(response.status).toBe(200)
+		const data = await response.json()
+		expect(data.created).toBe(0)
+		expect(data.skipped).toEqual([
+			{
+				filename: "2026-05-15-!!!.md",
+				reason: expect.stringMatching(/empty slug/i),
+			},
+		])
+		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
+	})
+
+	it("scopes uniqueness to (section, slug) so the same slug succeeds in tech and life independently", async () => {
+		// Two batches: one tech, one life, both posting the same slug. Both must
+		// succeed independently — the findMany pre-query filters by section, and
+		// the DB unique constraint is also `(section, slug)`. A scope-narrowing
+		// regression here would silently start cross-section-blocking writes.
+		vi.mocked(prisma.post.findMany).mockResolvedValueOnce([])
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValueOnce([
+			{ id: 1, slug: "shared", section: "tech" } as never,
+		])
+		const tech = await POST(
+			makeRequest({
+				section: "tech",
+				files: [{ filename: "2026-05-15-Shared.md", content: "t" }],
+			})
+		)
+		expect((await tech.json()).created).toBe(1)
+
+		vi.mocked(prisma.post.findMany).mockResolvedValueOnce([])
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValueOnce([
+			{ id: 2, slug: "shared", section: "life" } as never,
+		])
+		const life = await POST(
+			makeRequest({
+				section: "life",
+				files: [{ filename: "2026-05-15-Shared.md", content: "l" }],
+			})
+		)
+		expect((await life.json()).created).toBe(1)
+
+		// Both findMany calls must filter by their own section, not the other's.
+		const findManyCalls = vi.mocked(prisma.post.findMany).mock.calls
+		expect(findManyCalls[0][0]?.where).toMatchObject({ section: "tech" })
+		expect(findManyCalls[1][0]?.where).toMatchObject({ section: "life" })
+	})
+
+	it("reconciles a concurrent insert race: rows dropped by skipDuplicates are surfaced in `skipped`", async () => {
+		// 2026-05-16 review: previously the route reported `created: <returned>`
+		// without telling the admin which filename was eaten by the
+		// `skipDuplicates` belt-and-suspenders. This pins that a dropped row
+		// surfaces in `skipped` with a discoverable reason.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		// Two files prepared, only one returned by createManyAndReturn — the
+		// "loser" row was concurrent-inserted by another writer between the
+		// pre-query and the bulk insert.
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
+			{ id: 1, slug: "winner", section: "tech" } as never,
+		])
+
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{ filename: "2026-05-15-Winner.md", content: "w" },
+					{ filename: "2026-05-15-Loser.md", content: "l" },
+				],
+			})
+		)
+
+		const data = await response.json()
+		expect(data.created).toBe(1)
+		expect(data.skipped).toEqual([
+			{
+				filename: "2026-05-15-Loser.md",
+				reason: expect.stringMatching(/concurrent/i),
+			},
+		])
+	})
 })
 
 // #endregion
@@ -222,6 +313,47 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		)
 
 		expect(response.status).toBe(500)
+	})
+
+	it("does NOT revalidate or emit audit lines on a zero-create batch", async () => {
+		// Whether the zero-create comes from a parse-time skip or a DB-time
+		// skip, neither `revalidateTag` nor any `[api:admin:posts:BULK] success`
+		// audit line should fire. Pins the no-op invariant against accidental
+		// re-ordering of calls.
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [{ filename: "garbage.md", content: "body" }],
+			})
+		)
+
+		expect(response.status).toBe(200)
+		expect(revalidateTag).not.toHaveBeenCalled()
+		const auditCalls = vi
+			.mocked(console.info)
+			.mock.calls.filter((c) => c[0] === "[api:admin:posts:BULK] success")
+		expect(auditCalls).toEqual([])
+	})
+
+	it("emits a skip-reason summary log when files are skipped", async () => {
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{ filename: "garbage.md", content: "body" },
+					{ filename: "2026-05-15-!!!.md", content: "body" },
+				],
+			})
+		)
+
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:admin:posts:BULK] skipped",
+			expect.objectContaining({
+				section: "tech",
+				count: 2,
+				reasonsByType: expect.any(Object),
+			})
+		)
 	})
 })
 

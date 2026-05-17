@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
 import { auditLog } from "@/lib/auditLog"
@@ -7,6 +8,7 @@ import {
 	calculateReadingTime,
 	createSlug,
 	currentDatetimeString,
+	isFutureDatetime,
 } from "@/lib/format"
 import { revalidatePostSection } from "@/lib/posts"
 import { postBulkImportSchema } from "@/lib/schemas"
@@ -17,8 +19,10 @@ interface SkippedFile {
 	reason: string
 }
 
-interface PreparedRow {
-	filename: string
+// DB-shaped insert row. The originating filename is kept out of this type so
+// it can never accidentally leak into the Prisma `data` payload — see the
+// parallel `slugToFilename` map below for the audit-report lookup.
+interface InsertRow {
 	title: string
 	slug: string
 	body: string
@@ -28,23 +32,26 @@ interface PreparedRow {
 	readingTime: string
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
-	const parsed = await parseJsonBody(
-		request,
-		postBulkImportSchema,
-		"[api:admin:posts:BULK]"
-	)
+interface PreparedBatch {
+	toInsert: InsertRow[]
+	skipped: SkippedFile[]
+	slugToFilename: Map<string, string>
+}
 
-	if (parsed instanceof NextResponse) {
-		return parsed
-	}
-
-	const { section, files } = parsed
-	const now = currentDatetimeString()
-
-	const prepared: PreparedRow[] = []
+/**
+ * Parses each filename, derives the slug, and partitions the batch into
+ * `toInsert` (ready for DB) and `skipped` (with a per-file reason). Pulled
+ * out of `POST` so the route handler stays under the cognitive-complexity
+ * budget.
+ */
+function prepareBatch(
+	files: ReadonlyArray<{ filename: string; content: string }>,
+	section: Section,
+	now: string
+): PreparedBatch {
+	const toInsert: InsertRow[] = []
 	const skipped: SkippedFile[] = []
-
+	const slugToFilename = new Map<string, string>()
 	// Per-file slug duplication WITHIN this batch is a guaranteed unique-constraint
 	// violation downstream; catch it here so the user gets one clear "duplicate
 	// filename" message instead of a generic insert failure for every collision.
@@ -77,9 +84,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 		}
 
 		seenSlugs.add(slug)
+		slugToFilename.set(slug, file.filename)
 
-		prepared.push({
-			filename: file.filename,
+		toInsert.push({
 			title: result.title,
 			slug,
 			body: file.content,
@@ -89,52 +96,144 @@ export async function POST(request: Request): Promise<NextResponse> {
 			// auto-surface logic in `getPostsBySection` picks them up the moment
 			// their `datetime` passes. Past-dated posts default to draft so the
 			// admin reviews each before promoting it.
-			published: result.datetime > now,
+			published: isFutureDatetime(result.datetime, now),
 			readingTime: calculateReadingTime(file.content),
 		})
 	}
 
-	if (prepared.length === 0) {
+	return { toInsert, skipped, slugToFilename }
+}
+
+/**
+ * Counts skip reasons by category so a "wrong folder selected" 50-file batch
+ * leaves a single, greppable log line instead of being reconstructed from the
+ * per-file response.
+ */
+function summarizeSkipReasons(
+	skipped: ReadonlyArray<SkippedFile>
+): Record<string, number> {
+	const out: Record<string, number> = {}
+
+	for (const item of skipped) {
+		out[item.reason] = (out[item.reason] ?? 0) + 1
+	}
+
+	return out
+}
+
+function emitSkipSummary(
+	batchId: string,
+	section: Section,
+	skipped: ReadonlyArray<SkippedFile>
+): void {
+	if (skipped.length === 0) {
+		return
+	}
+
+	// eslint-disable-next-line no-console
+	console.info("[api:admin:posts:BULK] skipped", {
+		batchId,
+		section,
+		count: skipped.length,
+		reasonsByType: summarizeSkipReasons(skipped),
+	})
+}
+
+export async function POST(request: Request): Promise<NextResponse> {
+	const parsed = await parseJsonBody(
+		request,
+		postBulkImportSchema,
+		"[api:admin:posts:BULK]"
+	)
+
+	if (parsed instanceof NextResponse) {
+		return parsed
+	}
+
+	const { section, files } = parsed
+	const batchId = randomUUID()
+	// Captured once so every per-file comparison uses the same instant and a
+	// 0:00:01 race doesn't flip one file's auto-publish.
+	const now = currentDatetimeString()
+
+	const { toInsert, skipped, slugToFilename } = prepareBatch(
+		files,
+		section,
+		now
+	)
+
+	if (toInsert.length === 0) {
+		emitSkipSummary(batchId, section, skipped)
+
 		return NextResponse.json({ created: 0, skipped }, { status: 200 })
 	}
 
 	try {
 		const existing = await prisma.post.findMany({
-			where: { section, slug: { in: prepared.map((p) => p.slug) } },
+			where: { section, slug: { in: toInsert.map((p) => p.slug) } },
 			select: { slug: true },
 		})
 		const existingSlugs = new Set(existing.map((row) => row.slug))
 
-		const toInsert: PreparedRow[] = []
-		for (const row of prepared) {
+		const filteredInsert: InsertRow[] = []
+		for (const row of toInsert) {
 			if (existingSlugs.has(row.slug)) {
 				skipped.push({
-					filename: row.filename,
+					filename: slugToFilename.get(row.slug) ?? row.slug,
 					reason: "A post with this slug already exists",
 				})
 				continue
 			}
-			toInsert.push(row)
+			filteredInsert.push(row)
 		}
 
-		if (toInsert.length === 0) {
+		if (filteredInsert.length === 0) {
+			emitSkipSummary(batchId, section, skipped)
+
 			return NextResponse.json({ created: 0, skipped }, { status: 200 })
 		}
+
+		// One pre-insert breadcrumb so a 500 in the next call still tells us
+		// which slugs were in-flight. Without this, `respondInternalError`
+		// returns a generic 500 and the prepared list is lost.
+		// eslint-disable-next-line no-console
+		console.info("[api:admin:posts:BULK] inserting", {
+			batchId,
+			section,
+			count: filteredInsert.length,
+			slugs: filteredInsert.map((r) => r.slug),
+		})
 
 		// `skipDuplicates: true` is belt-and-suspenders against a concurrent
 		// admin write between our pre-query and this insert. Practically
 		// impossible at single-admin volumes, but the failure mode without
 		// it is a thrown unique-constraint that aborts the entire batch.
 		const created = await prisma.post.createManyAndReturn({
-			data: toInsert.map(({ filename: _filename, ...data }) => data),
+			data: filteredInsert,
 			skipDuplicates: true,
 			select: { id: true, slug: true, section: true },
 		})
+
+		// Reconcile: if `skipDuplicates` ate any row (concurrent write between
+		// the pre-query and the insert), surface the dropped filename in
+		// `skipped` instead of letting "created N" hide the loss.
+		if (created.length < filteredInsert.length) {
+			const createdSlugs = new Set(created.map((row) => row.slug))
+			for (const row of filteredInsert) {
+				if (!createdSlugs.has(row.slug)) {
+					skipped.push({
+						filename: slugToFilename.get(row.slug) ?? row.slug,
+						reason: "Skipped at insert (concurrent write)",
+					})
+				}
+			}
+		}
 
 		revalidatePostSection(section)
 
 		// One audit line per created row keeps the post POST/PUT/DELETE shape
 		// consistent — log aggregators don't need a special parser for bulk.
+		// `batchId` collapses all lines from this run into one greppable unit.
 		for (const row of created) {
 			auditLog("[api:admin:posts:BULK]", {
 				id: row.id,
@@ -143,9 +242,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 				sortOrder: null,
 				previousSection: null,
 				previousSlug: null,
-				batchId: null,
+				batchId,
 			})
 		}
+
+		emitSkipSummary(batchId, section, skipped)
 
 		return NextResponse.json(
 			{ created: created.length, skipped },
