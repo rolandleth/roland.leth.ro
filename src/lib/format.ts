@@ -119,6 +119,25 @@ export function currentDatetimeString(): string {
 }
 
 /**
+ * Returns `true` if `datetime` is strictly later than `now`, computed as a
+ * lexicographic string compare. Load-bearing invariant: the `yyyy-MM-dd-HHmm`
+ * format is fixed-width and zero-padded, so the lexicographic order matches
+ * the chronological order — `"2026-01-01-0900" < "2026-01-01-1000"` works.
+ *
+ * `now` is a required argument (rather than defaulting to
+ * `currentDatetimeString()`) so callers that iterate multiple datetimes
+ * capture one `now` rather than re-reading the clock per item, and so tests
+ * can pin "now" without having to mock around the intra-module call.
+ *
+ * Callers (bulk import, PostsTab scheduled marker, getPostsBySection filter)
+ * all depend on this invariant; centralized here so a future format change
+ * can't quietly desync them.
+ */
+export function isFutureDatetime(datetime: string, now: string): boolean {
+	return datetime > now
+}
+
+/**
  * Converts a post title into a URL-safe slug.
  * Ported from `Post.createLink()` in the old blog.
  *

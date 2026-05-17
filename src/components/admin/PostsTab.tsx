@@ -2,7 +2,11 @@ import Link from "next/link"
 import AdminPagination from "@/components/admin/AdminPagination"
 import BooleanFlagToggle from "@/components/admin/BooleanFlagToggle"
 import { buildAdminPageUrl } from "@/lib/adminPageUrl"
-import { currentDatetimeString, formatDate } from "@/lib/format"
+import {
+	currentDatetimeString,
+	formatDate,
+	isFutureDatetime,
+} from "@/lib/format"
 import { listPostsForAdmin } from "@/lib/posts"
 
 interface Props {
@@ -48,7 +52,8 @@ export default async function PostsTab({ query, page }: Props) {
 
 			<div className="divide-border divide-y">
 				{posts.map((post) => {
-					const isScheduled = post.published && post.datetime > now
+					const isScheduled =
+						post.published && isFutureDatetime(post.datetime, now)
 
 					return (
 						<div
