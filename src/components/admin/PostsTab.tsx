@@ -1,9 +1,9 @@
 import Link from "next/link"
 import AdminPagination from "@/components/admin/AdminPagination"
+import BooleanFlagToggle from "@/components/admin/BooleanFlagToggle"
 import { buildAdminPageUrl } from "@/lib/adminPageUrl"
 import { currentDatetimeString, formatDate } from "@/lib/format"
 import { listPostsForAdmin } from "@/lib/posts"
-import PostPublishedToggle from "@/components/admin/PostPublishedToggle"
 
 interface Props {
 	query: string
@@ -56,9 +56,11 @@ export default async function PostsTab({ query, page }: Props) {
 							className="flex items-center justify-between gap-3 py-3"
 						>
 							<div className="flex items-center gap-3">
-								<PostPublishedToggle
-									postId={post.id}
-									initialPublished={post.published}
+								<BooleanFlagToggle
+									initial={post.published}
+									url={`/api/admin/posts/${post.id}`}
+									payloadKey="published"
+									label="Published"
 								/>
 								<div>
 									<p className="text-primary text-sm font-medium">

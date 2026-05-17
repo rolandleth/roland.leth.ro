@@ -111,6 +111,15 @@ export function useOptimisticMutation<TPayload>({
 				}
 
 				const message = await readErrorMessage(response, errorFallback)
+				// Log the failure so a flaky-network or 5xx-storm leaves a
+				// breadcrumb in devtools. The UI also surfaces `message`, but
+				// users won't open the console; tail-the-log debugging will.
+				// eslint-disable-next-line no-console
+				console.error("[useOptimisticMutation] non-ok response", {
+					url,
+					status: response.status,
+					message,
+				})
 				onRevert()
 				setError(message)
 
@@ -132,6 +141,8 @@ export function useOptimisticMutation<TPayload>({
 			// A thrown fetch rejection (network down, CORS) would otherwise
 			// leave `isSaving=true` forever and block further mutations.
 			// Reverting and surfacing `err.message` is the recovery path.
+			// eslint-disable-next-line no-console
+			console.error("[useOptimisticMutation] fetch threw", { url, error: err })
 			onRevert()
 			setError(err instanceof Error ? err.message : errorFallback)
 

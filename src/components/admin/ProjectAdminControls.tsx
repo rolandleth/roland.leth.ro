@@ -1,4 +1,4 @@
-import IsFeaturedToggle from "@/components/admin/IsFeaturedToggle"
+import BooleanFlagToggle from "@/components/admin/BooleanFlagToggle"
 import ProjectSortOrderInput from "@/components/admin/ProjectSortOrderInput"
 import type { ProjectListItem } from "@/lib/projects"
 
@@ -15,9 +15,11 @@ interface Props {
 export default function ProjectAdminControls({ project, totalCount }: Props) {
 	return (
 		<>
-			<IsFeaturedToggle
-				projectId={project.id}
-				initialIsFeatured={project.isFeatured}
+			<BooleanFlagToggle
+				initial={project.isFeatured}
+				url={`/api/admin/projects/${project.id}`}
+				payloadKey="isFeatured"
+				label="Featured"
 			/>
 			<ProjectSortOrderInput
 				key={`${project.id}-${project.sortOrder}`}
