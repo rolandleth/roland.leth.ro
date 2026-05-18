@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import ImageUpload from "./ImageUpload"
+
+const user = setupUser()
 
 function pngFile(name: string) {
 	return new File(["x"], name, { type: "image/png" })
@@ -61,7 +63,7 @@ describe("ImageUpload upload", () => {
 			'input[type="file"]'
 		) as HTMLInputElement
 
-		await userEvent.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput, pngFile("a.png"))
 
 		await waitFor(() =>
 			expect(onChange).toHaveBeenCalledWith("https://cdn.example.com/x.png")
@@ -77,7 +79,7 @@ describe("ImageUpload upload", () => {
 		const fileInput = document.querySelector(
 			'input[type="file"]'
 		) as HTMLInputElement
-		await userEvent.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput, pngFile("a.png"))
 
 		await waitFor(() =>
 			expect(screen.getByText("File too large (HTTP 413)")).toBeInTheDocument()
@@ -112,8 +114,8 @@ describe("ImageUpload race handling", () => {
 			'input[type="file"]'
 		) as HTMLInputElement
 
-		await userEvent.upload(fileInput, pngFile("a.png"))
-		await userEvent.upload(fileInput, pngFile("b.png"))
+		await user.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput, pngFile("b.png"))
 
 		await waitFor(() => expect(signals.length).toBe(2))
 		await waitFor(() => expect(signals[0].aborted).toBe(true))
@@ -139,7 +141,7 @@ describe("ImageUpload race handling", () => {
 			'input[type="file"]'
 		) as HTMLInputElement
 
-		await userEvent.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput, pngFile("a.png"))
 		await waitFor(() => expect(signals.length).toBe(1))
 
 		unmount()

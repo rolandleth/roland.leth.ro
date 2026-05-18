@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import SectionManager, { type SectionItem } from "./SectionManager"
+
+const user = setupUser()
 
 // MarkdownEditor pulls `@/lib/markdown` which loads the remark/rehype pipeline
 // at import. Stub to a plain textarea so these tests focus on SectionManager's
@@ -62,7 +64,7 @@ describe("SectionManager add", () => {
 		const onChange = vi.fn()
 
 		render(<SectionManager value={existing} onChange={onChange} />)
-		await userEvent.click(screen.getByRole("button", { name: /add section/i }))
+		await user.click(screen.getByRole("button", { name: /add section/i }))
 
 		const next = onChange.mock.calls[0][0] as SectionItem[]
 		expect(next).toHaveLength(2)
@@ -92,7 +94,7 @@ describe("SectionManager remove + reindex", () => {
 		render(<SectionManager value={sections} onChange={onChange} />)
 		const removeButtons = screen.getAllByRole("button", { name: /remove/i })
 		// Click the middle section's remove.
-		await userEvent.click(removeButtons[1])
+		await user.click(removeButtons[1])
 
 		const next = onChange.mock.calls[0][0] as SectionItem[]
 		expect(next.map((s) => s.title)).toEqual(["Alpha", "Charlie"])
@@ -114,7 +116,7 @@ describe("SectionManager update", () => {
 
 		render(<SectionManager value={sections} onChange={onChange} />)
 		const titleInputs = screen.getAllByPlaceholderText("Section title")
-		await userEvent.type(titleInputs[0], "!")
+		await user.type(titleInputs[0], "!")
 
 		const last = onChange.mock.calls[
 			onChange.mock.calls.length - 1

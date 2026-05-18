@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
+
+const user = setupUser()
 
 vi.mock("next/image", () => ({
 	default: (props: Record<string, unknown>) => {
@@ -63,7 +65,7 @@ describe("ProjectSectionCarousel — a11y (Phase 8)", () => {
 
 	it("paginates to the next image when Next is clicked and exposes the new aria-current", async () => {
 		render(<ProjectSectionCarousel images={images} altPrefix="MyApp" />)
-		await userEvent.click(screen.getByRole("button", { name: /next image/i }))
+		await user.click(screen.getByRole("button", { name: /next image/i }))
 
 		const dots = screen.getAllByRole("button", { name: /go to image/i })
 		expect(dots[1]).toHaveAttribute("aria-current", "true")

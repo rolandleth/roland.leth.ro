@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import PresetOrFreeformInput from "./PresetOrFreeformInput"
+
+const user = setupUser()
 
 const PRESETS = ["Apple", "Banana", "Cherry"] as const
 
@@ -97,7 +99,7 @@ describe("PresetOrFreeformInput — interactions", () => {
 		render(
 			<PresetOrFreeformInput value="" onChange={onChange} presets={PRESETS} />
 		)
-		await userEvent.selectOptions(screen.getByRole("combobox"), "Banana")
+		await user.selectOptions(screen.getByRole("combobox"), "Banana")
 		expect(onChange).toHaveBeenCalledWith("Banana")
 	})
 
@@ -110,7 +112,7 @@ describe("PresetOrFreeformInput — interactions", () => {
 				presets={PRESETS}
 			/>
 		)
-		await userEvent.selectOptions(screen.getByRole("combobox"), "Freeform…")
+		await user.selectOptions(screen.getByRole("combobox"), "Freeform…")
 		expect(onChange).toHaveBeenCalledWith("")
 	})
 
@@ -119,7 +121,7 @@ describe("PresetOrFreeformInput — interactions", () => {
 		render(
 			<PresetOrFreeformInput value="" onChange={onChange} presets={PRESETS} />
 		)
-		await userEvent.type(screen.getByPlaceholderText("or type freely…"), "x")
+		await user.type(screen.getByPlaceholderText("or type freely…"), "x")
 		expect(onChange).toHaveBeenCalledWith("x")
 	})
 

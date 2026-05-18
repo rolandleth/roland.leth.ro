@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import ExpandableSearch from "./ExpandableSearch"
+
+const user = setupUser()
 
 describe("ExpandableSearch", () => {
 	it("renders collapsed (search icon) by default", () => {
@@ -25,7 +27,7 @@ describe("ExpandableSearch", () => {
 		// AnimatePresence mode="wait" stalls under happy-dom (no real animation
 		// timing); `findBy*` polls past the swap.
 		render(<ExpandableSearch placeholder="Search…" onSubmit={vi.fn()} />)
-		await userEvent.click(screen.getByRole("button", { name: /search/i }))
+		await user.click(screen.getByRole("button", { name: /search/i }))
 
 		expect(await screen.findByRole("searchbox")).toBeInTheDocument()
 	})
@@ -42,8 +44,8 @@ describe("ExpandableSearch", () => {
 		)
 
 		const input = screen.getByRole("searchbox")
-		await userEvent.click(input)
-		await userEvent.keyboard("{Escape}")
+		await user.click(input)
+		await user.keyboard("{Escape}")
 
 		// Don't assert call-count: under happy-dom, framer-motion AnimatePresence
 		// + useClickOutside can produce a follow-up mousedown that fires onClose
@@ -62,9 +64,7 @@ describe("ExpandableSearch", () => {
 			/>
 		)
 
-		await userEvent.click(
-			screen.getByRole("button", { name: /cancel search/i })
-		)
+		await user.click(screen.getByRole("button", { name: /cancel search/i }))
 
 		// Don't assert call-count: under happy-dom, framer-motion AnimatePresence
 		// + useClickOutside can produce a follow-up mousedown that fires onClose
@@ -81,9 +81,9 @@ describe("ExpandableSearch", () => {
 				initialValue=""
 			/>
 		)
-		await userEvent.click(screen.getByRole("button", { name: /search/i }))
+		await user.click(screen.getByRole("button", { name: /search/i }))
 		const input = await screen.findByRole("searchbox")
-		await userEvent.type(input, "  hello world  {enter}")
+		await user.type(input, "  hello world  {enter}")
 
 		expect(onSubmit).toHaveBeenCalledWith("hello world")
 	})
@@ -98,9 +98,9 @@ describe("ExpandableSearch", () => {
 				initialValue=""
 			/>
 		)
-		await userEvent.click(screen.getByRole("button", { name: /search/i }))
+		await user.click(screen.getByRole("button", { name: /search/i }))
 		const input = await screen.findByRole("searchbox")
-		await userEvent.type(input, "   {enter}")
+		await user.type(input, "   {enter}")
 
 		expect(onSubmit).not.toHaveBeenCalled()
 	})
@@ -121,7 +121,7 @@ describe("ExpandableSearch", () => {
 		// Confirm expanded first.
 		expect(screen.getByRole("searchbox")).toBeInTheDocument()
 
-		await userEvent.click(screen.getByTestId("outside"))
+		await user.click(screen.getByTestId("outside"))
 
 		// Don't assert call-count: under happy-dom, framer-motion AnimatePresence
 		// + useClickOutside can produce a follow-up mousedown that fires onClose

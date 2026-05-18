@@ -1,8 +1,10 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import SearchForm from "./SearchForm"
+
+const user = setupUser()
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
@@ -56,7 +58,7 @@ describe("SearchForm — Escape callback", () => {
 		render(
 			<SearchForm section="tech" autoFocus onKeyDownEscape={onKeyDownEscape} />
 		)
-		await userEvent.keyboard("{Escape}")
+		await user.keyboard("{Escape}")
 		expect(onKeyDownEscape).toHaveBeenCalledTimes(1)
 	})
 
@@ -64,6 +66,6 @@ describe("SearchForm — Escape callback", () => {
 		mockRouter()
 		render(<SearchForm section="tech" autoFocus />)
 		// Just asserts no throw — Escape with no handler is a no-op.
-		await expect(userEvent.keyboard("{Escape}")).resolves.not.toThrow()
+		await expect(user.keyboard("{Escape}")).resolves.not.toThrow()
 	})
 })

@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import ProjectSortOrderInput from "./ProjectSortOrderInput"
+
+const user = setupUser()
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
@@ -90,9 +92,9 @@ describe("ProjectSortOrderInput save behaviour", () => {
 			/>
 		)
 		const input = screen.getByRole("spinbutton")
-		await userEvent.clear(input)
-		await userEvent.type(input, "3")
-		await userEvent.tab()
+		await user.clear(input)
+		await user.type(input, "3")
+		await user.tab()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -113,8 +115,8 @@ describe("ProjectSortOrderInput save behaviour", () => {
 				totalCount={5}
 			/>
 		)
-		await userEvent.click(screen.getByRole("spinbutton"))
-		await userEvent.tab()
+		await user.click(screen.getByRole("spinbutton"))
+		await user.tab()
 
 		expect(global.fetch).not.toHaveBeenCalled()
 	})
@@ -131,8 +133,8 @@ describe("ProjectSortOrderInput save behaviour", () => {
 			/>
 		)
 		const input = screen.getByRole("spinbutton")
-		await userEvent.clear(input)
-		await userEvent.tab()
+		await user.clear(input)
+		await user.tab()
 
 		expect(input).toHaveValue(3)
 		expect(global.fetch).not.toHaveBeenCalled()
@@ -152,9 +154,9 @@ describe("ProjectSortOrderInput save behaviour", () => {
 			/>
 		)
 		const input = screen.getByRole("spinbutton")
-		await userEvent.clear(input)
-		await userEvent.type(input, "3")
-		await userEvent.tab()
+		await user.clear(input)
+		await user.type(input, "3")
+		await user.tab()
 
 		// The catch now surfaces err.message so the failure reason is visible
 		// without opening DevTools (e.g. "Network down" instead of "Failed to save").
@@ -179,9 +181,9 @@ describe("ProjectSortOrderInput save behaviour", () => {
 			/>
 		)
 		const input = screen.getByRole("spinbutton")
-		await userEvent.clear(input)
-		await userEvent.type(input, "999")
-		await userEvent.tab()
+		await user.clear(input)
+		await user.type(input, "999")
+		await user.tab()
 
 		expect(input).toHaveValue(5)
 	})
@@ -198,9 +200,9 @@ describe("ProjectSortOrderInput save behaviour", () => {
 			/>
 		)
 		const input = screen.getByRole("spinbutton")
-		await userEvent.clear(input)
-		await userEvent.type(input, "0")
-		await userEvent.tab()
+		await user.clear(input)
+		await user.type(input, "0")
+		await user.tab()
 
 		expect(input).toHaveValue(1)
 	})

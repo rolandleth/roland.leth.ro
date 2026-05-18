@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import AdminSearch from "./AdminSearch"
 
 vi.mock("next/navigation", () => ({
@@ -18,6 +18,8 @@ function mockRouter() {
 	return { push, replace }
 }
 
+const user = setupUser()
+
 beforeEach(() => {
 	vi.resetAllMocks()
 })
@@ -25,7 +27,7 @@ beforeEach(() => {
 async function expandSearch() {
 	// AnimatePresence mode="wait" keeps the icon mounted until exit completes
 	// — `findByRole("searchbox")` polls until the form replaces it.
-	await userEvent.click(screen.getByRole("button", { name: /search/i }))
+	await user.click(screen.getByRole("button", { name: /search/i }))
 
 	return screen.findByRole("searchbox")
 }
@@ -36,7 +38,7 @@ describe("AdminSearch — submit URL builder", () => {
 		render(<AdminSearch tab="posts" query="" />)
 
 		const input = await expandSearch()
-		await userEvent.type(input, "hello{enter}")
+		await user.type(input, "hello{enter}")
 
 		expect(push).toHaveBeenCalledWith("/admin?q=hello")
 	})
@@ -48,7 +50,7 @@ describe("AdminSearch — submit URL builder", () => {
 		render(<AdminSearch tab="projects" query="" />)
 
 		const input = await expandSearch()
-		await userEvent.type(input, "hello{enter}")
+		await user.type(input, "hello{enter}")
 
 		expect(push).toHaveBeenCalledWith("/admin?tab=projects&q=hello")
 	})
@@ -58,7 +60,7 @@ describe("AdminSearch — submit URL builder", () => {
 		render(<AdminSearch tab="posts" query="" />)
 
 		const input = await expandSearch()
-		await userEvent.type(input, "a&b{enter}")
+		await user.type(input, "a&b{enter}")
 
 		expect(push).toHaveBeenCalledWith("/admin?q=a%26b")
 	})
@@ -71,9 +73,7 @@ describe("AdminSearch — close behavior", () => {
 		const { replace } = mockRouter()
 		render(<AdminSearch tab="posts" query="hello" />)
 
-		await userEvent.click(
-			screen.getByRole("button", { name: /cancel search/i })
-		)
+		await user.click(screen.getByRole("button", { name: /cancel search/i }))
 
 		expect(replace).toHaveBeenCalledWith("/admin")
 	})
@@ -82,9 +82,7 @@ describe("AdminSearch — close behavior", () => {
 		const { replace } = mockRouter()
 		render(<AdminSearch tab="projects" query="hello" />)
 
-		await userEvent.click(
-			screen.getByRole("button", { name: /cancel search/i })
-		)
+		await user.click(screen.getByRole("button", { name: /cancel search/i }))
 
 		expect(replace).toHaveBeenCalledWith("/admin?tab=projects")
 	})
@@ -99,7 +97,7 @@ describe("AdminSearch — close behavior", () => {
 		const cancel = await screen.findByRole("button", {
 			name: /cancel search/i,
 		})
-		await userEvent.click(cancel)
+		await user.click(cancel)
 
 		expect(replace).not.toHaveBeenCalled()
 	})

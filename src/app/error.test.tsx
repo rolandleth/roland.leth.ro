@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import InlineError from "./error"
+
+const user = setupUser()
 
 beforeEach(() => {
 	vi.spyOn(console, "error").mockImplementation(() => {})
@@ -24,7 +26,7 @@ describe("InlineError", () => {
 		const reset = vi.fn()
 		render(<InlineError error={new Error("boom")} reset={reset} />)
 
-		await userEvent.click(screen.getByRole("button", { name: /try again/i }))
+		await user.click(screen.getByRole("button", { name: /try again/i }))
 
 		expect(reset).toHaveBeenCalledTimes(1)
 	})

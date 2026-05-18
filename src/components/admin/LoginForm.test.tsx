@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import LoginForm from "./LoginForm"
 
 vi.mock("next/navigation", () => ({
@@ -27,6 +27,8 @@ function mockFetch(ok: boolean, body: object = {}, status?: number) {
 		json: () => Promise.resolve(body),
 	})
 }
+
+const user = setupUser()
 
 beforeEach(() => {
 	vi.resetAllMocks()
@@ -75,9 +77,9 @@ describe("LoginForm submission", () => {
 		mockFetch(true)
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
 		expect(refresh).toHaveBeenCalledOnce()
@@ -88,9 +90,9 @@ describe("LoginForm submission", () => {
 		mockFetch(true)
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "secret")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "secret")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 
@@ -109,9 +111,9 @@ describe("LoginForm submission", () => {
 		mockFetch(false, { error: "Invalid credentials" })
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "wrong")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "wrong")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() =>
 			expect(
@@ -125,9 +127,9 @@ describe("LoginForm submission", () => {
 		mockFetch(false, {})
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() =>
 			expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
@@ -140,9 +142,9 @@ describe("LoginForm submission", () => {
 		global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		expect(screen.getByLabelText(/email/i)).toBeDisabled()
 		expect(screen.getByLabelText(/password/i)).toBeDisabled()
@@ -154,9 +156,9 @@ describe("LoginForm submission", () => {
 		global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		expect(screen.getByRole("button")).toHaveTextContent("Signing in…")
 	})
@@ -168,9 +170,9 @@ describe("LoginForm submission", () => {
 		global.fetch = vi.fn().mockRejectedValue(new Error("network down"))
 
 		render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() =>
 			expect(screen.getByText(/something went wrong/i)).toBeInTheDocument()
@@ -191,9 +193,9 @@ describe("LoginForm submission", () => {
 		})
 
 		const { unmount } = render(<LoginForm />)
-		await userEvent.type(screen.getByLabelText(/email/i), "admin@example.com")
-		await userEvent.type(screen.getByLabelText(/password/i), "password")
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }))
+		await user.type(screen.getByLabelText(/email/i), "admin@example.com")
+		await user.type(screen.getByLabelText(/password/i), "password")
+		await user.click(screen.getByRole("button", { name: /sign in/i }))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		expect(capturedSignal?.aborted).toBe(false)

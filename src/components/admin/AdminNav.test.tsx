@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import AdminNav from "./AdminNav"
+
+const user = setupUser()
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
@@ -26,7 +28,7 @@ describe("AdminNav — handleLogout", () => {
 		global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 })
 
 		render(<AdminNav />)
-		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login"))
 	})
@@ -44,7 +46,7 @@ describe("AdminNav — handleLogout", () => {
 		})
 
 		render(<AdminNav />)
-		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() =>
 			expect(screen.getByRole("alert")).toHaveTextContent(
@@ -59,7 +61,7 @@ describe("AdminNav — handleLogout", () => {
 		global.fetch = vi.fn().mockRejectedValue(new Error("Network down"))
 
 		render(<AdminNav />)
-		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() =>
 			expect(screen.getByRole("alert")).toHaveTextContent(/network error/i)
@@ -78,7 +80,7 @@ describe("AdminNav — handleLogout", () => {
 
 		render(<AdminNav />)
 		const button = screen.getByRole("button", { name: /logout/i })
-		await userEvent.click(button)
+		await user.click(button)
 
 		await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument())
 		expect(button).not.toBeDisabled()
@@ -89,7 +91,7 @@ describe("AdminNav — handleLogout", () => {
 		global.fetch = vi.fn().mockRejectedValue(new Error("Network down"))
 
 		render(<AdminNav />)
-		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() =>
 			expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
@@ -108,7 +110,7 @@ describe("AdminNav — handleLogout", () => {
 		})
 
 		const { unmount } = render(<AdminNav />)
-		await userEvent.click(screen.getByRole("button", { name: /logout/i }))
+		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		expect(capturedSignal?.aborted).toBe(false)

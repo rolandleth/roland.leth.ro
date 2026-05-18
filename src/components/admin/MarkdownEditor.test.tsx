@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { markdownToReact } from "@/lib/markdown"
+import { setupUser } from "@/test/user"
 import MarkdownEditor from "./MarkdownEditor"
+
+const user = setupUser()
 
 vi.mock("@/lib/markdown", () => ({
 	markdownToReact: vi.fn(),
@@ -27,7 +29,7 @@ describe("MarkdownEditor edit mode", () => {
 		const onChange = vi.fn()
 		render(<MarkdownEditor value="" onChange={onChange} />)
 
-		await userEvent.type(screen.getByRole("textbox"), "x")
+		await user.type(screen.getByRole("textbox"), "x")
 
 		expect(onChange).toHaveBeenCalledWith("x")
 	})
@@ -44,7 +46,7 @@ describe("MarkdownEditor preview mode", () => {
 		)
 
 		render(<MarkdownEditor value="**bold**" onChange={vi.fn()} />)
-		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await user.click(screen.getByRole("button", { name: /preview/i }))
 
 		await waitFor(() =>
 			expect(screen.getByTestId("parsed")).toBeInTheDocument()
@@ -56,7 +58,7 @@ describe("MarkdownEditor preview mode", () => {
 		vi.mocked(markdownToReact).mockRejectedValue(new Error("boom"))
 
 		render(<MarkdownEditor value="x" onChange={vi.fn()} />)
-		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await user.click(screen.getByRole("button", { name: /preview/i }))
 
 		await waitFor(() =>
 			expect(screen.getByText(/preview failed to render/i)).toBeInTheDocument()
@@ -82,7 +84,7 @@ describe("MarkdownEditor preview mode", () => {
 		const { rerender } = render(
 			<MarkdownEditor value="first text" onChange={vi.fn()} />
 		)
-		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await user.click(screen.getByRole("button", { name: /preview/i }))
 		await waitFor(() => expect(screen.getByText("first")).toBeInTheDocument())
 
 		// Edit happens behind the scenes (textarea unmounted while in Preview),
@@ -108,11 +110,11 @@ describe("MarkdownEditor preview mode", () => {
 		vi.mocked(markdownToReact).mockResolvedValue(<p>cached</p>)
 
 		render(<MarkdownEditor value="x" onChange={vi.fn()} />)
-		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await user.click(screen.getByRole("button", { name: /preview/i }))
 		await waitFor(() => expect(markdownToReact).toHaveBeenCalledTimes(1))
 
-		await userEvent.click(screen.getByRole("button", { name: /edit/i }))
-		await userEvent.click(screen.getByRole("button", { name: /preview/i }))
+		await user.click(screen.getByRole("button", { name: /edit/i }))
+		await user.click(screen.getByRole("button", { name: /preview/i }))
 
 		// Give the effect a microtask to flush; if the cache works, the count
 		// stays at 1.

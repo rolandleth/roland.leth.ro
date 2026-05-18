@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import LinkManager, { type LinkItem } from "./LinkManager"
+
+const user = setupUser()
 
 function makeLink(partial: Partial<LinkItem> = {}): LinkItem {
 	return {
@@ -24,7 +26,7 @@ describe("LinkManager add", () => {
 		const onChange = vi.fn()
 
 		render(<LinkManager value={existing} onChange={onChange} />)
-		await userEvent.click(screen.getByRole("button", { name: /add link/i }))
+		await user.click(screen.getByRole("button", { name: /add link/i }))
 
 		expect(onChange).toHaveBeenCalledOnce()
 		const next = onChange.mock.calls[0][0] as LinkItem[]
@@ -54,7 +56,7 @@ describe("LinkManager remove + reindex", () => {
 		render(<LinkManager value={links} onChange={onChange} />)
 		// The remove control is the last button in each row; click the Beta remove.
 		const removeButtons = screen.getAllByRole("button", { name: /remove/i })
-		await userEvent.click(removeButtons[1])
+		await user.click(removeButtons[1])
 
 		const next = onChange.mock.calls[0][0] as LinkItem[]
 		expect(next).toHaveLength(2)
@@ -78,7 +80,7 @@ describe("LinkManager update", () => {
 
 		render(<LinkManager value={links} onChange={onChange} />)
 		const urlInputs = screen.getAllByPlaceholderText("https://...")
-		await userEvent.type(urlInputs[1], "!")
+		await user.type(urlInputs[1], "!")
 
 		expect(onChange).toHaveBeenCalled()
 		const [latest] = onChange.mock.calls[onChange.mock.calls.length - 1] as [

@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import LoanCalculatorClient from "./LoanCalculatorClient"
+
+const user = setupUser()
 
 beforeEach(() => {
 	vi.resetAllMocks()
@@ -18,9 +20,7 @@ describe("LoanCalculatorClient comparison", () => {
 
 	it("adds a second calculator when 'Add comparison' is clicked", async () => {
 		render(<LoanCalculatorClient />)
-		await userEvent.click(
-			screen.getByRole("button", { name: /add comparison/i })
-		)
+		await user.click(screen.getByRole("button", { name: /add comparison/i }))
 
 		expect(screen.getAllByText("Loan")).toHaveLength(2)
 		// Once comparing, the diff section renders with its own heading.
@@ -31,12 +31,8 @@ describe("LoanCalculatorClient comparison", () => {
 
 	it("removes the second calculator when 'Remove comparison' is clicked", async () => {
 		render(<LoanCalculatorClient />)
-		await userEvent.click(
-			screen.getByRole("button", { name: /add comparison/i })
-		)
-		await userEvent.click(
-			screen.getByRole("button", { name: /remove comparison/i })
-		)
+		await user.click(screen.getByRole("button", { name: /add comparison/i }))
+		await user.click(screen.getByRole("button", { name: /remove comparison/i }))
 
 		expect(screen.getAllByText("Loan")).toHaveLength(1)
 		expect(
@@ -59,7 +55,7 @@ describe("LoanCalculatorClient extra payments", () => {
 
 	it("reveals the extra-payment sub-fields when the toggle is checked", async () => {
 		render(<LoanCalculatorClient />)
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		expect(screen.getByText("Value")).toBeInTheDocument()
 		expect(screen.getByText("Frequency (months)")).toBeInTheDocument()
@@ -73,10 +69,10 @@ describe("LoanCalculatorClient extra payments", () => {
 		render(<LoanCalculatorClient />)
 		const toggle = screen.getByRole("checkbox")
 
-		await userEvent.click(toggle)
+		await user.click(toggle)
 		expect(screen.getByText("Value")).toBeInTheDocument()
 
-		await userEvent.click(toggle)
+		await user.click(toggle)
 		expect(screen.queryByText("Value")).not.toBeInTheDocument()
 	})
 })

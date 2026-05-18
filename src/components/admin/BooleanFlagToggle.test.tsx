@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import BooleanFlagToggle from "./BooleanFlagToggle"
+
+const user = setupUser()
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
@@ -95,7 +97,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchResolved(true)
 
 		renderPublished({ initial: false, postId: 42 })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -110,7 +112,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchResolved(true)
 
 		renderFeatured({ initial: false, projectId: 7 })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -124,7 +126,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchResolved(true)
 
 		renderPublished({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
 	})
@@ -144,7 +146,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 			)
 
 		renderPublished({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		// While the fetch is pending the user shouldn't be able to click again.
 		expect(screen.getByRole("checkbox")).toBeDisabled()
@@ -164,7 +166,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchResolved(false)
 
 		renderPublished({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() =>
 			expect(screen.getByText(/failed to save/i)).toBeInTheDocument()
@@ -200,7 +202,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 			/>
 		)
 
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() =>
 			expect(screen.getByText(/failed to save/i)).toBeInTheDocument()
@@ -215,7 +217,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchResolved(false, { status: 409, body: { error: "Slug locked" } })
 
 		renderPublished({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() =>
 			expect(screen.getByText("Slug locked (HTTP 409)")).toBeInTheDocument()
@@ -227,7 +229,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 		mockFetchRejected(new Error("Network down"))
 
 		renderPublished({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() =>
 			expect(screen.getByText(/network down/i)).toBeInTheDocument()
@@ -248,8 +250,8 @@ describe("BooleanFlagToggle save behaviour", () => {
 			)
 
 		renderFeatured({ initial: false })
-		await userEvent.click(screen.getByRole("checkbox"))
-		await userEvent.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
+		await user.click(screen.getByRole("checkbox"))
 
 		resolveFetch({ ok: true })
 

@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setupUser } from "@/test/user"
 import PostForm from "./PostForm"
+
+const user = setupUser()
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
@@ -91,8 +93,8 @@ describe("PostForm — create mode", () => {
 		mockFetch(true)
 
 		render(<PostForm />)
-		await userEvent.type(screen.getByLabelText(/title/i), "A new post")
-		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -106,8 +108,8 @@ describe("PostForm — create mode", () => {
 		mockFetch(true)
 
 		render(<PostForm />)
-		await userEvent.type(screen.getByLabelText(/title/i), "New post")
-		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
+		await user.type(screen.getByLabelText(/title/i), "New post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
 	})
@@ -117,8 +119,8 @@ describe("PostForm — create mode", () => {
 		mockFetch(false, { error: "Validation error" })
 
 		render(<PostForm />)
-		await userEvent.type(screen.getByLabelText(/title/i), "New post")
-		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
+		await user.type(screen.getByLabelText(/title/i), "New post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() =>
 			expect(screen.getByText(/Validation error/)).toBeInTheDocument()
@@ -130,8 +132,8 @@ describe("PostForm — create mode", () => {
 		global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
 
 		render(<PostForm />)
-		await userEvent.type(screen.getByLabelText(/title/i), "New post")
-		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
+		await user.type(screen.getByLabelText(/title/i), "New post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument()
 	})
@@ -169,7 +171,7 @@ describe("PostForm — edit mode", () => {
 		mockFetch(true)
 
 		render(<PostForm initialData={initialData} />)
-		await userEvent.click(screen.getByRole("button", { name: /save post/i }))
+		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -184,7 +186,7 @@ describe("PostForm — edit mode", () => {
 		vi.stubGlobal("confirm", vi.fn().mockReturnValue(true))
 
 		render(<PostForm initialData={initialData} />)
-		await userEvent.click(screen.getByRole("button", { name: /delete/i }))
+		await user.click(screen.getByRole("button", { name: /delete/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
 	})
@@ -195,7 +197,7 @@ describe("PostForm — edit mode", () => {
 		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
 
 		render(<PostForm initialData={initialData} />)
-		await userEvent.click(screen.getByRole("button", { name: /delete/i }))
+		await user.click(screen.getByRole("button", { name: /delete/i }))
 
 		expect(global.fetch).not.toHaveBeenCalled()
 	})
