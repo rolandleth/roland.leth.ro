@@ -386,10 +386,10 @@ describe("postCreateSchema — title/body/summary max-length boundaries", () => 
 		expect(result.success).toBe(false)
 	})
 
-	it("rejects a summary longer than 300 characters", () => {
+	it("rejects a summary longer than 160 characters", () => {
 		const result = postCreateSchema.safeParse({
 			...basePost,
-			summary: "x".repeat(301),
+			summary: "x".repeat(161),
 		})
 		expect(result.success).toBe(false)
 	})
@@ -399,7 +399,7 @@ describe("postCreateSchema — title/body/summary max-length boundaries", () => 
 			...basePost,
 			title: "x".repeat(200),
 			body: "x".repeat(100_000),
-			summary: "x".repeat(300),
+			summary: "x".repeat(160),
 		})
 		expect(result.success).toBe(true)
 	})

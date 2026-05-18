@@ -225,7 +225,7 @@ export type PostGroupByOutputType = {
   id: number
   title: string
   body: string
-  summary: string | null
+  summary: string
   imageUrl: string | null
   section: $Enums.Section
   slug: string
@@ -263,7 +263,7 @@ export type PostWhereInput = {
   id?: Prisma.IntFilter<"Post"> | number
   title?: Prisma.StringFilter<"Post"> | string
   body?: Prisma.StringFilter<"Post"> | string
-  summary?: Prisma.StringNullableFilter<"Post"> | string | null
+  summary?: Prisma.StringFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableFilter<"Post"> | string | null
   section?: Prisma.EnumSectionFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringFilter<"Post"> | string
@@ -278,7 +278,7 @@ export type PostOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -297,7 +297,7 @@ export type PostWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PostWhereInput | Prisma.PostWhereInput[]
   title?: Prisma.StringFilter<"Post"> | string
   body?: Prisma.StringFilter<"Post"> | string
-  summary?: Prisma.StringNullableFilter<"Post"> | string | null
+  summary?: Prisma.StringFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableFilter<"Post"> | string | null
   section?: Prisma.EnumSectionFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringFilter<"Post"> | string
@@ -312,7 +312,7 @@ export type PostOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -335,7 +335,7 @@ export type PostScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"Post"> | number
   title?: Prisma.StringWithAggregatesFilter<"Post"> | string
   body?: Prisma.StringWithAggregatesFilter<"Post"> | string
-  summary?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
+  summary?: Prisma.StringWithAggregatesFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
   section?: Prisma.EnumSectionWithAggregatesFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringWithAggregatesFilter<"Post"> | string
@@ -349,7 +349,7 @@ export type PostScalarWhereWithAggregatesInput = {
 export type PostCreateInput = {
   title: string
   body: string
-  summary?: string | null
+  summary: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -364,7 +364,7 @@ export type PostUncheckedCreateInput = {
   id?: number
   title: string
   body: string
-  summary?: string | null
+  summary: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -378,7 +378,7 @@ export type PostUncheckedCreateInput = {
 export type PostUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -393,7 +393,7 @@ export type PostUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -408,7 +408,7 @@ export type PostCreateManyInput = {
   id?: number
   title: string
   body: string
-  summary?: string | null
+  summary: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -422,7 +422,7 @@ export type PostCreateManyInput = {
 export type PostUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -437,7 +437,7 @@ export type PostUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -605,7 +605,7 @@ export type $PostPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     id: number
     title: string
     body: string
-    summary: string | null
+    summary: string
     imageUrl: string | null
     section: $Enums.Section
     slug: string

@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/db"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
-import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
+import { markdownToHtml } from "@/lib/markdown"
 import { bySection } from "@/lib/posts"
 import { siteBase } from "@/lib/request"
 import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
@@ -10,11 +10,6 @@ import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
 // defaults (e.g. Feedbin, NetNewsWire) — large enough for weekly readers to
 // catch up, small enough to keep the cached payload bounded.
 const FEED_ENTRY_LIMIT = 20
-
-// Max characters for the synthesized `<summary>` when no explicit post summary
-// is set. Matches the 300-char cap on `postCreateSchema.summary` so fallback
-// and authored summaries stay visually consistent.
-const FEED_SUMMARY_MAX_CHARS = 300
 
 /** Escapes characters that are special in XML to prevent feed breakage. */
 function escapeXml(text: string): string {
@@ -75,11 +70,11 @@ function makeFeedPostsCache(section: Section) {
 				take: FEED_ENTRY_LIMIT + futureCount,
 			})
 
-			// Pre-render markdown and resolve the summary fallback here so the
-			// handler is pure template work. Both are included in the cached
-			// payload; `body` is dropped since only the derived fields are needed.
-			// `updatedAt` is normalized to ISO — `unstable_cache` JSON-serializes
-			// its return value, turning `Date` into a string on cache hits.
+			// Pre-render markdown here so the handler is pure template work. The
+			// rendered HTML is included in the cached payload; `body` is dropped
+			// since only the derived fields are needed. `updatedAt` is normalized
+			// to ISO — `unstable_cache` JSON-serializes its return value, turning
+			// `Date` into a string on cache hits.
 			return Promise.all(
 				posts.map(async (post) => ({
 					title: post.title,
@@ -87,9 +82,7 @@ function makeFeedPostsCache(section: Section) {
 					section: post.section,
 					datetime: post.datetime,
 					updatedAt: post.updatedAt.toISOString(),
-					summary:
-						post.summary ??
-						stripMarkdown(post.body).slice(0, FEED_SUMMARY_MAX_CHARS),
+					summary: post.summary,
 					htmlBody: await markdownToHtml(post.body),
 				}))
 			)

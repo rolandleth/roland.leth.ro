@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	return buildPageMetadata({
 		title: post.title,
-		description: post.summary ?? undefined,
+		description: post.summary,
 		path: `/blog/${post.section}/${post.slug}`,
 		image: post.imageUrl,
 		publishedTime: postDatetimeToISO(post.datetime),

@@ -11,7 +11,7 @@ model Post {
   id          Int      @id @default(autoincrement())
   title       String
   body        String
-  summary     String?
+  summary     String
   imageUrl    String?
   section     Section  @default(tech)
   slug        String

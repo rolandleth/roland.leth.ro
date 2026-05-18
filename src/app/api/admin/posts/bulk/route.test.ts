@@ -335,6 +335,34 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(auditCalls).toEqual([])
 	})
 
+	it("derives summary from the file content on every inserted row", async () => {
+		// Bulk import has no per-file summary input — every created row must
+		// carry an auto-derived summary so the OG meta description and feed
+		// `<summary>` are never blank. Pins the contract against accidental
+		// reintroduction of null summaries.
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-First.md",
+						content: "First post body.",
+					},
+					{
+						filename: "2026-05-16-Second.md",
+						content: "Second post body.",
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ summary: string }>
+		expect(data[0].summary).toBe("First post body.")
+		expect(data[1].summary).toBe("Second post body.")
+	})
+
 	it("emits a skip-reason summary log when files are skipped", async () => {
 		await POST(
 			makeRequest({

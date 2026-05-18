@@ -36,7 +36,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
-	summary: null,
+	summary: "Content",
 	imageUrl: null,
 	readingTime: null,
 	slug: "hello",

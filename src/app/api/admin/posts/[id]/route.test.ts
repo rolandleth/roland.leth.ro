@@ -46,7 +46,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
-	summary: null,
+	summary: "Original summary.",
 	imageUrl: null,
 	readingTime: null,
 	createdAt: new Date(),
@@ -248,8 +248,12 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(putRequest("1", { title: "x" }), params("1"))
 
 		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+		// `body` and `summary` are included so the summary-resolution rules
+		// can compare against pre-update state inside the same txn.
 		expect(prisma.post.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({ select: { section: true, slug: true } })
+			expect.objectContaining({
+				select: { section: true, slug: true, body: true, summary: true },
+			})
 		)
 	})
 
@@ -294,6 +298,99 @@ describe("PUT /api/admin/posts/[id]", () => {
 			})
 		)
 	})
+
+	// #region summary auto-derive
+
+	it("re-derives summary from new body when body changes and summary is untouched", async () => {
+		// Form ships `summary: state.summary || undefined`, so an untouched
+		// summary field arrives as the verbatim previous string. With body
+		// changed, the summary should track the new body.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(
+			putRequest("1", {
+				body: "A brand new body for this post.",
+				summary: "Original summary.",
+			}),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.summary).toBe("A brand new body for this post.")
+	})
+
+	it("keeps the user's summary when authored (differs from previous)", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(
+			putRequest("1", {
+				body: "A brand new body for this post.",
+				summary: "Hand-written replacement.",
+			}),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.summary).toBe("Hand-written replacement.")
+	})
+
+	it("re-derives summary when the user clears the field (key omitted)", async () => {
+		// "Never empty" invariant — a cleared summary always falls back to a
+		// derived one. The form omits the key entirely for empty strings.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(
+			putRequest("1", { body: "A brand new body for this post." }),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.summary).toBe("A brand new body for this post.")
+	})
+
+	it("re-derives summary from previous body when only summary is cleared", async () => {
+		// User cleared the field without touching the body. We still refuse
+		// to store empty, so derive from the unchanged previous body.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { title: "Renamed" }), params("1"))
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.summary).toBe("Original body.")
+	})
+
+	it("leaves summary untouched when body is unchanged and summary matches previous", async () => {
+		// Pure metadata edit (e.g. toggling published) shouldn't churn the
+		// summary column. Prisma treats `undefined` as "skip this column",
+		// which is what we want — no write amplification.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(
+			putRequest("1", {
+				published: false,
+				summary: "Original summary.",
+			}),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.summary).toBeUndefined()
+	})
+
+	it("returns 400 when summary exceeds 160 chars", async () => {
+		const response = await PUT(
+			putRequest("1", { summary: "a".repeat(161) }),
+			params("1")
+		)
+		expect(response.status).toBe(400)
+	})
+
+	// #endregion
 
 	it("returns 500 on a Serializable serialization_failure (P2034)", async () => {
 		// The PUT runs at Serializable isolation to close the cross-section

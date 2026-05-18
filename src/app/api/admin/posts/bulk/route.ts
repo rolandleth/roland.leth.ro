@@ -10,6 +10,7 @@ import {
 	currentDatetimeString,
 	isFutureDatetime,
 } from "@/lib/format"
+import { deriveSummary } from "@/lib/markdown"
 import { revalidatePostSection } from "@/lib/posts"
 import { postBulkImportSchema } from "@/lib/schemas"
 import type { Section } from "@/lib/sections"
@@ -26,6 +27,7 @@ interface InsertRow {
 	title: string
 	slug: string
 	body: string
+	summary: string
 	datetime: string
 	section: Section
 	published: boolean
@@ -90,6 +92,11 @@ function prepareBatch(
 			title: result.title,
 			slug,
 			body: file.content,
+			// Bulk import has no per-file summary input — the filename only
+			// encodes datetime + title. Always derive so the OG meta description
+			// and feed `<summary>` are populated. Author can refine via the
+			// admin edit form afterwards.
+			summary: deriveSummary(file.content),
 			datetime: result.datetime,
 			section,
 			// Future-dated posts are published so the existing scheduled-post

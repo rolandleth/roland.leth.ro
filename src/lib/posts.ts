@@ -51,7 +51,7 @@ export interface PostDetail {
 	section: Section
 	datetime: string
 	body: string
-	summary: string | null
+	summary: string
 	imageUrl: string | null
 	readingTime: string | null
 }

@@ -1,6 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
-import { markdownToHtml, markdownToReact, stripMarkdown } from "@/lib/markdown"
+import {
+	deriveSummary,
+	markdownToHtml,
+	markdownToReact,
+	stripMarkdown,
+	SUMMARY_MAX_CHARS,
+} from "@/lib/markdown"
 
 async function render(markdown: string): Promise<string> {
 	const node = await markdownToReact(markdown)
@@ -253,5 +259,49 @@ describe("stripMarkdown", () => {
 
 	it("returns empty string for an image with no alt text", () => {
 		expect(stripMarkdown("![](/img.png)")).toBe("")
+	})
+})
+
+describe("deriveSummary", () => {
+	it("returns the stripped body verbatim when it fits the cap", () => {
+		expect(deriveSummary("A short body.")).toBe("A short body.")
+	})
+
+	it("strips markdown before measuring length", () => {
+		expect(deriveSummary("# Heading\n\n**Bold body** here.")).toBe(
+			"Heading Bold body here."
+		)
+	})
+
+	it("truncates at the last word boundary and appends an ellipsis", () => {
+		// Build a body whose stripped form is well over the cap and where the
+		// 160th char lands mid-word — verify we walk back to the previous
+		// space rather than cutting the word in half.
+		const body = "alpha bravo charlie ".repeat(20).trim()
+		const result = deriveSummary(body)
+
+		expect(result.endsWith("…")).toBe(true)
+		// Length excluding the ellipsis must fit inside the cap.
+		expect(result.length - 1).toBeLessThanOrEqual(SUMMARY_MAX_CHARS)
+		// No partial word at the tail — the char before "…" is a full token.
+		const beforeEllipsis = result.slice(0, -1)
+		expect(beforeEllipsis.endsWith(" ")).toBe(false)
+		expect(/\s\S+$/.test(beforeEllipsis)).toBe(true)
+	})
+
+	it("falls back to a hard slice when the source has no whitespace within the cap", () => {
+		// Pathological body (URL-like blob, no spaces). Hard-slicing is the
+		// only sensible fallback — the alternative is returning an empty
+		// string, which violates the "never empty" invariant.
+		const body = "a".repeat(200)
+		const result = deriveSummary(body)
+		expect(result).toBe(`${"a".repeat(SUMMARY_MAX_CHARS)}…`)
+	})
+
+	it("strips fenced code blocks before deriving", () => {
+		// Mirrors stripMarkdown's behavior — code fences contribute no
+		// narrative content and would otherwise pad the summary with syntax.
+		const body = "Intro line.\n\n```ts\nconst noise = 1\n```\n\nOutro."
+		expect(deriveSummary(body)).toBe("Intro line. Outro.")
 	})
 })

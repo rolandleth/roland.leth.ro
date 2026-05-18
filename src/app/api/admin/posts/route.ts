@@ -3,6 +3,7 @@ import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
 import { auditLog } from "@/lib/auditLog"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
+import { deriveSummary } from "@/lib/markdown"
 import { revalidatePostSection } from "@/lib/posts"
 import { postCreateSchema } from "@/lib/schemas"
 
@@ -28,12 +29,19 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} = parsed
 
 	try {
+		// `summary` is now required at the DB layer. An empty or omitted field
+		// from the admin form is auto-derived from the body so the OG meta
+		// description and feed `<summary>` are never blank. See `deriveSummary`
+		// for the truncation rules.
+		const resolvedSummary =
+			summary != null && summary !== "" ? summary : deriveSummary(postBody)
+
 		const post = await prisma.post.create({
 			data: {
 				title,
 				body: postBody,
 				datetime,
-				summary: summary ?? null,
+				summary: resolvedSummary,
 				imageUrl: imageUrl ?? null,
 				section: section ?? "tech",
 				published: published ?? true,

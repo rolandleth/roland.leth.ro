@@ -294,13 +294,11 @@ describe("getPostBySlug", () => {
 	it("returns null values for optional fields when they are absent", async () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue({
 			...postDetail,
-			summary: null,
 			imageUrl: null,
 			readingTime: null,
 		} as unknown as Post)
 
 		const result = await getPostBySlug("tech", "my-post")
-		expect(result?.summary).toBeNull()
 		expect(result?.imageUrl).toBeNull()
 		expect(result?.readingTime).toBeNull()
 	})
@@ -556,7 +554,7 @@ describe("loadPost", () => {
 			section: "tech" as const,
 			datetime: "2024-06-01-1200",
 			body: "b",
-			summary: null,
+			summary: "b",
 			imageUrl: null,
 			readingTime: null,
 		}

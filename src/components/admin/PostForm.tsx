@@ -15,7 +15,7 @@ interface Props {
 		body: string
 		section: string
 		datetime: string
-		summary: string | null
+		summary: string
 		imageUrl: string | null
 		published: boolean
 	}

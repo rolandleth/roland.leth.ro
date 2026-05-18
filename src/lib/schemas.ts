@@ -39,7 +39,7 @@ export const postCreateSchema = z.object({
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
-	summary: z.string().max(300).nullable().optional(),
+	summary: z.string().max(160).nullable().optional(),
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),

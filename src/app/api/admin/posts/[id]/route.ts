@@ -9,6 +9,7 @@ import {
 import { auditLog } from "@/lib/auditLog"
 import { prisma } from "@/lib/db"
 import { calculateReadingTime, createSlug } from "@/lib/format"
+import { deriveSummary } from "@/lib/markdown"
 import { revalidatePostSection } from "@/lib/posts"
 import { postUpdateSchema } from "@/lib/schemas"
 
@@ -59,15 +60,17 @@ export async function PUT(
 		return parsed
 	}
 
-	const { title, body: postBody, ...rest } = parsed
+	const { title, body: postBody, summary, ...rest } = parsed
 	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
-	// so the validated payload flows straight in. `title`/`body` are folded back
-	// with their derived columns (`slug`, `readingTime`) only when they were set.
+	// so the validated payload flows straight in. `title`/`body`/`summary` are
+	// folded back with their derived columns (`slug`, `readingTime`, auto-derived
+	// summary) only when they were set or when the rules below require a re-derive.
 	// Matches the shape in `src/app/api/admin/projects/[id]/route.ts`.
 	type PostUpdatePayload = typeof rest & {
 		title?: string
 		slug?: string
 		body?: string
+		summary?: string
 		readingTime?: string
 	}
 	const data: PostUpdatePayload = { ...rest }
@@ -97,10 +100,41 @@ export async function PUT(
 		// the PUT manually if it ever surfaces in practice.
 		const { previous, post } = await prisma.$transaction(
 			async (tx) => {
+				// `body` + `summary` are read inside the txn so the summary
+				// resolution below sees the same row state as the write.
 				const previous = await tx.post.findUnique({
 					where: { id },
-					select: { section: true, slug: true },
+					select: { section: true, slug: true, body: true, summary: true },
 				})
+
+				// Summary resolution. Two effective inputs after the write:
+				//   - `effectiveBody`  = new body if sent, else previous body.
+				//   - `summary` arrives as a non-empty string (user authored
+				//     something in the form) OR `undefined` (form cleared the
+				//     field, since `state.summary || undefined` strips empties).
+				// Rules:
+				//   - User authored a fresh summary (differs from previous) → keep it.
+				//   - User left the summary untouched (equals previous) AND the
+				//     body changed → re-derive so the meta description tracks
+				//     the new body. Without this, an edited post keeps a stale
+				//     summary forever unless the author rewrites it by hand.
+				//   - User cleared the summary → re-derive. "Never empty" invariant.
+				//   - User left the summary untouched AND body unchanged → skip
+				//     the column entirely (Prisma treats `undefined` as no-op).
+				if (previous != null) {
+					const effectiveBody = postBody ?? previous.body
+					const bodyChanged = postBody != null && postBody !== previous.body
+					const authored =
+						summary != null && summary !== "" && summary !== previous.summary
+
+					if (authored) {
+						data.summary = summary
+					} else if (summary == null || summary === "") {
+						data.summary = deriveSummary(effectiveBody)
+					} else if (bodyChanged) {
+						data.summary = deriveSummary(effectiveBody)
+					}
+				}
 
 				const post = await tx.post.update({
 					where: { id },

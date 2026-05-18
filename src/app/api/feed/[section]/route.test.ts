@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db"
-import { markdownToHtml, stripMarkdown } from "@/lib/markdown"
+import { markdownToHtml } from "@/lib/markdown"
 import { siteBase } from "@/lib/request"
 import { GET } from "./route"
 
@@ -20,7 +20,6 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/markdown", () => ({
 	markdownToHtml: vi.fn(async (md: string) => `<p>${md}</p>`),
-	stripMarkdown: vi.fn((md: string) => md),
 }))
 
 vi.mock("@/lib/request", () => ({
@@ -59,7 +58,6 @@ const unstableCacheCallsAtModuleLoad = vi
 beforeEach(() => {
 	vi.resetAllMocks()
 	vi.mocked(markdownToHtml).mockImplementation(async (md) => `<p>${md}</p>`)
-	vi.mocked(stripMarkdown).mockImplementation((md) => md)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 	vi.mocked(prisma.post.count).mockResolvedValue(0)
 	vi.mocked(siteBase).mockResolvedValue("http://localhost")
@@ -102,23 +100,6 @@ describe("GET /api/feed/:section", () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<summary>A short summary.</summary>")
-	})
-
-	it("falls back to a stripped body excerpt when summary is null", async () => {
-		vi.mocked(prisma.post.findMany).mockResolvedValue([
-			{ ...basePost, summary: null },
-		])
-		const text = await GET(...makeRequest("tech")).then((r) => r.text())
-		expect(text).toContain("<summary>Some content.</summary>")
-	})
-
-	it("truncates the fallback summary to 300 characters", async () => {
-		const longBody = "a".repeat(400)
-		vi.mocked(prisma.post.findMany).mockResolvedValue([
-			{ ...basePost, summary: null, body: longBody },
-		])
-		const text = await GET(...makeRequest("tech")).then((r) => r.text())
-		expect(text).toContain(`<summary>${"a".repeat(300)}</summary>`)
 	})
 
 	it("renders the post body as HTML in the content element", async () => {
