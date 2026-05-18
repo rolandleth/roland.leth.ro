@@ -1,10 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import computeLoan from "@/lib/loanCalculator"
+import computeLoan from "@/lib/utils/loanCalculator"
 import LoanCalculatorInput from "./LoanCalculatorInput"
 import LoanCalculatorSummary from "./LoanCalculatorSummary"
-import type { ComputeParams, ComputeReturn } from "@/lib/loanCalculator"
+import type { ComputeParams, ComputeReturn } from "@/lib/utils/loanCalculator"
 
 const DEFAULT_PARAMS: ComputeParams = {
 	loan: 500_000,

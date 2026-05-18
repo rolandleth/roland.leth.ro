@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { loadPost } from "@/lib/posts"
+import { loadPost } from "@/lib/db/posts"
 import PostPage, { generateMetadata } from "./page"
 
-vi.mock("@/lib/posts", () => ({
+vi.mock("@/lib/db/posts", () => ({
 	getAllPublishedPostSlugs: vi.fn().mockResolvedValue([]),
 	loadPost: vi.fn(),
 }))

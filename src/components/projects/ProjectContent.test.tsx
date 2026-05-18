@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
-import type { ProjectDetail } from "@/lib/projects"
+import type { ProjectDetail } from "@/lib/db/projects"
 
 const user = setupUser()
 

@@ -1,7 +1,7 @@
 import ProjectAdminControls from "@/components/admin/ProjectAdminControls"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
-import type { ProjectGalleryItem } from "@/lib/projects"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 interface Props {
 	label: string

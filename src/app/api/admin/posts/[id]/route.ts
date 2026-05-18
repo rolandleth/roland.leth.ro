@@ -5,13 +5,13 @@ import {
 	parseIdParam,
 	parseJsonBody,
 	respondInternalError,
-} from "@/lib/apiErrors"
-import { auditLog } from "@/lib/auditLog"
-import { prisma } from "@/lib/db"
-import { calculateReadingTime, createSlug } from "@/lib/format"
-import { deriveSummary } from "@/lib/markdown"
-import { revalidatePostSection } from "@/lib/posts"
-import { postUpdateSchema } from "@/lib/schemas"
+} from "@/lib/api/apiErrors"
+import { auditLog } from "@/lib/api/auditLog"
+import { postUpdateSchema } from "@/lib/api/schemas"
+import { deriveSummary } from "@/lib/content/markdown"
+import { prisma } from "@/lib/db/db"
+import { revalidatePostSection } from "@/lib/db/posts"
+import { calculateReadingTime, createSlug } from "@/lib/utils/format"
 
 export async function GET(
 	_request: Request,

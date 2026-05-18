@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/db/db"
 import { POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
@@ -9,7 +9,7 @@ vi.mock("next/cache", async () => {
 	return nextCacheMockFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		$transaction: vi.fn(),
 		project: {
@@ -250,7 +250,7 @@ describe("POST /api/admin/projects", () => {
 
 	it("returns 409 when the slug collides with an existing project", async () => {
 		vi.mocked(prisma.$transaction).mockRejectedValue({ code: "P2002" })
-		const { isPrismaUniqueConstraint } = await import("@/lib/db")
+		const { isPrismaUniqueConstraint } = await import("@/lib/db/db")
 		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
 
 		const response = await POST(makeRequest(validPayload))

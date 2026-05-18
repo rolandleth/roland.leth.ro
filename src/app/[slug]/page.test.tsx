@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { lookupLegacySlug } from "@/lib/legacySlug"
+import { lookupLegacySlug } from "@/lib/db/legacySlug"
 import LegacySlugPage from "./page"
 
-vi.mock("@/lib/legacySlug", () => ({
+vi.mock("@/lib/db/legacySlug", () => ({
 	lookupLegacySlug: vi.fn(),
 }))
 

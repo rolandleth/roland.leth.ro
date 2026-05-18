@@ -1,5 +1,5 @@
-import { formatNumber } from "@/lib/loanCalculator"
-import type { ComputeReturn } from "@/lib/loanCalculator"
+import { formatNumber } from "@/lib/utils/loanCalculator"
+import type { ComputeReturn } from "@/lib/utils/loanCalculator"
 
 type Color = "positive" | "negative" | "neutral"
 

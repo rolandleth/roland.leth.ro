@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import sitemap from "@/app/sitemap"
-import { prisma } from "@/lib/db"
-import { currentDatetimeString } from "@/lib/format"
-import { siteBase } from "@/lib/request"
+import { siteBase } from "@/lib/api/request"
+import { prisma } from "@/lib/db/db"
+import { currentDatetimeString } from "@/lib/utils/format"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
@@ -10,7 +10,7 @@ vi.mock("next/cache", async () => {
 	return nextCacheMockFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		post: {
 			findMany: vi.fn(),
@@ -21,11 +21,11 @@ vi.mock("@/lib/db", () => ({
 	},
 }))
 
-vi.mock("@/lib/format", () => ({
+vi.mock("@/lib/utils/format", () => ({
 	currentDatetimeString: vi.fn().mockReturnValue("2025-06-01-1200"),
 }))
 
-vi.mock("@/lib/request", () => ({
+vi.mock("@/lib/api/request", () => ({
 	siteBase: vi.fn(),
 }))
 

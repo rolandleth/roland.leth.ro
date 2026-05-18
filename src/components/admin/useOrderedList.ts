@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback } from "react"
-import { moveAndReorder, type Direction } from "@/lib/reorder"
+import { moveAndReorder, type Direction } from "@/lib/utils/reorder"
 
 export interface OrderedItem {
 	_key: string

@@ -19,8 +19,8 @@ vi.mock("@/components/admin/ImageUpload", () => ({
 }))
 
 // Freeze currentDatetimeString so datetime field has a predictable default.
-vi.mock("@/lib/format", async (importOriginal) => {
-	const mod = await importOriginal<typeof import("@/lib/format")>()
+vi.mock("@/lib/utils/format", async (importOriginal) => {
+	const mod = await importOriginal<typeof import("@/lib/utils/format")>()
 	return { ...mod, currentDatetimeString: vi.fn(() => "2025-01-01-1200") }
 })
 

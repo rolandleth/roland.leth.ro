@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { getSessionSecret, verifyToken } from "@/lib/auth"
-import { type Section, SECTIONS } from "@/lib/sections"
+import { getSessionSecret, verifyToken } from "@/lib/auth/auth"
+import { type Section, SECTIONS } from "@/lib/db/sections"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"

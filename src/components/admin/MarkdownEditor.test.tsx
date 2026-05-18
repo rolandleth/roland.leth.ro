@@ -1,12 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { markdownToReact } from "@/lib/markdown"
+import { markdownToReact } from "@/lib/content/markdown"
 import { setupUser } from "@/test/user"
 import MarkdownEditor from "./MarkdownEditor"
 
 const user = setupUser()
 
-vi.mock("@/lib/markdown", () => ({
+vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn(),
 }))
 

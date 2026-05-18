@@ -3,9 +3,9 @@
 import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
 import { useRef, useState } from "react"
-import { fadeUp } from "@/lib/motion"
+import { fadeUp } from "@/lib/client/motion"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
-import type { ProjectDetail } from "@/lib/projects"
+import type { ProjectDetail } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
 interface Props {

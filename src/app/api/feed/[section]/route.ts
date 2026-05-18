@@ -1,10 +1,14 @@
 import { unstable_cache } from "next/cache"
-import { prisma } from "@/lib/db"
-import { currentDatetimeString, postDatetimeToISO } from "@/lib/format"
-import { markdownToHtml } from "@/lib/markdown"
-import { bySection } from "@/lib/posts"
-import { siteBase } from "@/lib/request"
-import { capitalizeSection, isValidSection, type Section } from "@/lib/sections"
+import { siteBase } from "@/lib/api/request"
+import { markdownToHtml } from "@/lib/content/markdown"
+import { prisma } from "@/lib/db/db"
+import { bySection } from "@/lib/db/posts"
+import {
+	capitalizeSection,
+	isValidSection,
+	type Section,
+} from "@/lib/db/sections"
+import { currentDatetimeString, postDatetimeToISO } from "@/lib/utils/format"
 
 // The most recent N posts are included in the feed. 20 matches common reader
 // defaults (e.g. Feedbin, NetNewsWire) — large enough for weekly readers to

@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { parseBulkImportFilename } from "@/lib/bulkImportParser"
-import { isAbortError } from "@/lib/isAbortError"
-import { readErrorMessage } from "@/lib/readErrorMessage"
-import { BULK_MAX_FILES } from "@/lib/schemas"
-import { SECTIONS, type Section } from "@/lib/sections"
+import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
+import { BULK_MAX_FILES } from "@/lib/api/schemas"
+import { isAbortError } from "@/lib/client/isAbortError"
+import { readErrorMessage } from "@/lib/client/readErrorMessage"
+import { SECTIONS, type Section } from "@/lib/db/sections"
 
 interface ParsedFile {
 	file: File

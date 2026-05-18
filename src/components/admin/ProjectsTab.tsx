@@ -1,10 +1,10 @@
 import Link from "next/link"
 import AdminPagination from "@/components/admin/AdminPagination"
 import ProjectAdminGroup from "@/components/admin/ProjectAdminGroup"
-import { buildAdminPageUrl } from "@/lib/adminPageUrl"
-import { groupByPlatform } from "@/lib/platforms"
-import { listProjectsForAdmin } from "@/lib/projects"
-import type { ProjectGalleryItem } from "@/lib/projects"
+import { buildAdminPageUrl } from "@/lib/client/adminPageUrl"
+import { listProjectsForAdmin } from "@/lib/db/projects"
+import { groupByPlatform } from "@/lib/utils/platforms"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 interface Props {
 	query: string

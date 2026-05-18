@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
-import { getCronSecret } from "@/lib/env"
-import { getKeepaliveRedis, writeKeepalive } from "@/lib/keepalive"
+import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
+import { getCronSecret } from "@/lib/auth/env"
 
 const redis = getKeepaliveRedis()
 

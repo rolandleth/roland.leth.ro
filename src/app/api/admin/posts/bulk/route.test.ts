@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db"
-import { currentDatetimeString } from "@/lib/format"
+import { prisma } from "@/lib/db/db"
+import { currentDatetimeString } from "@/lib/utils/format"
 import { POST } from "./route"
 
 vi.mock("next/cache", async () => {
@@ -10,7 +10,7 @@ vi.mock("next/cache", async () => {
 	return nextCacheMockFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		post: {
 			findMany: vi.fn().mockResolvedValue([]),
@@ -22,9 +22,11 @@ vi.mock("@/lib/db", () => ({
 // Pinned to a fixed past date so all parser-passing fixtures default to
 // `published: false` under the auto rule. Future-dated cases override
 // `currentDatetimeString` per-test.
-vi.mock("@/lib/format", async () => {
+vi.mock("@/lib/utils/format", async () => {
 	const actual =
-		await vi.importActual<typeof import("@/lib/format")>("@/lib/format")
+		await vi.importActual<typeof import("@/lib/utils/format")>(
+			"@/lib/utils/format"
+		)
 	return {
 		...actual,
 		currentDatetimeString: vi.fn().mockReturnValue("2099-01-01-0000"),

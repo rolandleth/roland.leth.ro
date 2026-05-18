@@ -1,7 +1,7 @@
-import { getAllPublishedPostSlugs } from "@/lib/posts"
-import { getAllProjectSlugs } from "@/lib/projects"
-import { siteBase } from "@/lib/request"
-import { SECTIONS } from "@/lib/sections"
+import { siteBase } from "@/lib/api/request"
+import { getAllPublishedPostSlugs } from "@/lib/db/posts"
+import { getAllProjectSlugs } from "@/lib/db/projects"
+import { SECTIONS } from "@/lib/db/sections"
 import type { MetadataRoute } from "next"
 
 function url(base: string, path: string): string {

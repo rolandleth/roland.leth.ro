@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import CompactProjectCard from "./CompactProjectCard"
-import type { ProjectGalleryItem } from "@/lib/projects"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 vi.mock("next/image", () => ({
 	default: (props: Record<string, unknown>) => {

@@ -1,19 +1,19 @@
 import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
-import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
-import { auditLog } from "@/lib/auditLog"
-import { parseBulkImportFilename } from "@/lib/bulkImportParser"
-import { prisma } from "@/lib/db"
+import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
+import { auditLog } from "@/lib/api/auditLog"
+import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
+import { postBulkImportSchema } from "@/lib/api/schemas"
+import { deriveSummary } from "@/lib/content/markdown"
+import { prisma } from "@/lib/db/db"
+import { revalidatePostSection } from "@/lib/db/posts"
 import {
 	calculateReadingTime,
 	createSlug,
 	currentDatetimeString,
 	isFutureDatetime,
-} from "@/lib/format"
-import { deriveSummary } from "@/lib/markdown"
-import { revalidatePostSection } from "@/lib/posts"
-import { postBulkImportSchema } from "@/lib/schemas"
-import type { Section } from "@/lib/sections"
+} from "@/lib/utils/format"
+import type { Section } from "@/lib/db/sections"
 
 interface SkippedFile {
 	filename: string

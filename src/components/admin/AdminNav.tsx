@@ -4,8 +4,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { isAbortError } from "@/lib/isAbortError"
-import { readErrorMessage } from "@/lib/readErrorMessage"
+import { isAbortError } from "@/lib/client/isAbortError"
+import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
 export default function AdminNav() {
 	const router = useRouter()

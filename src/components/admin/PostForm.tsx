@@ -5,8 +5,8 @@ import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
-import { currentDatetimeString } from "@/lib/format"
-import { SECTIONS } from "@/lib/sections"
+import { SECTIONS } from "@/lib/db/sections"
+import { currentDatetimeString } from "@/lib/utils/format"
 
 interface Props {
 	initialData?: {

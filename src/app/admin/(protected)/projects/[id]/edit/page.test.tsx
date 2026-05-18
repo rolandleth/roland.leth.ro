@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db"
-import { projectInclude } from "@/lib/projects"
+import { prisma } from "@/lib/db/db"
+import { projectInclude } from "@/lib/db/projects"
 import { generateMetadata, default as EditProjectPage } from "./page"
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		project: { findUnique: vi.fn() },
 	},

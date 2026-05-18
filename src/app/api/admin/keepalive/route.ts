@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getKeepaliveRedis, writeKeepalive } from "@/lib/keepalive"
+import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
 
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request requires a
 // valid JWT cookie). Mirrors the cron route's write so an admin can confirm

@@ -2,7 +2,7 @@
 
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { filterAdminEvents } from "@/lib/analytics"
+import { filterAdminEvents } from "@/lib/client/analytics"
 
 /**
  * Wraps both Vercel telemetry components in one client island so the root

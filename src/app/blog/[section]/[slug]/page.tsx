@@ -2,14 +2,14 @@ import { notFound } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import PageGlow from "@/components/PageGlow"
+import { buildPageMetadata } from "@/lib/content/metadata"
+import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
+import { isValidSection } from "@/lib/db/sections"
 import {
 	calculateReadingTime,
 	formatDate,
 	postDatetimeToISO,
-} from "@/lib/format"
-import { buildPageMetadata } from "@/lib/metadata"
-import { getAllPublishedPostSlugs, loadPost } from "@/lib/posts"
-import { isValidSection } from "@/lib/sections"
+} from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 interface Props {

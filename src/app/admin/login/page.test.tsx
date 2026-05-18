@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { verifySession } from "@/lib/auth"
+import { verifySession } from "@/lib/auth/auth"
 import LoginPage from "./page"
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
 	verifySession: vi.fn(),
 }))
 

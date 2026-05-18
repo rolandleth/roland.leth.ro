@@ -7,9 +7,9 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react"
-import type { Theme } from "@/lib/theme"
+import type { Theme } from "@/lib/client/theme"
 
-export type { Theme } from "@/lib/theme"
+export type { Theme } from "@/lib/client/theme"
 
 interface ThemeContextValue {
 	theme: Theme

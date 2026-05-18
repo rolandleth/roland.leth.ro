@@ -1,5 +1,5 @@
-import type { PostListItem } from "@/lib/posts"
-import type { ProjectListItem } from "@/lib/projects"
+import type { PostListItem } from "@/lib/db/posts"
+import type { ProjectListItem } from "@/lib/db/projects"
 
 export const TEST_SECRET = "abc123"
 

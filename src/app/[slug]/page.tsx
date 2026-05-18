@@ -1,5 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation"
-import { lookupLegacySlug } from "@/lib/legacySlug"
+import { lookupLegacySlug } from "@/lib/db/legacySlug"
 
 interface Props {
 	params: Promise<{ slug: string }>

@@ -1,6 +1,6 @@
 import LoanCalculatorClient from "@/components/loan-calculator/LoanCalculatorClient"
 import PageGlow from "@/components/PageGlow"
-import { buildPageMetadata } from "@/lib/metadata"
+import { buildPageMetadata } from "@/lib/content/metadata"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = buildPageMetadata({

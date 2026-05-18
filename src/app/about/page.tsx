@@ -1,5 +1,5 @@
 import PageGlow from "@/components/PageGlow"
-import { buildPageMetadata } from "@/lib/metadata"
+import { buildPageMetadata } from "@/lib/content/metadata"
 import AboutContent from "./AboutContent"
 import type { Metadata } from "next"
 

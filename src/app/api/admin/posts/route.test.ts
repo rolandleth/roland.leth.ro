@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { POST } from "./route"
 
 vi.mock("next/cache", async () => {
@@ -9,7 +9,7 @@ vi.mock("next/cache", async () => {
 	return nextCacheMockFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		post: {
 			create: vi.fn(),

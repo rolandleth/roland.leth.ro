@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { fadeUp } from "@/lib/motion"
+import { fadeUp } from "@/lib/client/motion"
 
 // Pulls the allowed tag set straight from Framer Motion's own typed surface,
 // so any element `motion` supports works here without a hand-maintained union.

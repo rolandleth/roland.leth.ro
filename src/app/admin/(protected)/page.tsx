@@ -2,8 +2,8 @@ import Link from "next/link"
 import AdminSearch from "@/components/admin/AdminSearch"
 import PostsTab from "@/components/admin/PostsTab"
 import ProjectsTab from "@/components/admin/ProjectsTab"
-import { parseTab } from "@/lib/adminPageUrl"
-import { parsePageParam } from "@/lib/format"
+import { parseTab } from "@/lib/client/adminPageUrl"
+import { parsePageParam } from "@/lib/utils/format"
 
 interface PageProps {
 	searchParams: Promise<{ tab?: string; page?: string; q?: string }>

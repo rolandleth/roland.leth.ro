@@ -1,6 +1,6 @@
 import BooleanFlagToggle from "@/components/admin/BooleanFlagToggle"
 import ProjectSortOrderInput from "@/components/admin/ProjectSortOrderInput"
-import type { ProjectListItem } from "@/lib/projects"
+import type { ProjectListItem } from "@/lib/db/projects"
 
 interface Props {
 	project: ProjectListItem

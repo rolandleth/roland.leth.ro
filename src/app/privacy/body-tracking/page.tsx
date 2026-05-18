@@ -1,7 +1,7 @@
 import PrivacyPageLayout, {
 	type PrivacySectionEntry,
 } from "@/components/privacy/PrivacyPageLayout"
-import { buildPageMetadata } from "@/lib/metadata"
+import { buildPageMetadata } from "@/lib/content/metadata"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = buildPageMetadata({

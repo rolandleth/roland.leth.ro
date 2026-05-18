@@ -5,17 +5,17 @@ import {
 	parseIdParam,
 	parseJsonBody,
 	respondInternalError,
-} from "@/lib/apiErrors"
-import { auditLog } from "@/lib/auditLog"
-import { prisma } from "@/lib/db"
-import { createSlug } from "@/lib/format"
+} from "@/lib/api/apiErrors"
+import { auditLog } from "@/lib/api/auditLog"
+import { projectUpdateSchema } from "@/lib/api/schemas"
+import { prisma } from "@/lib/db/db"
 import {
 	projectInclude,
 	revalidateProject,
 	toLinkCreate,
 	toSectionCreate,
-} from "@/lib/projects"
-import { projectUpdateSchema } from "@/lib/schemas"
+} from "@/lib/db/projects"
+import { createSlug } from "@/lib/utils/format"
 
 export async function GET(
 	_request: Request,

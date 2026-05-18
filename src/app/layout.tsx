@@ -4,8 +4,11 @@ import ClientAnalytics from "@/components/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import ThemeProvider from "@/components/ThemeProvider"
-import { siteBase } from "@/lib/request"
-import { resolveInitialTheme, resolveInitialThemeClass } from "@/lib/theme"
+import { siteBase } from "@/lib/api/request"
+import {
+	resolveInitialTheme,
+	resolveInitialThemeClass,
+} from "@/lib/client/theme"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"

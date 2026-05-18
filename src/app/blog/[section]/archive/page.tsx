@@ -1,9 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { formatDate } from "@/lib/format"
-import { buildPageMetadata } from "@/lib/metadata"
-import { getPostsGroupedByYear } from "@/lib/posts"
-import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/sections"
+import { buildPageMetadata } from "@/lib/content/metadata"
+import { getPostsGroupedByYear } from "@/lib/db/posts"
+import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/db/sections"
+import { formatDate } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 export function generateStaticParams() {

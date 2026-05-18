@@ -1,8 +1,8 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { postDatetimeToISO } from "@/lib/format"
-import { fadeUp } from "@/lib/motion"
+import { fadeUp } from "@/lib/client/motion"
+import { postDatetimeToISO } from "@/lib/utils/format"
 
 interface Props {
 	title: string

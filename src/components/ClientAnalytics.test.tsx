@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { filterAdminEvents } from "@/lib/analytics"
+import { filterAdminEvents } from "@/lib/client/analytics"
 import ClientAnalytics from "./ClientAnalytics"
 
 describe("ClientAnalytics", () => {

@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { isPrismaNotFound, prisma } from "@/lib/db"
+import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
@@ -10,7 +10,7 @@ vi.mock("next/cache", async () => {
 	return nextCacheMockFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		post: {
 			findUnique: vi.fn(),

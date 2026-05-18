@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import LoginForm from "@/components/admin/LoginForm"
-import { verifySession } from "@/lib/auth"
+import { verifySession } from "@/lib/auth/auth"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {

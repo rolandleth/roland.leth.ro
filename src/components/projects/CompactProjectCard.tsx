@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
-import { formatPlatformDisplay } from "@/lib/platforms"
-import type { ProjectGalleryItem } from "@/lib/projects"
+import { formatPlatformDisplay } from "@/lib/utils/platforms"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
 interface Props {

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
-import { auditLog } from "@/lib/auditLog"
-import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
-import { calculateReadingTime, createSlug } from "@/lib/format"
-import { deriveSummary } from "@/lib/markdown"
-import { revalidatePostSection } from "@/lib/posts"
-import { postCreateSchema } from "@/lib/schemas"
+import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
+import { auditLog } from "@/lib/api/auditLog"
+import { postCreateSchema } from "@/lib/api/schemas"
+import { deriveSummary } from "@/lib/content/markdown"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
+import { revalidatePostSection } from "@/lib/db/posts"
+import { calculateReadingTime, createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
 	const parsed = await parseJsonBody(

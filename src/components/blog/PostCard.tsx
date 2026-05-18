@@ -4,9 +4,9 @@ import {
 	postDatetimeToISO,
 	calculateReadingTime,
 	truncateBody,
-} from "@/lib/format"
+} from "@/lib/utils/format"
 import PostMarkdownContent from "./PostMarkdownContent"
-import type { PostListItem } from "@/lib/posts"
+import type { PostListItem } from "@/lib/db/posts"
 
 interface Props {
 	post: PostListItem

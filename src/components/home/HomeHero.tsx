@@ -3,8 +3,8 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import Typewriter from "@/components/Typewriter"
-import { fadeUp } from "@/lib/motion"
-import { navLinks } from "@/lib/navigation"
+import { fadeUp } from "@/lib/client/motion"
+import { navLinks } from "@/lib/client/navigation"
 
 const phrases = [
 	"iOS developer",

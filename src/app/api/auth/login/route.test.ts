@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { createSession, verifyCredentials } from "@/lib/auth"
+import { createSession, verifyCredentials } from "@/lib/auth/auth"
 import { POST } from "./route"
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
 	verifyCredentials: vi.fn(),
 	createSession: vi.fn(),
 }))

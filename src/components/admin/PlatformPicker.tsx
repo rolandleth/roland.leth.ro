@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { PLATFORM_BUCKETS } from "@/lib/platforms"
+import { PLATFORM_BUCKETS } from "@/lib/utils/platforms"
 
 interface Props {
 	value: string

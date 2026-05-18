@@ -1,4 +1,4 @@
-import { markdownToReact } from "@/lib/markdown"
+import { markdownToReact } from "@/lib/content/markdown"
 
 interface Props {
 	content: string

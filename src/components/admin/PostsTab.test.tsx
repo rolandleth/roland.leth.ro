@@ -1,16 +1,18 @@
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { currentDatetimeString } from "@/lib/format"
-import { listPostsForAdmin, type AdminPostListItem } from "@/lib/posts"
+import { listPostsForAdmin, type AdminPostListItem } from "@/lib/db/posts"
+import { currentDatetimeString } from "@/lib/utils/format"
 import PostsTab from "./PostsTab"
 
-vi.mock("@/lib/posts", () => ({
+vi.mock("@/lib/db/posts", () => ({
 	listPostsForAdmin: vi.fn(),
 }))
 
-vi.mock("@/lib/format", async () => {
+vi.mock("@/lib/utils/format", async () => {
 	const actual =
-		await vi.importActual<typeof import("@/lib/format")>("@/lib/format")
+		await vi.importActual<typeof import("@/lib/utils/format")>(
+			"@/lib/utils/format"
+		)
 	return {
 		...actual,
 		// Pinned so "future" and "past" fixtures are unambiguous regardless of

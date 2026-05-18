@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import PostForm from "@/components/admin/PostForm"
-import { parseIntId } from "@/lib/format"
-import { loadPostForAdmin } from "@/lib/posts"
+import { loadPostForAdmin } from "@/lib/db/posts"
+import { parseIntId } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 interface Props {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useDeferredValue, useRef } from "react"
-import { markdownToReact } from "@/lib/markdown"
+import { markdownToReact } from "@/lib/content/markdown"
 import type { ReactNode } from "react"
 
 interface Props {

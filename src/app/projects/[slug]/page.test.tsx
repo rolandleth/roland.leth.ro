@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { loadProject } from "@/lib/projects"
+import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
-vi.mock("@/lib/projects", () => ({
+vi.mock("@/lib/db/projects", () => ({
 	getAllProjectsForGallery: vi.fn().mockResolvedValue([]),
 	loadProject: vi.fn(),
 }))
 
-vi.mock("@/lib/markdown", () => ({
+vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn().mockResolvedValue(null),
 }))
 

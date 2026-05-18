@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { KEEPALIVE_KEY } from "@/lib/keepalive"
+import { KEEPALIVE_KEY } from "@/lib/api/keepalive"
 import { POST } from "./route"
 
 // `redis` in the route is evaluated at module-load from

@@ -2,12 +2,12 @@ import AnimatedCard from "@/components/AnimatedCard"
 import PageGlow from "@/components/PageGlow"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
-import { buildPageMetadata } from "@/lib/metadata"
+import { buildPageMetadata } from "@/lib/content/metadata"
+import { getAllProjectsForGallery } from "@/lib/db/projects"
 import {
 	groupByPlatform,
 	isPlatformRedundantWithSection,
-} from "@/lib/platforms"
-import { getAllProjectsForGallery } from "@/lib/projects"
+} from "@/lib/utils/platforms"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = buildPageMetadata({

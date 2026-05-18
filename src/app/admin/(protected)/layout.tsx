@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import AdminNav from "@/components/admin/AdminNav"
-import { verifySession } from "@/lib/auth"
+import { verifySession } from "@/lib/auth/auth"
 
 // The real gate is `src/proxy.ts` (middleware) — `generateMetadata` functions
 // inside nested admin pages run independently of this layout and already touch

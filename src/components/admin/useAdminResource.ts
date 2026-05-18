@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { isAbortError } from "@/lib/isAbortError"
-import { readErrorMessage } from "@/lib/readErrorMessage"
+import { isAbortError } from "@/lib/client/isAbortError"
+import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
 interface Config {
 	resource: "posts" | "projects"

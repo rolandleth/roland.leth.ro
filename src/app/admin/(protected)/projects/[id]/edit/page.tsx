@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation"
 import ProjectForm from "@/components/admin/ProjectForm"
-import { parseIntId } from "@/lib/format"
-import { loadProjectForAdmin, toProjectFormInitialData } from "@/lib/projects"
+import {
+	loadProjectForAdmin,
+	toProjectFormInitialData,
+} from "@/lib/db/projects"
+import { parseIntId } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 interface PageProps {

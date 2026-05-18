@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { fadeUp } from "@/lib/motion"
+import { fadeUp } from "@/lib/client/motion"
 
 interface Props {
 	index: number

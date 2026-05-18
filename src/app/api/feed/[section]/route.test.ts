@@ -1,8 +1,8 @@
 import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db"
-import { markdownToHtml } from "@/lib/markdown"
-import { siteBase } from "@/lib/request"
+import { siteBase } from "@/lib/api/request"
+import { markdownToHtml } from "@/lib/content/markdown"
+import { prisma } from "@/lib/db/db"
 import { GET } from "./route"
 
 // Spy variant so we can assert on the cache keys and tags wired to each
@@ -14,15 +14,15 @@ vi.mock("next/cache", async () => {
 	return nextCacheSpyFactory()
 })
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/db/db", () => ({
 	prisma: { post: { findMany: vi.fn(), count: vi.fn() } },
 }))
 
-vi.mock("@/lib/markdown", () => ({
+vi.mock("@/lib/content/markdown", () => ({
 	markdownToHtml: vi.fn(async (md: string) => `<p>${md}</p>`),
 }))
 
-vi.mock("@/lib/request", () => ({
+vi.mock("@/lib/api/request", () => ({
 	siteBase: vi.fn(),
 }))
 

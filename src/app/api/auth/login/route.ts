@@ -2,9 +2,9 @@ import { createHmac } from "node:crypto"
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
-import { verifyCredentials, createSession } from "@/lib/auth"
-import { getIpHashSecret, getRedisConfig } from "@/lib/env"
-import { loginSchema } from "@/lib/schemas"
+import { loginSchema } from "@/lib/api/schemas"
+import { verifyCredentials, createSession } from "@/lib/auth/auth"
+import { getIpHashSecret, getRedisConfig } from "@/lib/auth/env"
 
 // Construct from the resolved config object so the abstraction in `env.ts`
 // stays the single source of truth — `Redis.fromEnv()` would re-read

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { useOptimisticMutation } from "@/lib/useOptimisticMutation"
+import { useOptimisticMutation } from "@/lib/client/useOptimisticMutation"
 
 interface Props {
 	initial: boolean

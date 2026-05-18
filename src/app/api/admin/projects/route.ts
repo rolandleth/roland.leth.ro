@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
-import { parseJsonBody, respondInternalError } from "@/lib/apiErrors"
-import { auditLog } from "@/lib/auditLog"
-import { isPrismaUniqueConstraint, prisma } from "@/lib/db"
-import { createSlug } from "@/lib/format"
+import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
+import { auditLog } from "@/lib/api/auditLog"
+import { projectCreateSchema } from "@/lib/api/schemas"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import {
 	projectInclude,
 	revalidateProject,
 	toLinkCreate,
 	toSectionCreate,
-} from "@/lib/projects"
-import { projectCreateSchema } from "@/lib/schemas"
+} from "@/lib/db/projects"
+import { createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
 	const parsed = await parseJsonBody(

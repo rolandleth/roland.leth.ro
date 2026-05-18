@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
-import { markdownToReact } from "@/lib/markdown"
-import { buildPageMetadata } from "@/lib/metadata"
-import { getAllProjectsForGallery, loadProject } from "@/lib/projects"
+import { markdownToReact } from "@/lib/content/markdown"
+import { buildPageMetadata } from "@/lib/content/metadata"
+import { getAllProjectsForGallery, loadProject } from "@/lib/db/projects"
 import type { Metadata } from "next"
 
 interface Props {

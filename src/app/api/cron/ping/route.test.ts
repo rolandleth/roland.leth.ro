@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { KEEPALIVE_KEY } from "@/lib/keepalive"
+import { KEEPALIVE_KEY } from "@/lib/api/keepalive"
 import { GET } from "./route"
 
 // `hasRedis` in the route is evaluated at module-load from

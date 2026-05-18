@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { destroySession } from "@/lib/auth"
+import { destroySession } from "@/lib/auth/auth"
 import { POST } from "./route"
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth/auth", () => ({
 	destroySession: vi.fn(),
 }))
 
