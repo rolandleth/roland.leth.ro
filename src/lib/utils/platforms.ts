@@ -128,7 +128,7 @@ export function compactLabel(
 		return tagLabel(safeTags[0])
 	}
 
-	if (bucket === PlatformBucket.Web) {
+	if (bucket === PlatformBucket.Web || bucket === PlatformBucket.OpenSource) {
 		const hasFrontend = safeTags.some((t) => WEB_FRONTEND_TAGS.has(t))
 		const hasBackend = safeTags.some((t) => WEB_BACKEND_TAGS.has(t))
 
