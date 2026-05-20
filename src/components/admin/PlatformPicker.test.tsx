@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import PlatformPicker from "./PlatformPicker"
 

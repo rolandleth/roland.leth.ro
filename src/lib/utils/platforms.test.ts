@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import {
 	BUCKET_SUGGESTED_TAGS,
 	bucketLabel,

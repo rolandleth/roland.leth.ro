@@ -33,7 +33,7 @@
 #     so chained stages can be distinguished (`exit=`, `lint=`, `tsc=`).
 
 def log_path_re:
-  "/tmp/rlr-(test|tsc|lint)\\.log";
+  "/tmp/rlr-(test|tsc|lint|build)\\.log";
 
 def arg_char_re: "[A-Za-z0-9_./:=@,+%-]";
 
@@ -93,6 +93,7 @@ def cmd_re:
   + "yarn test(?: run)?\(safe_args_re)"
   + "|yarn lint\(safe_args_re)"
   + "|yarn(?: run)? tsc --noEmit\(safe_args_re)"
+  + "|yarn(?: run)? build\(safe_args_re)"
   + "|rg\(grep_like_flags_re) \(grep_like_pattern_re)(?: \(log_path_re))+\(grep_like_flags_re)"
   + "|\(head_tail_re)(?: \(log_path_re))+"
   + "|\(wc_re)(?: \(log_path_re))+"

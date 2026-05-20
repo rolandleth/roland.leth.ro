@@ -1,4 +1,4 @@
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import type { PostListItem } from "@/lib/db/posts"
 import type { ProjectListItem } from "@/lib/db/projects"
 

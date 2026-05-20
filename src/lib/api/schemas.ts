@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
 

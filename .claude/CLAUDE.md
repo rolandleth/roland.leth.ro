@@ -4,11 +4,12 @@ Personal website for Roland Leth: landing page, blog, and projects portfolio.
 
 ## Sanctioned command shapes
 Skip the permission prompt; anything else prompts. Full grammar in `.claude/hooks/auto-allow.jq`.
-Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`.
+Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`, `/tmp/rlr-build.log`.
 
 - **Test**: `yarn test [run] [args]`
 - **Lint**: `yarn lint [args]`
 - **Type-check**: `yarn [run] tsc --noEmit [args]`
+- **Build**: `yarn [run] build [args]`
   Optional tail on any of the above: ` > <log-path> 2>&1; echo "<label>=$?"` — `<label>` is any identifier (e.g. `exit`, `lint`, `tsc`); use distinct labels for chained stages so you can tell exit codes apart in the output.
 - **Search logs**: `rg [flags] <pattern> <log-path>+ [flags]` — short-flag bundles only (e.g. `-iN`, `-A 3` or `-A3`). Quoted patterns: single quotes pass anything except `'`; double quotes block `"`, backtick, `$`, `\` — use single quotes for regex with backslashes.
 - **Multiple searches**: If you need to search multiple batches of terms, don't do it in a single call, do separate calls.

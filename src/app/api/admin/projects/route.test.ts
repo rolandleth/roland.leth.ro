@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import { POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"

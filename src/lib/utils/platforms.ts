@@ -1,4 +1,4 @@
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 
 // Display label for each bucket. Identifiers come from Postgres (no spaces),
 // labels are what we render.

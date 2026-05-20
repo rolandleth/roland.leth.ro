@@ -1,6 +1,6 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { prisma } from "@/lib/db/db"
 import { PAGE_SIZE } from "@/lib/utils/pagination"

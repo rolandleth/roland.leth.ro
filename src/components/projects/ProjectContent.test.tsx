@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
 import type { ProjectDetail } from "@/lib/db/projects"

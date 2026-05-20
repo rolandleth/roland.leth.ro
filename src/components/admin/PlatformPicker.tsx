@@ -1,6 +1,6 @@
 "use client"
 
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import {
 	BUCKET_SUGGESTED_TAGS,
 	bucketLabel,

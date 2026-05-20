@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
 

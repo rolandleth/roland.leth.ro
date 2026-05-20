@@ -11,7 +11,7 @@ import SectionManager, {
 } from "@/components/admin/SectionManager"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 
 interface InitialData {
 	id: number

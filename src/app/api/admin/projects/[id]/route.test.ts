@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
