@@ -58,8 +58,13 @@ model Project {
   heroImage      String?
   // `bucket` is the editorial home (drives gallery placement + compact list
   // label); `platformTags` is the honest stack (rendered on the detail page).
+  // `@default([])` on platformTags keeps Postgres from returning NULL for
+  // rows inserted without an explicit tag list — Prisma's TS types claim
+  // non-null `PlatformTag[]` but the underlying column allows NULL unless we
+  // enforce a default. Without this, a stray NULL row crashes `compactLabel`
+  // with "Cannot read properties of null (reading 'length')".
   bucket         PlatformBucket
-  platformTags   PlatformTag[]
+  platformTags   PlatformTag[]    @default([])
   role           String?
   accentColor    String?
   isFeatured     Boolean          @default(false)

@@ -37,6 +37,27 @@ export const TAG_LABELS: Record<PlatformTag, string> = {
 // gallery still renders iOS → Mac → Web → Open Source.
 const BUCKET_ORDER: PlatformBucket[] = ["iOS", "Mac", "Web", "OpenSource"]
 
+// Frontend-flavor and backend-flavor tags within the Web bucket. Used by the
+// "Fullstack" alias in `compactLabel` — a project counts as fullstack when
+// its tags span at least one of each family. The literal `Frontend`/`Backend`
+// labels are aliases for "any frontend framework"/"any backend framework"
+// and don't have to appear; `[Vapor, React]` is just as fullstack as
+// `[Frontend, Backend]`. `Next.js` is cross-listed in both families because
+// it spans both halves of the stack — pairing it with `React` (or any other
+// frontend tag) signals the backend half came along for the ride, and pairing
+// it with a frontend-only tag like `Frontend` triggers Fullstack the same way.
+const WEB_FRONTEND_TAGS: ReadonlySet<PlatformTag> = new Set([
+	PlatformTag.Frontend,
+	PlatformTag.React,
+	PlatformTag.Next,
+])
+const WEB_BACKEND_TAGS: ReadonlySet<PlatformTag> = new Set([
+	PlatformTag.Backend,
+	PlatformTag.Node,
+	PlatformTag.Vapor,
+	PlatformTag.Next,
+])
+
 // The tags that "belong to" each bucket — i.e. tags whose presence doesn't
 // push the compact label into "Multiplatform" territory. iOS+iPad is still
 // "iOS" on the list; iOS+Android is "Multiplatform" because Android is
@@ -46,14 +67,7 @@ const BUCKET_ORDER: PlatformBucket[] = ["iOS", "Mac", "Web", "OpenSource"]
 const BUCKET_NATURAL_TAGS: Record<PlatformBucket, ReadonlySet<PlatformTag>> = {
 	iOS: new Set([PlatformTag.iOS, PlatformTag.iPad, PlatformTag.watchOS]),
 	Mac: new Set([PlatformTag.macOS, PlatformTag.MenuBar]),
-	Web: new Set([
-		PlatformTag.Frontend,
-		PlatformTag.Backend,
-		PlatformTag.React,
-		PlatformTag.Next,
-		PlatformTag.Node,
-		PlatformTag.Vapor,
-	]),
+	Web: new Set([...WEB_FRONTEND_TAGS, ...WEB_BACKEND_TAGS]),
 	OpenSource: new Set([
 		PlatformTag.Library,
 		PlatformTag.CLI,
@@ -89,32 +103,42 @@ export function tagLabel(tag: PlatformTag): string {
  * List-view label that fits the tiny capsule under a project's icon. Rules:
  * - 0 tags → bucket label (the bucket is the only signal we have)
  * - 1 tag → that tag's label
- * - Web + Frontend + Backend → "Fullstack" (the one editorial alias worth keeping)
+ * - Web bucket with tags spanning frontend AND backend families → "Fullstack"
+ *   (covers both literal `[Frontend, Backend]` and framework pairs like
+ *   `[React, Vapor]` — the family aliases are what matter, not the literal labels)
  * - 2+ tags all within the bucket's natural set → bucket label
  * - 2+ tags spanning the bucket's natural set → "Multiplatform"
+ *
+ * `tags` is defensively coerced to `[]` if the caller passes `null`/`undefined` —
+ * Prisma's array-column typing claims non-null `PlatformTag[]` but Postgres
+ * can return `NULL` for array columns without an explicit default. The runtime
+ * fallback prevents a crash if any prod row predates the schema default.
  */
 export function compactLabel(
 	bucket: PlatformBucket,
-	tags: PlatformTag[]
+	tags: PlatformTag[] | null | undefined
 ): string {
-	if (tags.length === 0) {
+	const safeTags = tags ?? []
+
+	if (safeTags.length === 0) {
 		return bucketLabel(bucket)
 	}
 
-	if (tags.length === 1) {
-		return tagLabel(tags[0])
+	if (safeTags.length === 1) {
+		return tagLabel(safeTags[0])
 	}
 
-	if (
-		bucket === PlatformBucket.Web &&
-		tags.includes(PlatformTag.Frontend) &&
-		tags.includes(PlatformTag.Backend)
-	) {
-		return "Fullstack"
+	if (bucket === PlatformBucket.Web) {
+		const hasFrontend = safeTags.some((t) => WEB_FRONTEND_TAGS.has(t))
+		const hasBackend = safeTags.some((t) => WEB_BACKEND_TAGS.has(t))
+
+		if (hasFrontend && hasBackend) {
+			return "Fullstack"
+		}
 	}
 
 	const natural = BUCKET_NATURAL_TAGS[bucket]
-	const isAllNatural = tags.every((t) => natural.has(t))
+	const isAllNatural = safeTags.every((t) => natural.has(t))
 
 	if (isAllNatural) {
 		return bucketLabel(bucket)
@@ -126,17 +150,20 @@ export function compactLabel(
 /**
  * Detail-view label — the honest, full stack. Rendered exactly once on the
  * project detail page where there's room for it. Empty tag arrays fall back
- * to the bucket label so the page never shows an empty pill.
+ * to the bucket label so the page never shows an empty pill. `tags` is
+ * defensively coerced to `[]` if `null`/`undefined` (see `compactLabel`).
  */
 export function detailLabel(
 	bucket: PlatformBucket,
-	tags: PlatformTag[]
+	tags: PlatformTag[] | null | undefined
 ): string {
-	if (tags.length === 0) {
+	const safeTags = tags ?? []
+
+	if (safeTags.length === 0) {
 		return bucketLabel(bucket)
 	}
 
-	return tags.map(tagLabel).join(" + ")
+	return safeTags.map(tagLabel).join(", ")
 }
 
 /**
@@ -147,7 +174,7 @@ export function detailLabel(
  */
 export function isCompactLabelRedundant(
 	bucket: PlatformBucket,
-	tags: PlatformTag[]
+	tags: PlatformTag[] | null | undefined
 ): boolean {
 	return compactLabel(bucket, tags) === bucketLabel(bucket)
 }

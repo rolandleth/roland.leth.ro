@@ -76,12 +76,38 @@ describe("compactLabel", () => {
 		).toBe("Fullstack")
 	})
 
-	it("collapses multiple frontend-only Web tags to the bucket label (no Fullstack signal)", () => {
-		// [React, Next] are both Web-natural tags, so the multi-tag case falls
-		// back to the bucket label. By analogy with iOS+iPad → "iOS": when all
-		// tags are in-family, the bucket label is the most honest compact value.
+	it("returns 'Fullstack' when Web bucket spans frontend/backend families via framework tags", () => {
+		// React (frontend family) + Vapor (backend family) — the Fullstack
+		// signal is the family span, not the literal `Frontend`/`Backend` labels.
+		expect(
+			compactLabel(PlatformBucket.Web, [PlatformTag.React, PlatformTag.Vapor])
+		).toBe("Fullstack")
+	})
+
+	it("returns 'Fullstack' for mixed literal + framework families (e.g. Frontend + Node)", () => {
+		expect(
+			compactLabel(PlatformBucket.Web, [PlatformTag.Frontend, PlatformTag.Node])
+		).toBe("Fullstack")
+	})
+
+	it("returns 'Fullstack' for [React, Next] (Next.js cross-listed as backend signals the server half)", () => {
 		expect(
 			compactLabel(PlatformBucket.Web, [PlatformTag.React, PlatformTag.Next])
+		).toBe("Fullstack")
+	})
+
+	it("collapses multiple Web frontend-only tags (no Next.js) to the bucket label", () => {
+		expect(
+			compactLabel(PlatformBucket.Web, [
+				PlatformTag.React,
+				PlatformTag.Frontend,
+			])
+		).toBe("Web")
+	})
+
+	it("collapses multiple backend-only Web tags to the bucket label", () => {
+		expect(
+			compactLabel(PlatformBucket.Web, [PlatformTag.Node, PlatformTag.Vapor])
 		).toBe("Web")
 	})
 
@@ -119,24 +145,29 @@ describe("compactLabel", () => {
 // #region detailLabel
 
 describe("detailLabel", () => {
-	it("joins tags with ' + '", () => {
+	it("joins tags with ', '", () => {
 		expect(
 			detailLabel(PlatformBucket.iOS, [
 				PlatformTag.iOS,
 				PlatformTag.iPad,
 				PlatformTag.Android,
 			])
-		).toBe("iOS + iPad + Android")
+		).toBe("iOS, iPad, Android")
 	})
 
 	it("renames tags via TAG_LABELS when rendering", () => {
 		expect(
 			detailLabel(PlatformBucket.Mac, [PlatformTag.macOS, PlatformTag.MenuBar])
-		).toBe("macOS + Menu bar")
+		).toBe("macOS, Menu bar")
 	})
 
 	it("falls back to the bucket label when there are no tags", () => {
 		expect(detailLabel(PlatformBucket.Web, [])).toBe("Web")
+	})
+
+	it("treats null/undefined tags as empty (defensive against Postgres NULL rows)", () => {
+		expect(detailLabel(PlatformBucket.iOS, null)).toBe("iOS")
+		expect(detailLabel(PlatformBucket.iOS, undefined)).toBe("iOS")
 	})
 })
 
@@ -182,6 +213,12 @@ describe("isCompactLabelRedundant", () => {
 		expect(
 			isCompactLabelRedundant(PlatformBucket.Mac, [PlatformTag.macOS])
 		).toBe(false)
+	})
+
+	it("treats null/undefined tags as empty (defensive against Postgres NULL rows)", () => {
+		// 0 tags → bucket label → redundant.
+		expect(isCompactLabelRedundant(PlatformBucket.iOS, null)).toBe(true)
+		expect(isCompactLabelRedundant(PlatformBucket.iOS, undefined)).toBe(true)
 	})
 })
 
