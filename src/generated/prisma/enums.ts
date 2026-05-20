@@ -15,3 +15,38 @@ export const Section = {
 } as const
 
 export type Section = (typeof Section)[keyof typeof Section]
+
+
+export const PlatformBucket = {
+  iOS: 'iOS',
+  Mac: 'Mac',
+  Web: 'Web',
+  OpenSource: 'OpenSource'
+} as const
+
+export type PlatformBucket = (typeof PlatformBucket)[keyof typeof PlatformBucket]
+
+
+export const PlatformTag = {
+  iOS: 'iOS',
+  iPad: 'iPad',
+  watchOS: 'watchOS',
+  Android: 'Android',
+  macOS: 'macOS',
+  MenuBar: 'MenuBar',
+  Frontend: 'Frontend',
+  Backend: 'Backend',
+  React: 'React',
+  Next: 'Next',
+  Node: 'Node',
+  Vapor: 'Vapor',
+  Library: 'Library',
+  CLI: 'CLI',
+  SDK: 'SDK',
+  Package: 'Package',
+  Plugin: 'Plugin',
+  Script: 'Script',
+  Extension: 'Extension'
+} as const
+
+export type PlatformTag = (typeof PlatformTag)[keyof typeof PlatformTag]

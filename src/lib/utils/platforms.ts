@@ -1,157 +1,180 @@
-const frontendKeywords = ["React", "Next", "Frontend"]
-const backendKeywords = ["Node", "Backend", "Vapor"]
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 
-export const PLATFORM_BUCKETS: { label: string; keywords: string[] }[] = [
-	{ label: "iOS", keywords: ["iOS", "iPad", "watchOS", "Android"] },
-	{ label: "Mac", keywords: ["macOS", "Menu bar"] },
-	{
-		label: "Web",
-		keywords: [...frontendKeywords, ...backendKeywords],
-	},
-	{
-		label: "Open Source",
-		keywords: [
-			"CLI",
-			"lib",
-			"SDK",
-			"Package",
-			"Plugin",
-			"Script",
-			"Extension",
-			"Web",
-		],
-	},
-]
-
-function lowerSet(values: string[]): Set<string> {
-	return new Set(values.map((value) => value.toLowerCase()))
+// Display label for each bucket. Identifiers come from Postgres (no spaces),
+// labels are what we render.
+const BUCKET_LABELS: Record<PlatformBucket, string> = {
+	iOS: "iOS",
+	Mac: "Mac",
+	Web: "Web",
+	OpenSource: "Open Source",
 }
 
-const BUCKET_KEYWORDS: Record<string, Set<string>> = Object.fromEntries(
-	PLATFORM_BUCKETS.map((bucket) => [bucket.label, lowerSet(bucket.keywords)])
-)
+// Display label for each tag. Mostly identity, but a couple of tags want
+// renaming for presentation: `MenuBar` → "Menu bar", `Next` → "Next.js".
+export const TAG_LABELS: Record<PlatformTag, string> = {
+	iOS: "iOS",
+	iPad: "iPad",
+	watchOS: "watchOS",
+	Android: "Android",
+	macOS: "macOS",
+	MenuBar: "Menu bar",
+	Frontend: "Frontend",
+	Backend: "Backend",
+	React: "React",
+	Next: "Next.js",
+	Node: "Node",
+	Vapor: "Vapor",
+	Library: "Library",
+	CLI: "CLI",
+	SDK: "SDK",
+	Package: "Package",
+	Plugin: "Plugin",
+	Script: "Script",
+	Extension: "Extension",
+}
 
-const FRONTEND_KEYWORDS_LOWER = lowerSet(frontendKeywords)
-const BACKEND_KEYWORDS_LOWER = lowerSet(backendKeywords)
+// Canonical gallery order. Matches the previous `BUCKET_ORDER` so the
+// gallery still renders iOS → Mac → Web → Open Source.
+const BUCKET_ORDER: PlatformBucket[] = ["iOS", "Mac", "Web", "OpenSource"]
 
-const OTHER_BUCKET_LABEL = "Other"
-const BUCKET_ORDER = [
-	...PLATFORM_BUCKETS.map((bucket) => bucket.label),
-	OTHER_BUCKET_LABEL,
-]
+// The tags that "belong to" each bucket — i.e. tags whose presence doesn't
+// push the compact label into "Multiplatform" territory. iOS+iPad is still
+// "iOS" on the list; iOS+Android is "Multiplatform" because Android is
+// outside iOS's natural set. OpenSource's natural set is just the OSS-flavor
+// descriptors — anything else (e.g. tagging an OSS project with iOS too)
+// signals cross-cutting and surfaces as "Multiplatform" on lists.
+const BUCKET_NATURAL_TAGS: Record<PlatformBucket, ReadonlySet<PlatformTag>> = {
+	iOS: new Set([PlatformTag.iOS, PlatformTag.iPad, PlatformTag.watchOS]),
+	Mac: new Set([PlatformTag.macOS, PlatformTag.MenuBar]),
+	Web: new Set([
+		PlatformTag.Frontend,
+		PlatformTag.Backend,
+		PlatformTag.React,
+		PlatformTag.Next,
+		PlatformTag.Node,
+		PlatformTag.Vapor,
+	]),
+	OpenSource: new Set([
+		PlatformTag.Library,
+		PlatformTag.CLI,
+		PlatformTag.SDK,
+		PlatformTag.Package,
+		PlatformTag.Plugin,
+		PlatformTag.Script,
+		PlatformTag.Extension,
+	]),
+}
 
-/**
- * Returns true when the platform label adds no information beyond the section header.
- * Hides the capsule for exact matches ("iOS" → "iOS") and prefix aliases ("macOS" → "Mac").
- * Always shows for multi-platform values ("iOS, Android").
- */
-export function isPlatformRedundantWithSection(
-	platform: string,
-	sectionLabel: string
-): boolean {
-	// "Mac" section covers both "macOS" alone and "macOS, Menu bar"; the capsule would duplicate the header in both cases.
-	if (sectionLabel === "Mac") {
-		return true
-	}
+// Tags surfaced as chip suggestions in the admin picker per bucket. Differs
+// from `BUCKET_NATURAL_TAGS` only for OpenSource: an OSS project might also
+// want iOS / Web platform tags (e.g. an iOS library tagged `[Library, iOS]`),
+// so the picker offers every tag when bucket=OpenSource. The other three
+// buckets stay scoped to their natural set.
+export const BUCKET_SUGGESTED_TAGS: Record<PlatformBucket, PlatformTag[]> = {
+	iOS: [...BUCKET_NATURAL_TAGS.iOS],
+	Mac: [...BUCKET_NATURAL_TAGS.Mac],
+	Web: [...BUCKET_NATURAL_TAGS.Web],
+	OpenSource: Object.values(PlatformTag),
+}
 
-	if (platform.includes(",")) {
-		return false
-	}
+export function bucketLabel(bucket: PlatformBucket): string {
+	return BUCKET_LABELS[bucket]
+}
 
-	const p = platform.trim().toLowerCase()
-	const s = sectionLabel.trim().toLowerCase()
-
-	return p === s || p.startsWith(s) || s.startsWith(p)
+export function tagLabel(tag: PlatformTag): string {
+	return TAG_LABELS[tag]
 }
 
 /**
- * Returns the display label for a platform string.
- * Multiple web keywords → "Fullstack"; any other multi-keyword value → "Multiplatform".
+ * List-view label that fits the tiny capsule under a project's icon. Rules:
+ * - 0 tags → bucket label (the bucket is the only signal we have)
+ * - 1 tag → that tag's label
+ * - Web + Frontend + Backend → "Fullstack" (the one editorial alias worth keeping)
+ * - 2+ tags all within the bucket's natural set → bucket label
+ * - 2+ tags spanning the bucket's natural set → "Multiplatform"
  */
-export function formatPlatformDisplay(platform: string): string {
-	if (!platform.includes(",")) {
-		return platform
+export function compactLabel(
+	bucket: PlatformBucket,
+	tags: PlatformTag[]
+): string {
+	if (tags.length === 0) {
+		return bucketLabel(bucket)
 	}
 
-	const keywords = platform.split(",").map((s) => s.trim().toLowerCase())
-
-	const webBucket = BUCKET_KEYWORDS["Web"]
+	if (tags.length === 1) {
+		return tagLabel(tags[0])
+	}
 
 	if (
-		webBucket &&
-		keywords.every((kw) => webBucket.has(kw)) &&
-		keywords.some((kw) => FRONTEND_KEYWORDS_LOWER.has(kw)) &&
-		keywords.some((kw) => BACKEND_KEYWORDS_LOWER.has(kw))
+		bucket === PlatformBucket.Web &&
+		tags.includes(PlatformTag.Frontend) &&
+		tags.includes(PlatformTag.Backend)
 	) {
 		return "Fullstack"
 	}
 
-	const macBucket = BUCKET_KEYWORDS["Mac"]
+	const natural = BUCKET_NATURAL_TAGS[bucket]
+	const isAllNatural = tags.every((t) => natural.has(t))
 
-	if (macBucket && keywords.every((kw) => macBucket.has(kw))) {
-		return platform
-	}
-
-	const iosBucket = BUCKET_KEYWORDS["iOS"]
-
-	// iOS-only multi-keyword strings (e.g. "iOS, watchOS") still render as the original value; anything touching Android is multiplatform.
-	if (
-		iosBucket &&
-		keywords.every((kw) => iosBucket.has(kw)) &&
-		!keywords.includes("android")
-	) {
-		return platform
+	if (isAllNatural) {
+		return bucketLabel(bucket)
 	}
 
 	return "Multiplatform"
 }
 
-function escapeRegex(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-// Word-boundary match per keyword so `"webhook"` never matches the `"web"`
-// keyword (substring false positive), while `"menu bar app"` still maps to the
-// `"menu bar"` keyword. `\b` aligns at word/non-word transitions so multi-word
-// keywords still match when surrounded by whitespace or punctuation.
-function hasKeyword(haystack: string, keyword: string): boolean {
-	return new RegExp(`\\b${escapeRegex(keyword)}\\b`, "i").test(haystack)
-}
-
-/** Returns the first bucket label that any keyword in `platform` matches, or "Other". */
-export function platformBucket(platform: string): string {
-	for (const bucket of PLATFORM_BUCKETS) {
-		const keywords = BUCKET_KEYWORDS[bucket.label]
-
-		for (const keyword of keywords) {
-			if (hasKeyword(platform, keyword)) {
-				return bucket.label
-			}
-		}
+/**
+ * Detail-view label — the honest, full stack. Rendered exactly once on the
+ * project detail page where there's room for it. Empty tag arrays fall back
+ * to the bucket label so the page never shows an empty pill.
+ */
+export function detailLabel(
+	bucket: PlatformBucket,
+	tags: PlatformTag[]
+): string {
+	if (tags.length === 0) {
+		return bucketLabel(bucket)
 	}
 
-	return OTHER_BUCKET_LABEL
+	return tags.map(tagLabel).join(" + ")
 }
 
-export function groupByPlatform<T extends { platform: string }>(
+/**
+ * Returns true when the compact label adds no information beyond the
+ * gallery section header. The capsule under the icon is hidden in that case
+ * to avoid duplicating the header. Multi-tag labels ("Fullstack",
+ * "Multiplatform") are always informative and never redundant.
+ */
+export function isCompactLabelRedundant(
+	bucket: PlatformBucket,
+	tags: PlatformTag[]
+): boolean {
+	return compactLabel(bucket, tags) === bucketLabel(bucket)
+}
+
+/**
+ * Groups projects by bucket and returns them in canonical gallery order.
+ * Empty buckets are omitted so the gallery doesn't render empty sections.
+ */
+export function groupByBucket<T extends { bucket: PlatformBucket }>(
 	projects: T[]
-): { label: string; projects: T[] }[] {
-	const buckets = new Map<string, T[]>()
+): { bucket: PlatformBucket; label: string; projects: T[] }[] {
+	const groups = new Map<PlatformBucket, T[]>()
 
 	for (const project of projects) {
-		const label = platformBucket(project.platform)
-		const existing = buckets.get(label)
+		const existing = groups.get(project.bucket)
 
 		if (existing) {
 			existing.push(project)
 			continue
 		}
 
-		buckets.set(label, [project])
+		groups.set(project.bucket, [project])
 	}
 
-	return BUCKET_ORDER.filter((label) => buckets.has(label)).map((label) => ({
-		label,
-		projects: buckets.get(label) ?? [],
+	return BUCKET_ORDER.filter((bucket) => groups.has(bucket)).map((bucket) => ({
+		bucket,
+		label: bucketLabel(bucket),
+		projects: groups.get(bucket) ?? [],
 	}))
 }

@@ -1,191 +1,272 @@
 import { describe, expect, it } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import {
-	formatPlatformDisplay,
-	groupByPlatform,
-	isPlatformRedundantWithSection,
-	platformBucket,
+	BUCKET_SUGGESTED_TAGS,
+	bucketLabel,
+	compactLabel,
+	detailLabel,
+	groupByBucket,
+	isCompactLabelRedundant,
+	tagLabel,
 } from "@/lib/utils/platforms"
 
-// #region isPlatformRedundantWithSection
+// #region bucketLabel + tagLabel
 
-describe("isPlatformRedundantWithSection", () => {
-	it("returns true for an exact match", () => {
-		expect(isPlatformRedundantWithSection("iOS", "iOS")).toBe(true)
+describe("bucketLabel", () => {
+	it("renders identifier-equal labels straight through", () => {
+		expect(bucketLabel(PlatformBucket.iOS)).toBe("iOS")
+		expect(bucketLabel(PlatformBucket.Mac)).toBe("Mac")
+		expect(bucketLabel(PlatformBucket.Web)).toBe("Web")
 	})
 
-	it("is case-insensitive for exact match", () => {
-		expect(isPlatformRedundantWithSection("ios", "iOS")).toBe(true)
+	it("renames OpenSource → 'Open Source'", () => {
+		expect(bucketLabel(PlatformBucket.OpenSource)).toBe("Open Source")
+	})
+})
+
+describe("tagLabel", () => {
+	it("renders identifier-equal labels straight through", () => {
+		expect(tagLabel(PlatformTag.iOS)).toBe("iOS")
+		expect(tagLabel(PlatformTag.Frontend)).toBe("Frontend")
 	})
 
-	it("returns true when platform starts with section (macOS → Mac)", () => {
-		expect(isPlatformRedundantWithSection("macOS", "Mac")).toBe(true)
+	it("renames MenuBar → 'Menu bar'", () => {
+		expect(tagLabel(PlatformTag.MenuBar)).toBe("Menu bar")
 	})
 
-	it("returns true when section starts with platform (Mac → macOS)", () => {
-		expect(isPlatformRedundantWithSection("Mac", "macOS")).toBe(true)
-	})
-
-	it("returns false for unrelated platform and section", () => {
-		expect(isPlatformRedundantWithSection("iOS", "Web")).toBe(false)
-	})
-
-	it("always returns false when platform contains a comma", () => {
-		expect(isPlatformRedundantWithSection("iOS, Mac", "iOS")).toBe(false)
-	})
-
-	it("returns true for a multi-keyword Mac platform vs Mac section", () => {
-		expect(isPlatformRedundantWithSection("macOS, Menu bar", "Mac")).toBe(true)
+	it("renames Next → 'Next.js'", () => {
+		expect(tagLabel(PlatformTag.Next)).toBe("Next.js")
 	})
 })
 
 // #endregion
 
-// #region formatPlatformDisplay
+// #region compactLabel
 
-describe("formatPlatformDisplay", () => {
-	it("returns the platform unchanged when there is no comma", () => {
-		expect(formatPlatformDisplay("iOS")).toBe("iOS")
+describe("compactLabel", () => {
+	it("falls back to the bucket label when there are no tags", () => {
+		expect(compactLabel(PlatformBucket.iOS, [])).toBe("iOS")
 	})
 
-	it("returns 'Fullstack' when all parts are web bucket keywords (lowercase)", () => {
-		expect(formatPlatformDisplay("react, node")).toBe("Fullstack")
+	it("renders the sole tag when there's exactly one", () => {
+		expect(compactLabel(PlatformBucket.iOS, [PlatformTag.iPad])).toBe("iPad")
 	})
 
-	it("returns 'Fullstack' when all parts are web bucket keywords (mixed case)", () => {
-		expect(formatPlatformDisplay("React, Node")).toBe("Fullstack")
+	it("renders the tag's display label, not its identifier", () => {
+		expect(compactLabel(PlatformBucket.Mac, [PlatformTag.MenuBar])).toBe(
+			"Menu bar"
+		)
 	})
 
-	it("returns 'Fullstack' for a single-keyword web value with a comma (e.g. 'frontend, backend')", () => {
-		expect(formatPlatformDisplay("frontend, backend")).toBe("Fullstack")
+	it("returns the bucket label when all tags are within the bucket's natural set", () => {
+		expect(
+			compactLabel(PlatformBucket.iOS, [PlatformTag.iOS, PlatformTag.iPad])
+		).toBe("iOS")
+		expect(
+			compactLabel(PlatformBucket.Mac, [PlatformTag.macOS, PlatformTag.MenuBar])
+		).toBe("Mac")
 	})
 
-	it("returns 'Multiplatform' when parts span multiple buckets", () => {
-		expect(formatPlatformDisplay("iOS, react")).toBe("Multiplatform")
+	it("returns 'Fullstack' when Web bucket has both Frontend and Backend tags", () => {
+		expect(
+			compactLabel(PlatformBucket.Web, [
+				PlatformTag.Frontend,
+				PlatformTag.Backend,
+			])
+		).toBe("Fullstack")
 	})
 
-	it("returns 'Multiplatform' for mixed native/web keywords", () => {
-		expect(formatPlatformDisplay("Mac, Node")).toBe("Multiplatform")
+	it("collapses multiple frontend-only Web tags to the bucket label (no Fullstack signal)", () => {
+		// [React, Next] are both Web-natural tags, so the multi-tag case falls
+		// back to the bucket label. By analogy with iOS+iPad → "iOS": when all
+		// tags are in-family, the bucket label is the most honest compact value.
+		expect(
+			compactLabel(PlatformBucket.Web, [PlatformTag.React, PlatformTag.Next])
+		).toBe("Web")
 	})
 
-	it("returns 'Multiplatform' for two frontend-only web keywords", () => {
-		expect(formatPlatformDisplay("React, Next")).toBe("Multiplatform")
+	it("returns 'Multiplatform' when iOS bucket tags include Android", () => {
+		// Android sits outside iOS's natural set (iOS/iPad/watchOS), so it
+		// breaks the bucket-label fallback.
+		expect(
+			compactLabel(PlatformBucket.iOS, [PlatformTag.iOS, PlatformTag.Android])
+		).toBe("Multiplatform")
 	})
 
-	it("returns 'Multiplatform' for two backend-only web keywords", () => {
-		expect(formatPlatformDisplay("Node, Vapor")).toBe("Multiplatform")
-	})
-})
-
-// #endregion
-
-// #region platformBucket
-
-describe("platformBucket", () => {
-	it("maps iOS keyword to iOS bucket", () => {
-		expect(platformBucket("ios")).toBe("iOS")
+	it("returns 'Multiplatform' when OpenSource tags span the OSS family and a platform tag", () => {
+		// OSS spans by design; the natural set is only the OSS-flavor tags, so
+		// any platform tag pushes us into Multiplatform on the compact label.
+		expect(
+			compactLabel(PlatformBucket.OpenSource, [
+				PlatformTag.Library,
+				PlatformTag.iOS,
+			])
+		).toBe("Multiplatform")
 	})
 
-	it("maps android keyword to iOS bucket", () => {
-		expect(platformBucket("android")).toBe("iOS")
-	})
-
-	it("maps mac keyword to Mac bucket", () => {
-		expect(platformBucket("macOS")).toBe("Mac")
-	})
-
-	it("maps menu bar to Mac bucket", () => {
-		expect(platformBucket("menu bar app")).toBe("Mac")
-	})
-
-	it("maps react to Web bucket", () => {
-		expect(platformBucket("react")).toBe("Web")
-	})
-
-	it("maps node to Web bucket", () => {
-		expect(platformBucket("node")).toBe("Web")
-	})
-
-	it("maps cli to Open Source bucket", () => {
-		expect(platformBucket("cli")).toBe("Open Source")
-	})
-
-	it("maps package to Open Source bucket", () => {
-		expect(platformBucket("package")).toBe("Open Source")
-	})
-
-	it("returns Other for an unknown platform", () => {
-		expect(platformBucket("game")).toBe("Other")
-	})
-
-	it("does NOT match a keyword as a substring of a longer word", () => {
-		// Pre-fix bug: `lower.includes("web")` matched `"webhook tool"` and
-		// returned "Web". Word-boundary regex prevents that.
-		expect(platformBucket("Webhook tool")).toBe("Other")
-	})
-
-	it("matches a multi-word keyword exactly within a longer phrase", () => {
-		// `"menu bar"` is a multi-word Mac keyword; should still match when
-		// surrounded by other words.
-		expect(platformBucket("Tiny menu bar app")).toBe("Mac")
-	})
-
-	it("matches a comma-separated platform string against any token", () => {
-		expect(platformBucket("iOS, Android")).toBe("iOS")
+	it("returns the bucket label when all OpenSource tags are OSS-flavor", () => {
+		expect(
+			compactLabel(PlatformBucket.OpenSource, [
+				PlatformTag.Library,
+				PlatformTag.SDK,
+			])
+		).toBe("Open Source")
 	})
 })
 
 // #endregion
 
-// #region groupByPlatform
+// #region detailLabel
 
-describe("groupByPlatform", () => {
+describe("detailLabel", () => {
+	it("joins tags with ' + '", () => {
+		expect(
+			detailLabel(PlatformBucket.iOS, [
+				PlatformTag.iOS,
+				PlatformTag.iPad,
+				PlatformTag.Android,
+			])
+		).toBe("iOS + iPad + Android")
+	})
+
+	it("renames tags via TAG_LABELS when rendering", () => {
+		expect(
+			detailLabel(PlatformBucket.Mac, [PlatformTag.macOS, PlatformTag.MenuBar])
+		).toBe("macOS + Menu bar")
+	})
+
+	it("falls back to the bucket label when there are no tags", () => {
+		expect(detailLabel(PlatformBucket.Web, [])).toBe("Web")
+	})
+})
+
+// #endregion
+
+// #region isCompactLabelRedundant
+
+describe("isCompactLabelRedundant", () => {
+	it("is true when the compact label equals the bucket label (single in-family tag)", () => {
+		expect(isCompactLabelRedundant(PlatformBucket.iOS, [PlatformTag.iOS])).toBe(
+			true
+		)
+	})
+
+	it("is true when multiple in-family tags collapse to the bucket label", () => {
+		expect(
+			isCompactLabelRedundant(PlatformBucket.iOS, [
+				PlatformTag.iOS,
+				PlatformTag.iPad,
+			])
+		).toBe(true)
+	})
+
+	it("is false when the compact label is 'Multiplatform'", () => {
+		expect(
+			isCompactLabelRedundant(PlatformBucket.iOS, [
+				PlatformTag.iOS,
+				PlatformTag.Android,
+			])
+		).toBe(false)
+	})
+
+	it("is false when the compact label is 'Fullstack'", () => {
+		expect(
+			isCompactLabelRedundant(PlatformBucket.Web, [
+				PlatformTag.Frontend,
+				PlatformTag.Backend,
+			])
+		).toBe(false)
+	})
+
+	it("is false when the single tag's label differs from the bucket label (e.g. macOS under Mac)", () => {
+		expect(
+			isCompactLabelRedundant(PlatformBucket.Mac, [PlatformTag.macOS])
+		).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region groupByBucket
+
+describe("groupByBucket", () => {
 	it("returns an empty array for empty input", () => {
-		expect(groupByPlatform([])).toEqual([])
+		expect(groupByBucket([])).toEqual([])
 	})
 
-	it("groups projects into the correct buckets", () => {
+	it("groups projects by their bucket field", () => {
 		const projects = [
-			{ platform: "React", name: "Web App" },
-			{ platform: "iOS", name: "Mobile App" },
-			{ platform: "macOS", name: "Desktop App" },
+			{ bucket: PlatformBucket.iOS, name: "A" },
+			{ bucket: PlatformBucket.Web, name: "B" },
+			{ bucket: PlatformBucket.iOS, name: "C" },
 		]
-		const result = groupByPlatform(projects)
-		const labels = result.map((g) => g.label)
+		const result = groupByBucket(projects)
+		const iosGroup = result.find((g) => g.bucket === PlatformBucket.iOS)
+		const webGroup = result.find((g) => g.bucket === PlatformBucket.Web)
 
-		expect(labels).toContain("iOS")
-		expect(labels).toContain("Mac")
-		expect(labels).toContain("Web")
+		expect(iosGroup?.projects).toHaveLength(2)
+		expect(webGroup?.projects).toHaveLength(1)
 	})
 
-	it("preserves canonical order: iOS → Mac → Web → Open Source → Other", () => {
+	it("preserves canonical order: iOS → Mac → Web → OpenSource", () => {
 		const projects = [
-			{ platform: "React", name: "A" },
-			{ platform: "CLI", name: "B" },
-			{ platform: "macOS", name: "C" },
-			{ platform: "iOS", name: "D" },
-			{ platform: "Game", name: "E" },
+			{ bucket: PlatformBucket.OpenSource, name: "A" },
+			{ bucket: PlatformBucket.Web, name: "B" },
+			{ bucket: PlatformBucket.iOS, name: "C" },
+			{ bucket: PlatformBucket.Mac, name: "D" },
 		]
-		const labels = groupByPlatform(projects).map((g) => g.label)
+		const buckets = groupByBucket(projects).map((g) => g.bucket)
 
-		expect(labels).toEqual(["iOS", "Mac", "Web", "Open Source", "Other"])
-	})
-
-	it("places all projects of the same platform in one bucket", () => {
-		const projects = [
-			{ platform: "ios", name: "A" },
-			{ platform: "ios", name: "B" },
-		]
-		const result = groupByPlatform(projects)
-
-		expect(result).toHaveLength(1)
-		expect(result[0].projects).toHaveLength(2)
+		expect(buckets).toEqual([
+			PlatformBucket.iOS,
+			PlatformBucket.Mac,
+			PlatformBucket.Web,
+			PlatformBucket.OpenSource,
+		])
 	})
 
 	it("omits buckets that have no projects", () => {
-		const projects = [{ platform: "ios", name: "A" }]
-		const labels = groupByPlatform(projects).map((g) => g.label)
+		const projects = [{ bucket: PlatformBucket.iOS, name: "A" }]
+		const buckets = groupByBucket(projects).map((g) => g.bucket)
 
-		expect(labels).toEqual(["iOS"])
+		expect(buckets).toEqual([PlatformBucket.iOS])
+	})
+
+	it("includes the display label alongside the bucket discriminant", () => {
+		const projects = [{ bucket: PlatformBucket.OpenSource, name: "A" }]
+		const [group] = groupByBucket(projects)
+
+		expect(group.label).toBe("Open Source")
+	})
+})
+
+// #endregion
+
+// #region BUCKET_SUGGESTED_TAGS
+
+describe("BUCKET_SUGGESTED_TAGS", () => {
+	it("scopes iOS/Mac/Web suggestions to their natural tag sets", () => {
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.iOS]).not.toContain(
+			PlatformTag.Frontend
+		)
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.Mac]).not.toContain(
+			PlatformTag.Android
+		)
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.Web]).not.toContain(
+			PlatformTag.iOS
+		)
+	})
+
+	it("surfaces every tag for OpenSource (an OSS lib can also have platform tags)", () => {
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.OpenSource]).toContain(
+			PlatformTag.iOS
+		)
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.OpenSource]).toContain(
+			PlatformTag.Frontend
+		)
+		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.OpenSource]).toContain(
+			PlatformTag.Library
+		)
 	})
 })
 

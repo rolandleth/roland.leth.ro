@@ -1,113 +1,127 @@
 "use client"
 
-import { useState } from "react"
-import { PLATFORM_BUCKETS } from "@/lib/utils/platforms"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
+import {
+	BUCKET_SUGGESTED_TAGS,
+	bucketLabel,
+	tagLabel,
+} from "@/lib/utils/platforms"
 
 interface Props {
-	value: string
-	onChange: (value: string) => void
+	bucket: PlatformBucket | null
+	tags: PlatformTag[]
+	onChange: (next: {
+		bucket: PlatformBucket | null
+		tags: PlatformTag[]
+	}) => void
 }
 
-const ALL_KEYWORDS = PLATFORM_BUCKETS.flatMap((b) => b.keywords)
+const ALL_BUCKETS = Object.values(PlatformBucket)
 
-export default function PlatformPicker({ value, onChange }: Props) {
-	const parsedKeywords = value
-		.split(",")
-		.map((s) => s.trim())
-		.filter((s) => ALL_KEYWORDS.includes(s))
+/**
+ * Editorial bucket (radio) + descriptive tags (chip multi-select scoped to
+ * the bucket's suggested set). Storage is `{ bucket, tags: PlatformTag[] }`
+ * — no freeform input, no comma-string reverse-parsing, no per-bucket
+ * locking. Changing the bucket prunes any selected tags that aren't
+ * suggested for the new bucket (keeps the form in a representable state).
+ */
+export default function PlatformPicker({ bucket, tags, onChange }: Props) {
+	const suggestedTags = bucket != null ? BUCKET_SUGGESTED_TAGS[bucket] : []
 
-	// If the initial value's keywords span multiple buckets there is no clean
-	// bucket to lock to, so treat the whole value as freeform instead of
-	// entering a state where some selected keywords are stuck in a locked bucket.
-	const spannedBuckets = PLATFORM_BUCKETS.filter((b) =>
-		b.keywords.some((kw) => parsedKeywords.includes(kw))
-	)
-	const validParsedKeywords = spannedBuckets.length <= 1 ? parsedKeywords : []
-	const isInitiallyFreeform = value !== "" && validParsedKeywords.length === 0
+	function selectBucket(nextBucket: PlatformBucket) {
+		if (nextBucket === bucket) {
+			return
+		}
 
-	const [selectedKeywords, setSelectedKeywords] =
-		useState<string[]>(validParsedKeywords)
-	const [freeform, setFreeform] = useState(isInitiallyFreeform ? value : "")
+		const nextSuggested = new Set(BUCKET_SUGGESTED_TAGS[nextBucket])
+		const prunedTags = tags.filter((t) => nextSuggested.has(t))
 
-	const activeBucket =
-		selectedKeywords.length > 0
-			? (PLATFORM_BUCKETS.find((b) =>
-					b.keywords.some((kw) => selectedKeywords.includes(kw))
-				) ?? null)
-			: null
-
-	function toggleKeyword(keyword: string) {
-		const next = selectedKeywords.includes(keyword)
-			? selectedKeywords.filter((k) => k !== keyword)
-			: [...selectedKeywords, keyword]
-
-		setSelectedKeywords(next)
-		onChange(next.join(", "))
+		onChange({ bucket: nextBucket, tags: prunedTags })
 	}
 
-	function handleFreeformChange(v: string) {
-		setFreeform(v)
-		onChange(v)
-	}
+	function toggleTag(tag: PlatformTag) {
+		const nextTags = tags.includes(tag)
+			? tags.filter((t) => t !== tag)
+			: [...tags, tag]
 
-	const isFreeformActive = freeform !== ""
+		onChange({ bucket, tags: nextTags })
+	}
 
 	return (
-		<div className="flex flex-col gap-2">
-			{PLATFORM_BUCKETS.map((bucket) => {
-				const isBucketLocked =
-					isFreeformActive ||
-					(activeBucket !== null && activeBucket.label !== bucket.label)
+		<div className="flex flex-col gap-3">
+			<div className="flex flex-wrap items-center gap-2">
+				<span className="text-secondary w-24 shrink-0 text-xs font-medium">
+					Bucket
+				</span>
+				<div className="flex flex-wrap gap-1.5">
+					{ALL_BUCKETS.map((b) => {
+						const isSelected = b === bucket
 
-				return (
-					<div key={bucket.label} className="flex items-start gap-3">
-						<span className="text-secondary w-24 shrink-0 pt-1.5 text-xs font-medium">
-							{bucket.label}
+						return (
+							<button
+								key={b}
+								type="button"
+								onClick={() => selectBucket(b)}
+								className={[
+									"rounded-full border px-3 py-1 text-sm transition-colors",
+									isSelected
+										? "border-accent bg-accent/10 text-accent"
+										: "border-border text-secondary hover:text-primary hover:border-primary",
+								].join(" ")}
+							>
+								{bucketLabel(b)}
+							</button>
+						)
+					})}
+				</div>
+			</div>
+
+			<div className="flex flex-wrap items-start gap-2">
+				<span className="text-secondary w-24 shrink-0 pt-1.5 text-xs font-medium">
+					Tags
+				</span>
+				<div className="flex flex-wrap gap-1.5">
+					{bucket == null ? (
+						<span className="text-secondary pt-1.5 text-xs italic">
+							Pick a bucket to see tags.
 						</span>
-						<div className="flex flex-wrap gap-1.5">
-							{bucket.keywords.map((keyword) => {
-								const isSelected = selectedKeywords.includes(keyword)
-								const isDisabled = isBucketLocked && !isSelected
+					) : (
+						suggestedTags.map((tag) => {
+							const isSelected = tags.includes(tag)
 
-								return (
-									<button
-										key={keyword}
-										type="button"
-										disabled={isDisabled}
-										onClick={() => toggleKeyword(keyword)}
-										className={[
-											"rounded-full border px-3 py-1 text-sm transition-colors",
-											isSelected
-												? "border-accent bg-accent/10 text-accent"
-												: "border-border text-secondary hover:text-primary hover:border-primary",
-											isDisabled ? "cursor-not-allowed opacity-30" : "",
-										].join(" ")}
-									>
-										{keyword}
-									</button>
-								)
-							})}
-						</div>
-					</div>
-				)
-			})}
+							return (
+								<button
+									key={tag}
+									type="button"
+									onClick={() => toggleTag(tag)}
+									className={[
+										"rounded-full border px-3 py-1 text-sm transition-colors",
+										isSelected
+											? "border-accent bg-accent/10 text-accent"
+											: "border-border text-secondary hover:text-primary hover:border-primary",
+									].join(" ")}
+								>
+									{tagLabel(tag)}
+								</button>
+							)
+						})
+					)}
+				</div>
+			</div>
 
-			<input
-				aria-label="Platform"
-				type="text"
-				placeholder="or type freely…"
-				value={freeform}
-				onChange={(e) => handleFreeformChange(e.target.value)}
-				disabled={selectedKeywords.length > 0}
-				className="admin-input disabled:opacity-40"
-			/>
-
+			{/*
+			 * Hidden required input gives native form validation a target so a
+			 * submit-before-selection bounces with a browser tooltip instead of
+			 * a 400 from the API. Mirrors the prior picker's pattern.
+			 */}
 			<input
 				type="text"
 				required
 				readOnly
 				tabIndex={-1}
-				value={selectedKeywords.join(", ") || freeform}
+				value={
+					bucket != null && tags.length > 0 ? `${bucket}:${tags.join(",")}` : ""
+				}
 				className="sr-only"
 				aria-hidden="true"
 			/>

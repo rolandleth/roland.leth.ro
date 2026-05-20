@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import {
 	loginSchema,
 	postCreateSchema,
@@ -197,7 +198,8 @@ describe("projectCreateSchema", () => {
 	const valid = {
 		name: "My App",
 		summary: "An app that does things.",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 	}
 
 	it("accepts a minimal valid payload", () => {
@@ -260,9 +262,44 @@ describe("projectCreateSchema", () => {
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
 	})
 
-	it("rejects when platform is missing", () => {
-		const { platform: _, ...rest } = valid
+	it("rejects when bucket is missing", () => {
+		const { bucket: _, ...rest } = valid
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when platformTags is missing", () => {
+		const { platformTags: _, ...rest } = valid
+		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it("rejects when platformTags is empty (min(1))", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, platformTags: [] }).success
+		).toBe(false)
+	})
+
+	it("rejects when platformTags exceeds the max(8) cap", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				platformTags: Array(9).fill(PlatformTag.iOS),
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an unknown bucket value", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, bucket: "Game" }).success
+		).toBe(false)
+	})
+
+	it("rejects an unknown tag value", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				platformTags: ["Rust"],
+			}).success
+		).toBe(false)
 	})
 
 	it("rejects a link with an invalid URL", () => {
@@ -318,7 +355,8 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 	const valid = {
 		name: "My App",
 		summary: "An app that does things.",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 	}
 
 	it("rejects a negative sortOrder", () => {
@@ -409,7 +447,8 @@ describe("projectCreateSchema — name/summary max-length boundaries", () => {
 	const baseProject = {
 		name: "N",
 		summary: "S",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 	}
 
 	it("rejects a name longer than 80 characters", () => {
@@ -442,7 +481,8 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 	const baseProject = {
 		name: "N",
 		summary: "S",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 	}
 
 	it("rejects a role longer than 80 characters", () => {
@@ -498,7 +538,8 @@ describe("projectCreateSchema — accentColor hex validation", () => {
 	const baseProject = {
 		name: "N",
 		summary: "S",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 	}
 
 	it("accepts a 3-digit hex color", () => {

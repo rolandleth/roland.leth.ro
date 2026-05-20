@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -32,7 +33,8 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		summary: "A test project.",
 		icon: null,
 		heroImage: null,
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 		role: null,
 		accentColor: null,
 		isFeatured: false,

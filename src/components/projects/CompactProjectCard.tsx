@@ -1,13 +1,13 @@
 import Image from "next/image"
 import Link from "next/link"
-import { formatPlatformDisplay } from "@/lib/utils/platforms"
+import { compactLabel } from "@/lib/utils/platforms"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
 interface Props {
 	project: ProjectGalleryItem
 	href?: string
-	/** Hide the platform capsule when the platform matches the section label exactly — the section header already communicates it. */
+	/** Hide the platform capsule when the compact label duplicates the gallery section header. */
 	showPlatformCapsule?: boolean
 	children?: ReactNode
 }
@@ -18,7 +18,15 @@ export default function CompactProjectCard({
 	showPlatformCapsule = true,
 	children,
 }: Props) {
-	const { name, slug, icon, platform, accentColor, isDiscontinued } = project
+	const {
+		name,
+		slug,
+		icon,
+		bucket,
+		platformTags,
+		accentColor,
+		isDiscontinued,
+	} = project
 	const accent = accentColor ?? "var(--color-accent)"
 	// Featured projects link to their detail page; others link externally if needed, but we still use the detail route as a fallback.
 	const href = hrefProp ?? `/projects/${slug}`
@@ -73,7 +81,7 @@ export default function CompactProjectCard({
 
 					{showPlatformCapsule && (
 						<span className="text-secondary absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full border border-(--color-border) bg-(--color-background-value)/90 px-1.5 py-0.5 text-[9px] whitespace-nowrap backdrop-blur-sm">
-							{formatPlatformDisplay(platform)}
+							{compactLabel(bucket, platformTags)}
 						</span>
 					)}
 				</div>

@@ -3,7 +3,7 @@ import AdminPagination from "@/components/admin/AdminPagination"
 import ProjectAdminGroup from "@/components/admin/ProjectAdminGroup"
 import { buildAdminPageUrl } from "@/lib/client/adminPageUrl"
 import { listProjectsForAdmin } from "@/lib/db/projects"
-import { groupByPlatform } from "@/lib/utils/platforms"
+import { detailLabel, groupByBucket } from "@/lib/utils/platforms"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 function ProjectsGroupedView({ projects }: { projects: ProjectGalleryItem[] }) {
 	const featured = projects.filter((p) => p.isFeatured)
 	const others = projects.filter((p) => !p.isFeatured)
-	const platformGroups = groupByPlatform(others)
+	const bucketGroups = groupByBucket(others)
 	const totalCount = projects.length
 
 	if (projects.length === 0) {
@@ -29,9 +29,9 @@ function ProjectsGroupedView({ projects }: { projects: ProjectGalleryItem[] }) {
 				totalCount={totalCount}
 			/>
 
-			{platformGroups.map((group) => (
+			{bucketGroups.map((group) => (
 				<ProjectAdminGroup
-					key={group.label}
+					key={group.bucket}
 					label={group.label}
 					projects={group.projects}
 					totalCount={totalCount}
@@ -79,7 +79,7 @@ export default async function ProjectsTab({ query, page }: Props) {
 									{project.name}
 								</p>
 								<p className="text-secondary mt-0.5 text-xs">
-									{project.platform}
+									{detailLabel(project.bucket, project.platformTags)}
 									{project.isFeatured && " · Featured"}
 								</p>
 							</div>

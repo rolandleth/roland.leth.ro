@@ -1,5 +1,6 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { prisma } from "@/lib/db/db"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
@@ -8,7 +9,8 @@ export interface ProjectListItem {
 	id: number
 	name: string
 	slug: string
-	platform: string
+	bucket: PlatformBucket
+	platformTags: PlatformTag[]
 	isFeatured: boolean
 	isDiscontinued: boolean
 	sortOrder: number
@@ -29,7 +31,8 @@ export interface ProjectDetail {
 	summary: string
 	icon: string | null
 	heroImage: string | null
-	platform: string
+	bucket: PlatformBucket
+	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
 	isFeatured: boolean
@@ -66,7 +69,8 @@ const gallerySelect = {
 	name: true,
 	slug: true,
 	summary: true,
-	platform: true,
+	bucket: true,
+	platformTags: true,
 	role: true,
 	accentColor: true,
 	isFeatured: true,
@@ -133,7 +137,8 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 			id: true,
 			name: true,
 			slug: true,
-			platform: true,
+			bucket: true,
+			platformTags: true,
 			isFeatured: true,
 			isDiscontinued: true,
 			sortOrder: true,

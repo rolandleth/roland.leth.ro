@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
 
@@ -18,23 +20,34 @@ vi.mock("@/components/admin/SectionManager", () => ({
 vi.mock("@/components/admin/LinkManager", () => ({
 	default: () => null,
 }))
-// Light substitutes for the picker/select sub-trees — they have their own
-// dedicated test files. Mirrors just enough of the interface for the form's
-// platform/role interactions (`aria-label="Platform"`, `id="role"`).
+// Stub the picker: in create mode there's no bucket selected, but the form's
+// required-input gate would block submit. Auto-fill a valid `{ bucket, tags }`
+// on mount so the form's invariant is satisfied without per-test interaction.
+// Picker behavior is covered by its own dedicated tests.
+function MockPlatformPicker({
+	bucket,
+	onChange,
+}: {
+	bucket: PlatformBucket | null
+	tags: PlatformTag[]
+	onChange: (v: { bucket: PlatformBucket | null; tags: PlatformTag[] }) => void
+}) {
+	useEffect(() => {
+		if (bucket == null) {
+			onChange({
+				bucket: PlatformBucket.iOS,
+				tags: [PlatformTag.iOS],
+			})
+		}
+		// `onChange` identity changes every render in the real form, so
+		// depending on it would re-fire forever. Only fire once on mount.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [bucket])
+
+	return <div aria-label="Platform" />
+}
 vi.mock("@/components/admin/PlatformPicker", () => ({
-	default: ({
-		value,
-		onChange,
-	}: {
-		value: string
-		onChange: (v: string) => void
-	}) => (
-		<input
-			aria-label="Platform"
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-		/>
-	),
+	default: MockPlatformPicker,
 }))
 vi.mock("@/components/ui/PresetOrFreeformInput", () => ({
 	default: ({
@@ -93,7 +106,8 @@ const initialData = {
 	id: 3,
 	name: "Existing App",
 	summary: "An existing app.",
-	platform: "macOSX",
+	bucket: PlatformBucket.Mac,
+	platformTags: [PlatformTag.macOS],
 	role: "Developer",
 	accentColor: "#6366f1",
 	icon: null,
@@ -121,7 +135,7 @@ describe("ProjectForm — create mode", () => {
 		expect(screen.getByLabelText(/^name$/i)).toBeInTheDocument()
 	})
 
-	it("renders the platform input", () => {
+	it("renders the platform picker", () => {
 		mockRouter()
 		render(<ProjectForm />)
 		expect(screen.getByLabelText(/platform/i)).toBeInTheDocument()
@@ -154,7 +168,6 @@ describe("ProjectForm — create mode", () => {
 
 		render(<ProjectForm />)
 		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.type(screen.getByLabelText(/platform/i), "iOS")
 		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
 		await user.type(screen.getByLabelText(/summary/i), "A new app.")
 		await user.click(screen.getByRole("button", { name: /save project/i }))
@@ -172,7 +185,6 @@ describe("ProjectForm — create mode", () => {
 
 		render(<ProjectForm />)
 		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.type(screen.getByLabelText(/platform/i), "iOS")
 		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
 		await user.type(screen.getByLabelText(/summary/i), "A new app.")
 		await user.click(screen.getByRole("button", { name: /save project/i }))
@@ -186,7 +198,6 @@ describe("ProjectForm — create mode", () => {
 
 		render(<ProjectForm />)
 		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.type(screen.getByLabelText(/platform/i), "iOS")
 		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
 		await user.type(screen.getByLabelText(/summary/i), "A new app.")
 		await user.click(screen.getByRole("button", { name: /save project/i }))
@@ -202,7 +213,6 @@ describe("ProjectForm — create mode", () => {
 
 		render(<ProjectForm />)
 		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.type(screen.getByLabelText(/platform/i), "iOS")
 		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
 		await user.type(screen.getByLabelText(/summary/i), "A new app.")
 		await user.click(screen.getByRole("button", { name: /save project/i }))
@@ -221,14 +231,6 @@ describe("ProjectForm — edit mode", () => {
 		render(<ProjectForm initialData={initialData} />)
 		expect(screen.getByLabelText<HTMLInputElement>(/^name$/i).value).toBe(
 			"Existing App"
-		)
-	})
-
-	it("pre-fills the platform field from initialData", () => {
-		mockRouter()
-		render(<ProjectForm initialData={initialData} />)
-		expect(screen.getByLabelText<HTMLInputElement>(/platform/i).value).toBe(
-			"macOSX"
 		)
 	})
 

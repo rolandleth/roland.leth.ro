@@ -1,101 +1,202 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { setupUser } from "@/test/user"
 import PlatformPicker from "./PlatformPicker"
 
 const user = setupUser()
 
-// #region cross-bucket initial value
+// #region rendering
 
-describe("PlatformPicker — cross-bucket initial value", () => {
-	it("renders the value as freeform when keywords span multiple buckets", () => {
-		render(<PlatformPicker value="iOS, React" onChange={vi.fn()} />)
-		expect(screen.getByPlaceholderText("or type freely…")).toHaveValue(
-			"iOS, React"
+describe("PlatformPicker — rendering", () => {
+	it("shows a prompt in the tag area when no bucket is selected", () => {
+		render(<PlatformPicker bucket={null} tags={[]} onChange={vi.fn()} />)
+		expect(screen.getByText(/pick a bucket/i)).toBeInTheDocument()
+	})
+
+	it("renders one button per bucket", () => {
+		render(<PlatformPicker bucket={null} tags={[]} onChange={vi.fn()} />)
+		expect(screen.getByRole("button", { name: "iOS" })).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Mac" })).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "Web" })).toBeInTheDocument()
+		expect(
+			screen.getByRole("button", { name: "Open Source" })
+		).toBeInTheDocument()
+	})
+
+	it("renders the iOS bucket's natural tags when bucket=iOS", () => {
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[]}
+				onChange={vi.fn()}
+			/>
 		)
+		expect(screen.getByRole("button", { name: "iPad" })).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "watchOS" })).toBeInTheDocument()
+		// `iOS` collides with the bucket button label; assert there are two of them
+		// (bucket + tag) to confirm both layers render.
+		expect(screen.getAllByRole("button", { name: "iOS" })).toHaveLength(2)
 	})
 
-	it("leaves the freeform input editable (not disabled by a keyword selection)", () => {
-		render(<PlatformPicker value="iOS, React" onChange={vi.fn()} />)
-		expect(screen.getByPlaceholderText("or type freely…")).not.toBeDisabled()
+	it("does not render Web-only tags when bucket=iOS", () => {
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[]}
+				onChange={vi.fn()}
+			/>
+		)
+		expect(
+			screen.queryByRole("button", { name: "React" })
+		).not.toBeInTheDocument()
+	})
+
+	it("surfaces every tag when bucket=OpenSource (OSS spans platforms)", () => {
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.OpenSource}
+				tags={[]}
+				onChange={vi.fn()}
+			/>
+		)
+		expect(screen.getByRole("button", { name: "Library" })).toBeInTheDocument()
+		expect(screen.getByRole("button", { name: "React" })).toBeInTheDocument()
+		// `iOS` collides with the bucket button label — assert at least one tag
+		// chip exists alongside it.
+		expect(
+			screen.getAllByRole("button", { name: "iOS" }).length
+		).toBeGreaterThanOrEqual(2)
+	})
+
+	it("renames MenuBar → 'Menu bar' on the chip", () => {
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.Mac}
+				tags={[]}
+				onChange={vi.fn()}
+			/>
+		)
+		expect(screen.getByRole("button", { name: "Menu bar" })).toBeInTheDocument()
 	})
 })
 
 // #endregion
 
-// #region same-bucket initial value
+// #region bucket interactions
 
-describe("PlatformPicker — same-bucket initial value", () => {
-	it("selects keywords and disables the freeform input when all keywords are in one bucket", () => {
-		render(<PlatformPicker value="iOS, iPad" onChange={vi.fn()} />)
-		const freeform = screen.getByPlaceholderText("or type freely…")
-		expect(freeform).toHaveValue("")
-		expect(freeform).toBeDisabled()
+describe("PlatformPicker — bucket interactions", () => {
+	it("emits { bucket, tags: [] } when clicking a bucket with no prior selection", async () => {
+		const onChange = vi.fn()
+		render(<PlatformPicker bucket={null} tags={[]} onChange={onChange} />)
+		await user.click(screen.getByRole("button", { name: "Mac" }))
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.Mac,
+			tags: [],
+		})
 	})
 
-	it("locks out keywords from other buckets when one bucket is active", () => {
-		render(<PlatformPicker value="iOS, iPad" onChange={vi.fn()} />)
-		expect(screen.getByRole("button", { name: "React" })).toBeDisabled()
+	it("prunes tags that aren't in the new bucket's suggested set on bucket switch", async () => {
+		const onChange = vi.fn()
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[PlatformTag.iOS, PlatformTag.iPad]}
+				onChange={onChange}
+			/>
+		)
+		await user.click(screen.getByRole("button", { name: "Web" }))
+		// Neither iOS nor iPad is suggested under Web — both pruned.
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.Web,
+			tags: [],
+		})
+	})
+
+	it("keeps tags that are valid for the new bucket (OpenSource surfaces all)", async () => {
+		const onChange = vi.fn()
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[PlatformTag.iOS]}
+				onChange={onChange}
+			/>
+		)
+		// OpenSource's suggested set includes every tag, so iOS is preserved.
+		await user.click(screen.getByRole("button", { name: "Open Source" }))
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.OpenSource,
+			tags: [PlatformTag.iOS],
+		})
+	})
+
+	it("is a no-op when clicking the already-selected bucket", async () => {
+		const onChange = vi.fn()
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[PlatformTag.iOS]}
+				onChange={onChange}
+			/>
+		)
+		// Two iOS buttons render (bucket + tag); click the bucket one (first).
+		await user.click(screen.getAllByRole("button", { name: "iOS" })[0])
+		expect(onChange).not.toHaveBeenCalled()
 	})
 })
 
 // #endregion
 
-// #region keyword toggle interactions
+// #region tag interactions
 
-describe("PlatformPicker — keyword toggle interactions", () => {
-	it("calls onChange with the keyword when a keyword is clicked", async () => {
+describe("PlatformPicker — tag interactions", () => {
+	it("adds a tag when clicked", async () => {
 		const onChange = vi.fn()
-		render(<PlatformPicker value="" onChange={onChange} />)
-		await user.click(screen.getByRole("button", { name: "iOS" }))
-		expect(onChange).toHaveBeenCalledWith("iOS")
-	})
-
-	it("adds a second same-bucket keyword to the selection", async () => {
-		const onChange = vi.fn()
-		render(<PlatformPicker value="iOS" onChange={onChange} />)
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[]}
+				onChange={onChange}
+			/>
+		)
 		await user.click(screen.getByRole("button", { name: "iPad" }))
-		expect(onChange).toHaveBeenCalledWith("iOS, iPad")
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.iOS,
+			tags: [PlatformTag.iPad],
+		})
 	})
 
-	it("removes a keyword when it is clicked while already selected", async () => {
+	it("removes a tag when it is already selected", async () => {
 		const onChange = vi.fn()
-		render(<PlatformPicker value="iOS" onChange={onChange} />)
-		await user.click(screen.getByRole("button", { name: "iOS" }))
-		expect(onChange).toHaveBeenCalledWith("")
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.iOS}
+				tags={[PlatformTag.iOS, PlatformTag.iPad]}
+				onChange={onChange}
+			/>
+		)
+		// Click the iPad tag chip (only one iPad button — it's a tag, not a bucket).
+		await user.click(screen.getByRole("button", { name: "iPad" }))
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.iOS,
+			tags: [PlatformTag.iOS],
+		})
 	})
 
-	it("locks keywords from other buckets after selecting a keyword", async () => {
-		render(<PlatformPicker value="" onChange={vi.fn()} />)
-		await user.click(screen.getByRole("button", { name: "iOS" }))
-		expect(screen.getByRole("button", { name: "React" })).toBeDisabled()
-	})
-})
-
-// #endregion
-
-// #region freeform input interactions
-
-describe("PlatformPicker — freeform input interactions", () => {
-	it("calls onChange when the freeform input changes", async () => {
+	it("appends a Web tag when bucket=Web", async () => {
 		const onChange = vi.fn()
-		render(<PlatformPicker value="" onChange={onChange} />)
-		await user.type(screen.getByPlaceholderText("or type freely…"), "x")
-		expect(onChange).toHaveBeenCalledWith("x")
-	})
-
-	it("disables keyword buttons when freeform is non-empty", async () => {
-		render(<PlatformPicker value="" onChange={vi.fn()} />)
-		await user.type(screen.getByPlaceholderText("or type freely…"), "a")
-		expect(screen.getByRole("button", { name: "iOS" })).toBeDisabled()
-	})
-
-	it("re-enables keyword buttons when freeform is cleared", async () => {
-		render(<PlatformPicker value="" onChange={vi.fn()} />)
-		const input = screen.getByPlaceholderText("or type freely…")
-		await user.type(input, "a")
-		await user.clear(input)
-		expect(screen.getByRole("button", { name: "iOS" })).not.toBeDisabled()
+		render(
+			<PlatformPicker
+				bucket={PlatformBucket.Web}
+				tags={[PlatformTag.Frontend]}
+				onChange={onChange}
+			/>
+		)
+		await user.click(screen.getByRole("button", { name: "Backend" }))
+		expect(onChange).toHaveBeenCalledWith({
+			bucket: PlatformBucket.Web,
+			tags: [PlatformTag.Frontend, PlatformTag.Backend],
+		})
 	})
 })
 

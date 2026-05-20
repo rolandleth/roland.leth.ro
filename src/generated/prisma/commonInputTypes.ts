@@ -167,6 +167,23 @@ export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
 }
 
+export type EnumPlatformBucketFilter<$PrismaModel = never> = {
+  equals?: $Enums.PlatformBucket | Prisma.EnumPlatformBucketFieldRefInput<$PrismaModel>
+  in?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel> | $Enums.PlatformBucket
+}
+
+export type EnumPlatformBucketWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PlatformBucket | Prisma.EnumPlatformBucketFieldRefInput<$PrismaModel>
+  in?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPlatformBucketWithAggregatesFilter<$PrismaModel> | $Enums.PlatformBucket
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
+}
+
 export type NestedIntFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel>
   in?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel>
@@ -331,6 +348,23 @@ export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeFilter<$PrismaModel>
+}
+
+export type NestedEnumPlatformBucketFilter<$PrismaModel = never> = {
+  equals?: $Enums.PlatformBucket | Prisma.EnumPlatformBucketFieldRefInput<$PrismaModel>
+  in?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel> | $Enums.PlatformBucket
+}
+
+export type NestedEnumPlatformBucketWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PlatformBucket | Prisma.EnumPlatformBucketFieldRefInput<$PrismaModel>
+  in?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PlatformBucket[] | Prisma.ListEnumPlatformBucketFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPlatformBucketWithAggregatesFilter<$PrismaModel> | $Enums.PlatformBucket
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
 }
 
 

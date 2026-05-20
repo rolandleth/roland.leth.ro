@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import { projectInclude } from "@/lib/db/projects"
 import { generateMetadata, default as EditProjectPage } from "./page"
@@ -30,7 +31,8 @@ const existingProject = {
 	name: "My App",
 	slug: "my-app",
 	summary: "A project",
-	platform: "iOS",
+	bucket: PlatformBucket.iOS,
+	platformTags: [PlatformTag.iOS],
 	role: null,
 	icon: null,
 	heroImage: null,

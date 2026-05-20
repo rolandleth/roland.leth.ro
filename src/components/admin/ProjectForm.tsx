@@ -11,12 +11,14 @@ import SectionManager, {
 } from "@/components/admin/SectionManager"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 
 interface InitialData {
 	id: number
 	name: string
 	summary: string
-	platform: string
+	bucket: PlatformBucket
+	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
 	icon: string | null
@@ -39,7 +41,8 @@ interface Props {
 interface ProjectPayload {
 	name: string
 	summary: string
-	platform: string
+	bucket: PlatformBucket
+	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
 	icon: string | null
@@ -68,7 +71,8 @@ const ROLE_OPTIONS = [
 
 interface FormState {
 	name: string
-	platform: string
+	bucket: PlatformBucket | null
+	platformTags: PlatformTag[]
 	role: string
 	date: string
 	sortOrder: number
@@ -98,7 +102,8 @@ export default function ProjectForm({ initialData }: Props) {
 	// re-renders triggered by unrelated field edits.
 	const [state, setState] = useState<FormState>({
 		name: initialData?.name ?? "",
-		platform: initialData?.platform ?? "",
+		bucket: initialData?.bucket ?? null,
+		platformTags: initialData?.platformTags ?? [],
 		role: initialData?.role ?? "",
 		date: initialData?.date ?? "",
 		sortOrder: initialData?.sortOrder ?? 0,
@@ -157,10 +162,15 @@ export default function ProjectForm({ initialData }: Props) {
 			: state.sortOrder
 		setSortOrderText(String(sortOrder))
 
+		// `state.bucket` is non-null at submit time: the picker renders a
+		// `required` hidden input that natively blocks submit until both
+		// bucket and at least one tag are selected. The cast is a type assertion
+		// for the API payload shape; the runtime guarantee is the form.
 		await save({
 			name: state.name,
 			summary: state.summary,
-			platform: state.platform,
+			bucket: state.bucket as PlatformBucket,
+			platformTags: state.platformTags,
 			role: state.role || null,
 			accentColor: state.accentColor || null,
 			icon: state.icon || null,
@@ -198,8 +208,15 @@ export default function ProjectForm({ initialData }: Props) {
 			<div className="flex flex-col gap-1.5">
 				<span className="text-secondary text-sm font-medium">Platform</span>
 				<PlatformPicker
-					value={state.platform}
-					onChange={(v) => setField("platform", v)}
+					bucket={state.bucket}
+					tags={state.platformTags}
+					onChange={({ bucket, tags }) =>
+						setState((prev) => ({
+							...prev,
+							bucket,
+							platformTags: tags,
+						}))
+					}
 				/>
 			</div>
 

@@ -842,7 +842,8 @@ export const ProjectScalarFieldEnum = {
   summary: 'summary',
   icon: 'icon',
   heroImage: 'heroImage',
-  platform: 'platform',
+  bucket: 'bucket',
+  platformTags: 'platformTags',
   role: 'role',
   accentColor: 'accentColor',
   isFeatured: 'isFeatured',
@@ -979,6 +980,34 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel
  * Reference to a field of type 'DateTime[]'
  */
 export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PlatformBucket'
+ */
+export type EnumPlatformBucketFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PlatformBucket'>
+    
+
+
+/**
+ * Reference to a field of type 'PlatformBucket[]'
+ */
+export type ListEnumPlatformBucketFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PlatformBucket[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PlatformTag[]'
+ */
+export type ListEnumPlatformTagFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PlatformTag[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PlatformTag'
+ */
+export type EnumPlatformTagFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PlatformTag'>
     
 
 

@@ -1,6 +1,20 @@
 import { z } from "zod"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
+
+// `z.enum` in Zod 4 wants a const string tuple, but Prisma generates each
+// enum as a runtime object whose values are strings. Casting through the
+// "first, ...rest" tuple shape is the cheapest bridge that keeps the
+// resulting schema type-narrowed to the enum's union.
+const PLATFORM_BUCKETS = Object.values(PlatformBucket) as [
+	PlatformBucket,
+	...PlatformBucket[],
+]
+const PLATFORM_TAGS = Object.values(PlatformTag) as [
+	PlatformTag,
+	...PlatformTag[],
+]
 
 // Rejects titles/names that pass `min(1)` but `createSlug` reduces to "" (all
 // punctuation, soft hyphens, U+2212 minus runs). Without this gate, the DB
@@ -101,6 +115,10 @@ const hexColor = z
 		message: "Hex color must be 3, 4, 6, or 8 digits after the '#'",
 	})
 
+// `min(1)` on tags so a project can't be saved with bucket only and no
+// descriptive tags — the detail page needs something to render. `max(8)` is
+// arbitrary; mainly a guard against the picker accidentally letting you
+// click 19 chips.
 export const projectCreateSchema = z.object({
 	name: z
 		.string()
@@ -108,7 +126,8 @@ export const projectCreateSchema = z.object({
 		.max(80)
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	summary: z.string().min(1).max(300),
-	platform: z.string().min(1),
+	bucket: z.enum(PLATFORM_BUCKETS),
+	platformTags: z.array(z.enum(PLATFORM_TAGS)).min(1).max(8),
 	role: z.string().max(80).nullable().optional(),
 	accentColor: hexColor.nullable().optional(),
 	icon: httpUrl.nullable().optional(),

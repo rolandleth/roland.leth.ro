@@ -1,6 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
-import { formatPlatformDisplay } from "@/lib/utils/platforms"
+import { compactLabel } from "@/lib/utils/platforms"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
@@ -23,7 +23,8 @@ export default function FeaturedProjectCard({
 		summary,
 		icon,
 		heroImage,
-		platform,
+		bucket,
+		platformTags,
 		role,
 		accentColor,
 		isDiscontinued,
@@ -94,7 +95,7 @@ export default function FeaturedProjectCard({
 										color: accent,
 									}}
 								>
-									{formatPlatformDisplay(platform)}
+									{compactLabel(bucket, platformTags)}
 								</span>
 
 								{role && <span className="text-secondary text-xs">{role}</span>}

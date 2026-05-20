@@ -4,10 +4,7 @@ import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { getAllProjectsForGallery } from "@/lib/db/projects"
-import {
-	groupByPlatform,
-	isPlatformRedundantWithSection,
-} from "@/lib/utils/platforms"
+import { groupByBucket, isCompactLabelRedundant } from "@/lib/utils/platforms"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = buildPageMetadata({
@@ -20,7 +17,7 @@ export default async function ProjectsPage() {
 	const allProjects = await getAllProjectsForGallery()
 	const featured = allProjects.filter((p) => p.isFeatured)
 	const others = allProjects.filter((p) => !p.isFeatured)
-	const platformGroups = groupByPlatform(others)
+	const bucketGroups = groupByBucket(others)
 
 	// Precompute a running stagger offset per group so each card's animation
 	// index is unique across every group, independent of group size. A plain
@@ -28,11 +25,11 @@ export default async function ProjectsPage() {
 	// captured inside a `.map` callback trips the React Compiler's
 	// `react-hooks/immutability` rule.
 	const groupsWithStaggerStart: Array<
-		(typeof platformGroups)[number] & { startIndex: number }
+		(typeof bucketGroups)[number] & { startIndex: number }
 	> = []
 	let offset = featured.length
 
-	for (const group of platformGroups) {
+	for (const group of bucketGroups) {
 		groupsWithStaggerStart.push({ ...group, startIndex: offset })
 		offset += group.projects.length
 	}
@@ -62,11 +59,11 @@ export default async function ProjectsPage() {
 				</section>
 			)}
 
-			{/* Other projects grouped by platform */}
+			{/* Other projects grouped by bucket */}
 			{groupsWithStaggerStart.map((group) => (
-				<section key={group.label} className="mb-12">
+				<section key={group.bucket} className="mb-12">
 					<h2
-						className={`text-secondary mb-5 text-xs font-semibold tracking-widest ${group.label === "iOS" ? "" : "uppercase"}`}
+						className={`text-secondary mb-5 text-xs font-semibold tracking-widest ${group.bucket === "iOS" ? "" : "uppercase"}`}
 					>
 						{group.label}
 					</h2>
@@ -81,9 +78,9 @@ export default async function ProjectsPage() {
 								<CompactProjectCard
 									project={project}
 									showPlatformCapsule={
-										!isPlatformRedundantWithSection(
-											project.platform,
-											group.label
+										!isCompactLabelRedundant(
+											project.bucket,
+											project.platformTags
 										)
 									}
 								/>

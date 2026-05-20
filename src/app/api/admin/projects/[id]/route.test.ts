@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
@@ -44,7 +45,8 @@ const existingProject = {
 	name: "My App",
 	slug: "my-app",
 	summary: "An app.",
-	platform: "iOS",
+	bucket: PlatformBucket.iOS,
+	platformTags: [PlatformTag.iOS],
 	role: null,
 	accentColor: null,
 	icon: null,
@@ -144,7 +146,13 @@ describe("PUT /api/admin/projects/[id]", () => {
 
 	it("does not include slug when name is not changed", async () => {
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
-		await PUT(putRequest("1", { platform: "macOS" }), params("1"))
+		await PUT(
+			putRequest("1", {
+				bucket: PlatformBucket.Mac,
+				platformTags: [PlatformTag.macOS],
+			}),
+			params("1")
+		)
 
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
 		expect(data.slug).toBeUndefined()

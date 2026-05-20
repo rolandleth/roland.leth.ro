@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import Image from "next/image"
 import { useRef, useState } from "react"
 import { fadeUp } from "@/lib/client/motion"
+import { detailLabel } from "@/lib/utils/platforms"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { ProjectDetail } from "@/lib/db/projects"
 import type { ReactNode } from "react"
@@ -21,7 +22,8 @@ export default function ProjectContent({
 		name,
 		summary,
 		icon,
-		platform,
+		bucket,
+		platformTags,
 		role,
 		accentColor,
 		isDiscontinued,
@@ -136,8 +138,8 @@ export default function ProjectContent({
 										color: accent,
 									}}
 								>
-									{/* Show raw keywords on detail; formatPlatformDisplay is for list/gallery views. */}
-									{platform}
+									{/* Detail view renders the honest, full stack; the compact `compactLabel` is for list/gallery views. */}
+									{detailLabel(bucket, platformTags)}
 								</span>
 
 								{role && <span className="text-secondary text-sm">{role}</span>}

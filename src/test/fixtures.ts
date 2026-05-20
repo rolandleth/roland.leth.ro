@@ -1,3 +1,4 @@
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import type { PostListItem } from "@/lib/db/posts"
 import type { ProjectListItem } from "@/lib/db/projects"
 
@@ -23,7 +24,8 @@ export function makeProjectListItem(
 		id: 1,
 		name: "My App",
 		slug: "my-app",
-		platform: "iOS",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
 		isFeatured: false,
 		isDiscontinued: false,
 		sortOrder: 0,

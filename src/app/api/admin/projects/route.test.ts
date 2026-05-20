@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PlatformBucket, PlatformTag } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import { POST } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
@@ -32,7 +33,8 @@ function makeRequest(body: unknown) {
 const validPayload = {
 	name: "My App",
 	summary: "An iOS app that does things.",
-	platform: "iOS",
+	bucket: PlatformBucket.iOS,
+	platformTags: [PlatformTag.iOS],
 }
 
 const createdProject = {
@@ -40,7 +42,8 @@ const createdProject = {
 	name: "My App",
 	slug: "my-app",
 	summary: "An iOS app that does things.",
-	platform: "iOS",
+	bucket: PlatformBucket.iOS,
+	platformTags: [PlatformTag.iOS],
 	role: null,
 	accentColor: null,
 	icon: null,
@@ -208,9 +211,22 @@ describe("POST /api/admin/projects", () => {
 		expect(response.status).toBe(400)
 	})
 
-	it("returns 400 when platform is missing", async () => {
-		const { platform: _, ...rest } = validPayload
+	it("returns 400 when bucket is missing", async () => {
+		const { bucket: _, ...rest } = validPayload
 		const response = await POST(makeRequest(rest))
+		expect(response.status).toBe(400)
+	})
+
+	it("returns 400 when platformTags is missing", async () => {
+		const { platformTags: _, ...rest } = validPayload
+		const response = await POST(makeRequest(rest))
+		expect(response.status).toBe(400)
+	})
+
+	it("returns 400 when platformTags is empty", async () => {
+		const response = await POST(
+			makeRequest({ ...validPayload, platformTags: [] })
+		)
 		expect(response.status).toBe(400)
 	})
 

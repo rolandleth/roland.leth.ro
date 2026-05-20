@@ -56,7 +56,10 @@ model Project {
   summary        String
   icon           String?
   heroImage      String?
-  platform       String
+  // `bucket` is the editorial home (drives gallery placement + compact list
+  // label); `platformTags` is the honest stack (rendered on the detail page).
+  bucket         PlatformBucket
+  platformTags   PlatformTag[]
   role           String?
   accentColor    String?
   isFeatured     Boolean          @default(false)
@@ -67,6 +70,41 @@ model Project {
   updatedAt      DateTime         @updatedAt
   sections       ProjectSection[]
   links          ProjectLink[]
+}
+
+// Top-level project category. Drives gallery section grouping and the
+// compact list-view label. Adding a value requires editing this enum +
+// `db:push`; intentional friction since taxonomy changes are editorial.
+enum PlatformBucket {
+  iOS
+  Mac
+  Web
+  OpenSource
+}
+
+// Descriptive tags for the actual stack a project uses. Rendered as-is
+// (via TAG_LABELS) on the project detail page. Adding a value is the same
+// dance as PlatformBucket — editorial moment, not a runtime affordance.
+enum PlatformTag {
+  iOS
+  iPad
+  watchOS
+  Android
+  macOS
+  MenuBar
+  Frontend
+  Backend
+  React
+  Next
+  Node
+  Vapor
+  Library
+  CLI
+  SDK
+  Package
+  Plugin
+  Script
+  Extension
 }
 
 model ProjectSection {
