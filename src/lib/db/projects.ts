@@ -99,17 +99,21 @@ const projectsGalleryCache = unstable_cache(
 )
 
 /**
- * Returns all projects with gallery fields.
- * The default (public) call is cached; passing `sortDiscontinued: false` (admin use)
- * bypasses the cache and hits the DB directly.
+ * Public-gallery fetcher: cached, with discontinued projects sorted last.
+ * Use this on every public surface that lists projects.
  */
-export async function getAllProjectsForGallery({
-	sortDiscontinued = true,
-}: { sortDiscontinued?: boolean } = {}): Promise<ProjectGalleryItem[]> {
-	if (sortDiscontinued) {
-		return projectsGalleryCache()
-	}
+export async function getProjectsGalleryCached(): Promise<
+	ProjectGalleryItem[]
+> {
+	return projectsGalleryCache()
+}
 
+/**
+ * Admin fetcher: uncached so edits surface immediately, and ordered by
+ * `sortOrder` then `name` only — discontinued projects stay in their authored
+ * slot rather than being pushed to the end.
+ */
+export async function getProjectsForAdmin(): Promise<ProjectGalleryItem[]> {
 	return prisma.project.findMany({
 		select: gallerySelect,
 		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -280,7 +284,7 @@ export async function listProjectsForAdmin({
 	const isSearching = term.length > 0
 
 	if (!isSearching) {
-		const projects = await getAllProjectsForGallery({ sortDiscontinued: false })
+		const projects = await getProjectsForAdmin()
 
 		return { projects, totalCount: projects.length, totalPages: 1 }
 	}

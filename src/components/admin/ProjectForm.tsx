@@ -94,6 +94,14 @@ export default function ProjectForm({ initialData }: Props) {
 			id: initialData?.id ?? null,
 		})
 
+	// Client-side validation error for fields the HTML `required` attribute
+	// can't reach (the platform picker is a button group, not an input). The
+	// previous picker used a hidden `required readOnly` text input as a submit
+	// gate; screen readers couldn't announce that field and the browser
+	// tooltip pointed at nothing visible. Surfacing through `<ErrorMessage>`
+	// keeps the gate visible and announced.
+	const [validationError, setValidationError] = useState<string | null>(null)
+
 	// Single state object so a partial-update setter (`setField`) can stand in
 	// for the thirteen individual `useState` setters this form used to carry.
 	// The callback identity is stable across renders so `SectionManager`,
@@ -162,14 +170,27 @@ export default function ProjectForm({ initialData }: Props) {
 			: state.sortOrder
 		setSortOrderText(String(sortOrder))
 
-		// `state.bucket` is non-null at submit time: the picker renders a
-		// `required` hidden input that natively blocks submit until both
-		// bucket and at least one tag are selected. The cast is a type assertion
-		// for the API payload shape; the runtime guarantee is the form.
+		// Platform-picker gate. The picker is a chip group with no native
+		// `required` attribute to bind, so the form is the only place that can
+		// refuse an empty selection. Bail before `save` so we don't ship a
+		// payload the API would 400 on, and so the error renders in the same
+		// `<ErrorMessage>` slot the rest of the form uses.
+		if (state.bucket == null) {
+			setValidationError("Pick a platform bucket.")
+			return
+		}
+
+		if (state.platformTags.length === 0) {
+			setValidationError("Pick at least one platform tag.")
+			return
+		}
+
+		setValidationError(null)
+
 		await save({
 			name: state.name,
 			summary: state.summary,
-			bucket: state.bucket as PlatformBucket,
+			bucket: state.bucket,
 			platformTags: state.platformTags,
 			role: state.role || null,
 			accentColor: state.accentColor || null,
@@ -210,13 +231,17 @@ export default function ProjectForm({ initialData }: Props) {
 				<PlatformPicker
 					bucket={state.bucket}
 					tags={state.platformTags}
-					onChange={({ bucket, tags }) =>
+					onChange={({ bucket, tags }) => {
 						setState((prev) => ({
 							...prev,
 							bucket,
 							platformTags: tags,
 						}))
-					}
+						// Any picker activity invalidates a stale "pick a bucket / tag"
+						// message — keep the error close to what the form is actually
+						// rejecting right now.
+						setValidationError(null)
+					}}
 				/>
 			</div>
 
@@ -369,7 +394,9 @@ export default function ProjectForm({ initialData }: Props) {
 				/>
 			</div>
 
-			{error && <ErrorMessage>{error}</ErrorMessage>}
+			{(validationError ?? error) && (
+				<ErrorMessage>{validationError ?? error}</ErrorMessage>
+			)}
 
 			<div className="flex items-center gap-4">
 				<button

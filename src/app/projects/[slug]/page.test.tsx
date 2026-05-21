@@ -4,7 +4,7 @@ import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/projects", () => ({
-	getAllProjectsForGallery: vi.fn().mockResolvedValue([]),
+	getProjectsGalleryCached: vi.fn().mockResolvedValue([]),
 	loadProject: vi.fn(),
 }))
 

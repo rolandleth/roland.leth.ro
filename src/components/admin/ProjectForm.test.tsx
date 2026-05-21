@@ -21,9 +21,12 @@ vi.mock("@/components/admin/LinkManager", () => ({
 	default: () => null,
 }))
 // Stub the picker: in create mode there's no bucket selected, but the form's
-// required-input gate would block submit. Auto-fill a valid `{ bucket, tags }`
+// submit-handler gate would block submit. Auto-fill a valid `{ bucket, tags }`
 // on mount so the form's invariant is satisfied without per-test interaction.
-// Picker behavior is covered by its own dedicated tests.
+// Picker behavior is covered by its own dedicated tests. Tests that exercise
+// the empty-picker path flip `mockPickerConfig.autoFillEnabled` off before
+// rendering. Holder object so per-test mutation doesn't trip `prefer-const`.
+const mockPickerConfig = { autoFillEnabled: true }
 function MockPlatformPicker({
 	bucket,
 	onChange,
@@ -33,7 +36,7 @@ function MockPlatformPicker({
 	onChange: (v: { bucket: PlatformBucket | null; tags: PlatformTag[] }) => void
 }) {
 	useEffect(() => {
-		if (bucket == null) {
+		if (bucket == null && mockPickerConfig.autoFillEnabled) {
 			onChange({
 				bucket: PlatformBucket.iOS,
 				tags: [PlatformTag.iOS],
@@ -124,6 +127,7 @@ const user = setupUser()
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	mockPickerConfig.autoFillEnabled = true
 })
 
 // #region Create mode (no initialData)
@@ -190,6 +194,26 @@ describe("ProjectForm — create mode", () => {
 		await user.click(screen.getByRole("button", { name: /save project/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
+	})
+
+	it("blocks submit and surfaces an error when no bucket is selected", async () => {
+		// Disable the picker's auto-fill so the form sees the real
+		// empty-on-mount state — this is the path the previous hidden
+		// `required` input used to guard. Form is now the gate.
+		mockPickerConfig.autoFillEnabled = false
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await user.type(screen.getByLabelText(/^name$/i), "New App")
+		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
+		await user.type(screen.getByLabelText(/summary/i), "A new app.")
+		await user.click(screen.getByRole("button", { name: /save project/i }))
+
+		expect(
+			await screen.findByText(/pick a platform bucket/i)
+		).toBeInTheDocument()
+		expect(global.fetch).not.toHaveBeenCalled()
 	})
 
 	it("displays the error message from the API on failure", async () => {

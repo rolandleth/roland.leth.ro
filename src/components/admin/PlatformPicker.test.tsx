@@ -1,10 +1,36 @@
 import { render, screen } from "@testing-library/react"
+import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import PlatformPicker from "./PlatformPicker"
 
 const user = setupUser()
+
+// Controlled host for tests that need the picker to react to its own
+// `onChange` (e.g. the prune-hint flow needs the next render to reflect the
+// pruned tag list before the hint can render).
+function ControlledPicker({
+	initialBucket,
+	initialTags,
+}: {
+	initialBucket: PlatformBucket | null
+	initialTags: PlatformTag[]
+}) {
+	const [bucket, setBucket] = useState<PlatformBucket | null>(initialBucket)
+	const [tags, setTags] = useState<PlatformTag[]>(initialTags)
+
+	return (
+		<PlatformPicker
+			bucket={bucket}
+			tags={tags}
+			onChange={(next) => {
+				setBucket(next.bucket)
+				setTags(next.tags)
+			}}
+		/>
+	)
+}
 
 // #region rendering
 
@@ -197,6 +223,67 @@ describe("PlatformPicker — tag interactions", () => {
 			bucket: PlatformBucket.Web,
 			tags: [PlatformTag.Frontend, PlatformTag.Backend],
 		})
+	})
+})
+
+// #endregion
+
+// #region prune-hint
+
+describe("PlatformPicker — prune hint", () => {
+	it("shows a status message when bucket switch drops tags incompatible with the new bucket", async () => {
+		render(
+			<ControlledPicker
+				initialBucket={PlatformBucket.iOS}
+				initialTags={[PlatformTag.iOS, PlatformTag.iPad]}
+			/>
+		)
+		await user.click(screen.getByRole("button", { name: "Web" }))
+		// Both iOS and iPad are outside Web's suggested set → both pruned.
+		expect(await screen.findByRole("status")).toHaveTextContent(
+			/Removed 2 tags? not valid for this bucket/i
+		)
+	})
+
+	it("uses the singular form when exactly one tag is pruned", async () => {
+		render(
+			<ControlledPicker
+				initialBucket={PlatformBucket.iOS}
+				initialTags={[PlatformTag.iOS]}
+			/>
+		)
+		await user.click(screen.getByRole("button", { name: "Mac" }))
+		expect(await screen.findByRole("status")).toHaveTextContent(
+			/Removed 1 tag not valid/i
+		)
+	})
+
+	it("does not show the hint when bucket switch keeps every tag", async () => {
+		render(
+			<ControlledPicker
+				initialBucket={PlatformBucket.iOS}
+				initialTags={[PlatformTag.iOS]}
+			/>
+		)
+		// OpenSource accepts every tag, so nothing is pruned.
+		await user.click(screen.getByRole("button", { name: "Open Source" }))
+		expect(screen.queryByRole("status")).not.toBeInTheDocument()
+	})
+
+	it("clears the hint when the user interacts with a tag chip", async () => {
+		render(
+			<ControlledPicker
+				initialBucket={PlatformBucket.iOS}
+				initialTags={[PlatformTag.iOS, PlatformTag.iPad]}
+			/>
+		)
+		await user.click(screen.getByRole("button", { name: "Web" }))
+		expect(await screen.findByRole("status")).toBeInTheDocument()
+
+		// Picking any tag dismisses the hint — the user has acknowledged the
+		// prune by moving on.
+		await user.click(screen.getByRole("button", { name: "Frontend" }))
+		expect(screen.queryByRole("status")).not.toBeInTheDocument()
 	})
 })
 

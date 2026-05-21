@@ -4,8 +4,9 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import {
 	getAllProjects,
-	getAllProjectsForGallery,
 	getProjectBySlug,
+	getProjectsForAdmin,
+	getProjectsGalleryCached,
 	listProjectsForAdmin,
 	loadProject,
 	loadProjectForAdmin,
@@ -70,14 +71,14 @@ describe("getAllProjects", () => {
 
 // #endregion
 
-// #region getAllProjectsForGallery
+// #region getProjectsGalleryCached / getProjectsForAdmin
 
-describe("getAllProjectsForGallery", () => {
-	it("orders discontinued projects last when sortDiscontinued is true (default)", async () => {
+describe("getProjectsGalleryCached", () => {
+	it("orders discontinued projects last", async () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await getAllProjectsForGallery()
+		await getProjectsGalleryCached()
 
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -90,11 +91,31 @@ describe("getAllProjectsForGallery", () => {
 		)
 	})
 
-	it("skips the discontinued-last ordering when sortDiscontinued is false", async () => {
+	it("selects bucket and platformTags (catch silent drops from gallerySelect)", async () => {
+		// A typo dropping `bucket` or `platformTags` from the internal
+		// `gallerySelect` would still pass mock-based tests that only check
+		// the returned shape — assert directly against the `select` argument
+		// so the contract with consumers (CompactProjectCard, groupByBucket,
+		// isCompactLabelRedundant) can't silently degrade.
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
-		await getAllProjectsForGallery({ sortDiscontinued: false })
+		await getProjectsGalleryCached()
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				select: expect.objectContaining({ bucket: true, platformTags: true }),
+			})
+		)
+	})
+})
+
+describe("getProjectsForAdmin", () => {
+	it("skips the discontinued-last ordering so admin edits stay in their slot", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await getProjectsForAdmin()
 
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({

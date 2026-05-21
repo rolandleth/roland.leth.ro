@@ -3,9 +3,14 @@ import PageGlow from "@/components/PageGlow"
 import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
 import { buildPageMetadata } from "@/lib/content/metadata"
-import { getAllProjectsForGallery } from "@/lib/db/projects"
+import {
+	type ProjectGalleryItem,
+	getProjectsGalleryCached,
+} from "@/lib/db/projects"
 import { groupByBucket, isCompactLabelRedundant } from "@/lib/utils/platforms"
 import type { Metadata } from "next"
+
+type CompactProject = ProjectGalleryItem & { showPlatformCapsule: boolean }
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Projects",
@@ -14,9 +19,31 @@ export const metadata: Metadata = buildPageMetadata({
 })
 
 export default async function ProjectsPage() {
-	const allProjects = await getAllProjectsForGallery()
-	const featured = allProjects.filter((p) => p.isFeatured)
-	const others = allProjects.filter((p) => !p.isFeatured)
+	const allProjects = await getProjectsGalleryCached()
+	// Single pass: partition featured vs. others AND precompute the per-card
+	// `showPlatformCapsule` boolean (pure function of bucket+tags, no reason
+	// to recompute it on every render). Mirrors the existing `for ... push`
+	// pattern below — `.reduce`/`.map` with a mutated accumulator trips the
+	// React Compiler's immutability rule (see the comment above
+	// `groupsWithStaggerStart`).
+	const featured: ProjectGalleryItem[] = []
+	const others: CompactProject[] = []
+
+	for (const project of allProjects) {
+		if (project.isFeatured) {
+			featured.push(project)
+			continue
+		}
+
+		others.push({
+			...project,
+			showPlatformCapsule: !isCompactLabelRedundant(
+				project.bucket,
+				project.platformTags
+			),
+		})
+	}
+
 	const bucketGroups = groupByBucket(others)
 
 	// Precompute a running stagger offset per group so each card's animation
@@ -77,12 +104,7 @@ export default async function ProjectsPage() {
 							>
 								<CompactProjectCard
 									project={project}
-									showPlatformCapsule={
-										!isCompactLabelRedundant(
-											project.bucket,
-											project.platformTags
-										)
-									}
+									showPlatformCapsule={project.showPlatformCapsule}
 								/>
 							</AnimatedCard>
 						))}

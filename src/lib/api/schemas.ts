@@ -2,6 +2,7 @@ import { z } from "zod"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
+import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
 
 // `z.enum` in Zod 4 wants a const string tuple, but Prisma generates each
 // enum as a runtime object whose values are strings. Casting through the
@@ -15,6 +16,20 @@ const PLATFORM_TAGS = Object.values(PlatformTag) as [
 	PlatformTag,
 	...PlatformTag[],
 ]
+
+// Frozen Set per bucket so the coherence superRefine doesn't rebuild on every
+// parse. Mirrors what the picker offers — OpenSource is unconstrained by
+// design (an OSS project can carry any platform tag), iOS/Mac/Web are scoped
+// to their natural sets.
+const BUCKET_SUGGESTED_SETS: Record<
+	PlatformBucket,
+	ReadonlySet<PlatformTag>
+> = {
+	iOS: new Set(BUCKET_SUGGESTED_TAGS.iOS),
+	Mac: new Set(BUCKET_SUGGESTED_TAGS.Mac),
+	Web: new Set(BUCKET_SUGGESTED_TAGS.Web),
+	OpenSource: new Set(BUCKET_SUGGESTED_TAGS.OpenSource),
+}
 
 // Rejects titles/names that pass `min(1)` but `createSlug` reduces to "" (all
 // punctuation, soft hyphens, U+2212 minus runs). Without this gate, the DB
@@ -118,8 +133,46 @@ const hexColor = z
 // `min(1)` on tags so a project can't be saved with bucket only and no
 // descriptive tags — the detail page needs something to render. `max(8)` is
 // arbitrary; mainly a guard against the picker accidentally letting you
-// click 19 chips.
-export const projectCreateSchema = z.object({
+// click 19 chips. The dedupe refine guards against `[iOS, iOS]` slipping
+// through and tripping `compactLabel`'s 2-tag fallback path.
+const platformTagsSchema = z
+	.array(z.enum(PLATFORM_TAGS))
+	.min(1)
+	.max(8)
+	.refine((arr) => new Set(arr).size === arr.length, {
+		message: "Duplicate tags are not allowed",
+	})
+
+// Bucket/tag coherence: the picker only lets you pick tags from
+// `BUCKET_SUGGESTED_TAGS[bucket]`, so a non-UI caller (raw API client, future
+// script) shouldn't be able to corrupt the invariant `compactLabel` /
+// `isCompactLabelRedundant` / `groupByBucket` lean on. OpenSource's suggested
+// set is every tag, so OSS combos like `[Library, iOS]` still pass. Runs on
+// both create and update; only fires when BOTH fields are present so a PUT
+// that omits one field is unaffected.
+function refineBucketTagCoherence(
+	value: { bucket?: PlatformBucket; platformTags?: PlatformTag[] },
+	ctx: z.RefinementCtx
+): void {
+	if (value.bucket == null || value.platformTags == null) {
+		return
+	}
+
+	const allowed = BUCKET_SUGGESTED_SETS[value.bucket]
+	const invalid = value.platformTags.filter((t) => !allowed.has(t))
+
+	if (invalid.length === 0) {
+		return
+	}
+
+	ctx.addIssue({
+		code: "custom",
+		path: ["platformTags"],
+		message: `Tags not valid for ${value.bucket} bucket: ${invalid.join(", ")}`,
+	})
+}
+
+const projectFields = {
 	name: z
 		.string()
 		.min(1)
@@ -127,7 +180,7 @@ export const projectCreateSchema = z.object({
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	summary: z.string().min(1).max(300),
 	bucket: z.enum(PLATFORM_BUCKETS),
-	platformTags: z.array(z.enum(PLATFORM_TAGS)).min(1).max(8),
+	platformTags: platformTagsSchema,
 	role: z.string().max(80).nullable().optional(),
 	accentColor: hexColor.nullable().optional(),
 	icon: httpUrl.nullable().optional(),
@@ -138,9 +191,20 @@ export const projectCreateSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
-})
+}
 
-export const projectUpdateSchema = projectCreateSchema.partial()
+// `superRefine` is layered on the base object schemas so each surface keeps
+// the same `.partial()` behavior — the resulting ZodEffects can't be
+// `.partial()`'d further, so we build create/update from the shared field
+// map.
+export const projectCreateSchema = z
+	.object(projectFields)
+	.superRefine(refineBucketTagCoherence)
+
+export const projectUpdateSchema = z
+	.object(projectFields)
+	.partial()
+	.superRefine(refineBucketTagCoherence)
 
 // Auth
 

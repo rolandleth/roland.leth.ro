@@ -279,12 +279,62 @@ describe("projectCreateSchema", () => {
 	})
 
 	it("rejects when platformTags exceeds the max(8) cap", () => {
+		// Picked nine *distinct* tags so this case fails on the cap, not the
+		// duplicate-tag refine. Picker bugs that emit dupes are covered separately.
 		expect(
 			projectCreateSchema.safeParse({
 				...valid,
-				platformTags: Array(9).fill(PlatformTag.iOS),
+				platformTags: [
+					PlatformTag.iOS,
+					PlatformTag.iPad,
+					PlatformTag.watchOS,
+					PlatformTag.Android,
+					PlatformTag.macOS,
+					PlatformTag.MenuBar,
+					PlatformTag.Frontend,
+					PlatformTag.Backend,
+					PlatformTag.React,
+				],
 			}).success
 		).toBe(false)
+	})
+
+	it("rejects duplicate tags in platformTags", () => {
+		// Two iOS entries trip `compactLabel`'s 2-tag fallback path even though
+		// they're semantically one tag. Reject at the schema boundary so the
+		// admin sees a clean 400 instead of a confused "Multiplatform" label.
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				platformTags: [PlatformTag.iOS, PlatformTag.iOS],
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects platformTags that aren't in the bucket's suggested set", () => {
+		// `Web` bucket can't carry `iOS` — the picker doesn't offer it, so a
+		// raw-API caller sending this combo is corrupting the invariant
+		// `compactLabel` / `groupByBucket` lean on.
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				bucket: PlatformBucket.Web,
+				platformTags: [PlatformTag.iOS],
+			}).success
+		).toBe(false)
+	})
+
+	it("accepts OpenSource with cross-cutting platform tags (OSS suggested = every tag)", () => {
+		// `[Library, iOS]` is the canonical OSS-iOS combo — an iOS library. The
+		// picker offers every tag on OpenSource by design, and the schema
+		// mirrors that.
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				bucket: PlatformBucket.OpenSource,
+				platformTags: [PlatformTag.Library, PlatformTag.iOS],
+			}).success
+		).toBe(true)
 	})
 
 	it("rejects an unknown bucket value", () => {
@@ -344,6 +394,52 @@ describe("projectUpdateSchema", () => {
 		expect(
 			projectUpdateSchema.safeParse({ icon: "javascript:evil()" }).success
 		).toBe(false)
+	})
+
+	it("rejects platformTags: [] on update (inner min(1) carries through .partial())", () => {
+		// `.partial()` only wraps each field with `.optional()`; when a value is
+		// actually present, the inner `.min(1)` still runs. So an explicit
+		// empty array — a "clear all tags" PUT — is rejected the same way it
+		// would be on create.
+		expect(projectUpdateSchema.safeParse({ platformTags: [] }).success).toBe(
+			false
+		)
+	})
+
+	it("rejects duplicate tags on update", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				platformTags: [PlatformTag.iOS, PlatformTag.iOS],
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects bucket/tag mismatch on update when both fields are present", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				bucket: PlatformBucket.iOS,
+				platformTags: [PlatformTag.Backend],
+			}).success
+		).toBe(false)
+	})
+
+	it("does not run coherence when only platformTags is present (no bucket to check against)", () => {
+		// PUT semantics: changing only tags means the bucket on the existing
+		// row stays whatever it was. The schema can't validate coherence
+		// without knowing the persisted bucket, so it skips the check rather
+		// than guess. The route-level read-modify-write should re-validate if
+		// it ever combines partial inputs with persisted state.
+		expect(
+			projectUpdateSchema.safeParse({
+				platformTags: [PlatformTag.iOS],
+			}).success
+		).toBe(true)
+	})
+
+	it("does not run coherence when only bucket is present", () => {
+		expect(
+			projectUpdateSchema.safeParse({ bucket: PlatformBucket.Web }).success
+		).toBe(true)
 	})
 })
 

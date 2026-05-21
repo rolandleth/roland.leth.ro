@@ -138,6 +138,53 @@ describe("compactLabel", () => {
 			])
 		).toBe("Open Source")
 	})
+
+	it("renders Web + [Next] alone as 'Next.js' (single-tag rule wins before Fullstack)", () => {
+		// `Next` is cross-listed in both Web families, so the Fullstack branch
+		// would match if it ran on a single tag. But the 1-tag rule short-
+		// circuits first, so the label is the tag's own display name. Pin this
+		// so a future refactor that reorders the branches doesn't silently flip
+		// to "Fullstack".
+		expect(compactLabel(PlatformBucket.Web, [PlatformTag.Next])).toBe("Next.js")
+	})
+
+	it("returns 'Multiplatform' for OpenSource + [CLI, Frontend]", () => {
+		// OSS-flavor tag + a Web-family tag that isn't in OpenSource's natural
+		// set. Doesn't span frontend+backend families, so Fullstack doesn't
+		// apply; doesn't stay within OSS's natural set, so the bucket-label
+		// fallback doesn't apply either.
+		expect(
+			compactLabel(PlatformBucket.OpenSource, [
+				PlatformTag.CLI,
+				PlatformTag.Frontend,
+			])
+		).toBe("Multiplatform")
+	})
+
+	it("returns 'Multiplatform' for OpenSource + [SDK, macOS]", () => {
+		// SDK is OSS-flavor; macOS is outside OSS's natural set. Same logic as
+		// above — neither Fullstack nor bucket-label fits.
+		expect(
+			compactLabel(PlatformBucket.OpenSource, [
+				PlatformTag.SDK,
+				PlatformTag.macOS,
+			])
+		).toBe("Multiplatform")
+	})
+
+	it("returns 'Fullstack' for OpenSource + [Library, React, Node] (spans web families)", () => {
+		// Pins the Session 2 extension of Fullstack to the OpenSource bucket:
+		// once an OSS project's tags include both a Web frontend-family tag and
+		// a Web backend-family tag, the label flips to "Fullstack" regardless
+		// of any additional OSS-flavor tags.
+		expect(
+			compactLabel(PlatformBucket.OpenSource, [
+				PlatformTag.Library,
+				PlatformTag.React,
+				PlatformTag.Node,
+			])
+		).toBe("Fullstack")
+	})
 })
 
 // #endregion

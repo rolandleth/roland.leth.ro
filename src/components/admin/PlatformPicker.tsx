@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import {
 	BUCKET_SUGGESTED_TAGS,
@@ -27,6 +28,11 @@ const ALL_BUCKETS = Object.values(PlatformBucket)
  */
 export default function PlatformPicker({ bucket, tags, onChange }: Props) {
 	const suggestedTags = bucket != null ? BUCKET_SUGGESTED_TAGS[bucket] : []
+	// Surface a transient hint when a bucket switch drops tags that aren't in
+	// the new bucket's suggested set, so the user understands why their prior
+	// selection shrank. Previously the prune happened silently. Cleared on any
+	// tag interaction so the message stays accurate to what's onscreen.
+	const [prunedCount, setPrunedCount] = useState(0)
 
 	function selectBucket(nextBucket: PlatformBucket) {
 		if (nextBucket === bucket) {
@@ -36,6 +42,7 @@ export default function PlatformPicker({ bucket, tags, onChange }: Props) {
 		const nextSuggested = new Set(BUCKET_SUGGESTED_TAGS[nextBucket])
 		const prunedTags = tags.filter((t) => nextSuggested.has(t))
 
+		setPrunedCount(tags.length - prunedTags.length)
 		onChange({ bucket: nextBucket, tags: prunedTags })
 	}
 
@@ -44,6 +51,7 @@ export default function PlatformPicker({ bucket, tags, onChange }: Props) {
 			? tags.filter((t) => t !== tag)
 			: [...tags, tag]
 
+		setPrunedCount(0)
 		onChange({ bucket, tags: nextTags })
 	}
 
@@ -109,22 +117,16 @@ export default function PlatformPicker({ bucket, tags, onChange }: Props) {
 				</div>
 			</div>
 
-			{/*
-			 * Hidden required input gives native form validation a target so a
-			 * submit-before-selection bounces with a browser tooltip instead of
-			 * a 400 from the API. Mirrors the prior picker's pattern.
-			 */}
-			<input
-				type="text"
-				required
-				readOnly
-				tabIndex={-1}
-				value={
-					bucket != null && tags.length > 0 ? `${bucket}:${tags.join(",")}` : ""
-				}
-				className="sr-only"
-				aria-hidden="true"
-			/>
+			{prunedCount > 0 && (
+				<p
+					className="text-secondary pl-26 text-xs italic"
+					role="status"
+					aria-live="polite"
+				>
+					Removed {prunedCount} {prunedCount === 1 ? "tag" : "tags"} not valid
+					for this bucket.
+				</p>
+			)}
 		</div>
 	)
 }
