@@ -1,4 +1,4 @@
-# Lookup Map — overview (through commit 80a2996 on 2026-05-20)
+# Lookup Map — overview (through commit f03840e on 2026-05-21)
 
 - `src/` — Next.js middleware (`proxy.ts`): admin-API/page auth gate, legacy URL redirects (section-blog, archive, search, feed, privacy-policy).
 - `src/app/` — root layout, landing page, sitemap, `not-found`, error boundaries (`error`, `global-error` — `global-error` uses inline styles since the root layout's CSS is unavailable when it fires), `ClientAnalytics` client island. Root layout owns the single document `<main id="main-content" tabIndex={-1}>` wrapping `{children}` so the skip-link `<a href="#main-content">` lands on the real landmark — page-level files render plain `<div>`/`<section>` wrappers, NOT their own `<main>` (multiple `<main>` per document is invalid HTML5). Sitemap emits 4 extra static routes (`/projects`, `/tools/loan-calculator`, `/privacy`, `/privacy/body-tracking`) + dynamic project routes via `getAllProjectSlugs`; post + project listings filter `datetime <= now` via `getAllPublishedPostSlugs`/`getAllProjectSlugs`.
