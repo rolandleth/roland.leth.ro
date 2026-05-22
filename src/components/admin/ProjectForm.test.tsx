@@ -24,9 +24,14 @@ vi.mock("@/components/admin/LinkManager", () => ({
 // submit-handler gate would block submit. Auto-fill a valid `{ bucket, tags }`
 // on mount so the form's invariant is satisfied without per-test interaction.
 // Picker behavior is covered by its own dedicated tests. Tests that exercise
-// the empty-picker path flip `mockPickerConfig.autoFillEnabled` off before
-// rendering. Holder object so per-test mutation doesn't trip `prefer-const`.
-const mockPickerConfig = { autoFillEnabled: true }
+// the empty-picker paths flip `mockPickerConfig.autoFill` before rendering:
+// `"both"` (default) fills bucket + tags; `"bucket-only"` fills only the
+// bucket so the no-tags branch is reachable; `"off"` leaves the picker empty
+// so the no-bucket branch is reachable. Holder object so per-test mutation
+// doesn't trip `prefer-const`.
+const mockPickerConfig: { autoFill: "both" | "bucket-only" | "off" } = {
+	autoFill: "both",
+}
 function MockPlatformPicker({
 	bucket,
 	onChange,
@@ -36,11 +41,14 @@ function MockPlatformPicker({
 	onChange: (v: { bucket: PlatformBucket | null; tags: PlatformTag[] }) => void
 }) {
 	useEffect(() => {
-		if (bucket == null && mockPickerConfig.autoFillEnabled) {
-			onChange({
-				bucket: PlatformBucket.iOS,
-				tags: [PlatformTag.iOS],
-			})
+		if (bucket != null) {
+			return
+		}
+
+		if (mockPickerConfig.autoFill === "both") {
+			onChange({ bucket: PlatformBucket.iOS, tags: [PlatformTag.iOS] })
+		} else if (mockPickerConfig.autoFill === "bucket-only") {
+			onChange({ bucket: PlatformBucket.iOS, tags: [] })
 		}
 		// `onChange` identity changes every render in the real form, so
 		// depending on it would re-fire forever. Only fire once on mount.
@@ -127,7 +135,7 @@ const user = setupUser()
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	mockPickerConfig.autoFillEnabled = true
+	mockPickerConfig.autoFill = "both"
 })
 
 // #region Create mode (no initialData)
@@ -200,7 +208,7 @@ describe("ProjectForm — create mode", () => {
 		// Disable the picker's auto-fill so the form sees the real
 		// empty-on-mount state — this is the path the previous hidden
 		// `required` input used to guard. Form is now the gate.
-		mockPickerConfig.autoFillEnabled = false
+		mockPickerConfig.autoFill = "off"
 		mockRouter()
 		mockFetch(true)
 
@@ -212,6 +220,29 @@ describe("ProjectForm — create mode", () => {
 
 		expect(
 			await screen.findByText(/pick a platform bucket/i)
+		).toBeInTheDocument()
+		expect(global.fetch).not.toHaveBeenCalled()
+	})
+
+	it("blocks submit and surfaces an error when a bucket is selected but no tags", async () => {
+		// Bucket-only auto-fill: the form sees `state.bucket != null` AND
+		// `state.platformTags.length === 0`, which is the second gate in
+		// `handleSubmit`. The real picker can't produce this combo (it
+		// prunes/keeps tags through a bucket switch and only renders chips
+		// for the current bucket), but the schema still needs the
+		// belt-and-braces check, so the form must too.
+		mockPickerConfig.autoFill = "bucket-only"
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await user.type(screen.getByLabelText(/^name$/i), "New App")
+		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
+		await user.type(screen.getByLabelText(/summary/i), "A new app.")
+		await user.click(screen.getByRole("button", { name: /save project/i }))
+
+		expect(
+			await screen.findByText(/pick at least one platform tag/i)
 		).toBeInTheDocument()
 		expect(global.fetch).not.toHaveBeenCalled()
 	})

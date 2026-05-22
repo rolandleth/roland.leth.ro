@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache"
+import { revalidateTag, unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
@@ -19,10 +19,20 @@ import {
 import { makeProjectListItem } from "@/test/fixtures"
 
 vi.mock("next/cache", async () => {
-	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+	const { nextCacheSpyFactory } = await import("@/test/mocks/nextCache")
 
-	return nextCacheMockFactory()
+	return nextCacheSpyFactory()
 })
+
+// Snapshot every `unstable_cache(...)` registration from projects.ts at
+// module-load time, before `beforeEach`'s `vi.resetAllMocks()` wipes the
+// spy's call history. The admin-bypass test reads from this snapshot to pin
+// the set of cached entries — anything new (or a regression that wraps
+// `getProjectsForAdmin`) drifts the snapshot and fails the test.
+const cacheWrapsAtLoad = vi.mocked(unstable_cache).mock.calls.map((call) => ({
+	keys: call[1],
+	tags: (call[2] as { tags?: string[] } | undefined)?.tags,
+}))
 
 vi.mock("react", async (importOriginal) => {
 	const { reactCachePassthroughFactory } =
@@ -123,6 +133,18 @@ describe("getProjectsForAdmin", () => {
 			})
 		)
 	})
+
+	it("is not wrapped in unstable_cache (admin reads must bypass the cache)", () => {
+		// Pin the set of `unstable_cache(...)` wraps registered at module load
+		// in projects.ts. The `getProjectBySlug` wrappers are created lazily
+		// per-slug at call time, so they don't show up here. If a regression
+		// accidentally wraps the admin reader — silently caching admin reads
+		// and hiding fresh edits from the admin UI — this set grows.
+		expect(cacheWrapsAtLoad).toEqual([
+			{ keys: ["projects-gallery"], tags: ["projects"] },
+			{ keys: ["all-project-slugs"], tags: ["projects"] },
+		])
+	})
 })
 
 // #endregion
@@ -136,8 +158,8 @@ describe("listProjectsForAdmin", () => {
 		)
 		const result = await listProjectsForAdmin({ query: "", page: 1 })
 
-		// Empty query → getAllProjectsForGallery({ sortDiscontinued: false }),
-		// i.e. no `where` filter and the unsorted-by-discontinued ordering.
+		// Empty query → getProjectsForAdmin(), i.e. no `where` filter and the
+		// unsorted-by-discontinued ordering (admin edits stay in their slot).
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
