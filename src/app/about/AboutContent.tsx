@@ -14,7 +14,7 @@ const sections = [
 		paragraphs: [
 			`Software development has been my craft for over a decade. I started
 			with iOS and gradually expanded into full-stack web development, always
-			with a strong focus on product quality and user experience.`,
+			with a strong focus on product quality, business, and user experience.`,
 			`Beyond writing code, I care about building things that matter — apps
 			and tools that solve real problems in ways that feel effortless to use.`,
 		],
@@ -25,8 +25,7 @@ const sections = [
 			`The tech section is where I write about software development, iOS, Swift,
 			web technologies, and the craft of building products.`,
 			`The life section is about personal development — habits, identity change,
-			motivation, and improving ourselves. Most of it comes from my own experiences
-			or from the books I read.`,
+			motivation, and improving ourselves. Most of it comes from my own experiences or from the books I read.`,
 		],
 	},
 ]
@@ -118,9 +117,9 @@ export default function AboutContent() {
 					<div className="space-y-4">
 						<p className="text-secondary leading-relaxed">
 							I&apos;m an iOS developer since 2011, with extensive full-stack
-							knowledge, placing myself at the crossroads of product, business,
-							and user experience, balancing all three to create successful
-							products.
+							knowledge, placing myself at the crossroads of engineering,
+							product, business, and user experience, balancing all to create
+							successful products.
 						</p>
 						<p className="text-secondary leading-relaxed">
 							In the past year I&apos;ve shifted to building products primarily
