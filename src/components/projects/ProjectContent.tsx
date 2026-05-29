@@ -202,7 +202,7 @@ export default function ProjectContent({
 							<div
 								role="tablist"
 								aria-label="Project sections"
-								className="flex gap-1 border-b border-(--color-border)"
+								className="mb-4 flex gap-1 border-b border-(--color-border)"
 							>
 								{sections.map((section, i) => (
 									<button

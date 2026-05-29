@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
 			...(process.env.NODE_ENV !== "production"
 				? [
 						{ protocol: "https" as const, hostname: "picsum.photos" },
+						{ protocol: "http" as const, hostname: "localhost" },
 						{ protocol: "https" as const, hostname: "fastly.picsum.photos" },
 					]
 				: []),
