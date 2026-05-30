@@ -53,7 +53,7 @@ const sections: PrivacySectionEntry[] = [
 		content: (
 			<p>
 				If you have any questions or concerns, please{" "}
-				<a href="mailto:roland+hi@leth.ro">contact us</a>.
+				<a href="mailto:roland+bodytracking@leth.ro">contact us</a>.
 			</p>
 		),
 	},
