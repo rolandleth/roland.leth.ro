@@ -1,3 +1,4 @@
+import AppleLegalLink from "@/components/privacy/AppleLegalLink"
 import PrivacyPageLayout, {
 	type PrivacySectionEntry,
 } from "@/components/privacy/PrivacyPageLayout"
@@ -9,8 +10,6 @@ export const metadata: Metadata = buildPageMetadata({
 	description: "Privacy policy for the Continuum app.",
 	path: "/privacy/continuum",
 })
-
-const LAST_UPDATED = "May 30, 2026"
 
 const sections: PrivacySectionEntry[] = [
 	{
@@ -36,10 +35,7 @@ const sections: PrivacySectionEntry[] = [
 				<p>
 					If you back up your device, your Continuum data may be included in
 					that backup. Device backups are handled by Apple and governed by{" "}
-					<a href="https://www.apple.com/legal/privacy/">
-						Apple&apos;s Privacy Policy
-					</a>
-					.
+					<AppleLegalLink />.
 				</p>
 			</>
 		),
@@ -48,31 +44,10 @@ const sections: PrivacySectionEntry[] = [
 		title: "Purchases",
 		content: (
 			<p>
-				Continuum may offer paid features through the App Store. Any purchase is
+				Continuum offers paid features through the App Store. Any purchase is
 				processed by Apple. We never receive or store your payment details;
 				Apple&apos;s handling of that information is governed by{" "}
-				<a href="https://www.apple.com/legal/privacy/">
-					Apple&apos;s Privacy Policy
-				</a>
-				.
-			</p>
-		),
-	},
-	{
-		title: "Last update",
-		content: (
-			<p>
-				This privacy policy was last updated on {LAST_UPDATED}. It may change
-				from time to time — be sure to consult the last update date.
-			</p>
-		),
-	},
-	{
-		title: "Contact",
-		content: (
-			<p>
-				If you have any questions or concerns, please{" "}
-				<a href="mailto:roland+continuum@leth.ro">contact us</a>.
+				<AppleLegalLink />.
 			</p>
 		),
 	},
@@ -80,6 +55,11 @@ const sections: PrivacySectionEntry[] = [
 
 export default function ContinuumPrivacyPage() {
 	return (
-		<PrivacyPageLayout title="Continuum – Privacy Policy" sections={sections} />
+		<PrivacyPageLayout
+			title="Continuum – Privacy Policy"
+			sections={sections}
+			lastUpdated="May 30, 2026"
+			contactEmail="roland+continuum@leth.ro"
+		/>
 	)
 }

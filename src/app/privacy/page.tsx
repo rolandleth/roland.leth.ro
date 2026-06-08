@@ -10,8 +10,6 @@ export const metadata: Metadata = buildPageMetadata({
 	path: "/privacy",
 })
 
-const LAST_UPDATED = "Apr 7, 2026"
-
 const sections: PrivacySectionEntry[] = [
 	{
 		title: "Collected information",
@@ -73,26 +71,16 @@ const sections: PrivacySectionEntry[] = [
 			</p>
 		),
 	},
-	{
-		title: "Last update",
-		content: (
-			<p>
-				This privacy policy was last updated on {LAST_UPDATED}. It may change
-				from time to time — be sure to consult the last update date.
-			</p>
-		),
-	},
-	{
-		title: "Contact",
-		content: (
-			<p>
-				If you have any questions or concerns, please{" "}
-				<a href="mailto:roland+hi@leth.ro">contact me</a>.
-			</p>
-		),
-	},
 ]
 
 export default function PrivacyPage() {
-	return <PrivacyPageLayout title="Privacy Policy" sections={sections} />
+	return (
+		<PrivacyPageLayout
+			title="Privacy Policy"
+			sections={sections}
+			lastUpdated="Apr 7, 2026"
+			contactEmail="roland+hi@leth.ro"
+			contactPronoun="me"
+		/>
+	)
 }

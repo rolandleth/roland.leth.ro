@@ -1,3 +1,4 @@
+import AppleLegalLink from "@/components/privacy/AppleLegalLink"
 import PrivacyPageLayout, {
 	type PrivacySectionEntry,
 } from "@/components/privacy/PrivacyPageLayout"
@@ -9,8 +10,6 @@ export const metadata: Metadata = buildPageMetadata({
 	description: "Privacy policy for the Body Tracking app.",
 	path: "/privacy/body-tracking",
 })
-
-const LAST_UPDATED = "Apr 7, 2026"
 
 const sections: PrivacySectionEntry[] = [
 	{
@@ -30,31 +29,10 @@ const sections: PrivacySectionEntry[] = [
 				<p>
 					The HealthKit data and any data you create are synced via iCloud by
 					default, to keep it in sync across your devices. This is governed by{" "}
-					<a href="https://www.apple.com/legal/privacy/">
-						Apple&apos;s Privacy Policy
-					</a>
-					. We have no access to this data and it only leaves your device
-					through Apple&apos;s iCloud sync.
+					<AppleLegalLink />. We have no access to this data and it only leaves
+					your device through Apple&apos;s iCloud sync.
 				</p>
 			</>
-		),
-	},
-	{
-		title: "Last update",
-		content: (
-			<p>
-				This privacy policy was last updated on {LAST_UPDATED}. It may change
-				from time to time — be sure to consult the last update date.
-			</p>
-		),
-	},
-	{
-		title: "Contact",
-		content: (
-			<p>
-				If you have any questions or concerns, please{" "}
-				<a href="mailto:roland+bodytracking@leth.ro">contact us</a>.
-			</p>
 		),
 	},
 ]
@@ -64,6 +42,8 @@ export default function BodyTrackingPrivacyPage() {
 		<PrivacyPageLayout
 			title="Body Tracking – Privacy Policy"
 			sections={sections}
+			lastUpdated="Apr 7, 2026"
+			contactEmail="roland+bodytracking@leth.ro"
 		/>
 	)
 }
