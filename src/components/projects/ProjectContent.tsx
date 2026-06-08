@@ -202,7 +202,7 @@ export default function ProjectContent({
 							<div
 								role="tablist"
 								aria-label="Project sections"
-								className="mb-4 flex gap-1 border-b border-(--color-border)"
+								className="mb-4 flex gap-1 overflow-x-auto border-b border-(--color-border)"
 							>
 								{sections.map((section, i) => (
 									<button
@@ -222,7 +222,7 @@ export default function ProjectContent({
 										tabIndex={i === activeTab ? 0 : -1}
 										onClick={() => setActiveTab(i)}
 										onKeyDown={(e) => handleTabKeyDown(e, i)}
-										className="relative cursor-pointer px-4 py-2 text-sm font-medium transition-colors duration-300"
+										className="relative shrink-0 cursor-pointer px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-300"
 										style={{
 											color:
 												i === activeTab ? accent : "var(--color-secondary)",
