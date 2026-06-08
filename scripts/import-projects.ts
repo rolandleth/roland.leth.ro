@@ -1,0 +1,431 @@
+// Project-agnostic importer: turns `scripts/imports/<name>/project.json` (+ its
+// staged image files) into a live project on whatever DB `DATABASE_URL` points
+// at, uploading every local image to Vercel Blob first.
+//
+//   yarn db:import-projects                 # import every folder under scripts/imports/
+//   yarn db:import-projects reckon          # only the `reckon` folder
+//   yarn db:import-projects --dry-run       # validate manifest + images, write nothing
+//   yarn db:import-projects reckon --cleanup # delete the staged folder after success
+//
+// Targets prod by running with prod credentials in the environment (DATABASE_URL
+// + BLOB_READ_WRITE_TOKEN, e.g. via `vercel env pull`). Always `--dry-run` first.
+//
+// The mechanical half only: it transforms whatever the manifest says. Authoring
+// the manifest from marketing copy is the `app-copy-to-project` skill's job.
+
+import "dotenv/config"
+import { readdir, readFile, rm } from "node:fs/promises"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { put } from "@vercel/blob"
+import { ZodError } from "zod"
+import { PrismaClient } from "@/generated/prisma/client"
+import { projectCreateSchema } from "@/lib/api/schemas"
+import { toLinkCreate, toSectionCreate } from "@/lib/db/projectMappers"
+import {
+	blobKeyFor,
+	deriveSlug,
+	listManifestImagePaths,
+	type ProjectManifest,
+	resolveManifestImageRefs,
+	syntheticBlobUrl,
+} from "@/lib/import/projectImport"
+
+const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
+const IMPORTS_DIR = path.join(SCRIPTS_DIR, "imports")
+const MANIFEST_FILENAME = "project.json"
+const KNOWN_FLAGS = new Set(["--dry-run", "--cleanup"])
+
+type LoadedImage = {
+	buffer: Buffer
+	size: number
+	key: string
+}
+
+type ProjectResult = {
+	name: string
+	status: "imported" | "validated" | "failed"
+	detail?: string
+}
+
+// #region CLI
+
+const argv = process.argv.slice(2)
+const isDryRun = argv.includes("--dry-run")
+const shouldCleanup = argv.includes("--cleanup")
+const slugFilters = argv.filter((arg) => !arg.startsWith("--"))
+const unknownFlags = argv.filter(
+	(arg) => arg.startsWith("--") && !KNOWN_FLAGS.has(arg)
+)
+
+// #endregion
+
+// #region image I/O
+
+/**
+ * Reads every local image the manifest references, keyed by its
+ * manifest-relative path, and computes its deterministic blob key. Uploads
+ * nothing — used by the dry-run report and the real run's pre-upload step, so a
+ * missing image fails before any Blob write. These are trusted, first-party
+ * staged files, so there's no MIME/size gate (the admin upload route has one
+ * because it accepts untrusted network uploads; this doesn't). A path resolving
+ * outside the project folder is still rejected — that's a manifest typo, not an
+ * attack.
+ */
+async function loadImages(
+	projectDir: string,
+	slug: string,
+	imagePaths: string[]
+): Promise<Map<string, LoadedImage>> {
+	const loaded = new Map<string, LoadedImage>()
+	const dirPrefix = path.resolve(projectDir) + path.sep
+
+	for (const relativePath of imagePaths) {
+		const absolutePath = path.resolve(projectDir, relativePath)
+
+		if (!absolutePath.startsWith(dirPrefix)) {
+			throw new Error(
+				`Image path "${relativePath}" escapes the project folder.`
+			)
+		}
+
+		let buffer: Buffer
+
+		try {
+			buffer = await readFile(absolutePath)
+		} catch {
+			throw new Error(`Image not found: ${relativePath}`)
+		}
+
+		loaded.set(relativePath, {
+			buffer,
+			size: buffer.length,
+			key: blobKeyFor(slug, relativePath),
+		})
+	}
+
+	return loaded
+}
+
+/**
+ * Uploads each loaded image to Blob under its deterministic key and returns a
+ * path → public URL map. `allowOverwrite` + no random suffix make re-imports
+ * overwrite the same blob rather than leak duplicates.
+ */
+async function uploadImages(
+	imagePaths: string[],
+	loaded: Map<string, LoadedImage>
+): Promise<Map<string, string>> {
+	const urlByPath = new Map<string, string>()
+
+	for (const relativePath of imagePaths) {
+		const image = loaded.get(relativePath)
+
+		if (image == null) {
+			throw new Error(`No loaded image for ${relativePath}`)
+		}
+
+		// Content-type is inferred by Blob from the key's extension (`.png`, …).
+		const blob = await put(image.key, image.buffer, {
+			access: "public",
+			addRandomSuffix: false,
+			allowOverwrite: true,
+		})
+
+		urlByPath.set(relativePath, blob.url)
+		console.log(`  ↑ ${relativePath} → ${blob.url}`)
+	}
+
+	return urlByPath
+}
+
+// #endregion
+
+// #region DB
+
+function makePrisma(): PrismaClient {
+	const connectionString = process.env.DATABASE_URL
+
+	if (connectionString == null || connectionString === "") {
+		throw new Error(
+			"DATABASE_URL is not set. Provide DB credentials before importing (e.g. `vercel env pull`)."
+		)
+	}
+
+	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
+}
+
+/**
+ * Replaces the project at `slug` wholesale: delete-then-create inside a
+ * transaction so a re-import fully refreshes it. The cascade on the relations
+ * removes the old sections/images/links; without the delete, the create would
+ * trip the unique `slug` constraint.
+ */
+async function writeProject(
+	prisma: PrismaClient,
+	slug: string,
+	data: ReturnType<typeof projectCreateSchema.parse>
+): Promise<void> {
+	await prisma.$transaction(async (tx) => {
+		await tx.project.deleteMany({ where: { slug } })
+		await tx.project.create({
+			data: {
+				name: data.name,
+				slug,
+				summary: data.summary,
+				bucket: data.bucket,
+				platformTags: data.platformTags,
+				role: data.role ?? null,
+				accentColor: data.accentColor ?? null,
+				icon: data.icon ?? null,
+				heroImage: data.heroImage ?? null,
+				isFeatured: data.isFeatured ?? false,
+				isDiscontinued: data.isDiscontinued ?? false,
+				date: data.date ?? null,
+				// Imports honour the authored `sortOrder` verbatim — unlike the
+				// admin create route, which shifts siblings to make room. The
+				// manifest author owns gallery ordering across the whole batch.
+				sortOrder: data.sortOrder ?? 0,
+				sections: toSectionCreate(data.sections),
+				links: toLinkCreate(data.links),
+			},
+		})
+	})
+}
+
+// #endregion
+
+// #region per-project pipeline
+
+async function readManifest(manifestPath: string): Promise<ProjectManifest> {
+	let raw: string
+
+	try {
+		raw = await readFile(manifestPath, "utf8")
+	} catch {
+		throw new Error(
+			`No ${MANIFEST_FILENAME} at ${path.relative(process.cwd(), manifestPath)}.`
+		)
+	}
+
+	try {
+		return JSON.parse(raw) as ProjectManifest
+	} catch (error) {
+		throw new Error(
+			`Invalid JSON in ${MANIFEST_FILENAME}: ${(error as Error).message}`
+		)
+	}
+}
+
+async function processProject(
+	projectDir: string,
+	prisma: PrismaClient | null
+): Promise<ProjectResult> {
+	const folderName = path.basename(projectDir)
+
+	try {
+		const manifest = await readManifest(
+			path.join(projectDir, MANIFEST_FILENAME)
+		)
+
+		if (typeof manifest.name !== "string" || manifest.name.trim() === "") {
+			throw new Error(`Manifest is missing a non-empty "name".`)
+		}
+
+		const slug = deriveSlug(manifest.name, manifest.slug)
+		console.log(`\n▸ ${manifest.name}  (slug: ${slug})`)
+
+		// Validate the full manifest against the real schema BEFORE any upload,
+		// substituting synthetic URLs for the not-yet-uploaded images so the
+		// `http(s)`-URL checks pass. Catches a bad bucket/tag combo, an
+		// over-long summary, etc. while it's still cheap to bail.
+		const validationManifest = resolveManifestImageRefs(manifest, (localPath) =>
+			syntheticBlobUrl(slug, localPath)
+		)
+		projectCreateSchema.parse(validationManifest)
+
+		const imagePaths = listManifestImagePaths(manifest)
+		const loaded = await loadImages(projectDir, slug, imagePaths)
+
+		console.log(
+			`  ${imagePaths.length} image(s), ${manifest.sections?.length ?? 0} section(s), ${manifest.links?.length ?? 0} link(s)`
+		)
+
+		if (isDryRun) {
+			for (const relativePath of imagePaths) {
+				const image = loaded.get(relativePath)!
+				console.log(
+					`  · ${relativePath} → ${image.key} (${formatBytes(image.size)})`
+				)
+			}
+			console.log(`  ✓ valid — nothing written (dry run)`)
+
+			return { name: manifest.name, status: "validated" }
+		}
+
+		const urlByPath = await uploadImages(imagePaths, loaded)
+		const resolved = resolveManifestImageRefs(manifest, (localPath) => {
+			const url = urlByPath.get(localPath)
+
+			if (url == null) {
+				throw new Error(`No uploaded URL for ${localPath}`)
+			}
+
+			return url
+		})
+		// Re-validate with the real Blob URLs in place, then persist.
+		const data = projectCreateSchema.parse(resolved)
+		await writeProject(prisma!, slug, data)
+		console.log(`  ✓ imported "${manifest.name}"`)
+
+		if (shouldCleanup) {
+			await rm(projectDir, { recursive: true, force: true })
+			console.log(`  · cleaned up ${path.relative(process.cwd(), projectDir)}`)
+		}
+
+		return { name: manifest.name, status: "imported" }
+	} catch (error) {
+		console.error(`  ✗ ${folderName}: ${formatError(error)}`)
+
+		return { name: folderName, status: "failed", detail: formatError(error) }
+	}
+}
+
+// #endregion
+
+// #region helpers
+
+/**
+ * Lists the project folders to process: every direct subdirectory of
+ * `scripts/imports/` that the optional name filters allow. Warns about a filter
+ * that matches nothing so a typo doesn't look like a silent no-op.
+ */
+async function discoverProjectDirs(filters: string[]): Promise<string[]> {
+	let entries
+
+	try {
+		entries = await readdir(IMPORTS_DIR, { withFileTypes: true })
+	} catch {
+		console.error(
+			`No staging directory at ${path.relative(process.cwd(), IMPORTS_DIR)}. ` +
+				`Create scripts/imports/<name>/ with a ${MANIFEST_FILENAME}.`
+		)
+
+		return []
+	}
+
+	const folderNames = entries
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+
+	for (const filter of filters) {
+		if (!folderNames.includes(filter)) {
+			console.warn(`No import folder named "${filter}" under scripts/imports/.`)
+		}
+	}
+
+	const selected =
+		filters.length > 0
+			? folderNames.filter((name) => filters.includes(name))
+			: folderNames
+
+	return selected.sort().map((name) => path.join(IMPORTS_DIR, name))
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) {
+		return `${bytes} B`
+	}
+
+	const kib = bytes / 1024
+
+	return kib < 1024 ? `${kib.toFixed(0)} KiB` : `${(kib / 1024).toFixed(1)} MiB`
+}
+
+function formatError(error: unknown): string {
+	if (error instanceof ZodError) {
+		const issues = error.issues
+			.map(
+				(issue) =>
+					`      - ${issue.path.join(".") || "(root)"}: ${issue.message}`
+			)
+			.join("\n")
+
+		return `validation failed:\n${issues}`
+	}
+
+	return error instanceof Error ? error.message : String(error)
+}
+
+// #endregion
+
+// #region main
+
+async function main(): Promise<void> {
+	if (unknownFlags.length > 0) {
+		console.error(
+			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: --dry-run, --cleanup.`
+		)
+		process.exitCode = 1
+
+		return
+	}
+
+	if (!isDryRun && process.env.BLOB_READ_WRITE_TOKEN == null) {
+		console.error(
+			"BLOB_READ_WRITE_TOKEN is not set — image upload would fail. " +
+				"Provide credentials (e.g. `vercel env pull`), or use --dry-run."
+		)
+		process.exitCode = 1
+
+		return
+	}
+
+	console.log(
+		`${isDryRun ? "DRY RUN — " : ""}importing from ${path.relative(process.cwd(), IMPORTS_DIR)}` +
+			(slugFilters.length > 0 ? ` (filter: ${slugFilters.join(", ")})` : "")
+	)
+
+	const projectDirs = await discoverProjectDirs(slugFilters)
+
+	if (projectDirs.length === 0) {
+		console.error("Nothing to import.")
+		process.exitCode = 1
+
+		return
+	}
+
+	const prisma = isDryRun ? null : makePrisma()
+	const results: ProjectResult[] = []
+
+	try {
+		for (const projectDir of projectDirs) {
+			results.push(await processProject(projectDir, prisma))
+		}
+	} finally {
+		await prisma?.$disconnect()
+	}
+
+	const imported = results.filter((result) => result.status === "imported")
+	const validated = results.filter((result) => result.status === "validated")
+	const failed = results.filter((result) => result.status === "failed")
+
+	const headline = isDryRun ? "Dry run" : "Import"
+	const tally = isDryRun
+		? `${validated.length} validated`
+		: `${imported.length} imported`
+
+	console.log(`\n${headline} complete: ${tally}, ${failed.length} failed.`)
+
+	if (failed.length > 0) {
+		process.exitCode = 1
+	}
+}
+
+main().catch((error) => {
+	console.error(formatError(error))
+	process.exit(1)
+})
+
+// #endregion

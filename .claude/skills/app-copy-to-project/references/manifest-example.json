@@ -1,0 +1,58 @@
+{
+	"_comment": "Worked example. Image fields are LOCAL paths relative to this file's folder (scripts/imports/<slug>/); the import script uploads them to Blob and rewrites them to URLs. An already-hosted https URL may be used as-is. Delete this _comment in a real manifest.",
+	"name": "Tidemark",
+	"slug": "tidemark",
+	"summary": "A macOS menu-bar app that tracks how long you've spent in each app and nudges you when a focus block runs long.",
+	"icon": "./icon.png",
+	"heroImage": "./hero.png",
+	"bucket": "Mac",
+	"platformTags": ["macOS", "MenuBar"],
+	"role": "Sole developer",
+	"accentColor": "#3B82F6",
+	"isFeatured": true,
+	"isDiscontinued": false,
+	"date": "2025",
+	"sortOrder": 1,
+	"sections": [
+		{
+			"title": "Live timeline",
+			"description": "Tidemark sits in the menu bar and records the frontmost app every few seconds. The timeline shows your day as a stacked bar — one glance tells you where the hours went, no manual timers to start or stop.",
+			"sortOrder": 1,
+			"images": [
+				{
+					"url": "./sections/timeline/menubar.png",
+					"caption": "The menu-bar popover",
+					"sortOrder": 1
+				},
+				{
+					"url": "./sections/timeline/day.png",
+					"caption": "A full day, app by app",
+					"sortOrder": 2
+				}
+			]
+		},
+		{
+			"title": "Focus nudges",
+			"description": "Set a soft limit per app. When you cross it, Tidemark taps you on the shoulder instead of locking you out — the choice to keep going stays yours.",
+			"sortOrder": 2,
+			"images": [
+				{
+					"url": "./sections/nudges/alert.png",
+					"caption": "A nudge after 90 minutes in the browser",
+					"sortOrder": 1
+				}
+			]
+		},
+		{
+			"title": "Local-first",
+			"description": "Everything stays on your Mac. No account, no sync server, no telemetry — the data never leaves the device, and you can export it as CSV whenever you want.",
+			"sortOrder": 3,
+			"images": []
+		}
+	],
+	"links": [
+		{ "label": "Mac App Store", "url": "https://apps.apple.com/app/id000000000", "sortOrder": 1 },
+		{ "label": "Website", "url": "https://tidemark.app", "sortOrder": 2 },
+		{ "label": "GitHub", "url": "https://github.com/example/tidemark", "sortOrder": 3 }
+	]
+}
