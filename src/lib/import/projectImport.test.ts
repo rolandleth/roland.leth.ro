@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
 	blobKeyFor,
+	blobPrefixFor,
 	deriveSlug,
 	isLocalImageRef,
 	listManifestImagePaths,
@@ -93,6 +94,21 @@ describe("blobKeyFor", () => {
 	it("throws when nothing usable remains", () => {
 		expect(() => blobKeyFor("reckon", "///")).toThrow(/no usable segments/i)
 		expect(() => blobKeyFor("reckon", ".")).toThrow(/no usable segments/i)
+	})
+})
+
+// #endregion
+
+// #region blobPrefixFor
+
+describe("blobPrefixFor", () => {
+	it("returns the project's key prefix with a trailing slash", () => {
+		expect(blobPrefixFor("reckon")).toBe("projects/reckon/")
+	})
+
+	it("prefixes every key blobKeyFor produces for the same slug", () => {
+		const key = blobKeyFor("continuum", "sections/1.png")
+		expect(key.startsWith(blobPrefixFor("continuum"))).toBe(true)
 	})
 })
 

@@ -6,6 +6,10 @@
 //   yarn db:import-projects reckon          # only the `reckon` folder
 //   yarn db:import-projects --dry-run       # validate manifest + images, write nothing
 //   yarn db:import-projects reckon --cleanup # delete the staged folder after success
+//   yarn db:import-projects reckon --reupload # re-upload images even if already in Blob
+//
+// Images already in Blob (same key + same byte size) are reused, not re-uploaded
+// — so a prod run after a local-DB test pass doesn't re-push the same files.
 //
 // Targets prod by running with prod credentials in the environment (DATABASE_URL
 // + BLOB_READ_WRITE_TOKEN, e.g. via `vercel env pull`). Always `--dry-run` first.
@@ -18,13 +22,14 @@ import { readdir, readFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { PrismaPg } from "@prisma/adapter-pg"
-import { put } from "@vercel/blob"
+import { list, put } from "@vercel/blob"
 import { ZodError } from "zod"
 import { PrismaClient } from "@/generated/prisma/client"
 import { projectCreateSchema } from "@/lib/api/schemas"
 import { toLinkCreate, toSectionCreate } from "@/lib/db/projectMappers"
 import {
 	blobKeyFor,
+	blobPrefixFor,
 	deriveSlug,
 	listManifestImagePaths,
 	type ProjectManifest,
@@ -35,7 +40,7 @@ import {
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
 const IMPORTS_DIR = path.join(SCRIPTS_DIR, "imports")
 const MANIFEST_FILENAME = "project.json"
-const KNOWN_FLAGS = new Set(["--dry-run", "--cleanup"])
+const KNOWN_FLAGS = new Set(["--dry-run", "--cleanup", "--reupload"])
 
 type LoadedImage = {
 	buffer: Buffer
@@ -54,6 +59,7 @@ type ProjectResult = {
 const argv = process.argv.slice(2)
 const isDryRun = argv.includes("--dry-run")
 const shouldCleanup = argv.includes("--cleanup")
+const isReupload = argv.includes("--reupload")
 const slugFilters = argv.filter((arg) => !arg.startsWith("--"))
 const unknownFlags = argv.filter(
 	(arg) => arg.startsWith("--") && !KNOWN_FLAGS.has(arg)
@@ -109,21 +115,68 @@ async function loadImages(
 }
 
 /**
- * Uploads each loaded image to Blob under its deterministic key and returns a
- * path → public URL map. `allowOverwrite` + no random suffix make re-imports
- * overwrite the same blob rather than leak duplicates.
+ * Lists the blobs already stored under a project's key prefix, keyed by
+ * pathname, so existing images can be reused instead of re-uploaded. A failed
+ * `list` (transient Blob/network error) is downgraded to a warning and treated
+ * as "nothing exists" — the import then uploads everything, which `put`'s
+ * `allowOverwrite` makes safe rather than fatal.
  */
-async function uploadImages(
+async function listExistingBlobs(
+	slug: string
+): Promise<Map<string, { url: string; size: number }>> {
+	const byKey = new Map<string, { url: string; size: number }>()
+
+	try {
+		const { blobs } = await list({ prefix: blobPrefixFor(slug) })
+
+		for (const blob of blobs) {
+			byKey.set(blob.pathname, { url: blob.url, size: blob.size })
+		}
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		console.warn(
+			`  ! couldn't list existing blobs for ${slug} (${message}); uploading all`
+		)
+	}
+
+	return byKey
+}
+
+/**
+ * Resolves each image to a public Blob URL, uploading only what isn't already
+ * there. An existing blob is reused when its key AND byte size match the staged
+ * file — so a re-run (e.g. a prod run after a local-DB test pass, sharing the
+ * one Blob store) doesn't re-upload identical images. A size mismatch means the
+ * staged file changed, so it re-uploads; `--reupload` forces upload of
+ * everything. Reuses are logged (`↺`), never silent, so a changed-but-same-size
+ * file can still be caught by eye.
+ */
+async function resolveImageUrls(
+	slug: string,
 	imagePaths: string[],
-	loaded: Map<string, LoadedImage>
+	loaded: Map<string, LoadedImage>,
+	reupload: boolean
 ): Promise<Map<string, string>> {
 	const urlByPath = new Map<string, string>()
+	const existing = reupload
+		? new Map<string, { url: string; size: number }>()
+		: await listExistingBlobs(slug)
 
 	for (const relativePath of imagePaths) {
 		const image = loaded.get(relativePath)
 
 		if (image == null) {
 			throw new Error(`No loaded image for ${relativePath}`)
+		}
+
+		const match = existing.get(image.key)
+
+		if (match != null && match.size === image.size) {
+			urlByPath.set(relativePath, match.url)
+			console.log(
+				`  ↺ ${relativePath} → ${match.url} (reused, ${formatBytes(image.size)})`
+			)
+			continue
 		}
 
 		// Content-type is inferred by Blob from the key's extension (`.png`, …).
@@ -179,7 +232,11 @@ async function writeProject(
 				role: data.role ?? null,
 				accentColor: data.accentColor ?? null,
 				icon: data.icon ?? null,
-				heroImage: data.heroImage ?? null,
+				// Fall back to the first section's first image when no hero is set, so a
+				// hero-less project still gets a banner in the gallery instead of an
+				// empty card.
+				heroImage:
+					data.heroImage ?? data.sections?.[0]?.images?.[0]?.url ?? null,
 				isFeatured: data.isFeatured ?? false,
 				isDiscontinued: data.isDiscontinued ?? false,
 				date: data.date ?? null,
@@ -264,7 +321,12 @@ async function processProject(
 			return { name: manifest.name, status: "validated" }
 		}
 
-		const urlByPath = await uploadImages(imagePaths, loaded)
+		const urlByPath = await resolveImageUrls(
+			slug,
+			imagePaths,
+			loaded,
+			isReupload
+		)
 		const resolved = resolveManifestImageRefs(manifest, (localPath) => {
 			const url = urlByPath.get(localPath)
 

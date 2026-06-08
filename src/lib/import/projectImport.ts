@@ -131,6 +131,15 @@ export function blobKeyFor(slug: string, relativePath: string): string {
 }
 
 /**
+ * The blob key prefix every image of a project lives under: `projects/<slug>/`.
+ * Used to `list` a project's already-uploaded blobs so a re-run can reuse them
+ * instead of re-uploading.
+ */
+export function blobPrefixFor(slug: string): string {
+	return `${BLOB_KEY_PREFIX}/${slug}/`
+}
+
+/**
  * A syntactically valid `https` URL standing in for a not-yet-uploaded image,
  * used to validate the manifest against `projectCreateSchema` (which requires
  * `http(s)` URLs) WITHOUT uploading anything. Lets `--dry-run` surface schema
