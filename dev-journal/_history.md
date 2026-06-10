@@ -1,8 +1,8 @@
-# Rolling History — last 30 days (through 2026-06-08)
+# Rolling History — last 30 days (through 2026-06-10)
 
 ## Themes
 
-- **Security and audit-log hardening** — HMAC-SHA256 IP pseudonymization for rate-limiting (plain SHA-256 is rainbow-table reversible over ~4B IPv4 keyspace); fail-open on missing `IP_HASH_SECRET` with warn at module load (05-14); `AdminAuditTag` typed closed union derived from `const ADMIN_AUDIT_TAGS=[…]as const` (05-12–05-13); `AdminAuditPayload.batchId: string|null` required field for bulk-import log correlation (05-17); `/api/upload` moved under `/api/admin/upload` (single `startsWith("/api/admin/")` gate in `proxy.ts`) (05-17); `sanitizeLogString` for multipart-parser errors preventing log injection (05-13). [source](dev-journal/2026-05-14.md) [source](dev-journal/2026-05-17.md)
+- **Security and audit-log hardening** — HMAC-SHA256 IP pseudonymization for rate-limiting (plain SHA-256 is rainbow-table reversible over ~4B IPv4 keyspace); `IP_HASH_SECRET` gates limiter *granularity*, not whether it runs — originally fail-open on missing secret with warn at module load (05-14), revised 06-10 to fall back to a single global bucket (`bucketKey()` returns constant `"global"`, limiter built whenever Redis is configured) — degrade-not-disable, re-accepting the admin-lockout DoS (botnet 5/15min) as the lesser evil over no limiter; `AdminAuditTag` typed closed union derived from `const ADMIN_AUDIT_TAGS=[…]as const` (05-12–05-13); `AdminAuditPayload.batchId: string|null` required field for bulk-import log correlation (05-17); `/api/upload` moved under `/api/admin/upload` (single `startsWith("/api/admin/")` gate in `proxy.ts`) (05-17); `sanitizeLogString` for multipart-parser errors preventing log injection (05-13). [source](dev-journal/2026-05-14.md) [source](dev-journal/2026-06-10.md)
 
 - **Time-based scheduled publishing** — Three-reversal arc (05-14): (1) filter inside `unstable_cache` (futures permanently invisible until mutation bust), (2) filter at read time with padded bounded caches (`take: LIMIT + futureCount` at fill, zero overhead at read), (3) `isFutureDatetime(datetime, now)` with required `now` on 05-17 (avoids `vi.mock` intra-module reference trap; lets bulk callers capture one `now` per batch). Unbounded caches (archive, sitemap) drop futures at the wrapper; single-row caches (`getPostBySlug`) return `null` if `datetime > now`. `totalPages` moved to request-time count. [source](dev-journal/2026-05-14.md) [source](dev-journal/2026-05-17.md)
 
@@ -16,7 +16,6 @@
 
 ## Timeline
 
-- **2026-05-09** — Cleanup: revert `<Link>`→`<a>`, drop `error.digest`, move `ClientAnalytics`, merge `.prose a` CSS rules. [source](dev-journal/2026-05-09.md)
 - **2026-05-11** — 3-session review: `findFirst+datetime` filter, cron 401 fix, magic-byte sniff, structured audit log, `postDatetimeToISO`, `isAbortError`, `ThemeProvider → useSyncExternalStore`, carousel APG, skip-link. [source](dev-journal/2026-05-11.md)
 - **2026-05-12** — `postDatetimeToISO` throw → `string|undefined`; `<main>` hoist (15 pages); `readErrorMessage` extracted; `useOptimisticMutation` extracted; posts PUT → Serializable; `AdminAuditTag` typed union; `Post.slug` index. [source](dev-journal/2026-05-12.md)
 - **2026-05-13** — `useOptimisticMutation` `abortRef.current` null on unmount; `MutateResult` discriminant; `AdminAuditTag` from `const`; `apiErrors.describeZodIssues` dedup; `sanitizeLogString`; `PrivacyPageLayout <main>→<div>`. [source](dev-journal/2026-05-13.md)
@@ -28,3 +27,4 @@
 - **2026-05-21** — `superRefine` bucket/tag coherence; picker hidden-input → submit-gate; `getProjectsGalleryCached`/`getProjectsForAdmin` split; for-of single-pass partition. [source](dev-journal/2026-05-21.md)
 - **2026-05-22** — `nextCacheSpyFactory` + module-load snapshot test; `mockPickerConfig.autoFill` enum union. [source](dev-journal/2026-05-22.md)
 - **2026-06-08** — Manifest-driven project importer; `projectMappers.ts`/`projectImport.ts`; `scripts/` gitignore fix. [source](dev-journal/2026-06.md)
+- **2026-06-10** — Login rate-limiter: missing `IP_HASH_SECRET` now degrades to a global bucket instead of disabling the limiter; new `route.ratelimit.test.ts` covers the Redis-present path via `vi.resetModules`+`vi.stubEnv`+class mocks. [source](dev-journal/2026-06-10.md)
