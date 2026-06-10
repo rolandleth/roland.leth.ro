@@ -125,8 +125,9 @@ export function getCronSecret(): string | null {
 /**
  * HMAC secret used to pseudonymize client IPs before they're written to the
  * rate-limit bucket key. `null` means no secret is configured — the login
- * route then skips rate-limiting (fail-open), matching the no-Redis path,
- * rather than fall back to plain-IP keys (GDPR posture regression).
+ * route then keeps rate-limiting on but falls back to a single global bucket
+ * (coarser, no per-IP keying) rather than write plain-IP keys (GDPR posture
+ * regression). It never disables the limiter on the secret alone.
  */
 export function getIpHashSecret(): string | null {
 	return nonEmpty(readEnv().IP_HASH_SECRET)

@@ -11,13 +11,15 @@ import { getIpHashSecret, getRedisConfig } from "@/lib/auth/env"
 // `process.env` directly and silently desync if the var names ever change.
 const redisConfig = getRedisConfig()
 const ipHashSecret = getIpHashSecret()
-// Rate limiting needs both Redis (to hold the buckets) and the HMAC secret (to
-// pseudonymize IPs before they're written). Missing either falls open — the
-// admin shouldn't be locked out by a config gap, and we'd rather skip the
-// limiter than regress to plain-IP keys (GDPR posture: the IPv4 keyspace is
-// small enough that a plain hash is reversible by brute force).
+// Rate limiting only needs Redis to hold the buckets. The HMAC secret controls
+// granularity, not whether the limiter runs: with it, each client IP gets its
+// own budget; without it, all requests share one global bucket (see
+// `bucketKey`). A global bucket lets a botnet exhaust the budget and lock the
+// admin out — the tradeoff we accept rather than skip rate limiting entirely,
+// or regress to plain-IP keys (the IPv4 keyspace is small enough that a plain
+// hash is reversible by brute force). No Redis still falls open.
 const ratelimit =
-	redisConfig !== null && ipHashSecret !== null
+	redisConfig !== null
 		? new Ratelimit({
 				redis: new Redis(redisConfig),
 				limiter: Ratelimit.slidingWindow(5, "15 m"),
@@ -27,13 +29,19 @@ const ratelimit =
 
 if (redisConfig !== null && ipHashSecret === null) {
 	// Visible config gap: Redis is wired but the HMAC secret isn't, so the
-	// limiter is silently off. Surface at warn so a missed env var on deploy
-	// is discoverable from the function logs.
+	// limiter degrades to a single shared bucket. Surface at warn so a missed
+	// env var on deploy is discoverable from the function logs.
 	// eslint-disable-next-line no-console
 	console.warn(
-		"[api:auth:login] IP_HASH_SECRET not configured, rate limiting disabled"
+		"[api:auth:login] IP_HASH_SECRET not configured, rate limiting falls back to a global bucket"
 	)
 }
+
+/**
+ * Fixed bucket key shared by every request when no `IP_HASH_SECRET` is set.
+ * Carries no IP, so it's safe to write to Upstash and the audit log.
+ */
+const globalBucketKey = "global"
 
 /**
  * Returns the HMAC-pseudonymized client IP used as the rate-limit bucket key.
@@ -64,13 +72,26 @@ function clientBucketKey(request: NextRequest, secret: string): string {
 		.slice(0, 22)
 }
 
+/**
+ * Resolves the rate-limit bucket key for a request. With an `IP_HASH_SECRET`
+ * configured, each client IP gets its own 5/15min budget; without one, every
+ * request shares `globalBucketKey` — coarser protection that still caps total
+ * login attempts, at the cost of a botnet being able to lock the admin out.
+ */
+function bucketKey(request: NextRequest): string {
+	return ipHashSecret !== null
+		? clientBucketKey(request, ipHashSecret)
+		: globalBucketKey
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
-	if (ratelimit && ipHashSecret) {
-		// Per-IP keying replaces the previous single global bucket: a stale
-		// botnet of 5 failed attempts/15min could otherwise lock the legitimate
-		// admin out of the only public auth entry point. With per-IP buckets,
-		// each origin gets its own 5/15min budget.
-		const key = clientBucketKey(request, ipHashSecret)
+	if (ratelimit) {
+		// Per-IP keying when the HMAC secret is set, else a single shared bucket.
+		// Per-IP avoids the previous global-bucket failure mode where a stale
+		// botnet of 5 failed attempts/15min locks the legitimate admin out of the
+		// only public auth entry point; the global fallback re-accepts that risk
+		// when no secret is configured, as the lesser evil over no limiter at all.
+		const key = bucketKey(request)
 
 		try {
 			const { success } = await ratelimit.limit(key)
