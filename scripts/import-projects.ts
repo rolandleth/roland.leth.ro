@@ -18,6 +18,7 @@
 // the manifest from marketing copy is the `app-copy-to-project` skill's job.
 
 import "dotenv/config"
+import { createHash } from "node:crypto"
 import { readdir, readFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -71,7 +72,7 @@ const unknownFlags = argv.filter(
 
 /**
  * Reads every local image the manifest references, keyed by its
- * manifest-relative path, and computes its deterministic blob key. Uploads
+ * manifest-relative path, and computes its content-addressed blob key. Uploads
  * nothing — used by the dry-run report and the real run's pre-upload step, so a
  * missing image fails before any Blob write. These are trusted, first-party
  * staged files, so there's no MIME/size gate (the admin upload route has one
@@ -104,10 +105,19 @@ async function loadImages(
 			throw new Error(`Image not found: ${relativePath}`)
 		}
 
+		// Content-addressed key: hashing the bytes means a changed image lands at
+		// a brand-new URL the CDN has never cached (a clean miss), sidestepping
+		// the "overwrite still serves the stale copy" problem; identical bytes
+		// resolve to the same key and get reused.
+		const contentHash = createHash("sha256")
+			.update(buffer)
+			.digest("hex")
+			.slice(0, 12)
+
 		loaded.set(relativePath, {
 			buffer,
 			size: buffer.length,
-			key: blobKeyFor(slug, relativePath),
+			key: blobKeyFor(slug, relativePath, contentHash),
 		})
 	}
 
@@ -121,16 +131,14 @@ async function loadImages(
  * as "nothing exists" — the import then uploads everything, which `put`'s
  * `allowOverwrite` makes safe rather than fatal.
  */
-async function listExistingBlobs(
-	slug: string
-): Promise<Map<string, { url: string; size: number }>> {
-	const byKey = new Map<string, { url: string; size: number }>()
+async function listExistingBlobs(slug: string): Promise<Map<string, string>> {
+	const byKey = new Map<string, string>()
 
 	try {
 		const { blobs } = await list({ prefix: blobPrefixFor(slug) })
 
 		for (const blob of blobs) {
-			byKey.set(blob.pathname, { url: blob.url, size: blob.size })
+			byKey.set(blob.pathname, blob.url)
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
@@ -144,12 +152,12 @@ async function listExistingBlobs(
 
 /**
  * Resolves each image to a public Blob URL, uploading only what isn't already
- * there. An existing blob is reused when its key AND byte size match the staged
- * file — so a re-run (e.g. a prod run after a local-DB test pass, sharing the
- * one Blob store) doesn't re-upload identical images. A size mismatch means the
- * staged file changed, so it re-uploads; `--reupload` forces upload of
- * everything. Reuses are logged (`↺`), never silent, so a changed-but-same-size
- * file can still be caught by eye.
+ * there. Keys are content-addressed, so a key that already exists in the store
+ * IS the same bytes and is reused as-is — that keeps a re-run (e.g. a prod run
+ * after a local-DB test pass on the shared Blob store) from re-uploading
+ * unchanged images. A changed image hashes to a new key, so it uploads to a new
+ * URL the CDN has never cached. `--reupload` forces a fresh upload of
+ * everything. Reuses are logged (`↺`), never silent.
  */
 async function resolveImageUrls(
 	slug: string,
@@ -159,7 +167,7 @@ async function resolveImageUrls(
 ): Promise<Map<string, string>> {
 	const urlByPath = new Map<string, string>()
 	const existing = reupload
-		? new Map<string, { url: string; size: number }>()
+		? new Map<string, string>()
 		: await listExistingBlobs(slug)
 
 	for (const relativePath of imagePaths) {
@@ -169,13 +177,11 @@ async function resolveImageUrls(
 			throw new Error(`No loaded image for ${relativePath}`)
 		}
 
-		const match = existing.get(image.key)
+		const existingUrl = existing.get(image.key)
 
-		if (match != null && match.size === image.size) {
-			urlByPath.set(relativePath, match.url)
-			console.log(
-				`  ↺ ${relativePath} → ${match.url} (reused, ${formatBytes(image.size)})`
-			)
+		if (existingUrl != null) {
+			urlByPath.set(relativePath, existingUrl)
+			console.log(`  ↺ ${relativePath} → ${existingUrl} (reused)`)
 			continue
 		}
 

@@ -108,12 +108,11 @@ export function deriveSlug(name: string, slug?: string | null): string {
 }
 
 /**
- * Builds the deterministic Blob key for a local image path under a project's
- * namespace. Path segments are sanitised and `.`/`..`/empty segments dropped,
- * so a traversal-shaped path (`../../secret.png`) can't escape the
- * `projects/<slug>/` prefix. Throws if nothing usable remains.
+ * Splits a manifest-relative image path into sanitised key segments, dropping
+ * `.`/`..`/empty parts so a traversal-shaped path (`../../secret.png`) can't
+ * escape the `projects/<slug>/` prefix. Throws if nothing usable remains.
  */
-export function blobKeyFor(slug: string, relativePath: string): string {
+function sanitizeRelativeSegments(relativePath: string): string[] {
 	const segments = relativePath
 		.split("/")
 		.map((segment) => segment.trim())
@@ -127,13 +126,36 @@ export function blobKeyFor(slug: string, relativePath: string): string {
 		)
 	}
 
-	return `${BLOB_KEY_PREFIX}/${slug}/${segments.join("/")}`
+	return segments
+}
+
+/**
+ * Builds the content-addressed Blob key for a local image under a project's
+ * namespace: `projects/<slug>/[dirs/]<contentHash>-<filename>`. The hash is
+ * baked into the key on purpose — Vercel Blob and `next/image` both cache by
+ * URL with no per-URL purge, so a stable key keeps serving the OLD bytes after
+ * an overwrite (or even after the blob is deleted, until the edge cache
+ * expires). Keying by content means changed bytes get a brand-new URL the
+ * caches have never seen (a clean miss), while identical bytes resolve to the
+ * same key and are reused — so re-imports stay idempotent.
+ */
+export function blobKeyFor(
+	slug: string,
+	relativePath: string,
+	contentHash: string
+): string {
+	const segments = sanitizeRelativeSegments(relativePath)
+	const filename = segments[segments.length - 1]
+	const dirs = segments.slice(0, -1)
+	const dirPrefix = dirs.length > 0 ? `${dirs.join("/")}/` : ""
+
+	return `${BLOB_KEY_PREFIX}/${slug}/${dirPrefix}${contentHash}-${filename}`
 }
 
 /**
  * The blob key prefix every image of a project lives under: `projects/<slug>/`.
- * Used to `list` a project's already-uploaded blobs so a re-run can reuse them
- * instead of re-uploading.
+ * Used to `list` a project's already-uploaded blobs so a re-run can reuse the
+ * unchanged ones (matched by their content-addressed key).
  */
 export function blobPrefixFor(slug: string): string {
 	return `${BLOB_KEY_PREFIX}/${slug}/`
@@ -142,11 +164,14 @@ export function blobPrefixFor(slug: string): string {
 /**
  * A syntactically valid `https` URL standing in for a not-yet-uploaded image,
  * used to validate the manifest against `projectCreateSchema` (which requires
- * `http(s)` URLs) WITHOUT uploading anything. Lets `--dry-run` surface schema
- * errors and lets a real run fail fast before touching Blob storage.
+ * `http(s)` URLs) WITHOUT uploading anything. The real key is content-addressed
+ * (needs the bytes); validation only needs a well-formed URL, so this uses the
+ * plain sanitised path.
  */
 export function syntheticBlobUrl(slug: string, relativePath: string): string {
-	return `https://blob.local/${blobKeyFor(slug, relativePath)}`
+	return `https://blob.local/${BLOB_KEY_PREFIX}/${slug}/${sanitizeRelativeSegments(
+		relativePath
+	).join("/")}`
 }
 
 /**

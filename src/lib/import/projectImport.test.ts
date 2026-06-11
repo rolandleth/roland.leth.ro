@@ -69,31 +69,43 @@ describe("deriveSlug", () => {
 // #region blobKeyFor
 
 describe("blobKeyFor", () => {
-	it("namespaces a flat filename under projects/<slug>/", () => {
-		expect(blobKeyFor("reckon", "icon.png")).toBe("projects/reckon/icon.png")
+	const HASH = "abc123def456"
+
+	it("bakes the content hash into the filename under projects/<slug>/", () => {
+		expect(blobKeyFor("reckon", "icon.png", HASH)).toBe(
+			"projects/reckon/abc123def456-icon.png"
+		)
 	})
 
-	it("preserves subfolders", () => {
-		expect(blobKeyFor("reckon", "shots/1.png")).toBe(
-			"projects/reckon/shots/1.png"
+	it("preserves subfolders, hashing only the filename", () => {
+		expect(blobKeyFor("reckon", "shots/1.png", HASH)).toBe(
+			"projects/reckon/shots/abc123def456-1.png"
 		)
 	})
 
 	it("sanitises segments and drops leading-dot segments", () => {
-		expect(blobKeyFor("reckon", "./shots/my shot.png")).toBe(
-			"projects/reckon/shots/my-shot.png"
+		expect(blobKeyFor("reckon", "./shots/my shot.png", HASH)).toBe(
+			"projects/reckon/shots/abc123def456-my-shot.png"
 		)
 	})
 
 	it("strips traversal segments so the key can't escape the namespace", () => {
-		expect(blobKeyFor("reckon", "../../etc/passwd")).toBe(
-			"projects/reckon/etc/passwd"
+		expect(blobKeyFor("reckon", "../../etc/passwd", HASH)).toBe(
+			"projects/reckon/etc/abc123def456-passwd"
+		)
+	})
+
+	it("changes the key when the content hash changes (cache-busting)", () => {
+		expect(blobKeyFor("reckon", "icon.png", "aaaa")).not.toBe(
+			blobKeyFor("reckon", "icon.png", "bbbb")
 		)
 	})
 
 	it("throws when nothing usable remains", () => {
-		expect(() => blobKeyFor("reckon", "///")).toThrow(/no usable segments/i)
-		expect(() => blobKeyFor("reckon", ".")).toThrow(/no usable segments/i)
+		expect(() => blobKeyFor("reckon", "///", HASH)).toThrow(
+			/no usable segments/i
+		)
+		expect(() => blobKeyFor("reckon", ".", HASH)).toThrow(/no usable segments/i)
 	})
 })
 
@@ -107,7 +119,7 @@ describe("blobPrefixFor", () => {
 	})
 
 	it("prefixes every key blobKeyFor produces for the same slug", () => {
-		const key = blobKeyFor("continuum", "sections/1.png")
+		const key = blobKeyFor("continuum", "sections/1.png", "abc123")
 		expect(key.startsWith(blobPrefixFor("continuum"))).toBe(true)
 	})
 })
