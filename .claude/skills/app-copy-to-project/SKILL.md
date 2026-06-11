@@ -70,6 +70,19 @@ In the app's `marketing/` folder, the load-bearing files are usually:
 Folder layouts vary per app — list the folder and adapt. See `references/field-mapping.md` for the
 full field-by-field mapping and judgment notes.
 
+### Choosing the screenshot set
+
+`screenshots/` usually holds more than one set, and they get renamed or regenerated between runs —
+so list the folder and pick, don't assume a fixed name:
+
+- **Prefer a landing / showcase set** (e.g. `screenshots/landing*/`, `*-final/`). These are usually
+  landscape graphics (framed devices on a background) that also make a good 16:9 gallery hero.
+- **If there's no landing set, fall back to the App Store set** (`screenshots/appstore*/`). These
+  are usually portrait device frames — fine as section images, but they crop in the landscape
+  gallery hero. When only a portrait set exists, set `heroImage` explicitly (to a landscape asset if
+  one exists) or accept that the auto-hero (the import defaults it to the first section image) will
+  be a cropped portrait.
+
 ### Sourcing the icon and accent (often missing from `marketing/`)
 
 Marketing folders rarely include the app icon or the brand color. Don't treat these as gaps until

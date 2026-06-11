@@ -24,7 +24,7 @@ here are a guide, not a substitute.
 | `sections[].title` | `copy/web/landing-page.md` section headings, `copy/stores/*` features | ≤ 200. A real feature or idea. |
 | `sections[].description` | The matching landing/store paragraph, adapted | ≤ 100,000 but keep it a paragraph. Apply the tone rules. |
 | `sections[].sortOrder` | Order of appearance | Integer ≥ 0. |
-| `sections[].images[].url` | `screenshots/<set>/*.png` | Local path. Pick the screenshots that illustrate the section. |
+| `sections[].images[].url` | `screenshots/<set>/*.png` | Local path. Prefer a landing/showcase set; fall back to the App Store set if there's no landing one (see "Choosing the screenshot set" in SKILL.md). Pick the screenshots that illustrate the section. |
 | `sections[].images[].caption` | Screenshot caption file (`copy.md` / `landing-copy.md`) | ≤ 300, or `null`. Concrete, not decorative. |
 | `links[].label` | **Ask** | ≤ 60. e.g. "App Store", "GitHub", "Website". |
 | `links[].url` | **Ask** (App Store: app id) | Real `https` URL. For the App Store, ask for the numeric **app id** and build `https://apps.apple.com/app/id<id>` (one id covers iPhone/iPad/Mac). Get website/GitHub URLs from the user. |
