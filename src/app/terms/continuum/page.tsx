@@ -1,0 +1,184 @@
+import Link from "next/link"
+import PageGlow from "@/components/PageGlow"
+import PrivacySection from "@/components/privacy/PrivacySection"
+import { buildPageMetadata } from "@/lib/content/metadata"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = buildPageMetadata({
+	title: "Continuum – Terms of Use",
+	description:
+		"Terms of use for Continuum, including Continuum Pro subscription and lifetime purchase terms.",
+	path: "/terms/continuum",
+})
+
+// Composed from the same chrome as the privacy pages (PageGlow + PrivacySection) rather than
+// PrivacyPageLayout, whose auto-rendered boilerplate calls itself a "privacy policy" — wrong wording
+// for a terms page. The Last-update and Contact sections are written here with terms-appropriate copy.
+export default function ContinuumTermsPage() {
+	return (
+		<div className="relative mx-auto max-w-2xl px-4 py-12">
+			<PageGlow />
+			<h1 className="mb-10 text-3xl font-bold">Continuum – Terms of Use</h1>
+
+			<div className="space-y-8">
+				<PrivacySection title="Overview">
+					<p>
+						Continuum is a Mac and iOS app for managers to keep private,
+						provisional notes about the people they work with. By downloading or
+						using Continuum, you agree to these terms. Because Continuum is
+						distributed through the App Store, Apple&apos;s{" "}
+						<a
+							href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Licensed Application End User License Agreement
+						</a>{" "}
+						also applies; where it conflicts with these terms, it governs.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Your licence to use Continuum">
+					<p>
+						Continuum is licensed to you, not sold. You get a personal,
+						non-transferable licence to use the app on the Apple devices you own
+						or control, as permitted by the App Store terms. You may not resell,
+						redistribute, or reverse-engineer the app except where the law
+						allows it.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="The free tier and Continuum Pro">
+					<p>
+						Continuum is usable for free. The free tier includes the full
+						intelligence layer on a small number of people, a starter set of
+						signal and entry types, and encrypted local backup and restore.
+					</p>
+					<p>
+						<strong>Continuum Pro</strong> removes the limits and adds the power
+						tools: unlimited people, your own signal and entry types, events,
+						teams, advanced tuning, and richer export. Pro is available two
+						ways:
+					</p>
+					<ul className="list-disc space-y-2 pl-5">
+						<li>
+							<strong>A subscription</strong> (offered monthly and yearly, with
+							a free trial on the yearly plan), or
+						</li>
+						<li>
+							<strong>A one-time lifetime unlock</strong> — a single purchase,
+							not a subscription.
+						</li>
+					</ul>
+					<p>
+						The current prices, billing period, and any free-trial length are
+						shown in the app at the point of purchase. Lapsing or cancelling Pro
+						never deletes or locks data you already created — your existing
+						people, notes, events, and teams stay readable.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Billing, renewal, and cancellation">
+					<p>
+						All purchases are processed by Apple through your Apple Account, and
+						Apple&apos;s payment terms apply.
+					</p>
+					<ul className="list-disc space-y-2 pl-5">
+						<li>
+							Payment is charged to your Apple Account when you confirm the
+							purchase.
+						</li>
+						<li>
+							A subscription renews automatically for the same period unless you
+							cancel at least 24 hours before the current period ends. Your
+							account is charged for renewal within 24 hours before the period
+							ends.
+						</li>
+						<li>
+							You can manage or cancel a subscription anytime in your App Store
+							account settings. Cancelling stops future renewals; it
+							doesn&apos;t refund the current period.
+						</li>
+						<li>
+							If a subscription offers a free trial, any unused portion of the
+							trial is forfeited when you buy the subscription.
+						</li>
+						<li>
+							The lifetime unlock is a one-time purchase and does not renew.
+						</li>
+					</ul>
+				</PrivacySection>
+
+				<PrivacySection title="Refunds">
+					<p>
+						Purchases and refunds are handled by Apple, not by me. If you want a
+						refund, request it through Apple at{" "}
+						<a
+							href="https://reportaproblem.apple.com"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							reportaproblem.apple.com
+						</a>
+						.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Your data and responsible use">
+					<p>
+						Continuum stores everything on your device. It isn&apos;t sent to me
+						or anyone else — see the{" "}
+						<Link href="/privacy/continuum">privacy policy</Link>. Because
+						you&apos;re recording notes about real people, you&apos;re
+						responsible for what you keep and how you use it; please read{" "}
+						<Link href="/privacy/continuum/responsible-use">
+							using it responsibly
+						</Link>
+						. You are responsible for keeping your own backups; lose your device
+						without a backup and the data is gone.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="No warranty">
+					<p>
+						Continuum is provided &quot;as is,&quot; without warranties of any
+						kind, to the fullest extent the law allows. It&apos;s a tool to
+						support your judgment, not a system of record or a basis for
+						employment decisions on its own.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Limitation of liability">
+					<p>
+						To the fullest extent permitted by law, I&apos;m not liable for any
+						indirect, incidental, or consequential damages arising from your use
+						of Continuum, including any loss of data. Nothing in these terms
+						limits rights you have under mandatory consumer law.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Changes to these terms">
+					<p>
+						These terms may change over time. Continued use after a change means
+						you accept the updated terms — be sure to consult the last-update
+						date below.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Last update">
+					<p>
+						These terms were last updated on June 9, 2026. They may change from
+						time to time — be sure to consult the last update date.
+					</p>
+				</PrivacySection>
+
+				<PrivacySection title="Contact">
+					<p>
+						If you have any questions about these terms, please{" "}
+						<a href="mailto:roland+continuum@leth.ro">contact us</a>.
+					</p>
+				</PrivacySection>
+			</div>
+		</div>
+	)
+}
