@@ -41,7 +41,7 @@ const contactLinks = [
 	},
 	{
 		label: "Résumé",
-		href: "/resume.pdf",
+		href: "/downloads/resume.pdf",
 		download: true,
 	},
 ]
