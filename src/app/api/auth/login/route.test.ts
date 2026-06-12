@@ -86,14 +86,14 @@ describe("POST /api/auth/login — credentials", () => {
 			makeRequest({ email: "admin@example.com", password: "wrong" }) as never
 		)
 
-		// `.env.test` doesn't set `IP_HASH_SECRET`, so the route omits the
-		// pseudonymized bucket key from the log rather than leak a raw IP. The
-		// secret-set branch (which includes `{ key: <hash> }`) is covered in
-		// the rate-limit integration tests that reset the module with both
-		// Redis vars and the secret stubbed.
+		// `.env.test` doesn't set `IP_HASH_SECRET`, so the resolved bucket key is
+		// the literal "global" fallback — never a raw IP. The secret-set branch
+		// (which includes `{ key: "ip:<hash>" }`) is covered in the rate-limit
+		// integration tests that reset the module with both Redis vars and the
+		// secret stubbed.
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[api:auth:login] invalid credentials",
-			{}
+			{ key: "global" }
 		)
 		expect(vi.mocked(console.error)).not.toHaveBeenCalled()
 	})

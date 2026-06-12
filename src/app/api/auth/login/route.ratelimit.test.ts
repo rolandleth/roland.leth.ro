@@ -9,7 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // `ipHashSecret` arg selects the path: empty → global-bucket fallback, set →
 // per-IP HMAC buckets.
 
-const { limitMock } = vi.hoisted(() => ({ limitMock: vi.fn() }))
+const { limitMock, verifyCredentialsMock, createSessionMock } = vi.hoisted(
+	() => ({
+		limitMock: vi.fn(),
+		verifyCredentialsMock: vi.fn(),
+		createSessionMock: vi.fn(),
+	})
+)
 
 vi.mock("@upstash/redis", () => ({
 	// Plain class so `new Redis(...)` at module load constructs without touching
@@ -32,10 +38,12 @@ vi.mock("@upstash/ratelimit", () => ({
 }))
 
 vi.mock("@/lib/auth/auth", () => ({
-	// Default to a failed credential check so a request that clears the limiter
-	// lands on the 401 branch — enough to prove it got past rate limiting.
-	verifyCredentials: vi.fn().mockResolvedValue(false),
-	createSession: vi.fn(),
+	// Hoisted instances so the factory re-run after `vi.resetModules()` hands
+	// the route the same mocks the tests configure. Defaults (failed credential
+	// check) are applied in `beforeEach`; the success-path test overrides
+	// per-test.
+	verifyCredentials: verifyCredentialsMock,
+	createSession: createSessionMock,
 }))
 
 const CLIENT_IP = "203.0.113.7"
@@ -59,10 +67,12 @@ async function loadRoute({
 
 /** Mirrors the route's `clientBucketKey` so tests can assert the exact key. */
 function expectedKey(rawIp: string, secret = PER_IP_SECRET): string {
-	return createHmac("sha256", secret)
+	const hash = createHmac("sha256", secret)
 		.update(rawIp)
 		.digest("base64url")
 		.slice(0, 22)
+
+	return `ip:${hash}`
 }
 
 function makeRequest(
@@ -86,10 +96,12 @@ function makeRequest(
 }
 
 beforeEach(() => {
-	// Only the limiter's per-test behavior changes; `verifyCredentials` keeps the
-	// factory default (resolves false) so a request that clears the limiter lands
-	// on the 401 branch.
 	limitMock.mockReset()
+	// Default to a failed credential check so a request that clears the limiter
+	// lands on the 401 branch — enough to prove it got past rate limiting.
+	verifyCredentialsMock.mockReset()
+	verifyCredentialsMock.mockResolvedValue(false)
+	createSessionMock.mockReset()
 })
 
 afterEach(() => {
@@ -131,6 +143,12 @@ describe("POST /api/auth/login — global-bucket rate limiting", () => {
 		expect(response.status).toBe(429)
 		const data = await response.json()
 		expect(data.error).toBe("Too many requests")
+		// 429s are routine hostile traffic — logged at info (with the resolved
+		// key) so they don't share a level with operator-actionable lines.
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:auth:login] rate limit exceeded",
+			{ key: "global" }
+		)
 	})
 
 	it("fails open to credential checking when the limiter throws", async () => {
@@ -144,7 +162,8 @@ describe("POST /api/auth/login — global-bucket rate limiting", () => {
 		)
 
 		expect(response.status).toBe(401)
-		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+		// Error, not warn: Redis being down is alert-worthy, unlike routine 429s.
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
 			"[api:auth:login] rate limit unavailable, failing open",
 			expect.any(Error)
 		)
@@ -247,6 +266,86 @@ describe("POST /api/auth/login — per-IP rate limiting", () => {
 			"[api:auth:login] invalid credentials",
 			{ key: expectedKey(CLIENT_IP) }
 		)
+	})
+
+	it("fails open to credential checking when the limiter throws", async () => {
+		// The catch is shared with the global-bucket path, but a regression that
+		// re-scoped it per branch could escape the global-only test; lock the
+		// same fail-open semantics on the per-IP branch.
+		limitMock.mockRejectedValue(new Error("upstash down"))
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+
+		const response = await POST(
+			makeRequest({ email: "admin@example.com", password: "wrong" }) as never
+		)
+
+		expect(response.status).toBe(401)
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			"[api:auth:login] rate limit unavailable, failing open",
+			expect.any(Error)
+		)
+	})
+
+	it("buckets a literal empty x-forwarded-for under the 'unknown' key", async () => {
+		limitMock.mockResolvedValue({ success: true })
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+
+		await POST(
+			makeRequest(
+				{ email: "admin@example.com", password: "wrong" },
+				{ forwardedFor: "" }
+			) as never
+		)
+
+		// An empty header must not HMAC the empty string into a bucket of its
+		// own; it joins the headerless requests under "unknown".
+		expect(limitMock).toHaveBeenCalledWith(expectedKey("unknown"))
+	})
+
+	it("derives different keys for the same IP under different secrets", async () => {
+		// A route that hard-coded the secret would still pass the assertions
+		// above (they derive `expectedKey` from the same constant); two loads
+		// with different env secrets lock in that the env value feeds the HMAC.
+		limitMock.mockResolvedValue({ success: true })
+
+		const first = await loadRoute({ ipHashSecret: "secret-one" })
+		await first.POST(
+			makeRequest({ email: "admin@example.com", password: "wrong" }) as never
+		)
+
+		const second = await loadRoute({ ipHashSecret: "secret-two" })
+		await second.POST(
+			makeRequest({ email: "admin@example.com", password: "wrong" }) as never
+		)
+
+		const keys = limitMock.mock.calls.map((call) => call[0])
+		expect(keys[0]).toBe(expectedKey(CLIENT_IP, "secret-one"))
+		expect(keys[1]).toBe(expectedKey(CLIENT_IP, "secret-two"))
+		expect(keys[0]).not.toBe(keys[1])
+	})
+
+	it("returns 200 with the success audit log when the limiter passes and credentials are valid", async () => {
+		limitMock.mockResolvedValue({ success: true })
+		verifyCredentialsMock.mockResolvedValue(true)
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+
+		const response = await POST(
+			makeRequest({ email: "admin@example.com", password: "right" }) as never
+		)
+
+		expect(response.status).toBe(200)
+		const data = await response.json()
+		expect(data.ok).toBe(true)
+		expect(createSessionMock).toHaveBeenCalledOnce()
+		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
+			"[api:auth:login] success"
+		)
+		// The limiter ran but passed — no rate-limit or failure lines fire.
+		expect(vi.mocked(console.info)).not.toHaveBeenCalledWith(
+			"[api:auth:login] rate limit exceeded",
+			expect.anything()
+		)
+		expect(vi.mocked(console.warn)).not.toHaveBeenCalled()
 	})
 })
 

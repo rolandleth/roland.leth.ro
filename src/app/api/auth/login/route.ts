@@ -39,15 +39,26 @@ if (redisConfig !== null && ipHashSecret === null) {
 
 /**
  * Fixed bucket key shared by every request when no `IP_HASH_SECRET` is set.
- * Carries no IP, so it's safe to write to Upstash and the audit log.
+ * Carries no IP, so it's safe to write to Upstash and the audit log. Client
+ * keys carry an `ip:` prefix (see `clientBucketKey`) so the two keyspaces
+ * stay formally disjoint under the shared `rl:login` Redis prefix.
  */
 const globalBucketKey = "global"
 
 /**
- * Returns the HMAC-pseudonymized client IP used as the rate-limit bucket key.
+ * Returns the per-client rate-limit bucket key: `ip:` + the
+ * HMAC-pseudonymized client IP. The `ip:` prefix keeps this keyspace formally
+ * disjoint from `globalBucketKey`, so no future change to the derivation can
+ * conflate a client bucket with the fallback bucket.
+ *
  * Vercel sets `x-forwarded-for` with a comma-separated list (leftmost is the
- * original client). Requests with no forwarded header bucket together under
- * the literal `"unknown"` so they don't piggyback on each other's budget.
+ * original client) and sanitizes inbound spoofed values at its edge, so
+ * trusting the leftmost entry is safe *only on Vercel* (or behind a proxy
+ * that normalizes the header the same way). Behind an untrusted proxy the
+ * leftmost entry is attacker-controlled — switch to `x-real-ip` or the
+ * platform's trusted equivalent if this app ever moves off Vercel. Requests
+ * with no forwarded header bucket together under the literal `"unknown"` so
+ * they don't piggyback on each other's budget.
  *
  * Hashing the IP — rather than storing it plain — keeps the bucket stable per
  * client without writing personal data to Upstash or to the audit log. The
@@ -66,10 +77,12 @@ function clientBucketKey(request: NextRequest, secret: string): string {
 		}
 	}
 
-	return createHmac("sha256", secret)
+	const hash = createHmac("sha256", secret)
 		.update(rawIp)
 		.digest("base64url")
 		.slice(0, 22)
+
+	return `ip:${hash}`
 }
 
 /**
@@ -85,23 +98,28 @@ function bucketKey(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-	if (ratelimit) {
-		// Per-IP keying when the HMAC secret is set, else a single shared bucket.
-		// Per-IP avoids the previous global-bucket failure mode where a stale
-		// botnet of 5 failed attempts/15min locks the legitimate admin out of the
-		// only public auth entry point; the global fallback re-accepts that risk
-		// when no secret is configured, as the lesser evil over no limiter at all.
-		const key = bucketKey(request)
+	// Per-IP keying when the HMAC secret is set, else a single shared bucket.
+	// Per-IP avoids the previous global-bucket failure mode where a stale
+	// botnet of 5 failed attempts/15min locks the legitimate admin out of the
+	// only public auth entry point; the global fallback re-accepts that risk
+	// when no secret is configured, as the lesser evil over no limiter at all.
+	// Resolved once so the limiter and the invalid-credentials log share the
+	// exact same key — the HMAC runs once per request and the two call sites
+	// can't drift apart.
+	const key = bucketKey(request)
 
+	if (ratelimit) {
 		try {
 			const { success } = await ratelimit.limit(key)
 
 			if (!success) {
 				// Routine adversarial signal — a botnet hitting the limiter is
-				// expected; warn rather than error so it doesn't dominate the
-				// error log. Credential-misconfig and code bugs stay at error.
+				// expected; info (not warn) so a dashboard can partition
+				// hostile-traffic noise away from operator-actionable lines
+				// like the fail-open below. Credential-misconfig and code bugs
+				// stay at error.
 				// eslint-disable-next-line no-console
-				console.warn("[api:auth:login] rate limit exceeded", { key })
+				console.info("[api:auth:login] rate limit exceeded", { key })
 
 				return NextResponse.json(
 					{ error: "Too many requests" },
@@ -110,9 +128,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 			}
 		} catch (error) {
 			// Fail-open: a transient Upstash blip should not lock the admin out.
-			// Logged so the operator can correlate auth failures with Redis health.
+			// Error (not warn): unlike the routine 429s above, Redis being
+			// unreachable is operator-actionable and a dashboard should be able
+			// to alert on it by level alone.
 			// eslint-disable-next-line no-console
-			console.warn(
+			console.error(
 				"[api:auth:login] rate limit unavailable, failing open",
 				error
 			)
@@ -153,19 +173,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 	if (!(await verifyCredentials(email, password))) {
 		// Logs the attempt (not the credentials) so repeated failures are visible
-		// without leaking secrets. When the HMAC secret is configured, include
-		// the pseudonymized bucket key so failures can be correlated with the
-		// rate-limit log above; omit it entirely otherwise rather than fall back
-		// to a plain IP. Warn (not error) for the same reason as the rate-limit
-		// demotion: credential stuffing is a routine adversarial signal that
-		// would otherwise dominate the error log under any sustained probe.
+		// without leaking secrets. The key is the HMAC pseudonym when the secret
+		// is configured and the literal "global" fallback otherwise — never a
+		// raw IP — so failures always correlate with the rate-limit lines above
+		// and the payload shape stays constant. Warn (not error) for the same
+		// reason as the rate-limit demotion: credential stuffing is a routine
+		// adversarial signal that would otherwise dominate the error log under
+		// any sustained probe.
 		// eslint-disable-next-line no-console
-		console.warn(
-			"[api:auth:login] invalid credentials",
-			ipHashSecret !== null
-				? { key: clientBucketKey(request, ipHashSecret) }
-				: {}
-		)
+		console.warn("[api:auth:login] invalid credentials", { key })
 
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
 	}
