@@ -33,7 +33,7 @@ export default function FeaturedProjectCard({
 	const accent = accentColor ?? "var(--color-accent)"
 
 	return (
-		<div className="group relative transition-all duration-500 hover:-translate-y-1">
+		<div className="group relative flex h-full flex-col transition-all duration-500 hover:-translate-y-1">
 			{/* Accent glow — absolutely positioned behind the card, fades in on hover */}
 			<div
 				className="pointer-events-none absolute inset-0 -z-10 rounded-2xl opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-15 dark:group-hover:opacity-25"
@@ -42,7 +42,7 @@ export default function FeaturedProjectCard({
 
 			<Link
 				href={href}
-				className="relative flex flex-col overflow-hidden rounded-2xl border border-(--color-border) bg-(--color-background)"
+				className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-(--color-border) bg-(--color-background)"
 			>
 				{/* Hero image */}
 				<div className="relative aspect-video overflow-hidden bg-(--color-border)">
