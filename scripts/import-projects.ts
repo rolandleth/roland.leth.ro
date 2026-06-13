@@ -7,9 +7,14 @@
 //   yarn db:import-projects --dry-run       # validate manifest + images, write nothing
 //   yarn db:import-projects reckon --cleanup # delete the staged folder after success
 //   yarn db:import-projects reckon --reupload # re-upload images even if already in Blob
+//   yarn db:import-projects reckon --no-prune # keep orphaned blobs after import
 //
-// Images already in Blob (same key + same byte size) are reused, not re-uploaded
-// — so a prod run after a local-DB test pass doesn't re-push the same files.
+// Blob keys are content-addressed, so a key that already exists in the store
+// holds the same bytes and is reused, not re-uploaded (byte size is checked on
+// reuse as a hash-collision backstop) — a prod run after a local-DB test pass
+// doesn't re-push the same files. After a successful import, blobs under the
+// project's prefix that the new rows no longer reference (old keys of edited
+// images, strays from failed runs) are pruned unless `--no-prune` is passed.
 //
 // Targets prod by running with prod credentials in the environment (DATABASE_URL
 // + BLOB_READ_WRITE_TOKEN, e.g. via `vercel env pull`). Always `--dry-run` first.
@@ -18,19 +23,34 @@
 // the manifest from marketing copy is the `app-copy-to-project` skill's job.
 
 import "dotenv/config"
-import { createHash } from "node:crypto"
 import { readdir, readFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { PrismaPg } from "@prisma/adapter-pg"
-import { list, put } from "@vercel/blob"
+import {
+	BlobAccessError,
+	BlobStoreNotFoundError,
+	BlobStoreSuspendedError,
+	del,
+	list,
+	put,
+} from "@vercel/blob"
 import { ZodError } from "zod"
 import { PrismaClient } from "@/generated/prisma/client"
 import { projectCreateSchema } from "@/lib/api/schemas"
 import { toLinkCreate, toSectionCreate } from "@/lib/db/projectMappers"
 import {
+	type BlobStore,
+	formatBytes,
+	listProjectBlobs,
+	type LoadedImage,
+	pruneOrphans,
+	type StoredBlob,
+	syncImages,
+} from "@/lib/import/blobSync"
+import {
 	blobKeyFor,
-	blobPrefixFor,
+	contentHashFor,
 	deriveSlug,
 	listManifestImagePaths,
 	type ProjectManifest,
@@ -41,13 +61,12 @@ import {
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
 const IMPORTS_DIR = path.join(SCRIPTS_DIR, "imports")
 const MANIFEST_FILENAME = "project.json"
-const KNOWN_FLAGS = new Set(["--dry-run", "--cleanup", "--reupload"])
-
-type LoadedImage = {
-	buffer: Buffer
-	size: number
-	key: string
-}
+const KNOWN_FLAGS = new Set([
+	"--dry-run",
+	"--cleanup",
+	"--reupload",
+	"--no-prune",
+])
 
 type ProjectResult = {
 	name: string
@@ -61,6 +80,7 @@ const argv = process.argv.slice(2)
 const isDryRun = argv.includes("--dry-run")
 const shouldCleanup = argv.includes("--cleanup")
 const isReupload = argv.includes("--reupload")
+const isPruneDisabled = argv.includes("--no-prune")
 const slugFilters = argv.filter((arg) => !arg.startsWith("--"))
 const unknownFlags = argv.filter(
 	(arg) => arg.startsWith("--") && !KNOWN_FLAGS.has(arg)
@@ -109,55 +129,81 @@ async function loadImages(
 		// a brand-new URL the CDN has never cached (a clean miss), sidestepping
 		// the "overwrite still serves the stale copy" problem; identical bytes
 		// resolve to the same key and get reused.
-		const contentHash = createHash("sha256")
-			.update(buffer)
-			.digest("hex")
-			.slice(0, 12)
-
 		loaded.set(relativePath, {
 			buffer,
 			size: buffer.length,
-			key: blobKeyFor(slug, relativePath, contentHash),
+			key: blobKeyFor(slug, relativePath, contentHashFor(buffer)),
 		})
 	}
 
 	return loaded
 }
 
+// The real-SDK adapter behind `BlobStore`. SDK-specific knobs live here:
+// content-type is inferred by Blob from the key's extension (`.png`, …), and
+// `allowOverwrite` stays on because a `put` can legitimately target an
+// existing key — `--reupload`, and the fail-open "treat nothing as existing"
+// path after a transient `list` failure — where the content-addressed key
+// guarantees identical bytes anyway. Collisions are guarded on the reuse path
+// (size assert in `syncImages`), not here.
+const blobStore: BlobStore = {
+	list: (options) => list(options),
+	put: async (key, body) => {
+		return put(key, Buffer.isBuffer(body) ? body : Buffer.from(body), {
+			access: "public",
+			addRandomSuffix: false,
+			allowOverwrite: true,
+		})
+	},
+	del: (urls) => del(urls),
+}
+
 /**
- * Lists the blobs already stored under a project's key prefix, keyed by
- * pathname, so existing images can be reused instead of re-uploaded. A failed
- * `list` (transient Blob/network error) is downgraded to a warning and treated
- * as "nothing exists" — the import then uploads everything, which `put`'s
- * `allowOverwrite` makes safe rather than fatal.
+ * True for Blob errors that mean the store or token is misconfigured rather
+ * than transiently unavailable. These must fail the import loudly: downgrading
+ * them to "treat nothing as existing" would re-upload an entire gallery on
+ * prod while hiding the misconfiguration.
  */
-async function listExistingBlobs(slug: string): Promise<Map<string, string>> {
-	const byKey = new Map<string, string>()
+function isBlobConfigError(error: unknown): boolean {
+	return (
+		error instanceof BlobAccessError ||
+		error instanceof BlobStoreNotFoundError ||
+		error instanceof BlobStoreSuspendedError
+	)
+}
 
+/**
+ * Lists the blobs already stored under a project's key prefix so existing
+ * images can be reused instead of re-uploaded. Only a transient `list` failure
+ * (network blip, service hiccup) is downgraded to a warning and treated as
+ * "nothing exists" — the import then uploads everything, which the adapter's
+ * `allowOverwrite` makes safe rather than fatal. Credential/store
+ * misconfiguration rethrows and fails the project.
+ */
+async function listExistingBlobs(
+	slug: string
+): Promise<Map<string, StoredBlob>> {
 	try {
-		const { blobs } = await list({ prefix: blobPrefixFor(slug) })
-
-		for (const blob of blobs) {
-			byKey.set(blob.pathname, blob.url)
-		}
+		return await listProjectBlobs(blobStore, slug)
 	} catch (error) {
+		if (isBlobConfigError(error)) {
+			throw error
+		}
+
 		const message = error instanceof Error ? error.message : String(error)
 		console.warn(
 			`  ! couldn't list existing blobs for ${slug} (${message}); uploading all`
 		)
-	}
 
-	return byKey
+		return new Map()
+	}
 }
 
 /**
- * Resolves each image to a public Blob URL, uploading only what isn't already
- * there. Keys are content-addressed, so a key that already exists in the store
- * IS the same bytes and is reused as-is — that keeps a re-run (e.g. a prod run
- * after a local-DB test pass on the shared Blob store) from re-uploading
- * unchanged images. A changed image hashes to a new key, so it uploads to a new
- * URL the CDN has never cached. `--reupload` forces a fresh upload of
- * everything. Reuses are logged (`↺`), never silent.
+ * Resolves each image to a public Blob URL via `syncImages` — reusing
+ * content-addressed keys already in the store, uploading the rest with bounded
+ * concurrency. `--reupload` skips the existing-blob lookup so everything
+ * uploads fresh.
  */
 async function resolveImageUrls(
 	slug: string,
@@ -165,38 +211,38 @@ async function resolveImageUrls(
 	loaded: Map<string, LoadedImage>,
 	reupload: boolean
 ): Promise<Map<string, string>> {
-	const urlByPath = new Map<string, string>()
 	const existing = reupload
-		? new Map<string, string>()
+		? new Map<string, StoredBlob>()
 		: await listExistingBlobs(slug)
 
-	for (const relativePath of imagePaths) {
-		const image = loaded.get(relativePath)
+	return syncImages(blobStore, imagePaths, loaded, existing, console.log)
+}
 
-		if (image == null) {
-			throw new Error(`No loaded image for ${relativePath}`)
+/**
+ * Collects every image URL the validated project data references — icon, hero,
+ * and section images — i.e. the set of blobs that must survive the post-import
+ * orphan sweep.
+ */
+function referencedImageUrls(
+	data: ReturnType<typeof projectCreateSchema.parse>
+): Set<string> {
+	const urls = new Set<string>()
+	const add = (value: string | null | undefined): void => {
+		if (value != null && value !== "") {
+			urls.add(value)
 		}
-
-		const existingUrl = existing.get(image.key)
-
-		if (existingUrl != null) {
-			urlByPath.set(relativePath, existingUrl)
-			console.log(`  ↺ ${relativePath} → ${existingUrl} (reused)`)
-			continue
-		}
-
-		// Content-type is inferred by Blob from the key's extension (`.png`, …).
-		const blob = await put(image.key, image.buffer, {
-			access: "public",
-			addRandomSuffix: false,
-			allowOverwrite: true,
-		})
-
-		urlByPath.set(relativePath, blob.url)
-		console.log(`  ↑ ${relativePath} → ${blob.url}`)
 	}
 
-	return urlByPath
+	add(data.icon)
+	add(data.heroImage)
+
+	for (const section of data.sections ?? []) {
+		for (const image of section.images ?? []) {
+			add(image.url)
+		}
+	}
+
+	return urls
 }
 
 // #endregion
@@ -347,6 +393,31 @@ async function processProject(
 		await writeProject(prisma!, slug, data)
 		console.log(`  ✓ imported "${manifest.name}"`)
 
+		if (!isPruneDisabled) {
+			// Only after a successful write: blobs the new rows no longer
+			// reference (old keys of edited images, legacy non-content-addressed
+			// keys, strays from runs whose DB write failed) are otherwise
+			// permanent dead weight on the 1 GB free tier. A failed sweep warns
+			// but doesn't fail the import — the rows are already live.
+			try {
+				const pruned = await pruneOrphans(
+					blobStore,
+					slug,
+					referencedImageUrls(data),
+					console.log
+				)
+
+				if (pruned > 0) {
+					console.log(`  · pruned ${pruned} orphaned blob(s)`)
+				}
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error)
+				console.warn(
+					`  ! couldn't prune orphaned blobs for ${slug} (${message}); they remain in the store`
+				)
+			}
+		}
+
 		if (shouldCleanup) {
 			await rm(projectDir, { recursive: true, force: true })
 			console.log(`  · cleaned up ${path.relative(process.cwd(), projectDir)}`)
@@ -401,16 +472,6 @@ async function discoverProjectDirs(filters: string[]): Promise<string[]> {
 	return selected.sort().map((name) => path.join(IMPORTS_DIR, name))
 }
 
-function formatBytes(bytes: number): string {
-	if (bytes < 1024) {
-		return `${bytes} B`
-	}
-
-	const kib = bytes / 1024
-
-	return kib < 1024 ? `${kib.toFixed(0)} KiB` : `${(kib / 1024).toFixed(1)} MiB`
-}
-
 function formatError(error: unknown): string {
 	if (error instanceof ZodError) {
 		const issues = error.issues
@@ -432,8 +493,10 @@ function formatError(error: unknown): string {
 
 async function main(): Promise<void> {
 	if (unknownFlags.length > 0) {
+		// Derived from the same set the parser checks, so the help text can't
+		// drift from the flags actually honoured.
 		console.error(
-			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: --dry-run, --cleanup.`
+			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}.`
 		)
 		process.exitCode = 1
 

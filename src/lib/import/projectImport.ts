@@ -9,6 +9,7 @@
 // `projectCreateSchema`. Refs that are already `http(s)` URLs pass through
 // untouched, so a manifest can mix freshly-staged images with already-hosted ones.
 
+import { createHash } from "node:crypto"
 import { createSlug } from "@/lib/utils/format"
 
 /**
@@ -68,6 +69,12 @@ export type ProjectManifest = {
 // suffix) so re-running the import overwrites the same blob instead of leaking
 // a duplicate on the 1 GB free tier.
 const BLOB_KEY_PREFIX = "projects"
+
+// Hex chars of SHA-256 baked into a blob key (64 bits). The dedupe contract is
+// "same key ⇒ same bytes", so a collision would silently serve wrong content;
+// 64 bits puts the birthday bound far beyond any realistic image count, and
+// the importer's reuse path additionally asserts byte size as a backstop.
+const CONTENT_HASH_LENGTH = 16
 
 // A clean URL slug: lowercase alphanumeric segments joined by single hyphens.
 // Matches what `createSlug` produces and what the DB's unique `slug` expects.
@@ -130,6 +137,30 @@ function sanitizeRelativeSegments(relativePath: string): string[] {
 }
 
 /**
+ * Joins a project's namespace and already-sanitised key segments into the
+ * canonical key path: `projects/<slug>/<segments...>`. The single place the
+ * prefix-plus-segments shape is built, shared by `blobKeyFor` and
+ * `syntheticBlobUrl` so the real and synthetic constructions can't drift
+ * apart.
+ */
+function keyPathFor(slug: string, segments: string[]): string {
+	return `${BLOB_KEY_PREFIX}/${slug}/${segments.join("/")}`
+}
+
+/**
+ * The content hash baked into a blob key: the first `CONTENT_HASH_LENGTH` hex
+ * chars of the SHA-256 of the image bytes. Deterministic by construction —
+ * same bytes always yield the same hash, so re-imports of unchanged images
+ * resolve to the same key and get reused.
+ */
+export function contentHashFor(bytes: Uint8Array): string {
+	return createHash("sha256")
+		.update(bytes)
+		.digest("hex")
+		.slice(0, CONTENT_HASH_LENGTH)
+}
+
+/**
  * Builds the content-addressed Blob key for a local image under a project's
  * namespace: `projects/<slug>/[dirs/]<contentHash>-<filename>`. The hash is
  * baked into the key on purpose — Vercel Blob and `next/image` both cache by
@@ -146,10 +177,11 @@ export function blobKeyFor(
 ): string {
 	const segments = sanitizeRelativeSegments(relativePath)
 	const filename = segments[segments.length - 1]
-	const dirs = segments.slice(0, -1)
-	const dirPrefix = dirs.length > 0 ? `${dirs.join("/")}/` : ""
 
-	return `${BLOB_KEY_PREFIX}/${slug}/${dirPrefix}${contentHash}-${filename}`
+	return keyPathFor(slug, [
+		...segments.slice(0, -1),
+		`${contentHash}-${filename}`,
+	])
 }
 
 /**
@@ -169,9 +201,7 @@ export function blobPrefixFor(slug: string): string {
  * plain sanitised path.
  */
 export function syntheticBlobUrl(slug: string, relativePath: string): string {
-	return `https://blob.local/${BLOB_KEY_PREFIX}/${slug}/${sanitizeRelativeSegments(
-		relativePath
-	).join("/")}`
+	return `https://blob.local/${keyPathFor(slug, sanitizeRelativeSegments(relativePath))}`
 }
 
 /**

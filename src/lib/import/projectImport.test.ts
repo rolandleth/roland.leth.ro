@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
 	blobKeyFor,
 	blobPrefixFor,
+	contentHashFor,
 	deriveSlug,
 	isLocalImageRef,
 	listManifestImagePaths,
@@ -66,10 +67,47 @@ describe("deriveSlug", () => {
 
 // #endregion
 
+// #region contentHashFor
+
+describe("contentHashFor", () => {
+	it("derives the same hash for the same bytes (idempotent)", () => {
+		const bytes = new Uint8Array([1, 2, 3, 4])
+		// The dedupe contract is "same bytes → same hash → same key → reuse";
+		// without this, a re-import of an unchanged image could re-upload.
+		expect(contentHashFor(bytes)).toBe(
+			contentHashFor(new Uint8Array([1, 2, 3, 4]))
+		)
+	})
+
+	it("derives different hashes for different bytes", () => {
+		expect(contentHashFor(new Uint8Array([1, 2, 3]))).not.toBe(
+			contentHashFor(new Uint8Array([1, 2, 4]))
+		)
+	})
+
+	it("returns a 16-char hex slice", () => {
+		const hash = contentHashFor(new Uint8Array([0]))
+		// 64 bits keeps the birthday bound far beyond any realistic image count;
+		// a shorter slice would raise silent-collision risk.
+		expect(hash).toMatch(/^[0-9a-f]{16}$/)
+	})
+})
+
+// #endregion
+
 // #region blobKeyFor
 
 describe("blobKeyFor", () => {
 	const HASH = "abc123def456"
+
+	it("produces the same key for the same slug, path, and hash (idempotent)", () => {
+		// The other half of the cache-busting contract: unchanged content must
+		// resolve to a stable key so a re-import reuses the blob rather than
+		// uploading a duplicate.
+		expect(blobKeyFor("reckon", "icon.png", HASH)).toBe(
+			blobKeyFor("reckon", "icon.png", HASH)
+		)
+	})
 
 	it("bakes the content hash into the filename under projects/<slug>/", () => {
 		expect(blobKeyFor("reckon", "icon.png", HASH)).toBe(
@@ -136,6 +174,22 @@ describe("syntheticBlobUrl", () => {
 		// schema validation, which requires an http(s) URL.
 		expect(() => new URL(url)).not.toThrow()
 		expect(url.startsWith("https://")).toBe(true)
+	})
+
+	it("shares the projects/<slug>/<dirs>/ prefix with the real blob key", () => {
+		// The two constructions are independent (validation runs before any
+		// upload, so it can't know the content hash) but must agree on the
+		// directory prefix — a desync would land uploads under a different path
+		// than the one validation approved. `blobPrefixFor` covers the slug
+		// root; this locks the per-image directory segment too.
+		const synthetic = syntheticBlobUrl("reckon", "shots/1.png")
+		const real = blobKeyFor("reckon", "shots/1.png", "deadbeef")
+		// Strip the synthetic origin to compare blob-key paths directly.
+		const syntheticKey = synthetic.replace("https://blob.local/", "")
+		const dir = "projects/reckon/shots/"
+
+		expect(syntheticKey.startsWith(dir)).toBe(true)
+		expect(real.startsWith(dir)).toBe(true)
 	})
 })
 
