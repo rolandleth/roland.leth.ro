@@ -3,7 +3,7 @@
 Personal website for Roland Leth: landing page, blog, and projects portfolio.
 
 ## Sanctioned command shapes
-Skip the permission prompt; anything else prompts. Full grammar in `.claude/hooks/auto-allow.jq`.
+Skip the permission prompt; anything else prompts. Full grammar in the shared `~/.claude/hooks/web-auto-allow.jq` (this repo wires `slug=rlr`).
 Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`, `/tmp/rlr-build.log`.
 
 - **Test**: `yarn test [run] [args]`
@@ -11,11 +11,12 @@ Log paths: `/tmp/rlr-test.log`, `/tmp/rlr-tsc.log`, `/tmp/rlr-lint.log`, `/tmp/r
 - **Type-check**: `yarn [run] tsc --noEmit [args]`
 - **Build**: `yarn [run] build [args]`
   Optional tail on any of the above: ` > <log-path> 2>&1; echo "<label>=$?"` — `<label>` is any identifier (e.g. `exit`, `lint`, `tsc`); use distinct labels for chained stages so you can tell exit codes apart in the output.
-- **Search logs**: `rg [flags] <pattern> <log-path>+ [flags]` — short-flag bundles only (e.g. `-iN`, `-A 3` or `-A3`). Quoted patterns: single quotes pass anything except `'`; double quotes block `"`, backtick, `$`, `\` — use single quotes for regex with backslashes.
+- **Search (logs or project tree)**: `rg [flags] <pattern> [<path> ...] [flags]` — `<path>` may be omitted (searches cwd = project root), a **project-relative** path/dir, a single-quoted Next.js route-group path (`'src/app/(protected)/[id]'`), or a `/tmp/rlr-*.log` path. Absolute project paths and `..` traversal are denied; only the `/tmp/rlr-{test,tsc,lint,build}.log` files may be absolute. `-u/-uu/-uuu` is blocked so project walks keep skipping `.gitignore`'d and hidden dirs. Short-flag bundles only (e.g. `-iN`, `-A 3` or `-A3`). Quoted patterns: single quotes pass anything except `'`; double quotes block `"`, backtick, `$`, `\` — use single quotes for regex with backslashes.
 - **Multiple searches**: If you need to search multiple batches of terms, don't do it in a single call, do separate calls.
-- **Read logs (CLI)**: `head|tail [-n] N <log-path>+`, `wc [-lwcm] <log-path>+`.
+- **Read logs (CLI)**: `head|tail [-n] [N] <log-path>+` (count optional — bare `head` is fine), `wc [-lwcm] <log-path>+`.
 - **Read logs (tool)**: `Read` on a log path is auto-allowed.
-- **Pipe chain** (append to any CLI command above): `| head|tail [-n] N`, `| wc [-lwcm]`, `| sort [-urnhdiVfb]`, `| uniq [-cdiu] [-fsw N]`, `| rg [flags] <pattern>`.
+- **Watch logs (Monitor only)**: `until rg [flags] <pattern> <log-path>+; do sleep N; done` — the one-shot watch for a backgrounded build/test run's terminal marker (background it as `yarn build > /tmp/rlr-build.log 2>&1`, then watch for e.g. `'Compiled successfully|Failed to compile'`). Auto-allowed **only when the Monitor tool is the caller**; the same string from Bash is denied with a nudge to re-issue via Monitor.
+- **Pipe chain** (append to any CLI command above): `| head|tail [-n] [N]`, `| wc [-lwcm]`, `| sort [-urnhdiVfb]`, `| uniq [-cdiu] [-fsw N]`, `| rg [flags] <pattern>`.
 - **Chain commands**: `&&` or `;`.
 - **Args**: plain tokens (`[A-Za-z0-9_./:=@,+%-]`) or single-quoted strings (anything except `'`). Use single quotes for paths with `()`/`[]` (e.g. Next.js route groups: `'src/app/(protected)/[id]/page.test.tsx'`). Double quotes still blocked. Token-internal spaces still require quoting.
 
