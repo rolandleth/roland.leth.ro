@@ -1,7 +1,8 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
-import PrivacyPageLayout, {
-	type PrivacySectionEntry,
-} from "@/components/privacy/PrivacyPageLayout"
+import { relatedContinuumLegalLinks } from "@/components/privacy/continuumLegalLinks"
+import LegalPageLayout, {
+	type LegalSectionEntry,
+} from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import type { Metadata } from "next"
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
 	path: "/privacy/continuum",
 })
 
-const sections: PrivacySectionEntry[] = [
+const sections: LegalSectionEntry[] = [
 	{
 		title: "Collected information",
 		content: (
@@ -55,11 +56,12 @@ const sections: PrivacySectionEntry[] = [
 
 export default function ContinuumPrivacyPage() {
 	return (
-		<PrivacyPageLayout
+		<LegalPageLayout
 			title="Continuum – Privacy Policy"
 			sections={sections}
-			lastUpdated="May 30, 2026"
+			lastUpdated="June 10, 2026"
 			contactEmail="roland+continuum@leth.ro"
+			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum")}
 		/>
 	)
 }

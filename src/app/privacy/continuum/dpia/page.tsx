@@ -1,6 +1,7 @@
-import PrivacyPageLayout, {
-	type PrivacySectionEntry,
-} from "@/components/privacy/PrivacyPageLayout"
+import { relatedContinuumLegalLinks } from "@/components/privacy/continuumLegalLinks"
+import LegalPageLayout, {
+	type LegalSectionEntry,
+} from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import type { Metadata } from "next"
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = buildPageMetadata({
 	path: "/privacy/continuum/dpia",
 })
 
-const sections: PrivacySectionEntry[] = [
+const sections: LegalSectionEntry[] = [
 	{
 		title: "About this template",
 		content: (
@@ -111,11 +112,12 @@ const sections: PrivacySectionEntry[] = [
 
 export default function ContinuumDpiaPage() {
 	return (
-		<PrivacyPageLayout
+		<LegalPageLayout
 			title="Continuum – Data Protection Impact Assessment (template)"
 			sections={sections}
-			lastUpdated="June 8, 2026"
+			lastUpdated="June 10, 2026"
 			contactEmail="roland+continuum@leth.ro"
+			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum/dpia")}
 		/>
 	)
 }

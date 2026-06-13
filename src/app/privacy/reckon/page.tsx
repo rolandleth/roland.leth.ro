@@ -1,7 +1,7 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
-import PrivacyPageLayout, {
-	type PrivacySectionEntry,
-} from "@/components/privacy/PrivacyPageLayout"
+import LegalPageLayout, {
+	type LegalSectionEntry,
+} from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import type { Metadata } from "next"
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = buildPageMetadata({
 	path: "/privacy/reckon",
 })
 
-const sections: PrivacySectionEntry[] = [
+const sections: LegalSectionEntry[] = [
 	{
 		title: "Collected information",
 		content: (
@@ -56,7 +56,7 @@ const sections: PrivacySectionEntry[] = [
 
 export default function ReckonPrivacyPage() {
 	return (
-		<PrivacyPageLayout
+		<LegalPageLayout
 			title="Reckon – Privacy Policy"
 			sections={sections}
 			lastUpdated="May 30, 2026"
