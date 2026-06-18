@@ -36,7 +36,7 @@ const contactLinks = [
 		href: "mailto:roland+hi@leth.ro",
 	},
 	{
-		label: "BlueSky",
+		label: "Bluesky",
 		href: "https://bsky.app/profile/roland.leth.ro",
 	},
 	{
