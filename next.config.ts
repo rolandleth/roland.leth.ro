@@ -62,6 +62,13 @@ const nextConfig: NextConfig = {
 				source: "/(.*)",
 				headers: securityHeaders,
 			},
+			{
+				// Bluesky/AT Protocol handle verification. The file has no
+				// extension, so without this it serves as octet-stream — and the
+				// site-wide `nosniff` header would stop the client recovering it.
+				source: "/.well-known/atproto-did",
+				headers: [{ key: "Content-Type", value: "text/plain; charset=utf-8" }],
+			},
 		]
 	},
 }
