@@ -18,18 +18,20 @@ const sections: LegalSectionEntry[] = [
 		title: "Overview",
 		content: (
 			<p>
-				Continuum is a Mac and iOS app for managers to keep private, provisional
-				notes about the people they work with. By downloading or using
-				Continuum, you agree to these terms. Because Continuum is distributed
-				through the App Store, Apple&apos;s{" "}
-				<a
-					href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					Licensed Application End User License Agreement
-				</a>{" "}
-				also applies; where it conflicts with these terms, it governs.
+				Continuum is a Mac app for managers to keep private, provisional notes
+				about the people they work with. By downloading or using Continuum, you
+				agree to these terms.{" "}
+				<strong>
+					Because Continuum is distributed through the App Store, Apple&apos;s{" "}
+					<a
+						href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Licensed Application End User License Agreement
+					</a>{" "}
+					also applies; where it conflicts with these terms, it governs.
+				</strong>
 			</p>
 		),
 	},
@@ -51,13 +53,13 @@ const sections: LegalSectionEntry[] = [
 			<>
 				<p>
 					Continuum is usable for free. The free tier includes the full
-					intelligence layer on a small number of people, a starter set of
-					signal and entry types, and encrypted local backup and restore.
+					intelligence layer on a small number of people and a starter set of
+					signal and entry types.
 				</p>
 				<p>
 					<strong>Continuum Pro</strong> removes the limits and adds the power
-					tools: unlimited people, your own signal and entry types, events,
-					teams, advanced tuning, and richer export. Pro is available two ways:
+					tools: unlimited people, unlimited signal and entry types, events,
+					teams, and advanced tuning. Pro is available two ways:
 				</p>
 				<ul className="list-disc space-y-2 pl-5">
 					<li>
@@ -186,7 +188,7 @@ export default function ContinuumTermsPage() {
 		<LegalPageLayout
 			title="Continuum – Terms of Use"
 			sections={sections}
-			lastUpdated="June 9, 2026"
+			lastUpdated="June 24, 2026"
 			contactEmail="roland+continuum@leth.ro"
 			documentKind="terms"
 			relatedLinks={relatedContinuumLegalLinks("/terms/continuum")}
