@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { render, screen, within } from "@testing-library/react"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
@@ -7,7 +7,27 @@ import type { ProjectDetail } from "@/lib/db/projects"
 
 const user = setupUser()
 
+vi.mock("next/image", () => ({
+	default: (props: Record<string, unknown>) => {
+		// eslint-disable-next-line @next/next/no-img-element
+		return <img alt={props.alt as string} src={props.src as string} />
+	},
+}))
+
 type ProjectSection = ProjectDetail["sections"][number]
+type ProjectImage = ProjectSection["images"][number]
+
+function makeImage(id: number, caption: string): ProjectImage {
+	return { id, sectionId: 1, url: `/${id}.jpg`, caption, sortOrder: id }
+}
+
+// happy-dom doesn't implement scrollIntoView; the tablist effect calls it when
+// the active tab changes.
+beforeAll(() => {
+	if (typeof HTMLElement.prototype.scrollIntoView !== "function") {
+		HTMLElement.prototype.scrollIntoView = () => {}
+	}
+})
 
 function makeSection(
 	id: number,
@@ -136,5 +156,86 @@ describe("ProjectContent — null accentColor", () => {
 
 		expect(styleAttrs).not.toMatch(/undefined/)
 		expect(styleAttrs).not.toMatch(/\bnull\b/)
+	})
+})
+
+describe("ProjectContent — cross-section gallery navigation", () => {
+	// Section "Alpha" has two images, "Beta" one — enough to exercise both the
+	// within-section step and the boundary crossing.
+	function renderGallery() {
+		const sections = [
+			makeSection(1, "Alpha", {
+				images: [makeImage(11, "Alpha one"), makeImage(12, "Alpha two")],
+			}),
+			makeSection(2, "Beta", { images: [makeImage(21, "Beta one")] }),
+		]
+
+		return render(
+			<ProjectContent
+				project={makeProject({ sections })}
+				renderedDescriptions={sections.map((s) => (
+					<p key={s.id}>{s.description}</p>
+				))}
+			/>
+		)
+	}
+
+	// The on-page carousel has no arrows; the only chevrons live in the
+	// fullscreen lightbox, which is where cross-section walking happens.
+	it("has no arrows on the in-page carousel", () => {
+		renderGallery()
+		expect(
+			screen.queryByRole("button", { name: /next image/i })
+		).not.toBeInTheDocument()
+	})
+
+	it("steps through a section's images, then crosses into the next section", async () => {
+		renderGallery()
+		await user.click(screen.getByRole("button", { name: /enlarge alpha one/i }))
+		const dialog = screen.getByRole("dialog")
+		expect(within(dialog).getByAltText("Alpha one")).toBeInTheDocument()
+
+		const next = within(dialog).getByRole("button", { name: /next image/i })
+		await user.click(next)
+		expect(within(dialog).getByAltText("Alpha two")).toBeInTheDocument()
+
+		// Past the last image of Alpha, Next crosses into Beta and selects its tab.
+		await user.click(next)
+		expect(within(dialog).getByAltText("Beta one")).toBeInTheDocument()
+		expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute(
+			"aria-selected",
+			"true"
+		)
+	})
+
+	it("crosses backward to the previous section's last image", async () => {
+		renderGallery()
+		await user.click(screen.getByRole("tab", { name: "Beta" }))
+		await user.click(screen.getByRole("button", { name: /enlarge beta one/i }))
+		const dialog = screen.getByRole("dialog")
+
+		// Prev from Beta's first image lands on Alpha's last image.
+		await user.click(
+			within(dialog).getByRole("button", { name: /previous image/i })
+		)
+		expect(within(dialog).getByAltText("Alpha two")).toBeInTheDocument()
+		expect(screen.getByRole("tab", { name: "Alpha" })).toHaveAttribute(
+			"aria-selected",
+			"true"
+		)
+	})
+
+	it("scrolls the newly active tab into view when the lightbox crosses sections", async () => {
+		renderGallery()
+		const betaTab = screen.getByRole("tab", { name: "Beta" })
+		const scrollIntoView = vi.spyOn(betaTab, "scrollIntoView")
+
+		await user.click(screen.getByRole("button", { name: /enlarge alpha one/i }))
+		const dialog = screen.getByRole("dialog")
+		const next = within(dialog).getByRole("button", { name: /next image/i })
+		await user.click(next) // Alpha two
+		await user.click(next) // crosses into Beta
+
+		expect(scrollIntoView).toHaveBeenCalled()
 	})
 })

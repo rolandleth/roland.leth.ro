@@ -1,9 +1,7 @@
 "use client"
 
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import Image from "next/image"
-import { useState } from "react"
 
 interface CarouselImage {
 	id: number
@@ -13,7 +11,21 @@ interface CarouselImage {
 
 interface Props {
 	images: CarouselImage[]
+	/**
+	 * Index of the visible image within `images`. Owned by the parent so the
+	 * carousel, dots, and lightbox share a single gallery position and the
+	 * arrows can walk across section boundaries.
+	 */
+	index: number
+	/**
+	 * Direction of the last index change (1 forward, -1 back, 0 none), supplied
+	 * by the parent so the slide animation pushes the right way without the
+	 * carousel having to track the previous index across renders.
+	 */
+	direction: number
 	altPrefix: string
+	onSelectImage: (index: number) => void
+	onEnlarge: () => void
 }
 
 // Hoisted so every carousel render doesn't build a new object; framer-motion
@@ -25,9 +37,14 @@ const variants = {
 	exit: (d: number) => ({ x: d > 0 ? "-60%" : "60%", opacity: 0 }),
 }
 
-export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
-	const [[currentIndex, direction], setPage] = useState([0, 0])
-
+export default function ProjectSectionCarousel({
+	images,
+	index,
+	direction,
+	altPrefix,
+	onSelectImage,
+	onEnlarge,
+}: Props) {
 	// Defensive: callers gate on `section.images.length > 0`, but enforcing
 	// the contract locally means `current.url` can never throw if a future
 	// caller forgets the parent gate. A silent `return null` would otherwise
@@ -45,15 +62,8 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 	}
 
 	const isMultiple = images.length > 1
-	const current = images[currentIndex]
-
-	function paginate(newDirection: number) {
-		setPage(([index]) => {
-			const nextIndex = (index + newDirection + images.length) % images.length
-
-			return [nextIndex, newDirection]
-		})
-	}
+	const current = images[index]
+	const imageAlt = current.caption ?? `${altPrefix} screenshot`
 
 	return (
 		<div
@@ -61,15 +71,16 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 			aria-roledescription="carousel"
 			aria-label={`${altPrefix} screenshots`}
 		>
-			{/* Image area — fixed height so layout never shifts between slides */}
+			{/* Image area — fixed height so layout never shifts between slides;
+			    `overflow-hidden` clips the off-screen slides during transitions. */}
 			<div
-				className="group relative h-120 overflow-hidden rounded-xl"
+				className="relative h-120 overflow-hidden"
 				aria-live="polite"
 				aria-atomic="true"
 			>
 				<AnimatePresence initial={false} custom={direction}>
 					<motion.div
-						key={currentIndex}
+						key={current.id}
 						custom={direction}
 						variants={variants}
 						initial="enter"
@@ -78,41 +89,29 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 						transition={{ duration: 0.3, ease: "easeInOut" }}
 						className="absolute inset-0"
 					>
-						<Image
-							src={current.url}
-							alt={current.caption ?? `${altPrefix} screenshot`}
-							fill
-							loading="eager"
-							sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
-							className="object-contain"
-						/>
+						{/* The image is sized to its own aspect (capped by the stage),
+						    not stretched to fill, so `rounded-xl` rounds the visible image
+						    itself — full-bleed screenshots get clean corners regardless of
+						    whether the source PNG already had them. Click to enlarge: the
+						    carousel caps at 736px, so the lightbox reveals finer detail. */}
+						<button
+							type="button"
+							onClick={onEnlarge}
+							aria-label={`Enlarge ${imageAlt}`}
+							className="flex h-full w-full cursor-zoom-in items-center justify-center"
+						>
+							<Image
+								src={current.url}
+								alt={imageAlt}
+								width={0}
+								height={0}
+								loading="eager"
+								sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
+								className="h-auto max-h-full w-auto max-w-full rounded-xl"
+							/>
+						</button>
 					</motion.div>
 				</AnimatePresence>
-
-				{/* Prev / Next arrows */}
-				{isMultiple && (
-					<>
-						{/* `focus-visible:opacity-100` reveals the arrows for keyboard
-							focus too; without it, Tab landed on a transparent button. */}
-						<button
-							type="button"
-							onClick={() => paginate(-1)}
-							aria-label="Previous image"
-							className="absolute top-1/2 left-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
-						>
-							<ChevronLeft size={18} />
-						</button>
-
-						<button
-							type="button"
-							onClick={() => paginate(1)}
-							aria-label="Next image"
-							className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-black/40 p-1.5 text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 focus-visible:opacity-100"
-						>
-							<ChevronRight size={18} />
-						</button>
-					</>
-				)}
 			</div>
 
 			{/* Caption */}
@@ -122,7 +121,7 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 				</p>
 			)}
 
-			{/* Dot indicators */}
+			{/* Dot indicators — scoped to this section's images. */}
 			{isMultiple && (
 				<div className="mt-1 flex justify-center">
 					{images.map((_, i) => (
@@ -133,14 +132,14 @@ export default function ProjectSectionCarousel({ images, altPrefix }: Props) {
 						<button
 							key={i}
 							type="button"
-							onClick={() => setPage([i, i > currentIndex ? 1 : -1])}
+							onClick={() => onSelectImage(i)}
 							aria-label={`Go to image ${i + 1}`}
-							aria-current={i === currentIndex ? true : undefined}
+							aria-current={i === index ? true : undefined}
 							className="group cursor-pointer p-2.5"
 						>
 							<span
 								className={`block h-1.5 rounded-full transition-all duration-300 ${
-									i === currentIndex
+									i === index
 										? "w-4 bg-(--color-accent)"
 										: "w-1.5 bg-(--color-border) group-hover:bg-(--color-secondary)"
 								}`}
