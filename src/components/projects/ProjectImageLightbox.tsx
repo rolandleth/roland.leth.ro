@@ -198,16 +198,23 @@ export default function ProjectImageLightbox({
 						animate={{ scale: 1 }}
 						transition={{ duration: 0.2 }}
 					>
-						{/* Sized to the image's own aspect (capped by the viewport) so
-						    `rounded-xl` rounds the visible image, matching the on-page
-						    gallery. */}
+						{/* `width/height={0}` zeroes the aspect-ratio hint, so the element
+						    needs one *definite* dimension or the browser falls back to the
+						    srcset/DPR-derived intrinsic width and renders at ~half size on
+						    retina. `w-full` (capped by the `max-w-5xl` stage) is that
+						    dimension; `h-auto` then follows the true aspect ratio, so
+						    `rounded-xl` hugs the visible image. `object-contain` keeps an
+						    unusually tall image (height-capped by `max-h-[80vh]`) from
+						    distorting. Not `fill`: that needs a fixed-height parent, which
+						    would strand the caption below an 80vh box. Storing real
+						    dimensions (planned) lets this drop to plain `w-auto h-auto`. */}
 						<Image
 							src={current.url}
 							alt={current.caption ?? `${altPrefix} screenshot`}
 							width={0}
 							height={0}
-							sizes="100vw"
-							className="h-auto max-h-[80vh] w-auto max-w-full rounded-xl"
+							sizes="(max-width: 1024px) 100vw, 1024px"
+							className="h-auto max-h-[80vh] w-full rounded-xl object-contain"
 							priority
 						/>
 

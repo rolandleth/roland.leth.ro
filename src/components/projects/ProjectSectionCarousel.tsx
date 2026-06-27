@@ -74,7 +74,7 @@ export default function ProjectSectionCarousel({
 			{/* Image area — fixed height so layout never shifts between slides;
 			    `overflow-hidden` clips the off-screen slides during transitions. */}
 			<div
-				className="relative h-120 overflow-hidden"
+				className="relative h-120 overflow-hidden rounded-xl"
 				aria-live="polite"
 				aria-atomic="true"
 			>
@@ -89,25 +89,28 @@ export default function ProjectSectionCarousel({
 						transition={{ duration: 0.3, ease: "easeInOut" }}
 						className="absolute inset-0"
 					>
-						{/* The image is sized to its own aspect (capped by the stage),
-						    not stretched to fill, so `rounded-xl` rounds the visible image
-						    itself — full-bleed screenshots get clean corners regardless of
-						    whether the source PNG already had them. Click to enlarge: the
-						    carousel caps at 736px, so the lightbox reveals finer detail. */}
+						{/* `fill` + `object-contain` sizes the image from the fixed stage
+						    box, not from its (mis-computed under `width/height={0}`)
+						    intrinsic size, so it renders at full size on every DPR. The
+						    stage's `overflow-hidden rounded-xl` clips the corners: a
+						    full-bleed screenshot gets rounded corners on the visible image;
+						    a screenshot whose aspect differs from the stage letterboxes and
+						    rounds the box instead — acceptable here, fully fixed by storing
+						    real dimensions (planned). Click to enlarge: the carousel caps at
+						    736px, so the lightbox reveals finer detail. */}
 						<button
 							type="button"
 							onClick={onEnlarge}
 							aria-label={`Enlarge ${imageAlt}`}
-							className="flex h-full w-full cursor-zoom-in items-center justify-center"
+							className="relative h-full w-full cursor-zoom-in"
 						>
 							<Image
 								src={current.url}
 								alt={imageAlt}
-								width={0}
-								height={0}
+								fill
 								loading="eager"
 								sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
-								className="h-auto max-h-full w-auto max-w-full rounded-xl"
+								className="object-contain"
 							/>
 						</button>
 					</motion.div>
