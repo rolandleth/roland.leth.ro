@@ -44,20 +44,26 @@ Before mapping anything, read these in **this** repo. The schema is the source o
 manifest must satisfy it; guessing field names or limits from memory is how you ship a manifest
 that fails validation at the end.
 
-- `prisma/schema.prisma` — the `Project`, `ProjectSection`, `ProjectSectionImage`, `ProjectLink`
-  models and the `PlatformBucket` / `PlatformTag` enums (the only valid values). Note the image
-  fields `Project` exposes — `icon`, `cardImage`, `ogImage`, and `heroImage`. `cardImage` and
-  `ogImage` are separate slots (the gallery card vs. the OG/social card); see Step 1 for how to
-  fill them.
+- `prisma/schema.prisma` — the `Project`, `ProjectSection`, `ProjectSectionImage`, `ProjectLink`,
+  and `ProjectFaq` models and the `PlatformBucket` / `PlatformTag` enums (the only valid values).
+  Note the image fields `Project` exposes — `icon`, `cardImage`, `ogImage`, and `heroImage`.
+  `cardImage` and `ogImage` are separate slots (the gallery card vs. the OG/social card); see Step 1
+  for how to fill them. Also note the SEO + structured-data fields — `metaTitle`, `keywords`,
+  `applicationCategory`, `offers` (a `Json` column), and `faqs` (the `ProjectFaq` relation) —
+  covered in `references/field-mapping.md` → "SEO & structured-data fields".
 - `src/lib/api/schemas.ts` — `projectCreateSchema`: the field limits and the **bucket↔tag
   coherence rule** (`platformTags` must be valid for the chosen `bucket`; check
   `BUCKET_SUGGESTED_TAGS` in `src/lib/utils/platforms.ts`).
 - `src/lib/import/projectImport.ts` — the `ProjectManifest` shape, and the key fact that image
   fields hold **local paths relative to the manifest folder** (the script uploads them).
 
-Note the limits you must respect: `name` ≤ 80, `summary` ≤ 300, link `label` ≤ 60, image
+Note the limits you must respect: `name` ≤ 80, `summary` ≤ 300, `metaTitle` ≤ 60,
+`applicationCategory` ≤ 60, `keywords` ≤ 10 strings (each ≤ 50), link `label` ≤ 60, image
 `caption` ≤ 300, `platformTags` 1–8 (deduped, valid for the bucket), `accentColor` a CSS hex
-(`#rgb`/`#rrggbb`/`#rgba`/`#rrggbbaa`).
+(`#rgb`/`#rrggbb`/`#rgba`/`#rrggbbaa`). `offers` items are `{ name, price, priceCurrency, billingPeriod?, sortOrder? }` — `price` a plain
+decimal string (`"0"`, `"4.99"`; no symbol or words), `priceCurrency` a 3-letter ISO code, and a
+**free** app is one entry priced `"0"` (not an omitted `offers`). `faqs` items are
+`{ question, answer, sortOrder? }`.
 
 ## Step 1 — Locate and read the inputs
 
@@ -137,6 +143,8 @@ brand hex) rather than importing without an icon.
 - **sections**: 3–5 is the sweet spot. Each is a real feature or idea, `title` short, `description`
   a paragraph adapted from the landing/store copy. Don't pad to hit a number.
 - **captions**: pull from the screenshot caption file; keep them concrete.
+- **SEO fields** (`metaTitle`, `keywords`, `faqs`, `applicationCategory`): **authored**, not lifted
+  from the marketing copy — see `references/field-mapping.md` → "SEO & structured-data fields".
 - Apply `~/.claude/rules/ai-tone.md` and `~/.claude/rules/marketing-copy.md` /
   `marketing-copy-quality.md` to anything you adapt. Never invent statistics — if the copy has no
   number, describe the mechanism instead.
@@ -154,6 +162,9 @@ first. A wrong bucket or a missing store URL is worse than a question.
 - **accentColor** (hex), **date**, **role**.
 - **isFeatured**, **isDiscontinued**, **sortOrder** (gallery placement — the import honours this
   verbatim, so think about where it sits relative to existing projects).
+- **pricing** → `offers` (free → one entry priced `"0"`; one-time → one entry + amount;
+  subscription → one entry per plan; default currency USD) — feeds the `SoftwareApplication` JSON-LD
+  price for app buckets.
 
 ## Step 4 — Stage the images
 

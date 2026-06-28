@@ -42,6 +42,20 @@ export type ManifestLink = {
 	sortOrder?: number
 }
 
+export type ManifestFaq = {
+	question: string
+	answer: string
+	sortOrder?: number
+}
+
+export type ManifestOffer = {
+	name: string
+	price: string
+	priceCurrency: string
+	billingPeriod?: string
+	sortOrder?: number
+}
+
 // Loosely typed on purpose: the manifest is untrusted JSON. Structural and
 // value-level validation is delegated to `projectCreateSchema` (run by the
 // script after image refs are resolved to URLs), so this type only needs to
@@ -50,6 +64,10 @@ export type ProjectManifest = {
 	name: string
 	slug?: string | null
 	summary?: string
+	metaTitle?: string | null
+	keywords?: string[]
+	offers?: ManifestOffer[]
+	applicationCategory?: string | null
 	icon?: string | null
 	cardImage?: string | null
 	ogImage?: string | null
@@ -64,6 +82,7 @@ export type ProjectManifest = {
 	sortOrder?: number
 	sections?: ManifestSection[]
 	links?: ManifestLink[]
+	faqs?: ManifestFaq[]
 }
 
 // Top-level folder under which every imported image is keyed, namespaced by

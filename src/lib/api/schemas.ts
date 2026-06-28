@@ -105,6 +105,30 @@ const projectLinkSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
+// Render-only pricing for the SoftwareApplication JSON-LD. `priceCurrency` is a
+// 3-letter ISO code; `billingPeriod` is an optional ISO-8601 duration (`P1M`,
+// `P1Y`) omitted for one-time purchases (e.g. Lifetime). Stored verbatim in the
+// `offers` Json column — no mapper, no related table.
+const projectOfferSchema = z.object({
+	name: z.string().min(1).max(60),
+	// A plain decimal price string: "0" (free), "4.99", "249.00". Constrained to
+	// digits + optional 1-2 decimals so `Number(price)` (used to sort low/high)
+	// can't yield NaN and the JSON-LD always carries a valid `price`.
+	price: z.string().regex(/^\d+(\.\d{1,2})?$/, {
+		message: "Price must be a decimal like 0, 4.99, or 249.00",
+	}),
+	priceCurrency: z.string().length(3),
+	billingPeriod: z.string().max(10).optional(),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
+const projectFaqSchema = z.object({
+	question: z.string().min(1).max(300),
+	// Markdown, rendered on read like section descriptions — same generous cap.
+	answer: z.string().min(1).max(100_000),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
 	caption: z.string().max(300).nullable().optional(),
@@ -179,6 +203,14 @@ const projectFields = {
 		.max(80)
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	summary: z.string().min(1).max(300),
+	// Drives the `<title>` tag instead of the brand-word default (`name`).
+	// Capped at 60 so it doesn't truncate in SERPs.
+	metaTitle: z.string().max(60).nullable().optional(),
+	keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
+	offers: z.array(projectOfferSchema).optional(),
+	// schema.org SoftwareApplication category, e.g. "BusinessApplication".
+	// Omitted from JSON-LD when unset rather than guessed from bucket.
+	applicationCategory: z.string().min(1).max(60).nullable().optional(),
 	bucket: z.enum(PLATFORM_BUCKETS),
 	platformTags: platformTagsSchema,
 	role: z.string().max(80).nullable().optional(),
@@ -193,6 +225,7 @@ const projectFields = {
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
+	faqs: z.array(projectFaqSchema).optional(),
 }
 
 // `superRefine` is layered on the base object schemas so each surface keeps

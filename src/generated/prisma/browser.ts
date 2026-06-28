@@ -42,3 +42,8 @@ export type ProjectSectionImage = Prisma.ProjectSectionImageModel
  * 
  */
 export type ProjectLink = Prisma.ProjectLinkModel
+/**
+ * Model ProjectFaq
+ * 
+ */
+export type ProjectFaq = Prisma.ProjectFaqModel

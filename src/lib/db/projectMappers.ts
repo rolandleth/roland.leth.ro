@@ -18,6 +18,12 @@ export type ProjectLinkInput = {
 	sortOrder?: number
 }
 
+export type ProjectFaqInput = {
+	question: string
+	answer: string
+	sortOrder?: number
+}
+
 /**
  * Maps validated section inputs into a Prisma nested-create clause,
  * defaulting `sortOrder` and nested image fields so callers don't have to.
@@ -59,6 +65,24 @@ export function toLinkCreate(links: ProjectLinkInput[] | undefined) {
 			label: l.label,
 			url: l.url,
 			sortOrder: l.sortOrder ?? 0,
+		})),
+	}
+}
+
+/**
+ * Maps validated FAQ inputs into a Prisma nested-create clause,
+ * defaulting `sortOrder` so callers don't have to.
+ */
+export function toFaqCreate(faqs: ProjectFaqInput[] | undefined) {
+	if (faqs == null) {
+		return undefined
+	}
+
+	return {
+		create: faqs.map((f) => ({
+			question: f.question,
+			answer: f.answer,
+			sortOrder: f.sortOrder ?? 0,
 		})),
 	}
 }

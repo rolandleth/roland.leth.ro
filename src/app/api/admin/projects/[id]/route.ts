@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db/db"
 import {
 	projectInclude,
 	revalidateProject,
+	toFaqCreate,
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
@@ -67,7 +68,7 @@ export async function PUT(
 		return parsed
 	}
 
-	const { name, sections, links, ...rest } = parsed
+	const { name, sections, links, faqs, ...rest } = parsed
 	// `rest` carries the Zod-inferred field types; Prisma treats `undefined`
 	// as "skip this column" and `null` as "set to null" natively, so we don't
 	// need to strip undefineds. `name` is folded in alongside a derived `slug`.
@@ -148,12 +149,17 @@ export async function PUT(
 					await tx.projectLink.deleteMany({ where: { projectId: id } })
 				}
 
+				if (faqs != null) {
+					await tx.projectFaq.deleteMany({ where: { projectId: id } })
+				}
+
 				const project = await tx.project.update({
 					where: { id },
 					data: {
 						...data,
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
+						faqs: toFaqCreate(faqs),
 					},
 					include: projectInclude,
 				})

@@ -54,6 +54,19 @@ model Project {
   name           String
   slug           String           @unique
   summary        String
+  // SEO-only fields, set via the import manifest (no admin-form control yet).
+  // `metaTitle` drives the `<title>` tag (falls back to `name`); `keywords`
+  // feeds `<meta name="keywords">`; `offers` is render-only pricing for the
+  // `SoftwareApplication` JSON-LD — small and structured-data-specific, so it's
+  // a `Json?` column rather than a related model (the one deliberate deviation
+  // from the ProjectLink/ProjectSection related-model convention).
+  metaTitle      String?
+  keywords       String[]         @default([])
+  offers         Json?
+  // schema.org SoftwareApplication category (e.g. "BusinessApplication",
+  // "ProductivityApplication"). Manifest-driven, not inferred from bucket — a
+  // wrong category is worse than none, so the JSON-LD omits it when unset.
+  applicationCategory String?
   icon           String?
   // `cardImage` is the list/gallery card image; `ogImage` is the social/OG
   // meta image. They cross-fall-back (see `resolveCardImage` / `resolveOgImage`):
@@ -82,6 +95,7 @@ model Project {
   updatedAt      DateTime         @updatedAt
   sections       ProjectSection[]
   links          ProjectLink[]
+  faqs           ProjectFaq[]
 }
 
 // Top-level project category. Drives gallery section grouping and the
@@ -144,5 +158,15 @@ model ProjectLink {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   label     String
   url       String
+  sortOrder Int     @default(0)
+}
+
+model ProjectFaq {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  question  String
+  // Stored as markdown, rendered on read (mirrors `ProjectSection.description`).
+  answer    String
   sortOrder Int     @default(0)
 }

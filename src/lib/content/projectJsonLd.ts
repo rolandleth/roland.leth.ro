@@ -1,0 +1,125 @@
+// Pure builders for the project detail page's schema.org JSON-LD. Kept I/O-free
+// and separate from the page so the shapes are unit-testable and the page stays
+// a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
+
+import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
+
+// Canonical production origin for absolute URLs in structured data. Hardcoded
+// (not derived via `siteBase()`/`headers()`) so the project pages stay
+// statically generated — reading request headers here would opt the route into
+// dynamic rendering. JSON-LD always points at the canonical host regardless of
+// which preview/proxy domain served the request.
+const SITE_ORIGIN = "https://roland.leth.ro"
+
+// Buckets that represent installable apps (vs. Web/OpenSource projects). Only
+// these emit `SoftwareApplication` markup; a website or library would be
+// mislabeled as an app.
+const APP_BUCKETS: ReadonlySet<ProjectDetail["bucket"]> = new Set([
+	"iOS",
+	"Mac",
+])
+
+/**
+ * Builds `FAQPage` JSON-LD from a project's FAQs, or `null` when there are none
+ * (callers skip the `<script>` entirely). Self-contained Q&A pairs are what AI
+ * answer engines extract and cite, so this is the highest-leverage block.
+ */
+export function buildFaqJsonLd(
+	faqs: { question: string; answer: string }[]
+): Record<string, unknown> | null {
+	if (faqs.length === 0) {
+		return null
+	}
+
+	return {
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		mainEntity: faqs.map((f) => ({
+			"@type": "Question",
+			name: f.question,
+			acceptedAnswer: { "@type": "Answer", text: f.answer },
+		})),
+	}
+}
+
+/**
+ * Builds `SoftwareApplication` JSON-LD for app-bucket projects (iOS/Mac), or
+ * `null` for Web/OpenSource so non-apps don't emit app markup. When the project
+ * carries `offers`, an `AggregateOffer` advertises the price range. `image` is
+ * the resolved OG asset (absolute Blob URL); omitted when null.
+ */
+export function buildSoftwareApplicationJsonLd(
+	project: ProjectDetail,
+	image: string | null
+): Record<string, unknown> | null {
+	if (!APP_BUCKETS.has(project.bucket)) {
+		return null
+	}
+
+	const { name, summary, bucket, offers, slug, applicationCategory } = project
+
+	const jsonLd: Record<string, unknown> = {
+		"@context": "https://schema.org",
+		"@type": "SoftwareApplication",
+		name,
+		description: summary,
+		operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
+		url: `${SITE_ORIGIN}/projects/${slug}`,
+		author: { "@type": "Person", name: "Roland Leth" },
+	}
+
+	// Category is manifest-driven, not inferred — omit when unset rather than
+	// assert a wrong one (e.g. labelling a utility a "BusinessApplication").
+	if (applicationCategory !== null) {
+		jsonLd.applicationCategory = applicationCategory
+	}
+
+	if (image !== null) {
+		jsonLd.image = image
+	}
+
+	const offerNode = buildOfferNode(offers)
+
+	if (offerNode !== null) {
+		jsonLd.offers = offerNode
+	}
+
+	return jsonLd
+}
+
+/**
+ * Maps a project's price points to the right schema.org offer shape:
+ * `null` when there are none (pricing unstated), a single `Offer` for one price
+ * point (an upfront-paid or free app — free is an explicit `"0"`), and an
+ * `AggregateOffer` spanning low→high for two or more (subscriptions, IAPs, or a
+ * mix). Price strings are preserved verbatim so "12.00" stays "12.00".
+ */
+function buildOfferNode(
+	offers: ProjectOffer[] | null
+): Record<string, unknown> | null {
+	if (offers === null || offers.length === 0) {
+		return null
+	}
+
+	if (offers.length === 1) {
+		const [only] = offers
+
+		return {
+			"@type": "Offer",
+			price: only.price,
+			priceCurrency: only.priceCurrency,
+		}
+	}
+
+	// AggregateOffer assumes a single currency (App Store prices share the
+	// storefront's currency); the first offer's currency labels the range.
+	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
+
+	return {
+		"@type": "AggregateOffer",
+		priceCurrency: offers[0].priceCurrency,
+		lowPrice: sorted[0].price,
+		highPrice: sorted[sorted.length - 1].price,
+		offerCount: offers.length,
+	}
+}

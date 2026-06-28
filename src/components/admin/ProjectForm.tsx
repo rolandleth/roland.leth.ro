@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import FaqManager, { type FaqItem } from "@/components/admin/FaqManager"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
 import PlatformPicker from "@/components/admin/PlatformPicker"
@@ -34,6 +35,7 @@ interface InitialData {
 		images: (Omit<SectionImage, "_key"> & { id?: number })[]
 	})[]
 	links: (Omit<LinkItem, "_key"> & { id?: number })[]
+	faqs: (Omit<FaqItem, "_key"> & { id?: number })[]
 }
 
 interface Props {
@@ -59,6 +61,7 @@ interface ProjectPayload {
 		images: Omit<SectionImage, "_key">[]
 	})[]
 	links: Omit<LinkItem, "_key">[]
+	faqs: Omit<FaqItem, "_key">[]
 }
 
 const ROLE_OPTIONS = [
@@ -90,6 +93,7 @@ interface FormState {
 	isDiscontinued: boolean
 	sections: SectionItem[]
 	links: LinkItem[]
+	faqs: FaqItem[]
 }
 
 export default function ProjectForm({ initialData }: Props) {
@@ -139,6 +143,10 @@ export default function ProjectForm({ initialData }: Props) {
 		})),
 		links: (initialData?.links ?? []).map((link) => ({
 			...link,
+			_key: crypto.randomUUID(),
+		})),
+		faqs: (initialData?.faqs ?? []).map((faq) => ({
+			...faq,
 			_key: crypto.randomUUID(),
 		})),
 	})
@@ -217,6 +225,7 @@ export default function ProjectForm({ initialData }: Props) {
 				images: images.map(({ _key: __, ...imgRest }) => imgRest),
 			})),
 			links: state.links.map(({ _key: _, ...rest }) => rest),
+			faqs: state.faqs.map(({ _key: _, ...rest }) => rest),
 		})
 	}
 
@@ -412,6 +421,11 @@ export default function ProjectForm({ initialData }: Props) {
 					value={state.links}
 					onChange={(v) => setField("links", v)}
 				/>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<span className="text-secondary text-sm font-medium">FAQ</span>
+				<FaqManager value={state.faqs} onChange={(v) => setField("faqs", v)} />
 			</div>
 
 			{(validationError ?? error) && (

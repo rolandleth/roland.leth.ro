@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel } from "@/lib/utils/platforms"
+import ProjectFaq from "./ProjectFaq"
 import ProjectImageLightbox from "./ProjectImageLightbox"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -14,11 +15,13 @@ import type { ReactNode } from "react"
 interface Props {
 	project: ProjectDetail
 	renderedDescriptions: ReactNode[]
+	renderedFaqAnswers: ReactNode[]
 }
 
 export default function ProjectContent({
 	project,
 	renderedDescriptions,
+	renderedFaqAnswers,
 }: Props) {
 	const {
 		name,
@@ -31,6 +34,7 @@ export default function ProjectContent({
 		isDiscontinued,
 		sections,
 		links,
+		faqs,
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
 	const [activeTab, setActiveTab] = useState(0)
@@ -415,6 +419,15 @@ export default function ProjectContent({
 							/>
 						)}
 					</motion.div>
+				)}
+
+				{/* FAQ — last on the page, below the gallery + description. */}
+				{faqs.length > 0 && (
+					<ProjectFaq
+						faqs={faqs}
+						renderedAnswers={renderedFaqAnswers}
+						accent={accent}
+					/>
 				)}
 			</div>
 		</>

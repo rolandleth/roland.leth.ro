@@ -7,6 +7,7 @@ import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import {
 	projectInclude,
 	revalidateProject,
+	toFaqCreate,
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
@@ -26,6 +27,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const {
 		name,
 		summary,
+		metaTitle,
+		keywords,
+		offers,
+		applicationCategory,
 		bucket,
 		platformTags,
 		role,
@@ -40,6 +45,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		sortOrder,
 		sections,
 		links,
+		faqs,
 	} = parsed
 
 	try {
@@ -75,6 +81,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 						name,
 						slug: createSlug(name),
 						summary,
+						metaTitle: metaTitle ?? null,
+						keywords: keywords ?? [],
+						// `offers` is a nullable Json column: Prisma rejects a bare
+						// `null` (it's reserved for "filter on JSON null"), so the
+						// absent case must use `Prisma.DbNull` to write SQL NULL.
+						offers: offers ?? Prisma.DbNull,
+						applicationCategory: applicationCategory ?? null,
 						bucket,
 						platformTags,
 						role: role ?? null,
@@ -89,6 +102,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 						sortOrder: targetOrder,
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
+						faqs: toFaqCreate(faqs),
 					},
 					include: projectInclude,
 				})

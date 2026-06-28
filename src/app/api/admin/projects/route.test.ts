@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { Prisma } from "@/generated/prisma/client"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import { POST } from "./route"
-import type { Prisma } from "@/generated/prisma/client"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
@@ -42,6 +42,10 @@ const createdProject = {
 	name: "My App",
 	slug: "my-app",
 	summary: "An iOS app that does things.",
+	metaTitle: null,
+	keywords: [],
+	offers: null,
+	applicationCategory: null,
 	bucket: PlatformBucket.iOS,
 	platformTags: [PlatformTag.iOS],
 	role: null,
@@ -120,6 +124,58 @@ describe("POST /api/admin/projects", () => {
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
 		expect(data.slug).toBe("my-app")
+	})
+
+	it("passes FAQs through to the nested create with defaulted sortOrder", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(
+			makeRequest({
+				...validPayload,
+				faqs: [{ question: "Is it free?", answer: "Yes." }],
+			})
+		)
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.faqs).toEqual({
+			create: [{ question: "Is it free?", answer: "Yes.", sortOrder: 0 }],
+		})
+	})
+
+	it("stores metaTitle, keywords, and offers when provided", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		const offers = [
+			{ name: "Monthly", price: "12.00", priceCurrency: "USD" as const },
+		]
+		await POST(
+			makeRequest({
+				...validPayload,
+				metaTitle: "Notes for managers (Mac)",
+				keywords: ["1:1 notes app"],
+				offers,
+				applicationCategory: "BusinessApplication",
+			})
+		)
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.metaTitle).toBe("Notes for managers (Mac)")
+		expect(data.keywords).toEqual(["1:1 notes app"])
+		expect(data.offers).toEqual(offers)
+		expect(data.applicationCategory).toBe("BusinessApplication")
+	})
+
+	it("writes SQL NULL for offers and defaults when the SEO fields are omitted", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(makeRequest(validPayload))
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		// Prisma.DbNull is the sentinel that writes SQL NULL to a Json? column.
+		expect(data.offers).toBe(Prisma.DbNull)
+		expect(data.metaTitle).toBeNull()
+		expect(data.keywords).toEqual([])
+		expect(data.applicationCategory).toBeNull()
 	})
 
 	it("appends after the last project when no sortOrder is provided", async () => {

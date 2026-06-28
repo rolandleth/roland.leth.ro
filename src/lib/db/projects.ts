@@ -31,11 +31,29 @@ export interface ProjectGalleryItem extends ProjectListItem {
 	role: string | null
 }
 
+/**
+ * Render-only pricing shape stored in the `offers` Json column and consumed by
+ * the `SoftwareApplication` JSON-LD. Mirrors `projectOfferSchema`; Prisma hands
+ * the column back as an untyped `JsonValue`, so `getProjectBySlug` narrows it to
+ * this shape (the write path validates it, so the cast is safe).
+ */
+export interface ProjectOffer {
+	name: string
+	price: string
+	priceCurrency: string
+	billingPeriod?: string
+	sortOrder?: number
+}
+
 export interface ProjectDetail {
 	id: number
 	name: string
 	slug: string
 	summary: string
+	metaTitle: string | null
+	keywords: string[]
+	offers: ProjectOffer[] | null
+	applicationCategory: string | null
 	icon: string | null
 	cardImage: string | null
 	ogImage: string | null
@@ -69,6 +87,13 @@ export interface ProjectDetail {
 		projectId: number
 		label: string
 		url: string
+		sortOrder: number
+	}[]
+	faqs: {
+		id: number
+		projectId: number
+		question: string
+		answer: string
 		sortOrder: number
 	}[]
 }
@@ -262,8 +287,10 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 // module so the import script can reuse them; re-exported here to keep the
 // established `@/lib/db/projects` import surface stable for existing callers.
 export {
+	toFaqCreate,
 	toLinkCreate,
 	toSectionCreate,
+	type ProjectFaqInput,
 	type ProjectLinkInput,
 	type ProjectSectionInput,
 } from "./projectMappers"
@@ -275,6 +302,7 @@ export const projectInclude = {
 		include: { images: { orderBy: { sortOrder: "asc" as const } } },
 	},
 	links: { orderBy: { sortOrder: "asc" as const } },
+	faqs: { orderBy: { sortOrder: "asc" as const } },
 } as const
 
 // One cache wrapper per slug, built lazily on first access and reused for every
@@ -289,11 +317,23 @@ const projectBySlugWrappers =
 export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 	const wrapper = projectBySlugWrappers.get(slug, () =>
 		unstable_cache(
-			() =>
-				prisma.project.findUnique({
+			async () => {
+				const row = await prisma.project.findUnique({
 					where: { slug },
 					include: projectInclude,
-				}),
+				})
+
+				// Narrow the untyped `offers` Json column to `ProjectOffer[] | null`
+				// once, inside the cache, so every consumer gets the typed shape.
+				// The write path validates offers against `projectOfferSchema`, so
+				// the cast is safe.
+				return (
+					row && {
+						...row,
+						offers: row.offers as unknown as ProjectOffer[] | null,
+					}
+				)
+			},
 			[`project-${slug}`],
 			{ tags: [`project-${slug}`, "projects"] }
 		)

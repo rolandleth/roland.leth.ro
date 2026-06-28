@@ -51,6 +51,10 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		name: "Test Project",
 		slug: "test",
 		summary: "A test project.",
+		metaTitle: null,
+		keywords: [],
+		offers: null,
+		applicationCategory: null,
 		icon: null,
 		cardImage: null,
 		ogImage: null,
@@ -67,6 +71,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		updatedAt: new Date(),
 		sections: [],
 		links: [],
+		faqs: [],
 		...overrides,
 	}
 }
@@ -85,6 +90,7 @@ describe("ProjectContent — tablist keyboard nav (Phase 8 a11y)", () => {
 				renderedDescriptions={sections.map((s) => (
 					<p key={s.id}>{s.description}</p>
 				))}
+				renderedFaqAnswers={[]}
 			/>
 		)
 	}
@@ -149,6 +155,7 @@ describe("ProjectContent — null accentColor", () => {
 			<ProjectContent
 				project={makeProject({ icon: null, accentColor: null })}
 				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
 			/>
 		)
 
@@ -178,6 +185,7 @@ describe("ProjectContent — cross-section gallery navigation", () => {
 				renderedDescriptions={sections.map((s) => (
 					<p key={s.id}>{s.description}</p>
 				))}
+				renderedFaqAnswers={[]}
 			/>
 		)
 	}
@@ -239,5 +247,51 @@ describe("ProjectContent — cross-section gallery navigation", () => {
 		await user.click(next) // crosses into Beta
 
 		expect(scrollIntoView).toHaveBeenCalled()
+	})
+})
+
+describe("ProjectContent — FAQ", () => {
+	type ProjectFaqItem = ProjectDetail["faqs"][number]
+
+	function makeFaq(id: number, question: string): ProjectFaqItem {
+		return { id, projectId: 1, question, answer: `Answer ${id}`, sortOrder: id }
+	}
+
+	it("renders the FAQ section with each question when faqs are present", () => {
+		const faqs = [makeFaq(1, "Is it free?"), makeFaq(2, "Does it sync?")]
+
+		render(
+			<ProjectContent
+				project={makeProject({ faqs })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={faqs.map((f) => (
+					<p key={f.id}>{f.answer}</p>
+				))}
+			/>
+		)
+
+		expect(
+			screen.getByRole("heading", { name: "FAQ", level: 2 })
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole("button", { name: /is it free/i })
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole("button", { name: /does it sync/i })
+		).toBeInTheDocument()
+	})
+
+	it("omits the FAQ section entirely when there are no faqs", () => {
+		render(
+			<ProjectContent
+				project={makeProject({ faqs: [] })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
+			/>
+		)
+
+		expect(
+			screen.queryByRole("heading", { name: "FAQ" })
+		).not.toBeInTheDocument()
 	})
 })

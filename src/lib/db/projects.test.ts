@@ -344,6 +344,10 @@ describe("getProjectBySlug", () => {
 	const fullProject = {
 		...makeProjectListItem(),
 		summary: "An iOS app.",
+		metaTitle: null,
+		keywords: [],
+		offers: null,
+		applicationCategory: null,
 		cardImage: null,
 		ogImage: null,
 		heroImage: null,
@@ -356,6 +360,7 @@ describe("getProjectBySlug", () => {
 		updatedAt: new Date(),
 		sections: [],
 		links: [],
+		faqs: [],
 	}
 
 	it("returns the project when found", async () => {
@@ -384,6 +389,10 @@ describe("loadProject", () => {
 		const project = {
 			...makeProjectListItem(),
 			summary: "s",
+			metaTitle: null,
+			keywords: [],
+			offers: null,
+			applicationCategory: null,
 			cardImage: null,
 			ogImage: null,
 			heroImage: null,
@@ -396,6 +405,7 @@ describe("loadProject", () => {
 			updatedAt: new Date(),
 			sections: [],
 			links: [],
+			faqs: [],
 		}
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(
 			project as Awaited<ReturnType<typeof prisma.project.findUnique>>

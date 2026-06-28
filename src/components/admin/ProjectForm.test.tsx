@@ -131,6 +131,7 @@ const initialData = {
 	sortOrder: 1,
 	sections: [],
 	links: [],
+	faqs: [],
 }
 
 const user = setupUser()
@@ -275,6 +276,32 @@ describe("ProjectForm — create mode", () => {
 		await user.click(screen.getByRole("button", { name: /save project/i }))
 
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument()
+	})
+
+	it("includes an added FAQ (without the client-only _key) in the POST body", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await user.type(screen.getByLabelText(/^name$/i), "New App")
+		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
+		await user.type(screen.getByLabelText(/summary/i), "A new app.")
+
+		await user.click(screen.getByRole("button", { name: /add faq/i }))
+		await user.type(screen.getByLabelText("FAQ question"), "Is it free?")
+		await user.type(
+			screen.getByPlaceholderText(/answer \(markdown supported\)/i),
+			"Yes."
+		)
+
+		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const payload = JSON.parse(options.body)
+		expect(payload.faqs).toEqual([
+			{ question: "Is it free?", answer: "Yes.", sortOrder: 0 },
+		])
 	})
 })
 

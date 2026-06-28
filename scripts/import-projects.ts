@@ -36,9 +36,13 @@ import {
 	put,
 } from "@vercel/blob"
 import { ZodError } from "zod"
-import { PrismaClient } from "@/generated/prisma/client"
+import { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { projectCreateSchema } from "@/lib/api/schemas"
-import { toLinkCreate, toSectionCreate } from "@/lib/db/projectMappers"
+import {
+	toFaqCreate,
+	toLinkCreate,
+	toSectionCreate,
+} from "@/lib/db/projectMappers"
 import {
 	type BlobStore,
 	formatBytes,
@@ -282,6 +286,12 @@ async function writeProject(
 				name: data.name,
 				slug,
 				summary: data.summary,
+				metaTitle: data.metaTitle ?? null,
+				keywords: data.keywords ?? [],
+				// Nullable Json column: a bare `null` is reserved by Prisma for JSON
+				// filters, so the absent case writes SQL NULL via `Prisma.DbNull`.
+				offers: data.offers ?? Prisma.DbNull,
+				applicationCategory: data.applicationCategory ?? null,
 				bucket: data.bucket,
 				platformTags: data.platformTags,
 				role: data.role ?? null,
@@ -307,6 +317,7 @@ async function writeProject(
 				sortOrder: data.sortOrder ?? 0,
 				sections: toSectionCreate(data.sections),
 				links: toLinkCreate(data.links),
+				faqs: toFaqCreate(data.faqs),
 			},
 		})
 	})
@@ -367,7 +378,7 @@ async function processProject(
 		const loaded = await loadImages(projectDir, slug, imagePaths)
 
 		console.log(
-			`  ${imagePaths.length} image(s), ${manifest.sections?.length ?? 0} section(s), ${manifest.links?.length ?? 0} link(s)`
+			`  ${imagePaths.length} image(s), ${manifest.sections?.length ?? 0} section(s), ${manifest.links?.length ?? 0} link(s), ${manifest.faqs?.length ?? 0} FAQ(s)`
 		)
 
 		if (isDryRun) {
