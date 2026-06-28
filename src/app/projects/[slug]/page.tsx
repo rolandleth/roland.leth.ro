@@ -51,10 +51,20 @@ export default async function ProjectPage({ params }: Props) {
 		))
 	)
 
+	// FAQ answers are Markdown too — render them server-side alongside the
+	// section descriptions so the accordion client component stays free of the
+	// Markdown pipeline. Aligned by index with `project.faqs`.
+	const renderedFaqAnswers = await Promise.all(
+		project.faqs.map(async (f) => (
+			<div key={f.id}>{await markdownToReact(f.answer)}</div>
+		))
+	)
+
 	return (
 		<ProjectContent
 			project={project}
 			renderedDescriptions={renderedDescriptions}
+			renderedFaqAnswers={renderedFaqAnswers}
 		/>
 	)
 }
