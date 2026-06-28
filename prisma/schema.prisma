@@ -63,6 +63,10 @@ model Project {
   metaTitle      String?
   keywords       String[]         @default([])
   offers         Json?
+  // schema.org SoftwareApplication category (e.g. "BusinessApplication",
+  // "ProductivityApplication"). Manifest-driven, not inferred from bucket — a
+  // wrong category is worse than none, so the JSON-LD omits it when unset.
+  applicationCategory String?
   icon           String?
   // `cardImage` is the list/gallery card image; `ogImage` is the social/OG
   // meta image. They cross-fall-back (see `resolveCardImage` / `resolveOgImage`):

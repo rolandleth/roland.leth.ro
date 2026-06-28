@@ -45,6 +45,7 @@ const createdProject = {
 	metaTitle: null,
 	keywords: [],
 	offers: null,
+	applicationCategory: null,
 	bucket: PlatformBucket.iOS,
 	platformTags: [PlatformTag.iOS],
 	role: null,
@@ -153,6 +154,7 @@ describe("POST /api/admin/projects", () => {
 				metaTitle: "Notes for managers (Mac)",
 				keywords: ["1:1 notes app"],
 				offers,
+				applicationCategory: "BusinessApplication",
 			})
 		)
 
@@ -160,6 +162,7 @@ describe("POST /api/admin/projects", () => {
 		expect(data.metaTitle).toBe("Notes for managers (Mac)")
 		expect(data.keywords).toEqual(["1:1 notes app"])
 		expect(data.offers).toEqual(offers)
+		expect(data.applicationCategory).toBe("BusinessApplication")
 	})
 
 	it("writes SQL NULL for offers and defaults when the SEO fields are omitted", async () => {
@@ -172,6 +175,7 @@ describe("POST /api/admin/projects", () => {
 		expect(data.offers).toBe(Prisma.DbNull)
 		expect(data.metaTitle).toBeNull()
 		expect(data.keywords).toEqual([])
+		expect(data.applicationCategory).toBeNull()
 	})
 
 	it("appends after the last project when no sortOrder is provided", async () => {

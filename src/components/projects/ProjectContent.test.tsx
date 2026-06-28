@@ -54,6 +54,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		metaTitle: null,
 		keywords: [],
 		offers: null,
+		applicationCategory: null,
 		icon: null,
 		cardImage: null,
 		ogImage: null,

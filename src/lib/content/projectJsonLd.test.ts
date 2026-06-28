@@ -15,6 +15,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		metaTitle: null,
 		keywords: [],
 		offers: null,
+		applicationCategory: null,
 		icon: null,
 		cardImage: null,
 		ogImage: null,
@@ -115,6 +116,67 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		expect(
 			buildSoftwareApplicationJsonLd(makeProject(), "https://blob/og.png")
 		).toMatchObject({ image: "https://blob/og.png" })
+	})
+
+	it("emits applicationCategory only when the manifest sets it", () => {
+		expect(
+			buildSoftwareApplicationJsonLd(makeProject(), null)
+		).not.toHaveProperty("applicationCategory")
+		expect(
+			buildSoftwareApplicationJsonLd(
+				makeProject({ applicationCategory: "BusinessApplication" }),
+				null
+			)
+		).toMatchObject({ applicationCategory: "BusinessApplication" })
+	})
+
+	it("emits a single Offer (not AggregateOffer) for one price point — paid upfront", () => {
+		const result = buildSoftwareApplicationJsonLd(
+			makeProject({
+				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual({
+			"@type": "Offer",
+			price: "4.99",
+			priceCurrency: "USD",
+		})
+	})
+
+	it("represents a free app as a single Offer priced 0", () => {
+		const result = buildSoftwareApplicationJsonLd(
+			makeProject({
+				offers: [{ name: "Free", price: "0", priceCurrency: "USD" }],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual({
+			"@type": "Offer",
+			price: "0",
+			priceCurrency: "USD",
+		})
+	})
+
+	it("spans free→paid as an AggregateOffer for a freemium app", () => {
+		const result = buildSoftwareApplicationJsonLd(
+			makeProject({
+				offers: [
+					{ name: "Free", price: "0", priceCurrency: "USD" },
+					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toMatchObject({
+			"@type": "AggregateOffer",
+			lowPrice: "0",
+			highPrice: "9.99",
+			offerCount: 2,
+		})
 	})
 
 	it("builds an AggregateOffer preserving the original price strings", () => {

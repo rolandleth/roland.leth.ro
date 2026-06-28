@@ -30,6 +30,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		metaTitle,
 		keywords,
 		offers,
+		applicationCategory,
 		bucket,
 		platformTags,
 		role,
@@ -86,6 +87,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 						// `null` (it's reserved for "filter on JSON null"), so the
 						// absent case must use `Prisma.DbNull` to write SQL NULL.
 						offers: offers ?? Prisma.DbNull,
+						applicationCategory: applicationCategory ?? null,
 						bucket,
 						platformTags,
 						role: role ?? null,

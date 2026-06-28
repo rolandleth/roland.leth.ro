@@ -111,7 +111,12 @@ const projectLinkSchema = z.object({
 // `offers` Json column — no mapper, no related table.
 const projectOfferSchema = z.object({
 	name: z.string().min(1).max(60),
-	price: z.string().min(1).max(20),
+	// A plain decimal price string: "0" (free), "4.99", "249.00". Constrained to
+	// digits + optional 1-2 decimals so `Number(price)` (used to sort low/high)
+	// can't yield NaN and the JSON-LD always carries a valid `price`.
+	price: z.string().regex(/^\d+(\.\d{1,2})?$/, {
+		message: "Price must be a decimal like 0, 4.99, or 249.00",
+	}),
 	priceCurrency: z.string().length(3),
 	billingPeriod: z.string().max(10).optional(),
 	sortOrder: z.number().int().min(0).optional(),
@@ -203,6 +208,9 @@ const projectFields = {
 	metaTitle: z.string().max(60).nullable().optional(),
 	keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
 	offers: z.array(projectOfferSchema).optional(),
+	// schema.org SoftwareApplication category, e.g. "BusinessApplication".
+	// Omitted from JSON-LD when unset rather than guessed from bucket.
+	applicationCategory: z.string().min(1).max(60).nullable().optional(),
 	bucket: z.enum(PLATFORM_BUCKETS),
 	platformTags: platformTagsSchema,
 	role: z.string().max(80).nullable().optional(),

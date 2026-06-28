@@ -53,6 +53,7 @@ export interface ProjectDetail {
 	metaTitle: string | null
 	keywords: string[]
 	offers: ProjectOffer[] | null
+	applicationCategory: string | null
 	icon: string | null
 	cardImage: string | null
 	ogImage: string | null

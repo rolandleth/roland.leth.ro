@@ -101,6 +101,7 @@ export const ProjectScalarFieldEnum = {
   metaTitle: 'metaTitle',
   keywords: 'keywords',
   offers: 'offers',
+  applicationCategory: 'applicationCategory',
   icon: 'icon',
   cardImage: 'cardImage',
   ogImage: 'ogImage',

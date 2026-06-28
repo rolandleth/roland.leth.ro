@@ -42,6 +42,7 @@ export type ProjectMinAggregateOutputType = {
   slug: string | null
   summary: string | null
   metaTitle: string | null
+  applicationCategory: string | null
   icon: string | null
   cardImage: string | null
   ogImage: string | null
@@ -63,6 +64,7 @@ export type ProjectMaxAggregateOutputType = {
   slug: string | null
   summary: string | null
   metaTitle: string | null
+  applicationCategory: string | null
   icon: string | null
   cardImage: string | null
   ogImage: string | null
@@ -86,6 +88,7 @@ export type ProjectCountAggregateOutputType = {
   metaTitle: number
   keywords: number
   offers: number
+  applicationCategory: number
   icon: number
   cardImage: number
   ogImage: number
@@ -120,6 +123,7 @@ export type ProjectMinAggregateInputType = {
   slug?: true
   summary?: true
   metaTitle?: true
+  applicationCategory?: true
   icon?: true
   cardImage?: true
   ogImage?: true
@@ -141,6 +145,7 @@ export type ProjectMaxAggregateInputType = {
   slug?: true
   summary?: true
   metaTitle?: true
+  applicationCategory?: true
   icon?: true
   cardImage?: true
   ogImage?: true
@@ -164,6 +169,7 @@ export type ProjectCountAggregateInputType = {
   metaTitle?: true
   keywords?: true
   offers?: true
+  applicationCategory?: true
   icon?: true
   cardImage?: true
   ogImage?: true
@@ -275,6 +281,7 @@ export type ProjectGroupByOutputType = {
   metaTitle: string | null
   keywords: string[]
   offers: runtime.JsonValue | null
+  applicationCategory: string | null
   icon: string | null
   cardImage: string | null
   ogImage: string | null
@@ -322,6 +329,7 @@ export type ProjectWhereInput = {
   metaTitle?: Prisma.StringNullableFilter<"Project"> | string | null
   keywords?: Prisma.StringNullableListFilter<"Project">
   offers?: Prisma.JsonNullableFilter<"Project">
+  applicationCategory?: Prisma.StringNullableFilter<"Project"> | string | null
   icon?: Prisma.StringNullableFilter<"Project"> | string | null
   cardImage?: Prisma.StringNullableFilter<"Project"> | string | null
   ogImage?: Prisma.StringNullableFilter<"Project"> | string | null
@@ -349,6 +357,7 @@ export type ProjectOrderByWithRelationInput = {
   metaTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   keywords?: Prisma.SortOrder
   offers?: Prisma.SortOrderInput | Prisma.SortOrder
+  applicationCategory?: Prisma.SortOrderInput | Prisma.SortOrder
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
   cardImage?: Prisma.SortOrderInput | Prisma.SortOrder
   ogImage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -379,6 +388,7 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   metaTitle?: Prisma.StringNullableFilter<"Project"> | string | null
   keywords?: Prisma.StringNullableListFilter<"Project">
   offers?: Prisma.JsonNullableFilter<"Project">
+  applicationCategory?: Prisma.StringNullableFilter<"Project"> | string | null
   icon?: Prisma.StringNullableFilter<"Project"> | string | null
   cardImage?: Prisma.StringNullableFilter<"Project"> | string | null
   ogImage?: Prisma.StringNullableFilter<"Project"> | string | null
@@ -406,6 +416,7 @@ export type ProjectOrderByWithAggregationInput = {
   metaTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   keywords?: Prisma.SortOrder
   offers?: Prisma.SortOrderInput | Prisma.SortOrder
+  applicationCategory?: Prisma.SortOrderInput | Prisma.SortOrder
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
   cardImage?: Prisma.SortOrderInput | Prisma.SortOrder
   ogImage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -438,6 +449,7 @@ export type ProjectScalarWhereWithAggregatesInput = {
   metaTitle?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   keywords?: Prisma.StringNullableListFilter<"Project">
   offers?: Prisma.JsonNullableWithAggregatesFilter<"Project">
+  applicationCategory?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   icon?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   cardImage?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   ogImage?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
@@ -461,6 +473,7 @@ export type ProjectCreateInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -488,6 +501,7 @@ export type ProjectUncheckedCreateInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -514,6 +528,7 @@ export type ProjectUpdateInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -541,6 +556,7 @@ export type ProjectUncheckedUpdateInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -568,6 +584,7 @@ export type ProjectCreateManyInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -591,6 +608,7 @@ export type ProjectUpdateManyMutationInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -615,6 +633,7 @@ export type ProjectUncheckedUpdateManyInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -655,6 +674,7 @@ export type ProjectCountOrderByAggregateInput = {
   metaTitle?: Prisma.SortOrder
   keywords?: Prisma.SortOrder
   offers?: Prisma.SortOrder
+  applicationCategory?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   cardImage?: Prisma.SortOrder
   ogImage?: Prisma.SortOrder
@@ -682,6 +702,7 @@ export type ProjectMaxOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   metaTitle?: Prisma.SortOrder
+  applicationCategory?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   cardImage?: Prisma.SortOrder
   ogImage?: Prisma.SortOrder
@@ -703,6 +724,7 @@ export type ProjectMinOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   metaTitle?: Prisma.SortOrder
+  applicationCategory?: Prisma.SortOrder
   icon?: Prisma.SortOrder
   cardImage?: Prisma.SortOrder
   ogImage?: Prisma.SortOrder
@@ -799,6 +821,7 @@ export type ProjectCreateWithoutSectionsInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -825,6 +848,7 @@ export type ProjectUncheckedCreateWithoutSectionsInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -866,6 +890,7 @@ export type ProjectUpdateWithoutSectionsInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -892,6 +917,7 @@ export type ProjectUncheckedUpdateWithoutSectionsInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -917,6 +943,7 @@ export type ProjectCreateWithoutLinksInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -943,6 +970,7 @@ export type ProjectUncheckedCreateWithoutLinksInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -984,6 +1012,7 @@ export type ProjectUpdateWithoutLinksInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1010,6 +1039,7 @@ export type ProjectUncheckedUpdateWithoutLinksInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1035,6 +1065,7 @@ export type ProjectCreateWithoutFaqsInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -1061,6 +1092,7 @@ export type ProjectUncheckedCreateWithoutFaqsInput = {
   metaTitle?: string | null
   keywords?: Prisma.ProjectCreatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: string | null
   icon?: string | null
   cardImage?: string | null
   ogImage?: string | null
@@ -1102,6 +1134,7 @@ export type ProjectUpdateWithoutFaqsInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1128,6 +1161,7 @@ export type ProjectUncheckedUpdateWithoutFaqsInput = {
   metaTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   keywords?: Prisma.ProjectUpdatekeywordsInput | string[]
   offers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  applicationCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1203,6 +1237,7 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   metaTitle?: boolean
   keywords?: boolean
   offers?: boolean
+  applicationCategory?: boolean
   icon?: boolean
   cardImage?: boolean
   ogImage?: boolean
@@ -1231,6 +1266,7 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   metaTitle?: boolean
   keywords?: boolean
   offers?: boolean
+  applicationCategory?: boolean
   icon?: boolean
   cardImage?: boolean
   ogImage?: boolean
@@ -1255,6 +1291,7 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   metaTitle?: boolean
   keywords?: boolean
   offers?: boolean
+  applicationCategory?: boolean
   icon?: boolean
   cardImage?: boolean
   ogImage?: boolean
@@ -1279,6 +1316,7 @@ export type ProjectSelectScalar = {
   metaTitle?: boolean
   keywords?: boolean
   offers?: boolean
+  applicationCategory?: boolean
   icon?: boolean
   cardImage?: boolean
   ogImage?: boolean
@@ -1295,7 +1333,7 @@ export type ProjectSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sections?: boolean | Prisma.Project$sectionsArgs<ExtArgs>
   links?: boolean | Prisma.Project$linksArgs<ExtArgs>
@@ -1320,6 +1358,7 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     metaTitle: string | null
     keywords: string[]
     offers: runtime.JsonValue | null
+    applicationCategory: string | null
     icon: string | null
     cardImage: string | null
     ogImage: string | null
@@ -1767,6 +1806,7 @@ export interface ProjectFieldRefs {
   readonly metaTitle: Prisma.FieldRef<"Project", 'String'>
   readonly keywords: Prisma.FieldRef<"Project", 'String[]'>
   readonly offers: Prisma.FieldRef<"Project", 'Json'>
+  readonly applicationCategory: Prisma.FieldRef<"Project", 'String'>
   readonly icon: Prisma.FieldRef<"Project", 'String'>
   readonly cardImage: Prisma.FieldRef<"Project", 'String'>
   readonly ogImage: Prisma.FieldRef<"Project", 'String'>

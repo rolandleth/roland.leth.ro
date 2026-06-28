@@ -48,6 +48,7 @@ const existingProject = {
 	metaTitle: null,
 	keywords: [],
 	offers: null,
+	applicationCategory: null,
 	bucket: PlatformBucket.iOS,
 	platformTags: [PlatformTag.iOS],
 	role: null,

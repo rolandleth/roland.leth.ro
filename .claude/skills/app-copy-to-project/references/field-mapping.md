@@ -10,7 +10,9 @@ here are a guide, not a substitute.
 |---|---|---|
 | `name` | App name | ≤ 80. Exact product name, consistent casing. |
 | `slug` | Derived from name, or set explicitly | Lowercase, hyphenated. Set it explicitly for stability (URLs depend on it). |
-| `summary` | `copy/web/landing-page.md` hero / first paragraph | ≤ 300. One tight, specific sentence. Strip marketing filler. |
+| `summary` | `copy/web/landing-page.md` hero / first paragraph | ≤ 300. One tight, specific sentence. Strip marketing filler. **Also the `<meta description>`** — front-load the app's category + primary search term in the first ~155 chars (what Google renders), without breaking voice. |
+| `metaTitle` | **Authored** (SEO — not in marketing copy) | ≤ 60. Drives the `<title>` tag (falls back to `name`). Keyword-first, since the brand name is unknown to searchers: what the app *is* + platform, e.g. "Decision journal & calibration tracker for iPhone". `name` still drives the `<h1>` and gallery card. See "SEO & structured-data fields" below. |
+| `keywords` | **Authored** (SEO) | Array, ≤ 10 strings each ≤ 50. The realistic search queries for the app's category. Low Google value (the keywords meta is ignored) — keep it to ~5, don't over-invest. |
 | `icon` | App icon image (see asset note) | Local path (e.g. `./icon.png`) or `null`. For an Xcode app, pull the largest PNG from `<app-repo>/**/Assets.xcassets/AppIcon.appiconset/`; otherwise ask the user for its location. |
 | `cardImage` | Card image | Local path or `null`. The gallery/list card. Card resolution is `cardImage ?? ogImage ?? heroImage ?? first section image` (`resolveCardImage`). Prefer a dedicated card asset; if none, an OG image (landscape, ~1200×630) reads well as a tile. Leave `null` rather than forcing a portrait screenshot in. |
 | `ogImage` | OG / social-share image | Local path or `null`. The project page's social/OG card, resolving `ogImage ?? cardImage ?? heroImage ?? first section image`. Stage a dedicated OG asset (~1200×630, landscape) when one exists; otherwise leave `null` and let it fall back to `cardImage`. Don't duplicate the same file into both `cardImage` and `ogImage` — fill one and let the other fall back. |
@@ -30,6 +32,8 @@ here are a guide, not a substitute.
 | `sections[].images[].caption` | Screenshot caption file (`copy.md` / `landing-copy.md`) | ≤ 300, or `null`. Concrete, not decorative. |
 | `links[].label` | **Ask** | ≤ 60. e.g. "App Store", "GitHub", "Website". |
 | `links[].url` | **Ask** (App Store: app id) | Real `https` URL. For the App Store, ask for the numeric **app id** and build `https://apps.apple.com/app/id<id>` (one id covers iPhone/iPad/Mac). Get website/GitHub URLs from the user. |
+| `offers` | **Ask** (pricing — not in marketing copy) | Optional array of `{ name, price, priceCurrency, billingPeriod?, sortOrder? }`. Feeds the `SoftwareApplication` JSON-LD price (app buckets only). `price` is a string (`"4.00"`); `priceCurrency` a 3-letter ISO code (default **USD** for consistency with existing projects). One-time → a single entry, no `billingPeriod`; subscription → one entry per plan with an ISO-8601 `billingPeriod` (`P1M`, `P1Y`). |
+| `faqs` | **Authored** (SEO — the highest-leverage AI-citation asset) | Optional array of `{ question, answer, sortOrder? }`. 4–6 self-contained Q&As; each `answer` ~40–60 words and readable out of context (ChatGPT/Perplexity extract them). Cover: what it is, how it differs from the obvious alternative, the key concept/term, privacy/data, and pricing. Plain-language questions matching real queries. Apply the tone rules. |
 
 ## Bucket ↔ tag coherence
 

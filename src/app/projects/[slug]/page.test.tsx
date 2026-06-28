@@ -43,6 +43,7 @@ const existingProject = {
 	metaTitle: null,
 	keywords: [],
 	offers: null,
+	applicationCategory: null,
 	icon: null,
 	cardImage: null,
 	ogImage: null,

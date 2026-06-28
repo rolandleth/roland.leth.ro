@@ -67,6 +67,7 @@ export type ProjectManifest = {
 	metaTitle?: string | null
 	keywords?: string[]
 	offers?: ManifestOffer[]
+	applicationCategory?: string | null
 	icon?: string | null
 	cardImage?: string | null
 	ogImage?: string | null

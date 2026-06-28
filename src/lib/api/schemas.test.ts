@@ -313,6 +313,47 @@ describe("projectCreateSchema", () => {
 		).toBe(false)
 	})
 
+	it("accepts a free offer (price '0') and a single upfront price", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				offers: [{ name: "Free", price: "0", priceCurrency: "USD" }],
+			}).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(true)
+	})
+
+	it("rejects a non-numeric or malformed price string", () => {
+		for (const price of ["free", "12.345", "$5", "12,00", ""]) {
+			expect(
+				projectCreateSchema.safeParse({
+					...valid,
+					offers: [{ name: "Bad", price, priceCurrency: "USD" }],
+				}).success
+			).toBe(false)
+		}
+	})
+
+	it("accepts an applicationCategory and rejects one over the 60-char cap", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				applicationCategory: "BusinessApplication",
+			}).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				applicationCategory: "x".repeat(61),
+			}).success
+		).toBe(false)
+	})
+
 	it("rejects when name is missing", () => {
 		const { name: _, ...rest } = valid
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)

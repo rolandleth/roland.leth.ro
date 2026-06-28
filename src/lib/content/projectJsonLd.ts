@@ -2,7 +2,7 @@
 // and separate from the page so the shapes are unit-testable and the page stays
 // a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
 
-import type { ProjectDetail } from "@/lib/db/projects"
+import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
 // Canonical production origin for absolute URLs in structured data. Hardcoded
 // (not derived via `siteBase()`/`headers()`) so the project pages stay
@@ -56,40 +56,70 @@ export function buildSoftwareApplicationJsonLd(
 		return null
 	}
 
-	const { name, summary, bucket, offers, slug } = project
+	const { name, summary, bucket, offers, slug, applicationCategory } = project
 
 	const jsonLd: Record<string, unknown> = {
 		"@context": "https://schema.org",
 		"@type": "SoftwareApplication",
 		name,
 		description: summary,
-		// simplified: hardcoded category, accurate for the current app projects
-		// (Continuum/Reckon are business tools). Ceiling: a non-business app would
-		// be mislabeled. Upgrade path: add an optional `appCategory` project field
-		// and read it here instead of assuming from bucket.
-		applicationCategory: "BusinessApplication",
 		operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
 		url: `${SITE_ORIGIN}/projects/${slug}`,
 		author: { "@type": "Person", name: "Roland Leth" },
+	}
+
+	// Category is manifest-driven, not inferred — omit when unset rather than
+	// assert a wrong one (e.g. labelling a utility a "BusinessApplication").
+	if (applicationCategory !== null) {
+		jsonLd.applicationCategory = applicationCategory
 	}
 
 	if (image !== null) {
 		jsonLd.image = image
 	}
 
-	if (offers !== null && offers.length > 0) {
-		// Use the original price strings (not a Number round-trip) so "12.00"
-		// stays "12.00" rather than collapsing to "12" in the markup.
-		const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
+	const offerNode = buildOfferNode(offers)
 
-		jsonLd.offers = {
-			"@type": "AggregateOffer",
-			priceCurrency: offers[0].priceCurrency,
-			lowPrice: sorted[0].price,
-			highPrice: sorted[sorted.length - 1].price,
-			offerCount: offers.length,
-		}
+	if (offerNode !== null) {
+		jsonLd.offers = offerNode
 	}
 
 	return jsonLd
+}
+
+/**
+ * Maps a project's price points to the right schema.org offer shape:
+ * `null` when there are none (pricing unstated), a single `Offer` for one price
+ * point (an upfront-paid or free app — free is an explicit `"0"`), and an
+ * `AggregateOffer` spanning low→high for two or more (subscriptions, IAPs, or a
+ * mix). Price strings are preserved verbatim so "12.00" stays "12.00".
+ */
+function buildOfferNode(
+	offers: ProjectOffer[] | null
+): Record<string, unknown> | null {
+	if (offers === null || offers.length === 0) {
+		return null
+	}
+
+	if (offers.length === 1) {
+		const [only] = offers
+
+		return {
+			"@type": "Offer",
+			price: only.price,
+			priceCurrency: only.priceCurrency,
+		}
+	}
+
+	// AggregateOffer assumes a single currency (App Store prices share the
+	// storefront's currency); the first offer's currency labels the range.
+	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
+
+	return {
+		"@type": "AggregateOffer",
+		priceCurrency: offers[0].priceCurrency,
+		lowPrice: sorted[0].price,
+		highPrice: sorted[sorted.length - 1].price,
+		offerCount: offers.length,
+	}
 }

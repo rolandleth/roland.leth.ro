@@ -291,6 +291,7 @@ async function writeProject(
 				// Nullable Json column: a bare `null` is reserved by Prisma for JSON
 				// filters, so the absent case writes SQL NULL via `Prisma.DbNull`.
 				offers: data.offers ?? Prisma.DbNull,
+				applicationCategory: data.applicationCategory ?? null,
 				bucket: data.bucket,
 				platformTags: data.platformTags,
 				role: data.role ?? null,

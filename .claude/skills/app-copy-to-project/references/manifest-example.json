@@ -1,8 +1,15 @@
 {
-	"_comment": "Worked example. Image fields are LOCAL paths relative to this file's folder (scripts/imports/<slug>/); the import script uploads them to Blob and rewrites them to URLs. An already-hosted https URL may be used as-is. `cardImage` (gallery card) and `ogImage` (OG/social card) are separate slots — set both when you have distinct assets, or leave `ogImage` null to fall back to `cardImage`. Delete this _comment in a real manifest.",
+	"_comment": "Worked example. Image fields are LOCAL paths relative to this file's folder (scripts/imports/<slug>/); the import script uploads them to Blob and rewrites them to URLs. An already-hosted https URL may be used as-is. `cardImage` (gallery card) and `ogImage` (OG/social card) are separate slots — set both when you have distinct assets, or leave `ogImage` null to fall back to `cardImage`. `metaTitle`/`keywords`/`offers`/`faqs` are optional SEO + structured-data fields (see field-mapping.md → 'SEO & structured-data fields'); omit them and the page still works, but app projects relying on landing-page SEO should fill them. Delete this _comment in a real manifest.",
 	"name": "Tidemark",
 	"slug": "tidemark",
 	"summary": "A macOS menu-bar app that tracks how long you've spent in each app and nudges you when a focus block runs long.",
+	"metaTitle": "App-usage timer & focus nudges for Mac",
+	"keywords": [
+		"app usage tracker mac",
+		"focus timer menu bar",
+		"screen time alternative mac",
+		"time tracking menu bar app"
+	],
 	"icon": "./icon.png",
 	"cardImage": "./card.png",
 	"ogImage": "./og.png",
@@ -56,5 +63,31 @@
 		{ "label": "Mac App Store", "url": "https://apps.apple.com/app/id000000000", "sortOrder": 1 },
 		{ "label": "Website", "url": "https://tidemark.app", "sortOrder": 2 },
 		{ "label": "GitHub", "url": "https://github.com/example/tidemark", "sortOrder": 3 }
+	],
+	"offers": [
+		{ "name": "Monthly", "price": "2.99", "priceCurrency": "USD", "billingPeriod": "P1M", "sortOrder": 1 },
+		{ "name": "Lifetime", "price": "29.99", "priceCurrency": "USD", "sortOrder": 2 }
+	],
+	"faqs": [
+		{
+			"question": "What is Tidemark?",
+			"answer": "A macOS menu-bar app that tracks how long you spend in each app and nudges you when a focus block runs long. It records the frontmost app automatically — no timers to start — and shows your day as a stacked timeline.",
+			"sortOrder": 1
+		},
+		{
+			"question": "How is it different from Screen Time?",
+			"answer": "Screen Time reports after the fact, across devices. Tidemark is live and Mac-local: it nudges you the moment you cross a per-app limit, and keeps every second on your machine with a CSV export whenever you want it.",
+			"sortOrder": 2
+		},
+		{
+			"question": "Is my data private?",
+			"answer": "Yes. Everything stays on your Mac — no account, no sync server, no telemetry. The data never leaves the device, and you can export it as CSV anytime.",
+			"sortOrder": 3
+		},
+		{
+			"question": "How much does Tidemark cost?",
+			"answer": "A monthly subscription or a one-time lifetime purchase on the Mac App Store. Both unlock every feature; the lifetime option is for people who'd rather pay once.",
+			"sortOrder": 4
+		}
 	]
 }
