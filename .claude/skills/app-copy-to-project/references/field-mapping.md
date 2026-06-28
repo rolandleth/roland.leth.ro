@@ -32,7 +32,8 @@ here are a guide, not a substitute.
 | `sections[].images[].caption` | Screenshot caption file (`copy.md` / `landing-copy.md`) | ≤ 300, or `null`. Concrete, not decorative. |
 | `links[].label` | **Ask** | ≤ 60. e.g. "App Store", "GitHub", "Website". |
 | `links[].url` | **Ask** (App Store: app id) | Real `https` URL. For the App Store, ask for the numeric **app id** and build `https://apps.apple.com/app/id<id>` (one id covers iPhone/iPad/Mac). Get website/GitHub URLs from the user. |
-| `offers` | **Ask** (pricing — not in marketing copy) | Optional array of `{ name, price, priceCurrency, billingPeriod?, sortOrder? }`. Feeds the `SoftwareApplication` JSON-LD price (app buckets only). `price` is a string (`"4.00"`); `priceCurrency` a 3-letter ISO code (default **USD** for consistency with existing projects). One-time → a single entry, no `billingPeriod`; subscription → one entry per plan with an ISO-8601 `billingPeriod` (`P1M`, `P1Y`). |
+| `offers` | **Ask** (pricing — not in marketing copy) | Optional array of `{ name, price, priceCurrency, billingPeriod?, sortOrder? }`. Feeds the `SoftwareApplication` JSON-LD price (app buckets only). `price` is a **plain decimal string** — digits with optional 1–2 decimals (`"0"`, `"4.99"`, `"249.00"`), no currency symbol or words (the schema rejects `"Free"`, `"$4"`). `priceCurrency` a 3-letter ISO code (default **USD** for consistency with existing projects). **Free** app → one entry priced `"0"` (don't omit `offers` — an absent array means *price unknown*, not free). One-time → a single entry, no `billingPeriod`; subscription → one entry per plan with an ISO-8601 `billingPeriod` (`P1M`, `P1Y`). The builder renders one entry as a single `Offer` and two-plus as an `AggregateOffer` (low–high), so paid-upfront, free, and multi-plan apps all come out right from the same array. |
+| `applicationCategory` | **Authored** (app buckets only) | ≤ 60. schema.org `applicationCategory` for the `SoftwareApplication` JSON-LD — e.g. `BusinessApplication`, `ProductivityApplication`, `GameApplication`, `EducationApplication`, `UtilitiesApplication`. Pick the closest value; omitted from the JSON-LD when unset, so leave it out rather than guess. |
 | `faqs` | **Authored** (SEO — the highest-leverage AI-citation asset) | Optional array of `{ question, answer, sortOrder? }`. 4–6 self-contained Q&As; each `answer` ~40–60 words and readable out of context (ChatGPT/Perplexity extract them). Cover: what it is, how it differs from the obvious alternative, the key concept/term, privacy/data, and pricing. Plain-language questions matching real queries. Apply the tone rules. |
 
 ## Bucket ↔ tag coherence
@@ -51,6 +52,27 @@ These aren't in the marketing copy. Ask, a couple at a time:
 2. App Store **app id** (build `https://apps.apple.com/app/id<id>`), plus website / GitHub URLs
 3. `accentColor`, `date`, `role`
 4. `isFeatured`, `isDiscontinued`, `sortOrder`
+5. **Pricing** → `offers` (free / one-time + amount / subscription plans). Default currency **USD**.
+
+## SEO & structured-data fields
+
+`metaTitle`, `keywords`, and `faqs` don't come from the marketing copy — they're **authored** for
+search and AI-answer-engine discoverability, which is the primary acquisition channel for App Store
+apps the stores barely surface. Author them with the same judgment the `seo-audit` / `ai-seo` skills
+encode (and the tone rules below):
+
+- **`metaTitle`** — the single biggest lever. The `<title>` defaults to `name` ("Continuum"), a brand
+  word nobody searches. Replace it with a keyword-first descriptor of what the app is + platform.
+  `name` still drives the `<h1>` and gallery card, so the page stays clean.
+- **`faqs`** — the highest-leverage AI-citation block: self-contained Q&As are what ChatGPT /
+  Perplexity extract. Derive them from *this* app's product and search queries — never template-stamp
+  another app's questions. (Note: Google restricts FAQ *rich results* to gov/health sites, so the
+  payoff here is AI citation + valid structured data, not a Google snippet.)
+- **`offers`** — feeds the `SoftwareApplication` JSON-LD price (app buckets only). Ask for it (Step 3).
+- **`applicationCategory`** — the schema.org category for that same JSON-LD (app buckets only). Pick the
+  closest schema.org value (`BusinessApplication`, `ProductivityApplication`, `GameApplication`,
+  `EducationApplication`, `UtilitiesApplication`, …); it's omitted from the JSON-LD when unset, so leave
+  it out rather than guess if you're genuinely unsure.
 
 ## Tone rules
 

@@ -10,6 +10,7 @@
 		"screen time alternative mac",
 		"time tracking menu bar app"
 	],
+	"applicationCategory": "ProductivityApplication",
 	"icon": "./icon.png",
 	"cardImage": "./card.png",
 	"ogImage": "./og.png",
