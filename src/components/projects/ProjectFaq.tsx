@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimatePresence, motion } from "framer-motion"
+import { motion } from "framer-motion"
 import { ChevronDown } from "lucide-react"
 import { useState } from "react"
 import { fadeUp } from "@/lib/client/motion"
@@ -85,24 +85,33 @@ export default function ProjectFaq({ faqs, renderedAnswers, accent }: Props) {
 								</button>
 							</h3>
 
-							<AnimatePresence initial={false}>
-								{isOpen && (
-									<motion.div
-										id={`faq-panel-${faq.id}`}
-										role="region"
-										aria-labelledby={`faq-button-${faq.id}`}
-										initial={{ height: 0, opacity: 0 }}
-										animate={{ height: "auto", opacity: 1 }}
-										exit={{ height: 0, opacity: 0 }}
-										transition={{ duration: 0.25, ease: "easeOut" }}
-										className="overflow-hidden"
-									>
-										<div className="prose dark:prose-invert max-w-none pb-4">
-											{renderedAnswers[index]}
-										</div>
-									</motion.div>
-								)}
-							</AnimatePresence>
+							{/* The panel is ALWAYS mounted so its answer ships in the
+							    server HTML — search engines and AI answer engines read
+							    the static markup, and conditional-mounting (AnimatePresence)
+							    would hide collapsed answers from them. Collapse is purely
+							    visual (height/opacity); `inert` + `aria-hidden` pull a
+							    collapsed panel out of the tab order and accessibility tree
+							    so assistive tech skips it, the way a native <details> does.
+							    The FAQPage JSON-LD carries the same answers for structured
+							    consumers. */}
+							<motion.div
+								id={`faq-panel-${faq.id}`}
+								role="region"
+								aria-labelledby={`faq-button-${faq.id}`}
+								aria-hidden={!isOpen}
+								inert={!isOpen}
+								initial={false}
+								animate={{
+									height: isOpen ? "auto" : 0,
+									opacity: isOpen ? 1 : 0,
+								}}
+								transition={{ duration: 0.25, ease: "easeOut" }}
+								className="overflow-hidden"
+							>
+								<div className="prose dark:prose-invert max-w-none pb-4">
+									{renderedAnswers[index]}
+								</div>
+							</motion.div>
 						</div>
 					)
 				})}

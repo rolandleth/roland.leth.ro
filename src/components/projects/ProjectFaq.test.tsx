@@ -29,18 +29,39 @@ describe("ProjectFaq", () => {
 		buttons.forEach((b) => expect(b).toHaveAttribute("aria-expanded", "false"))
 	})
 
-	it("expands a question's answer when its button is clicked", async () => {
+	it("keeps every answer in the DOM on mount so it's crawlable", () => {
+		// The SEO/AI-citation goal: collapsed answers must be in the server HTML,
+		// not conditionally mounted. They're just hidden, not absent.
 		renderFaq()
 
-		const button = screen.getByRole("button", { name: /is it free/i })
-		await user.click(button)
-
-		expect(button).toHaveAttribute("aria-expanded", "true")
 		expect(screen.getByText("Yes, forever.")).toBeInTheDocument()
+		expect(screen.getByText("In the background.")).toBeInTheDocument()
+	})
+
+	it("marks collapsed panels inert + aria-hidden so assistive tech skips them", () => {
+		const { container } = renderFaq()
+
+		const panel = container.querySelector("#faq-panel-1")
+		expect(panel).toHaveAttribute("inert")
+		expect(panel).toHaveAttribute("aria-hidden", "true")
+	})
+
+	it("clears inert + aria-hidden on the panel when its question is expanded", async () => {
+		const { container } = renderFaq()
+
+		await user.click(screen.getByRole("button", { name: /is it free/i }))
+
+		const panel = container.querySelector("#faq-panel-1")
+		expect(panel).not.toHaveAttribute("inert")
+		expect(panel).toHaveAttribute("aria-hidden", "false")
+		expect(screen.getByRole("button", { name: /is it free/i })).toHaveAttribute(
+			"aria-expanded",
+			"true"
+		)
 	})
 
 	it("collapses an open question when its button is clicked again", async () => {
-		renderFaq()
+		const { container } = renderFaq()
 
 		const button = screen.getByRole("button", { name: /is it free/i })
 		await user.click(button)
@@ -48,6 +69,7 @@ describe("ProjectFaq", () => {
 
 		await user.click(button)
 		expect(button).toHaveAttribute("aria-expanded", "false")
+		expect(container.querySelector("#faq-panel-1")).toHaveAttribute("inert")
 	})
 
 	it("toggles each question independently (multiple can be open at once)", async () => {
