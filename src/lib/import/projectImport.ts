@@ -48,6 +48,14 @@ export type ManifestFaq = {
 	sortOrder?: number
 }
 
+export type ManifestOffer = {
+	name: string
+	price: string
+	priceCurrency: string
+	billingPeriod?: string
+	sortOrder?: number
+}
+
 // Loosely typed on purpose: the manifest is untrusted JSON. Structural and
 // value-level validation is delegated to `projectCreateSchema` (run by the
 // script after image refs are resolved to URLs), so this type only needs to
@@ -56,6 +64,9 @@ export type ProjectManifest = {
 	name: string
 	slug?: string | null
 	summary?: string
+	metaTitle?: string | null
+	keywords?: string[]
+	offers?: ManifestOffer[]
 	icon?: string | null
 	cardImage?: string | null
 	ogImage?: string | null

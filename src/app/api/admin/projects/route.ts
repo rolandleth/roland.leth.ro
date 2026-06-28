@@ -27,6 +27,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const {
 		name,
 		summary,
+		metaTitle,
+		keywords,
+		offers,
 		bucket,
 		platformTags,
 		role,
@@ -77,6 +80,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 						name,
 						slug: createSlug(name),
 						summary,
+						metaTitle: metaTitle ?? null,
+						keywords: keywords ?? [],
+						// `offers` is a nullable Json column: Prisma rejects a bare
+						// `null` (it's reserved for "filter on JSON null"), so the
+						// absent case must use `Prisma.DbNull` to write SQL NULL.
+						offers: offers ?? Prisma.DbNull,
 						bucket,
 						platformTags,
 						role: role ?? null,

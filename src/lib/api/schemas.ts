@@ -105,6 +105,18 @@ const projectLinkSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
+// Render-only pricing for the SoftwareApplication JSON-LD. `priceCurrency` is a
+// 3-letter ISO code; `billingPeriod` is an optional ISO-8601 duration (`P1M`,
+// `P1Y`) omitted for one-time purchases (e.g. Lifetime). Stored verbatim in the
+// `offers` Json column — no mapper, no related table.
+const projectOfferSchema = z.object({
+	name: z.string().min(1).max(60),
+	price: z.string().min(1).max(20),
+	priceCurrency: z.string().length(3),
+	billingPeriod: z.string().max(10).optional(),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
 const projectFaqSchema = z.object({
 	question: z.string().min(1).max(300),
 	// Markdown, rendered on read like section descriptions — same generous cap.
@@ -186,6 +198,11 @@ const projectFields = {
 		.max(80)
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	summary: z.string().min(1).max(300),
+	// Drives the `<title>` tag instead of the brand-word default (`name`).
+	// Capped at 60 so it doesn't truncate in SERPs.
+	metaTitle: z.string().max(60).nullable().optional(),
+	keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
+	offers: z.array(projectOfferSchema).optional(),
 	bucket: z.enum(PLATFORM_BUCKETS),
 	platformTags: platformTagsSchema,
 	role: z.string().max(80).nullable().optional(),

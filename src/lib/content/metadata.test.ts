@@ -64,6 +64,20 @@ describe("buildPageMetadata", () => {
 		expect(meta.twitter?.images).toEqual(["https://example.com/hero.png"])
 	})
 
+	it("passes through keywords when provided", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			keywords: ["1:1 notes app", "manager notes app"],
+		})
+		expect(meta.keywords).toEqual(["1:1 notes app", "manager notes app"])
+	})
+
+	it("leaves keywords undefined when not provided", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+		expect(meta.keywords).toBeUndefined()
+	})
+
 	it("passes through publishedTime to openGraph", () => {
 		const meta = buildPageMetadata({
 			title: "x",

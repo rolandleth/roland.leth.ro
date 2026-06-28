@@ -269,6 +269,50 @@ describe("projectCreateSchema", () => {
 		expect(result.success).toBe(false)
 	})
 
+	it("accepts metaTitle, keywords, and offers", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			metaTitle: "1:1 notes for managers (Mac)",
+			keywords: ["1:1 notes app", "manager notes app"],
+			offers: [
+				{
+					name: "Monthly",
+					price: "12.00",
+					priceCurrency: "USD",
+					billingPeriod: "P1M",
+					sortOrder: 1,
+				},
+				{ name: "Lifetime", price: "249.00", priceCurrency: "USD" },
+			],
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a metaTitle over the 60-char cap", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, metaTitle: "x".repeat(61) })
+				.success
+		).toBe(false)
+	})
+
+	it("rejects more than 10 keywords", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				keywords: Array.from({ length: 11 }, (_, i) => `kw${i}`),
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an offer with a non-3-letter currency code", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...valid,
+				offers: [{ name: "Monthly", price: "12.00", priceCurrency: "US" }],
+			}).success
+		).toBe(false)
+	})
+
 	it("rejects when name is missing", () => {
 		const { name: _, ...rest } = valid
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)

@@ -45,6 +45,9 @@ const existingProject = {
 	name: "My App",
 	slug: "my-app",
 	summary: "An app.",
+	metaTitle: null,
+	keywords: [],
+	offers: null,
 	bucket: PlatformBucket.iOS,
 	platformTags: [PlatformTag.iOS],
 	role: null,
@@ -61,6 +64,7 @@ const existingProject = {
 	updatedAt: new Date(),
 	sections: [],
 	links: [],
+	faqs: [],
 }
 
 beforeEach(() => {

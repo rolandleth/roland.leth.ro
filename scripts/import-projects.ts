@@ -36,7 +36,7 @@ import {
 	put,
 } from "@vercel/blob"
 import { ZodError } from "zod"
-import { PrismaClient } from "@/generated/prisma/client"
+import { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { projectCreateSchema } from "@/lib/api/schemas"
 import {
 	toFaqCreate,
@@ -286,6 +286,11 @@ async function writeProject(
 				name: data.name,
 				slug,
 				summary: data.summary,
+				metaTitle: data.metaTitle ?? null,
+				keywords: data.keywords ?? [],
+				// Nullable Json column: a bare `null` is reserved by Prisma for JSON
+				// filters, so the absent case writes SQL NULL via `Prisma.DbNull`.
+				offers: data.offers ?? Prisma.DbNull,
 				bucket: data.bucket,
 				platformTags: data.platformTags,
 				role: data.role ?? null,

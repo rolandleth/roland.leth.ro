@@ -7,6 +7,7 @@ export interface PageMetadataInput {
 	image?: string | null
 	publishedTime?: string
 	type?: "article" | "website"
+	keywords?: string[]
 }
 
 /**
@@ -22,7 +23,8 @@ export interface PageMetadataInput {
  * The landing page (`src/app/page.tsx`) is the canonical example.
  */
 export function buildPageMetadata(input: PageMetadataInput): Metadata {
-	const { title, description, path, image, publishedTime, type } = input
+	const { title, description, path, image, publishedTime, type, keywords } =
+		input
 
 	// Dev-only guard: the JSDoc above warns about the double-brand pitfall,
 	// but doc-only is regression-prone — a future caller passing a
@@ -45,6 +47,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	return {
 		title,
 		description,
+		keywords,
 		openGraph: {
 			type: type ?? "website",
 			title: ogTitle,

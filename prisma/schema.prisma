@@ -54,6 +54,15 @@ model Project {
   name           String
   slug           String           @unique
   summary        String
+  // SEO-only fields, set via the import manifest (no admin-form control yet).
+  // `metaTitle` drives the `<title>` tag (falls back to `name`); `keywords`
+  // feeds `<meta name="keywords">`; `offers` is render-only pricing for the
+  // `SoftwareApplication` JSON-LD — small and structured-data-specific, so it's
+  // a `Json?` column rather than a related model (the one deliberate deviation
+  // from the ProjectLink/ProjectSection related-model convention).
+  metaTitle      String?
+  keywords       String[]         @default([])
+  offers         Json?
   icon           String?
   // `cardImage` is the list/gallery card image; `ogImage` is the social/OG
   // meta image. They cross-fall-back (see `resolveCardImage` / `resolveOgImage`):

@@ -1,255 +1,262 @@
-# Plan: SEO fields + landing-page FAQ for project pages
+# Plan: SEO fields for project pages (metaTitle, keywords, offers, JSON-LD)
 
-## Goal / context (read first)
+> Cross-checked against the live repo on 2026-06-28 (file:line refs verified by reading the
+> actual files, not inferred). Status legend: **✅ DONE** = already in the repo, verify and move
+> on · **⬜ TODO** = genuinely missing.
 
-The Continuum landing page (`/projects/continuum`) is the primary acquisition channel for a
-Mac app the App Store barely surfaces, so the page's organic-search ranking and its
-**citability by AI answer engines** (ChatGPT, Perplexity, Google AI Overviews) matter more than
-usual. Three on-page levers are currently unused:
+## What changed since the first draft of this plan
 
-1. **`<title>` tag** — today it's `name + " | Roland Leth"` → `"Continuum | Roland Leth"`, a
-   brand word nobody searches. We add an optional **`metaTitle`** that drives `<title>` instead.
-2. **A visible FAQ** with **`FAQPage` JSON-LD** — self-contained 40–60-word answers are exactly
-   what AI engines extract and cite. This is the single highest-leverage addition for this app.
-3. **`SoftwareApplication` JSON-LD** — states "this page is a macOS BusinessApplication that does
-   X, priced Y" as machine-readable fact; enables price/app rich results and AI citation.
+The FAQ feature was added to this repo **mid-session** (by Roland), so large parts of the original
+plan are already implemented. Nothing here is deleted — the FAQ steps are kept and marked ✅ so you
+can cross-check them. The genuinely remaining work is small:
 
-This is a **data-driven** change: new optional fields on `project.json` → zod → import → Prisma →
-render, so Reckon and every future app get the same SEO surface for free. All changes are
-**additive** (new nullable columns + one new `ProjectFaq` table) — nothing existing breaks.
+- ⬜ `metaTitle` (drives `<title>`), `keywords`, `offers` — three new project fields.
+- ⬜ `FAQPage` + `SoftwareApplication` JSON-LD (the FAQ *renders*, but emits no structured data).
+- ⬜ **Critical:** sync the authored manifest into the import folder — the importer reads a
+  **stale copy** today (see Section F).
 
-## Already done (in the Continuum repo — do NOT redo)
-
-`~/_Work/projects/Continuum/marketing/landing-page/project.json` already has:
-
-- Rewritten **`summary`** (now keyword-bearing: Mac, managers, notes, people they lead, 1:1, reviews).
-- Light keyword threading in 3 section descriptions ("A person in full", "Beliefs over time",
-  "Private by design").
-- New fields populated and waiting for this session to consume them: **`metaTitle`**,
-  **`keywords`**, **`offers`**, **`faq`** (5 Q&As).
-
-This session's job is purely the **portfolio code** to read those fields, plus the **FAQ render**.
-After the code is in, re-run the project import to pull the new fields into the DB.
-
-## New project.json fields (reference — these are the shapes to validate/store)
-
-```jsonc
-"metaTitle": "1:1 & direct-report notes for managers (Mac)",   // string, max 60
-"keywords": ["1:1 notes app", "manager notes app", ...],         // string[]
-"offers": [                                                      // optional, app projects only
-  { "name": "Monthly",  "price": "12.00",  "priceCurrency": "USD", "billingPeriod": "P1M", "sortOrder": 1 },
-  { "name": "Yearly",   "price": "108.00", "priceCurrency": "USD", "billingPeriod": "P1Y", "sortOrder": 2 },
-  { "name": "Lifetime", "price": "249.00", "priceCurrency": "USD", "sortOrder": 3 }
-],
-"faq": [                                                         // optional
-  { "question": "...", "answer": "...", "sortOrder": 1 },
-  ...
-]
-```
+### Why this matters (don't lose the thread)
+The Continuum landing page is the main acquisition channel for a Mac app the App Store barely
+surfaces. The `<title>` tag is currently `name | Roland Leth` → `"Continuum | Roland Leth"`, a brand
+word nobody searches. `metaTitle` fixes that. The JSON-LD makes the page citable by ChatGPT /
+Perplexity / AI Overviews ("what Mac app keeps private notes on direct reports") — the highest-
+leverage win for a low-discoverability app.
 
 ---
 
-## Edit list (ordered)
+## Section A — FAQ feature: ✅ DONE end-to-end (cross-check, do NOT redo)
 
-### 1. `prisma/schema.prisma` — `Project` model + new model + migration
-Add to the `Project` model:
-```prisma
-  metaTitle      String?
-  keywords       String[]         @default([])
-  offers         Json?
-  faqs           ProjectFaq[]
-```
-Add a new model (mirrors the existing `ProjectLink`/`ProjectSection` related-model convention):
-```prisma
-model ProjectFaq {
-  id        Int     @id @default(autoincrement())
-  projectId Int
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  question  String
-  answer    String
-  sortOrder Int     @default(0)
-}
-```
-`offers` is a `Json?` column (small, render-only, SoftwareApplication-specific — a related model
-would be overkill; this is the one deliberate deviation from the related-model convention).
-Migration: `yarn prisma migrate dev --name add_project_seo_fields`
+| Layer | File:line | Status |
+|---|---|---|
+| Prisma `Project.faqs` + `ProjectFaq` model | `prisma/schema.prisma:85`, `:151–159` | ✅ |
+| Zod `faqs` field | `src/lib/api/schemas.ts:203` (uses `projectFaqSchema`) | ✅ |
+| Mapper `toFaqCreate` + `ProjectFaqInput` | `src/lib/db/projectMappers.ts:21–25, 76–88` | ✅ |
+| `ProjectDetail.faqs` | `src/lib/db/projects.ts:74–80` | ✅ |
+| `projectInclude.faqs` | `src/lib/db/projects.ts:287` | ✅ |
+| Re-exports (`toFaqCreate`, `ProjectFaqInput`) | `src/lib/db/projects.ts:271–278` | ✅ |
+| Import write path | `scripts/import-projects.ts:314` (`faqs: toFaqCreate(data.faqs)`) | ✅ |
+| Admin **POST** | `src/app/api/admin/projects/route.ts:44, 94` | ✅ |
+| Admin **PUT** | `src/app/api/admin/projects/[id]/route.ts` | ⚠️ **VERIFY** mirrors POST |
+| Server-render of Markdown answers | `src/app/projects/[slug]/page.tsx:57–61` | ✅ |
+| `<ProjectFaq>` wired + destructured | `src/components/projects/ProjectContent.tsx:9, 18, 37` | ✅ |
+| **Placement** (last on page, below gallery + description — as Roland wanted) | `ProjectContent.tsx:424–431` | ✅ |
+| Accordion component (accessible, animated) | `src/components/projects/ProjectFaq.tsx` | ✅ |
+| **`FAQPage` JSON-LD** | — | ⬜ **MISSING** (see Section E) |
 
-### 2. `src/lib/api/schemas.ts` — `projectFields` object (~L175–196)
-Add inside `projectFields`:
-```typescript
-  metaTitle: z.string().max(60).nullable().optional(),
-  keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
-  offers: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(60),
-        price: z.string().min(1).max(20),
-        priceCurrency: z.string().length(3),
-        billingPeriod: z.string().max(10).optional(),
-        sortOrder: z.number().int().min(0).optional(),
-      })
-    )
-    .optional(),
-  faq: z
-    .array(
-      z.object({
-        question: z.string().min(1).max(300),
-        answer: z.string().min(1).max(5000),
-        sortOrder: z.number().int().min(0).optional(),
-      })
-    )
-    .optional(),
-```
+The FAQ content (5 Q&As) is already authored in the Continuum manifest's `faq` array — see Section F
+for getting it into the DB.
 
-### 3. `src/lib/import/projectImport.ts` — `ProjectManifest` type (~L46–67)
-Add to `ProjectManifest`:
-```typescript
-  metaTitle?: string | null
-  keywords?: string[]
-  offers?: { name: string; price: string; priceCurrency: string; billingPeriod?: string; sortOrder?: number }[]
-  faq?: { question: string; answer: string; sortOrder?: number }[]
-```
+---
 
-### 4. `src/lib/db/projectMappers.ts` — add FAQ mapper (after `toLinkCreate`)
-```typescript
-export type ProjectFaqInput = { question: string; answer: string; sortOrder?: number }
+## Section B — `metaTitle` → drives `<title>`: ⬜ TODO
 
-export function toFaqCreate(faqs: ProjectFaqInput[] | undefined) {
-  if (faqs == null) return undefined
-  return { create: faqs.map((f) => ({ question: f.question, answer: f.answer, sortOrder: f.sortOrder ?? 0 })) }
-}
-```
-`offers` needs no mapper — it's stored as-is into the `Json?` column.
+Scalar field. Because `loadProject` uses Prisma `include` (not `select`), new scalar columns flow to
+`ProjectDetail` automatically once the column + type exist — no `projectInclude` change needed.
 
-### 5. `src/lib/db/projects.ts`
-- **`ProjectDetail` interface (~L34–74):** add
-  ```typescript
-  metaTitle: string | null
-  keywords: string[]
-  offers: { name: string; price: string; priceCurrency: string; billingPeriod?: string; sortOrder?: number }[] | null
-  faqs: { id: number; question: string; answer: string; sortOrder: number }[]
-  ```
-  (`offers` comes back from Prisma as `JsonValue`; cast/narrow it when shaping `ProjectDetail`.)
-- **`projectInclude` (~L271–278):** add `faqs: { orderBy: { sortOrder: "asc" as const } },`
-- **Re-export block (~L264–269):** add `toFaqCreate` and `type ProjectFaqInput`.
-- **`gallerySelect` (~L76–104):** leave as-is — list/gallery views don't need these fields.
+1. **`prisma/schema.prisma`** — add to `Project` (after `summary`, ~line 56):
+   ```prisma
+   metaTitle      String?
+   ```
+2. **`src/lib/api/schemas.ts`** — add to `projectFields` (~line 188):
+   ```typescript
+   metaTitle: z.string().max(60).nullable().optional(),
+   ```
+3. **`scripts/import-projects.ts`** — add to `writeProject`'s create `data` (~line 288):
+   ```typescript
+   metaTitle: data.metaTitle ?? null,
+   ```
+   (No separate manifest type to edit — `writeProject`'s `data` is typed from
+   `projectCreateSchema.parse`, so the zod field above is enough.)
+4. **`src/lib/db/projects.ts`** — add to `ProjectDetail` (~line 38):
+   ```typescript
+   metaTitle: string | null
+   ```
+5. **`src/app/projects/[slug]/page.tsx`** — `generateMetadata` (line 31):
+   ```typescript
+   title: project.metaTitle ?? project.name,
+   ```
+   Safe: `buildPageMetadata` throws only if the title contains "Roland Leth" (`metadata.ts:33`);
+   our metaTitle doesn't. `name` still drives the `<h1>` and gallery card — only `<title>` changes.
+6. **`src/app/api/admin/projects/route.ts`** — add `metaTitle` to the destructure (~line 44) and
+   `metaTitle: metaTitle ?? null,` to the create `data` (~line 91). Mirror in the **PUT** handler.
 
-### 6. `src/lib/content/metadata.ts`
-- `PageMetadataInput` (~L3–10): add `keywords?: string[]`
-- `buildPageMetadata` (~L24): destructure `keywords`; add `keywords,` to the returned `Metadata`.
+## Section C — `keywords`: ⬜ TODO (low SEO value, included for completeness)
 
-### 7. `src/app/projects/[slug]/page.tsx` — `generateMetadata` (~L22–38)
-```typescript
-return buildPageMetadata({
-  title: project.metaTitle ?? project.name,   // <-- metaTitle drives <title>
-  description: project.summary,
-  path: `/projects/${project.slug}`,
-  image: resolveOgImage(project),
-  keywords: project.keywords,
-})
-```
-Note: `name` still feeds the `<h1>` and the gallery card — only `<title>` changes. Good (clean H1,
-strong title tag).
+Google ignores the keywords meta tag — keep this lightweight. Same scalar-array plumbing as B:
 
-### 8. `src/components/projects/ProjectContent.tsx` — FAQ render + JSON-LD
-- Destructure `faqs`, `offers` from `project`.
-- **Placement (per Roland):** the visible FAQ goes **below the gallery + section description block,
-  near the end of the content column** — after the `sections` render, before/after the external
-  `links` row. Not under the intro paragraph.
-- Visible FAQ uses native `<details>`/`<summary>` (accessible, no JS, progressively enhanced):
-  ```tsx
-  {faqs?.length > 0 && (
-    <section className="mt-12">
-      <h2 className="mb-6 text-2xl font-bold" style={{ color: accent }}>
-        Frequently asked questions
-      </h2>
-      <div className="space-y-3">
-        {faqs.map((item) => (
-          <details key={item.id} className="rounded-lg border border-(--color-border) px-4 py-3">
-            <summary className="cursor-pointer font-medium text-primary">{item.question}</summary>
-            <p className="text-secondary mt-3 text-sm leading-relaxed">{item.answer}</p>
-          </details>
-        ))}
-      </div>
-    </section>
-  )}
-  ```
-- **`FAQPage` JSON-LD** (emit whenever `faqs.length > 0`):
-  ```tsx
-  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  }) }} />
-  ```
-- **`SoftwareApplication` JSON-LD** (emit only for app buckets — `bucket === "iOS" || bucket === "Mac"`):
-  ```tsx
-  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name,
-    description: summary,
-    applicationCategory: "BusinessApplication",            // accurate for Continuum
-    operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
-    url: `https://roland.leth.ro/projects/${project.slug}`,
-    image: resolveOgImage(project),
-    author: { "@type": "Person", name: "Roland Leth" },
-    ...(offers?.length ? { offers: {
-      "@type": "AggregateOffer",
-      priceCurrency: offers[0].priceCurrency,
-      lowPrice: String(Math.min(...offers.map((o) => Number(o.price)))),   // 12.00
-      highPrice: String(Math.max(...offers.map((o) => Number(o.price)))),  // 249.00
-      offerCount: offers.length,                                            // 3
-    } } : {}),
-  }) }} />
-  ```
-  Do **not** add `aggregateRating` unless there are real reviews — Google penalizes invented rating
-  markup. (If you later generalize `applicationCategory` across non-business apps, add an optional
-  `appCategory` field rather than guessing from bucket.)
+1. **`schema.prisma`** `Project`: `keywords String[] @default([])`
+2. **`schemas.ts`** `projectFields`: `keywords: z.array(z.string().min(1).max(50)).max(10).optional(),`
+3. **`import-projects.ts`** `writeProject` data: `keywords: data.keywords ?? [],`
+4. **`projects.ts`** `ProjectDetail`: `keywords: string[]`
+5. **`src/lib/content/metadata.ts`**:
+   - add `keywords?: string[]` to `PageMetadataInput` (~line 9)
+   - destructure `keywords` (line 25) and add `keywords,` to the returned `Metadata` (~line 46)
+6. **`page.tsx`** `generateMetadata`: pass `keywords: project.keywords,`
+7. **Admin POST/PUT**: destructure + `keywords: keywords ?? [],` in create data.
 
-### 9–10. Admin API routes
-- `src/app/api/admin/projects/route.ts` (POST): destructure `metaTitle, keywords, offers, faq` from
-  `parsed`; add `metaTitle: metaTitle ?? null`, `keywords: keywords ?? []`, `offers: offers ?? null`,
-  `faqs: toFaqCreate(faq)` to the `create` data; import `toFaqCreate`.
-- `src/app/api/admin/projects/[id]/route.ts` (PUT): `metaTitle/keywords/offers` ride through `rest`
-  (schema is `.partial()`); extract `faq` and, inside the transaction, mirror the section/link
-  delete-then-recreate:
-  ```typescript
-  if (faq != null) {
-    await tx.projectFaq.deleteMany({ where: { projectId: id } })
-    if (faq.length > 0) await tx.projectFaq.createMany({ data: toFaqCreate(faq)?.create ?? [] })
+## Section D — `offers` (JSON column, feeds SoftwareApplication pricing): ⬜ TODO
+
+1. **`schema.prisma`** `Project`: `offers Json?`
+2. **`schemas.ts`** `projectFields`:
+   ```typescript
+   offers: z
+     .array(
+       z.object({
+         name: z.string().min(1).max(60),
+         price: z.string().min(1).max(20),
+         priceCurrency: z.string().length(3),
+         billingPeriod: z.string().max(10).optional(),
+         sortOrder: z.number().int().min(0).optional(),
+       })
+     )
+     .optional(),
+   ```
+3. **`import-projects.ts`** `writeProject` data:
+   ```typescript
+   offers: data.offers ?? Prisma.JsonNull,   // Json column null needs Prisma.JsonNull, not null
+   ```
+   (Import `Prisma` from the generated client — `scripts/import-projects.ts` already imports
+   `PrismaClient`; add the `Prisma` namespace.)
+4. **`projects.ts`** `ProjectDetail` — Prisma returns `Json?` as `JsonValue`, so type + narrow:
+   ```typescript
+   offers:
+     | { name: string; price: string; priceCurrency: string; billingPeriod?: string; sortOrder?: number }[]
+     | null
+   ```
+   In whatever maps the row → `ProjectDetail`, cast the `offers` column
+   (`row.offers as ProjectDetail["offers"]`). If the row already spreads through verbatim, just keep
+   the type; only add a cast if `tsc` complains about `JsonValue`.
+5. Consumed only by the SoftwareApplication JSON-LD (Section E).
+6. **Admin POST/PUT**: destructure + `offers: offers ?? Prisma.JsonNull,` in create data.
+
+## Section E — JSON-LD (FAQPage + SoftwareApplication): ⬜ TODO
+
+Inject **server-side** in `page.tsx` (not the client `ProjectContent`) — render a fragment with the
+`<script>` tags before `<ProjectContent>`:
+
+```tsx
+export default async function ProjectPage({ params }: Props) {
+  // ...existing loadProject + renderedDescriptions + renderedFaqAnswers...
+
+  const jsonLd: object[] = []
+
+  if (project.faqs.length > 0) {
+    jsonLd.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: project.faqs.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer }, // raw markdown answer; plain prose
+      })),
+    })
   }
-  ```
+
+  if (project.bucket === "iOS" || project.bucket === "Mac") {
+    const prices = (project.offers ?? []).map((o) => Number(o.price))
+    jsonLd.push({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: project.name,
+      description: project.summary,
+      applicationCategory: "BusinessApplication", // accurate for Continuum
+      operatingSystem: project.bucket === "iOS" ? "iOS" : "macOS",
+      url: `https://roland.leth.ro/projects/${project.slug}`,
+      image: resolveOgImage(project),
+      author: { "@type": "Person", name: "Roland Leth" },
+      ...(prices.length
+        ? {
+            offers: {
+              "@type": "AggregateOffer",
+              priceCurrency: project.offers![0].priceCurrency,
+              lowPrice: String(Math.min(...prices)),  // 12
+              highPrice: String(Math.max(...prices)), // 249
+              offerCount: prices.length,              // 3
+            },
+          }
+        : {}),
+    })
+  }
+
+  return (
+    <>
+      {jsonLd.map((schema, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <ProjectContent
+        project={project}
+        renderedDescriptions={renderedDescriptions}
+        renderedFaqAnswers={renderedFaqAnswers}
+      />
+    </>
+  )
+}
+```
+
+Notes:
+- **No `aggregateRating`** unless you have real reviews — Google penalizes invented rating markup.
+- `SoftwareApplication` emits only for `iOS`/`Mac` buckets, so Web/OSS projects aren't mislabeled.
+- FAQ answers are Markdown; using the raw `f.answer` string is fine (it's plain prose). If any answer
+  ever gains heavy Markdown, strip it to text before putting it in `acceptedAnswer.text`.
 
 ---
 
-## Run + verify
+## Section F — ⚠️ CRITICAL: sync the manifest, then migrate + import
 
-```bash
-yarn prisma migrate dev --name add_project_seo_fields
-yarn db:import-projects          # re-import so Continuum's new fields land in the DB
-yarn tsc --noEmit                # or the repo's typecheck script
-yarn build                       # confirm the page renders
-```
+**There are two manifests, and the importer reads the wrong one for our purposes:**
+
+- **Authoring source (already updated this session):**
+  `~/_Work/projects/Continuum/marketing/landing-page/project.json` — has the new keyword-bearing
+  `summary`, the threaded section copy, and the new `metaTitle` / `keywords` / `offers` / `faq`.
+- **What `yarn db:import-projects` actually reads:**
+  `roland.leth.ro/scripts/imports/continuum/project.json` — verified **STALE** (still the old
+  keyword-free summary, none of the new fields).
+
+The importer scans `scripts/imports/<name>/project.json` (`scripts/import-projects.ts` →
+`IMPORTS_DIR`), delete-then-creates by slug, and validates with `projectCreateSchema.parse` (no
+`.strict()`, so unknown keys are silently dropped — which is why the schema edits in B–D must land
+*before* the import, or the new fields vanish).
+
+**Order of operations:**
+1. Land all code edits (Sections B–E) **first** — especially the zod fields, or the import strips
+   `metaTitle`/`keywords`/`offers`.
+2. **Sync the manifest + images** into `scripts/imports/continuum/`. Prefer the
+   **`app-copy-to-project` skill** (it stages the manifest *and* the image files the way the importer
+   expects). Manual fallback: copy `Continuum/marketing/landing-page/project.json` →
+   `scripts/imports/continuum/project.json` and ensure the referenced `./*.png` assets are present in
+   that folder.
+3. Migrate, import, verify:
+   ```bash
+   yarn prisma migrate dev --name add_project_seo_fields   # metaTitle, keywords, offers columns
+   yarn db:import-projects                                  # or: yarn db:import-projects continuum
+   yarn tsc --noEmit                                        # or the repo's typecheck script
+   yarn build
+   ```
+
+---
 
 ## Acceptance checklist
 - [ ] `<title>` on `/projects/continuum` = `1:1 & direct-report notes for managers (Mac) | Roland Leth`
-- [ ] `<meta name="description">` = the new keyword-bearing summary (truncates gracefully ~155 chars)
-- [ ] `<meta name="keywords">` present (low SEO value, harmless)
-- [ ] Visible FAQ renders below the gallery/description block; `<details>` expand/collapse works
-- [ ] Page H1 still reads just **"Continuum"**; gallery card label unchanged
-- [ ] `FAQPage` + `SoftwareApplication` JSON-LD validate in the
-      [Rich Results Test](https://search.google.com/test/rich-results) — `AggregateOffer` shows
-      low 12.00 / high 249.00 / count 3, `operatingSystem: macOS`
-- [ ] Non-app projects (Web/OpenSource buckets) emit **no** `SoftwareApplication` block
+- [ ] `<meta name="description">` = the new keyword-bearing summary (Mac, managers, notes, 1:1 in first ~155 chars)
+- [ ] Page `<h1>` still reads just **"Continuum"**; gallery card label unchanged
+- [ ] FAQ still renders last on the page (it already does) and now also emits `FAQPage` JSON-LD
+- [ ] `FAQPage` + `SoftwareApplication` validate in the [Rich Results Test](https://search.google.com/test/rich-results) — `AggregateOffer` low 12 / high 249 / count 3, `operatingSystem: macOS`
+- [ ] Non-app (Web/OpenSource) projects emit **no** `SoftwareApplication` block
+- [ ] Imported summary in the DB is the new one (confirms the manifest sync worked)
+
+## Open items to verify (don't assume)
+- [ ] Admin **PUT** (`api/admin/projects/[id]/route.ts`) threads `metaTitle`/`keywords`/`offers` (and
+      already threads `faqs`) — confirm it mirrors the POST handler.
+- [ ] `scripts/imports/continuum/project.json` ends up identical to the authored marketing manifest
+      after the sync (diff them).
 
 ## Optional AI-SEO follow-ons (separate, low-effort)
 - **robots.txt** — confirm AI crawlers aren't blocked: `GPTBot`, `ChatGPT-User`, `PerplexityBot`,
   `ClaudeBot`, `Google-Extended`, `Bingbot`. Next.js default allows all; if you add `src/app/robots.ts`,
-  keep them allowed and reference the sitemap. Blocking any of them = that engine can't cite you.
-- **`/llms.txt`** at the site root — short plain-language overview of the site + a one-line entry per
-  project (incl. Continuum's positioning) so AI systems get clean context. See llmstxt.org.
+  keep them allowed and reference the sitemap.
+- **`/llms.txt`** at the site root — short plain-language site overview + one line per project so AI
+  systems get clean context. See llmstxt.org.
