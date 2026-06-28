@@ -55,6 +55,13 @@ model Project {
   slug           String           @unique
   summary        String
   icon           String?
+  // `cardImage` is the list/gallery card image; `ogImage` is the social/OG
+  // meta image. They cross-fall-back (see `resolveCardImage` / `resolveOgImage`):
+  // card = `cardImage ?? ogImage ?? heroImage ?? first section image`, OG =
+  // `ogImage ?? cardImage ?? heroImage ?? first section image`. `heroImage` is
+  // the detail-page hero only and is no longer part of either fallback chain.
+  cardImage      String?
+  ogImage        String?
   heroImage      String?
   // `bucket` is the editorial home (drives gallery placement + compact list
   // label); `platformTags` is the honest stack (rendered on the detail page).

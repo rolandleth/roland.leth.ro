@@ -27,7 +27,7 @@ function makeProject(
 		isDiscontinued: false,
 		sortOrder: 0,
 		icon: "/icon.png",
-		heroImage: null,
+		featuredImage: null,
 		...overrides,
 	}
 }

@@ -22,7 +22,7 @@ export default function FeaturedProjectCard({
 		slug,
 		summary,
 		icon,
-		heroImage,
+		featuredImage,
 		bucket,
 		platformTags,
 		role,
@@ -44,11 +44,11 @@ export default function FeaturedProjectCard({
 				href={href}
 				className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-(--color-border) bg-(--color-background)"
 			>
-				{/* Hero image */}
+				{/* Card image: cardImage ?? ogImage ?? hero ?? first section image (resolved upstream). */}
 				<div className="relative aspect-video overflow-hidden bg-(--color-border)">
-					{heroImage ? (
+					{featuredImage ? (
 						<Image
-							src={heroImage}
+							src={featuredImage}
 							alt={`${name} screenshot`}
 							fill
 							priority={isPriority}

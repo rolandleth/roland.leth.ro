@@ -12,6 +12,8 @@ here are a guide, not a substitute.
 | `slug` | Derived from name, or set explicitly | Lowercase, hyphenated. Set it explicitly for stability (URLs depend on it). |
 | `summary` | `copy/web/landing-page.md` hero / first paragraph | ≤ 300. One tight, specific sentence. Strip marketing filler. |
 | `icon` | App icon image (see asset note) | Local path (e.g. `./icon.png`) or `null`. For an Xcode app, pull the largest PNG from `<app-repo>/**/Assets.xcassets/AppIcon.appiconset/`; otherwise ask the user for its location. |
+| `cardImage` | Card image | Local path or `null`. The gallery/list card. Card resolution is `cardImage ?? ogImage ?? heroImage ?? first section image` (`resolveCardImage`). Prefer a dedicated card asset; if none, an OG image (landscape, ~1200×630) reads well as a tile. Leave `null` rather than forcing a portrait screenshot in. |
+| `ogImage` | OG / social-share image | Local path or `null`. The project page's social/OG card, resolving `ogImage ?? cardImage ?? heroImage ?? first section image`. Stage a dedicated OG asset (~1200×630, landscape) when one exists; otherwise leave `null` and let it fall back to `cardImage`. Don't duplicate the same file into both `cardImage` and `ogImage` — fill one and let the other fall back. |
 | `heroImage` | Hero / banner image | Local path or `null`. Optional — omit if there's no good asset. |
 | `bucket` | **Ask the user** | One of `PlatformBucket` (iOS / Mac / Web / OpenSource). Editorial home; drives gallery grouping. |
 | `platformTags` | **Ask the user** | 1–8 of `PlatformTag`, deduped, **valid for the bucket** (coherence rule below). The honest stack. |

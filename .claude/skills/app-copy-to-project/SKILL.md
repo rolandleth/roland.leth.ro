@@ -45,7 +45,10 @@ manifest must satisfy it; guessing field names or limits from memory is how you 
 that fails validation at the end.
 
 - `prisma/schema.prisma` — the `Project`, `ProjectSection`, `ProjectSectionImage`, `ProjectLink`
-  models and the `PlatformBucket` / `PlatformTag` enums (the only valid values).
+  models and the `PlatformBucket` / `PlatformTag` enums (the only valid values). Note the image
+  fields `Project` exposes — `icon`, `cardImage`, `ogImage`, and `heroImage`. `cardImage` and
+  `ogImage` are separate slots (the gallery card vs. the OG/social card); see Step 1 for how to
+  fill them.
 - `src/lib/api/schemas.ts` — `projectCreateSchema`: the field limits and the **bucket↔tag
   coherence rule** (`platformTags` must be valid for the chosen `bucket`; check
   `BUCKET_SUGGESTED_TAGS` in `src/lib/utils/platforms.ts`).
@@ -66,6 +69,8 @@ In the app's `marketing/` folder, the load-bearing files are usually:
 | `copy/stores/app-store-*.md` | feature framing, tagline, fallback section material |
 | `screenshots/<set>/` + its caption file (`copy.md` / `landing-copy.md`) | `sections[].images` + captions |
 | icon / hero source image | `icon`, `heroImage` |
+| card image | `cardImage` |
+| OG / social-share image | `ogImage` |
 
 Folder layouts vary per app — list the folder and adapt. See `references/field-mapping.md` for the
 full field-by-field mapping and judgment notes.
@@ -82,6 +87,32 @@ so list the folder and pick, don't assume a fixed name:
   gallery hero. When only a portrait set exists, set `heroImage` explicitly (to a landscape asset if
   one exists) or accept that the auto-hero (the import defaults it to the first section image) will
   be a cropped portrait.
+
+### Sourcing the card image and OG image
+
+`cardImage` is the gallery/list card image; `ogImage` is the project page's OG/social-share image.
+Keep them as **separate** assets when the marketing folder has both — a small card crop and a
+1200×630 social card aren't always the same image. The card resolves
+`cardImage ?? ogImage ?? heroImage ?? first section image` (`resolveCardImage`); OG metadata resolves
+`ogImage ?? cardImage ?? heroImage ?? first section image` (`resolveOgImage`).
+
+List the marketing folder and identify the two asset kinds:
+
+- **Card image** — e.g. `card.*`, `*-card.*`, `social/*` (the gallery tile).
+- **OG / social-share image** — e.g. `og.*`, `og-image.*`, `*-og.*`, often ~1200×630.
+
+Then map them by what you found:
+
+| What's in the folder | Mapping |
+|---|---|
+| Both a card image and an OG | `cardImage` = card, `ogImage` = OG (kept separate) |
+| Only a card image | `cardImage` = card, `ogImage` = `null` (OG falls back to it) |
+| Only an OG | `cardImage` = OG (landscape, reads well as a tile), `ogImage` = `null` |
+| Neither | both `null` — card falls back to `heroImage` / first section |
+
+Don't stage the same file into two fields: when only one asset exists, fill `cardImage` and leave
+`ogImage` null — the metadata fallback chain covers OG. And don't substitute a portrait screenshot
+just to fill a slot — it crops badly in the landscape card.
 
 ### Sourcing the icon and accent (often missing from `marketing/`)
 
@@ -130,6 +161,8 @@ Create `scripts/imports/<slug>/` and **copy** (never move) the chosen images fro
 folder into it. The marketing repo is the source of truth — don't mutate it.
 
 - Use clear names; subfolders are fine (e.g. `sections/timeline/1.png`).
+- Stage the `cardImage`, and the `ogImage` when you have a separate OG asset, here too — copying them
+  in like any other asset (e.g. `./card.png`, `./og.png`).
 - Set each manifest image field to the **local relative path** (e.g. `./icon.png`,
   `./sections/timeline/1.png`).
 - Already-hosted `https` URLs may be used as-is and are left untouched by the script.

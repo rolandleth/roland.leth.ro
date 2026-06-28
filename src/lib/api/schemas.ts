@@ -184,6 +184,8 @@ const projectFields = {
 	role: z.string().max(80).nullable().optional(),
 	accentColor: hexColor.nullable().optional(),
 	icon: httpUrl.nullable().optional(),
+	cardImage: httpUrl.nullable().optional(),
+	ogImage: httpUrl.nullable().optional(),
 	heroImage: httpUrl.nullable().optional(),
 	isFeatured: z.boolean().optional(),
 	isDiscontinued: z.boolean().optional(),

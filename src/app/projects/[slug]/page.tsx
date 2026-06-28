@@ -2,7 +2,11 @@ import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
-import { getProjectsGalleryCached, loadProject } from "@/lib/db/projects"
+import {
+	getProjectsGalleryCached,
+	loadProject,
+	resolveOgImage,
+} from "@/lib/db/projects"
 import type { Metadata } from "next"
 
 interface Props {
@@ -27,7 +31,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: project.name,
 		description: project.summary,
 		path: `/projects/${project.slug}`,
-		image: project.heroImage,
+		// Prefer the purpose-built OG asset, then the card image, hero, and first
+		// section image (see `resolveOgImage`).
+		image: resolveOgImage(project),
 	})
 }
 

@@ -35,6 +35,8 @@ const existingProject = {
 	platformTags: [PlatformTag.iOS],
 	role: null,
 	icon: null,
+	cardImage: null,
+	ogImage: null,
 	heroImage: null,
 	accentColor: null,
 	isFeatured: false,

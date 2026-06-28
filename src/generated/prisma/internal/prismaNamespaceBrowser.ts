@@ -98,6 +98,8 @@ export const ProjectScalarFieldEnum = {
   slug: 'slug',
   summary: 'summary',
   icon: 'icon',
+  cardImage: 'cardImage',
+  ogImage: 'ogImage',
   heroImage: 'heroImage',
   bucket: 'bucket',
   platformTags: 'platformTags',

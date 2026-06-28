@@ -198,10 +198,12 @@ describe("syntheticBlobUrl", () => {
 // #region listManifestImagePaths
 
 describe("listManifestImagePaths", () => {
-	it("collects icon, hero, and section image local refs in order", () => {
+	it("collects icon, cardImage, ogImage, hero, and section image local refs in order", () => {
 		const manifest: ProjectManifest = {
 			name: "Reckon",
 			icon: "./icon.png",
+			cardImage: "./card.png",
+			ogImage: "./og.png",
 			heroImage: "./hero.png",
 			sections: [
 				{ title: "A", description: "a", images: [{ url: "./a1.png" }] },
@@ -210,6 +212,8 @@ describe("listManifestImagePaths", () => {
 		}
 		expect(listManifestImagePaths(manifest)).toEqual([
 			"./icon.png",
+			"./card.png",
+			"./og.png",
 			"./hero.png",
 			"./a1.png",
 			"./b1.png",
@@ -256,6 +260,8 @@ describe("resolveManifestImageRefs", () => {
 		const manifest: ProjectManifest = {
 			name: "Reckon",
 			icon: "./icon.png",
+			cardImage: "./card.png",
+			ogImage: "./og.png",
 			heroImage: null,
 			sections: [
 				{
@@ -276,6 +282,8 @@ describe("resolveManifestImageRefs", () => {
 		)
 
 		expect(resolved.icon).toBe("https://blob/icon.png")
+		expect(resolved.cardImage).toBe("https://blob/card.png")
+		expect(resolved.ogImage).toBe("https://blob/og.png")
 		expect(resolved.heroImage).toBeNull()
 		expect(resolved.sections?.[0].images?.[0]).toEqual({
 			url: "https://blob/a1.png",

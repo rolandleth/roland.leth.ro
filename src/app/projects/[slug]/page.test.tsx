@@ -3,7 +3,10 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
-vi.mock("@/lib/db/projects", () => ({
+vi.mock("@/lib/db/projects", async (importOriginal) => ({
+	// Keep the real `resolveFeaturedImage` so the OG-image assertions exercise
+	// the actual precedence; only the DB readers are faked.
+	...(await importOriginal<typeof import("@/lib/db/projects")>()),
 	getProjectsGalleryCached: vi.fn().mockResolvedValue([]),
 	loadProject: vi.fn(),
 }))
@@ -37,6 +40,8 @@ const existingProject = {
 	platformTags: [PlatformTag.iOS],
 	role: null,
 	icon: null,
+	cardImage: null,
+	ogImage: null,
 	heroImage: null,
 	accentColor: null,
 	isFeatured: false,
@@ -77,5 +82,27 @@ describe("generateMetadata", () => {
 		vi.mocked(loadProject).mockResolvedValue(existingProject)
 		const result = await generateMetadata(paramsFor("my-app"))
 		expect(result.title).toBe("My App")
+	})
+
+	it("uses the ogImage for OG, preferring it over the cardImage", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			ogImage: "/og.png",
+			cardImage: "/card.png",
+			heroImage: "/hero.png",
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.openGraph?.images).toEqual(["/og.png"])
+	})
+
+	it("falls back to the cardImage for OG when no ogImage is set", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			ogImage: null,
+			cardImage: "/card.png",
+			heroImage: "/hero.png",
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.openGraph?.images).toEqual(["/card.png"])
 	})
 })

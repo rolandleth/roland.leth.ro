@@ -22,6 +22,8 @@ interface InitialData {
 	role: string | null
 	accentColor: string | null
 	icon: string | null
+	cardImage: string | null
+	ogImage: string | null
 	heroImage: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
@@ -46,6 +48,8 @@ interface ProjectPayload {
 	role: string | null
 	accentColor: string | null
 	icon: string | null
+	cardImage: string | null
+	ogImage: string | null
 	heroImage: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
@@ -79,6 +83,8 @@ interface FormState {
 	accentColor: string
 	summary: string
 	icon: string
+	cardImage: string
+	ogImage: string
 	heroImage: string
 	isFeatured: boolean
 	isDiscontinued: boolean
@@ -118,6 +124,8 @@ export default function ProjectForm({ initialData }: Props) {
 		accentColor: initialData?.accentColor ?? "",
 		summary: initialData?.summary ?? "",
 		icon: initialData?.icon ?? "",
+		cardImage: initialData?.cardImage ?? "",
+		ogImage: initialData?.ogImage ?? "",
 		heroImage: initialData?.heroImage ?? "",
 		isFeatured: initialData?.isFeatured ?? false,
 		isDiscontinued: initialData?.isDiscontinued ?? false,
@@ -195,6 +203,8 @@ export default function ProjectForm({ initialData }: Props) {
 			role: state.role || null,
 			accentColor: state.accentColor || null,
 			icon: state.icon || null,
+			cardImage: state.cardImage || null,
+			ogImage: state.ogImage || null,
 			heroImage: state.heroImage || null,
 			isFeatured: state.isFeatured,
 			isDiscontinued: state.isDiscontinued,
@@ -344,6 +354,16 @@ export default function ProjectForm({ initialData }: Props) {
 				value={state.icon}
 				onChange={(v) => setField("icon", v)}
 				label="Icon URL"
+			/>
+			<ImageUpload
+				value={state.cardImage}
+				onChange={(v) => setField("cardImage", v)}
+				label="Card image URL"
+			/>
+			<ImageUpload
+				value={state.ogImage}
+				onChange={(v) => setField("ogImage", v)}
+				label="OG / social image URL"
 			/>
 			<ImageUpload
 				value={state.heroImage}

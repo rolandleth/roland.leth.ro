@@ -3,7 +3,7 @@
 // imperative shell that reads files, uploads to Blob, and writes to the DB.
 //
 // A manifest mirrors the `projectCreateSchema` shape, except image fields
-// (`icon`, `heroImage`, every `sections[].images[].url`) hold a LOCAL path
+// (`icon`, `cardImage`, `ogImage`, `heroImage`, every `sections[].images[].url`) hold a LOCAL path
 // relative to the manifest's folder. The script uploads each local image, then
 // rewrites these refs to the resulting Blob URLs before validating against
 // `projectCreateSchema`. Refs that are already `http(s)` URLs pass through
@@ -51,6 +51,8 @@ export type ProjectManifest = {
 	slug?: string | null
 	summary?: string
 	icon?: string | null
+	cardImage?: string | null
+	ogImage?: string | null
 	heroImage?: string | null
 	bucket?: string
 	platformTags?: string[]
@@ -219,6 +221,8 @@ export function listManifestImagePaths(manifest: ProjectManifest): string[] {
 	}
 
 	add(manifest.icon)
+	add(manifest.cardImage)
+	add(manifest.ogImage)
 	add(manifest.heroImage)
 
 	for (const section of manifest.sections ?? []) {
@@ -248,6 +252,8 @@ export function resolveManifestImageRefs(
 	return {
 		...manifest,
 		icon: mapRef(manifest.icon),
+		cardImage: mapRef(manifest.cardImage),
+		ogImage: mapRef(manifest.ogImage),
 		heroImage: mapRef(manifest.heroImage),
 		sections: manifest.sections?.map((section) => ({
 			...section,

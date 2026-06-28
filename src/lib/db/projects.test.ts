@@ -53,6 +53,32 @@ beforeEach(() => {
 	vi.resetAllMocks()
 })
 
+/**
+ * Builds a row in the `gallerySelect` shape (project scalars plus the trimmed
+ * `sections[].images[]` the first-image fallback reads). Only the image-related
+ * fields vary per test; the rest come from `makeProjectListItem`.
+ */
+function makeGalleryRow(overrides: {
+	id?: number
+	cardImage: string | null
+	ogImage: string | null
+	heroImage: string | null
+	sections: { images: { url: string }[] }[]
+}) {
+	const { id, cardImage, ogImage, heroImage, sections } = overrides
+
+	return {
+		...makeProjectListItem({ id }),
+		summary: "s",
+		role: null,
+		accentColor: null,
+		cardImage,
+		ogImage,
+		heroImage,
+		sections,
+	}
+}
+
 // #region getAllProjects
 
 describe("getAllProjects", () => {
@@ -116,6 +142,24 @@ describe("getProjectsGalleryCached", () => {
 			})
 		)
 	})
+
+	it("selects the image fields the featuredImage fallback depends on", async () => {
+		// `toGalleryItem` resolves `cardImage ?? heroImage ?? first section image`.
+		// Dropping any of these from `gallerySelect` would silently strand the
+		// fallback (mock tests can't catch it since the mock ignores `select`).
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await getProjectsGalleryCached()
+
+		const args = vi.mocked(prisma.project.findMany).mock.calls[0][0]
+		expect(args?.select).toMatchObject({
+			cardImage: true,
+			ogImage: true,
+			heroImage: true,
+			sections: { select: { images: expect.objectContaining({ take: 1 }) } },
+		})
+	})
 })
 
 describe("getProjectsForAdmin", () => {
@@ -130,6 +174,63 @@ describe("getProjectsForAdmin", () => {
 				orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
 			})
 		)
+	})
+
+	it("resolves featuredImage as cardImage → ogImage → hero → first section image", async () => {
+		// One row per precedence rung plus the empty-leading-section case, so the
+		// `cardImage ?? ogImage ?? heroImage ?? firstImage` collapse in
+		// `resolveCardImage` is pinned against silent reordering or a dropped rung.
+		const rows = [
+			makeGalleryRow({
+				id: 1,
+				cardImage: "/card.png",
+				ogImage: "/og.png",
+				heroImage: "/hero.png",
+				sections: [{ images: [{ url: "/first.png" }] }],
+			}),
+			makeGalleryRow({
+				id: 2,
+				cardImage: null,
+				ogImage: "/og.png",
+				heroImage: "/hero.png",
+				sections: [{ images: [{ url: "/first.png" }] }],
+			}),
+			makeGalleryRow({
+				id: 3,
+				cardImage: null,
+				ogImage: null,
+				heroImage: "/hero.png",
+				sections: [{ images: [{ url: "/first.png" }] }],
+			}),
+			makeGalleryRow({
+				id: 4,
+				cardImage: null,
+				ogImage: null,
+				heroImage: null,
+				// First section has no images: the fallback skips it and lands on
+				// the next section's first image.
+				sections: [{ images: [] }, { images: [{ url: "/second.png" }] }],
+			}),
+			makeGalleryRow({
+				id: 5,
+				cardImage: null,
+				ogImage: null,
+				heroImage: null,
+				sections: [],
+			}),
+		]
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			rows as unknown as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+
+		const result = await getProjectsForAdmin()
+		expect(result.map((p) => p.featuredImage)).toEqual([
+			"/card.png",
+			"/og.png",
+			"/hero.png",
+			"/second.png",
+			null,
+		])
 	})
 
 	it("is not wrapped in unstable_cache (admin reads must bypass the cache)", () => {
@@ -243,6 +344,8 @@ describe("getProjectBySlug", () => {
 	const fullProject = {
 		...makeProjectListItem(),
 		summary: "An iOS app.",
+		cardImage: null,
+		ogImage: null,
 		heroImage: null,
 		role: null,
 		accentColor: null,
@@ -281,6 +384,8 @@ describe("loadProject", () => {
 		const project = {
 			...makeProjectListItem(),
 			summary: "s",
+			cardImage: null,
+			ogImage: null,
 			heroImage: null,
 			role: null,
 			accentColor: null,
@@ -339,6 +444,8 @@ describe("toProjectFormInitialData", () => {
 			role: null,
 			accentColor: null,
 			icon: null,
+			cardImage: null,
+			ogImage: null,
 			heroImage: null,
 			isFeatured: false,
 			isDiscontinued: false,

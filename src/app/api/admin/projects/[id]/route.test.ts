@@ -50,6 +50,8 @@ const existingProject = {
 	role: null,
 	accentColor: null,
 	icon: null,
+	cardImage: null,
+	ogImage: null,
 	heroImage: null,
 	isFeatured: false,
 	isDiscontinued: false,

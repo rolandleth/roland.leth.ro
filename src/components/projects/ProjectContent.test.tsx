@@ -52,6 +52,8 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		slug: "test",
 		summary: "A test project.",
 		icon: null,
+		cardImage: null,
+		ogImage: null,
 		heroImage: null,
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],

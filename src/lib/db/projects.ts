@@ -1,5 +1,6 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
+import { Prisma } from "@/generated/prisma/client"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { prisma } from "@/lib/db/db"
@@ -19,7 +20,13 @@ export interface ProjectListItem {
 
 export interface ProjectGalleryItem extends ProjectListItem {
 	summary: string
-	heroImage: string | null
+	/**
+	 * Resolved card image for list/gallery surfaces: `cardImage ?? ogImage ??
+	 * heroImage ?? first section image` (see `resolveCardImage`). Computed by
+	 * `toGalleryItem` so every gallery surface shares one precedence rule. The
+	 * raw image columns stay on `ProjectDetail` for the detail page.
+	 */
+	featuredImage: string | null
 	accentColor: string | null
 	role: string | null
 }
@@ -30,6 +37,8 @@ export interface ProjectDetail {
 	slug: string
 	summary: string
 	icon: string | null
+	cardImage: string | null
+	ogImage: string | null
 	heroImage: string | null
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
@@ -77,23 +86,118 @@ const gallerySelect = {
 	isDiscontinued: true,
 	sortOrder: true,
 	icon: true,
+	cardImage: true,
+	ogImage: true,
 	heroImage: true,
+	// Only the first image of each section (in sortOrder) — enough to resolve the
+	// `firstImage` fallback in `resolveCardImage` without loading entire galleries.
+	sections: {
+		orderBy: { sortOrder: "asc" as const },
+		select: {
+			images: {
+				orderBy: { sortOrder: "asc" as const },
+				take: 1,
+				select: { url: true },
+			},
+		},
+	},
 } as const
+
+/** Raw row shape returned by a `gallerySelect` query, before resolution. */
+type GalleryRow = Prisma.ProjectGetPayload<{ select: typeof gallerySelect }>
+
+/**
+ * First image of the first section that has one, in document order. Each
+ * section contributes at most its first image (the gallery query takes 1;
+ * detail rows are full but we only read the head), so empty leading sections
+ * contribute nothing. `sections` must be ordered (sortOrder) for this to be
+ * meaningful.
+ */
+function firstSectionImage(
+	sections: { images: { url: string }[] }[]
+): string | undefined {
+	return sections.flatMap((section) => section.images)[0]?.url
+}
+
+/**
+ * The list/gallery card image: `cardImage ?? ogImage ?? heroImage ?? first
+ * section image`. The dedicated card image wins; the OG image and hero are
+ * progressively weaker stand-ins before the first screenshot.
+ */
+export function resolveCardImage(project: {
+	cardImage: string | null
+	ogImage: string | null
+	heroImage: string | null
+	sections: { images: { url: string }[] }[]
+}): string | null {
+	return (
+		project.cardImage ??
+		project.ogImage ??
+		project.heroImage ??
+		firstSectionImage(project.sections) ??
+		null
+	)
+}
+
+/**
+ * The social/OG meta image: `ogImage ?? cardImage ?? heroImage ?? first section
+ * image`. Mirrors `resolveCardImage` but prefers the purpose-built OG asset —
+ * a 1200×630 social card and a small gallery tile aren't always the same image.
+ */
+export function resolveOgImage(project: {
+	ogImage: string | null
+	cardImage: string | null
+	heroImage: string | null
+	sections: { images: { url: string }[] }[]
+}): string | null {
+	return (
+		project.ogImage ??
+		project.cardImage ??
+		project.heroImage ??
+		firstSectionImage(project.sections) ??
+		null
+	)
+}
+
+/**
+ * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
+ * image precedence into a single `featuredImage` and dropping the raw image
+ * columns the list surfaces don't render.
+ */
+function toGalleryItem({
+	cardImage,
+	ogImage,
+	heroImage,
+	sections,
+	...rest
+}: GalleryRow): ProjectGalleryItem {
+	return {
+		...rest,
+		featuredImage: resolveCardImage({
+			cardImage,
+			ogImage,
+			heroImage,
+			sections,
+		}),
+	}
+}
 
 /**
  * Cached fetcher for the public projects gallery (discontinued projects sorted last).
  * Tagged with `projects` so any project mutation busts this cache.
  */
 const projectsGalleryCache = unstable_cache(
-	() =>
-		prisma.project.findMany({
-			select: gallerySelect,
-			orderBy: [
-				{ isDiscontinued: "asc" },
-				{ sortOrder: "asc" },
-				{ name: "asc" },
-			],
-		}),
+	async () =>
+		(
+			await prisma.project.findMany({
+				select: gallerySelect,
+				orderBy: [
+					{ isDiscontinued: "asc" },
+					{ sortOrder: "asc" },
+					{ name: "asc" },
+				],
+			})
+		).map(toGalleryItem),
 	["projects-gallery"],
 	{ tags: ["projects"] }
 )
@@ -114,10 +218,12 @@ export async function getProjectsGalleryCached(): Promise<
  * slot rather than being pushed to the end.
  */
 export async function getProjectsForAdmin(): Promise<ProjectGalleryItem[]> {
-	return prisma.project.findMany({
+	const projects = await prisma.project.findMany({
 		select: gallerySelect,
 		orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
 	})
+
+	return projects.map(toGalleryItem)
 }
 
 /**
@@ -255,7 +361,7 @@ export async function listProjectsForAdmin({
 	])
 
 	return {
-		projects,
+		projects: projects.map(toGalleryItem),
 		totalCount,
 		totalPages: Math.ceil(totalCount / PAGE_SIZE),
 	}

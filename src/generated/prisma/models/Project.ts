@@ -42,6 +42,8 @@ export type ProjectMinAggregateOutputType = {
   slug: string | null
   summary: string | null
   icon: string | null
+  cardImage: string | null
+  ogImage: string | null
   heroImage: string | null
   bucket: $Enums.PlatformBucket | null
   role: string | null
@@ -60,6 +62,8 @@ export type ProjectMaxAggregateOutputType = {
   slug: string | null
   summary: string | null
   icon: string | null
+  cardImage: string | null
+  ogImage: string | null
   heroImage: string | null
   bucket: $Enums.PlatformBucket | null
   role: string | null
@@ -78,6 +82,8 @@ export type ProjectCountAggregateOutputType = {
   slug: number
   summary: number
   icon: number
+  cardImage: number
+  ogImage: number
   heroImage: number
   bucket: number
   platformTags: number
@@ -109,6 +115,8 @@ export type ProjectMinAggregateInputType = {
   slug?: true
   summary?: true
   icon?: true
+  cardImage?: true
+  ogImage?: true
   heroImage?: true
   bucket?: true
   role?: true
@@ -127,6 +135,8 @@ export type ProjectMaxAggregateInputType = {
   slug?: true
   summary?: true
   icon?: true
+  cardImage?: true
+  ogImage?: true
   heroImage?: true
   bucket?: true
   role?: true
@@ -145,6 +155,8 @@ export type ProjectCountAggregateInputType = {
   slug?: true
   summary?: true
   icon?: true
+  cardImage?: true
+  ogImage?: true
   heroImage?: true
   bucket?: true
   platformTags?: true
@@ -251,6 +263,8 @@ export type ProjectGroupByOutputType = {
   slug: string
   summary: string
   icon: string | null
+  cardImage: string | null
+  ogImage: string | null
   heroImage: string | null
   bucket: $Enums.PlatformBucket
   platformTags: $Enums.PlatformTag[]
@@ -293,6 +307,8 @@ export type ProjectWhereInput = {
   slug?: Prisma.StringFilter<"Project"> | string
   summary?: Prisma.StringFilter<"Project"> | string
   icon?: Prisma.StringNullableFilter<"Project"> | string | null
+  cardImage?: Prisma.StringNullableFilter<"Project"> | string | null
+  ogImage?: Prisma.StringNullableFilter<"Project"> | string | null
   heroImage?: Prisma.StringNullableFilter<"Project"> | string | null
   bucket?: Prisma.EnumPlatformBucketFilter<"Project"> | $Enums.PlatformBucket
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
@@ -314,6 +330,8 @@ export type ProjectOrderByWithRelationInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
+  cardImage?: Prisma.SortOrderInput | Prisma.SortOrder
+  ogImage?: Prisma.SortOrderInput | Prisma.SortOrder
   heroImage?: Prisma.SortOrderInput | Prisma.SortOrder
   bucket?: Prisma.SortOrder
   platformTags?: Prisma.SortOrder
@@ -338,6 +356,8 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Project"> | string
   summary?: Prisma.StringFilter<"Project"> | string
   icon?: Prisma.StringNullableFilter<"Project"> | string | null
+  cardImage?: Prisma.StringNullableFilter<"Project"> | string | null
+  ogImage?: Prisma.StringNullableFilter<"Project"> | string | null
   heroImage?: Prisma.StringNullableFilter<"Project"> | string | null
   bucket?: Prisma.EnumPlatformBucketFilter<"Project"> | $Enums.PlatformBucket
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
@@ -359,6 +379,8 @@ export type ProjectOrderByWithAggregationInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
+  cardImage?: Prisma.SortOrderInput | Prisma.SortOrder
+  ogImage?: Prisma.SortOrderInput | Prisma.SortOrder
   heroImage?: Prisma.SortOrderInput | Prisma.SortOrder
   bucket?: Prisma.SortOrder
   platformTags?: Prisma.SortOrder
@@ -386,6 +408,8 @@ export type ProjectScalarWhereWithAggregatesInput = {
   slug?: Prisma.StringWithAggregatesFilter<"Project"> | string
   summary?: Prisma.StringWithAggregatesFilter<"Project"> | string
   icon?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  cardImage?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  ogImage?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   heroImage?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   bucket?: Prisma.EnumPlatformBucketWithAggregatesFilter<"Project"> | $Enums.PlatformBucket
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
@@ -404,6 +428,8 @@ export type ProjectCreateInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -425,6 +451,8 @@ export type ProjectUncheckedCreateInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -445,6 +473,8 @@ export type ProjectUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -466,6 +496,8 @@ export type ProjectUncheckedUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -487,6 +519,8 @@ export type ProjectCreateManyInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -505,6 +539,8 @@ export type ProjectUpdateManyMutationInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -524,6 +560,8 @@ export type ProjectUncheckedUpdateManyInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -551,6 +589,8 @@ export type ProjectCountOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   icon?: Prisma.SortOrder
+  cardImage?: Prisma.SortOrder
+  ogImage?: Prisma.SortOrder
   heroImage?: Prisma.SortOrder
   bucket?: Prisma.SortOrder
   platformTags?: Prisma.SortOrder
@@ -575,6 +615,8 @@ export type ProjectMaxOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   icon?: Prisma.SortOrder
+  cardImage?: Prisma.SortOrder
+  ogImage?: Prisma.SortOrder
   heroImage?: Prisma.SortOrder
   bucket?: Prisma.SortOrder
   role?: Prisma.SortOrder
@@ -593,6 +635,8 @@ export type ProjectMinOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   icon?: Prisma.SortOrder
+  cardImage?: Prisma.SortOrder
+  ogImage?: Prisma.SortOrder
   heroImage?: Prisma.SortOrder
   bucket?: Prisma.SortOrder
   role?: Prisma.SortOrder
@@ -661,6 +705,8 @@ export type ProjectCreateWithoutSectionsInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -681,6 +727,8 @@ export type ProjectUncheckedCreateWithoutSectionsInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -716,6 +764,8 @@ export type ProjectUpdateWithoutSectionsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -736,6 +786,8 @@ export type ProjectUncheckedUpdateWithoutSectionsInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -755,6 +807,8 @@ export type ProjectCreateWithoutLinksInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -775,6 +829,8 @@ export type ProjectUncheckedCreateWithoutLinksInput = {
   slug: string
   summary: string
   icon?: string | null
+  cardImage?: string | null
+  ogImage?: string | null
   heroImage?: string | null
   bucket: $Enums.PlatformBucket
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
@@ -810,6 +866,8 @@ export type ProjectUpdateWithoutLinksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -830,6 +888,8 @@ export type ProjectUncheckedUpdateWithoutLinksInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   summary?: Prisma.StringFieldUpdateOperationsInput | string
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cardImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ogImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   heroImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   bucket?: Prisma.EnumPlatformBucketFieldUpdateOperationsInput | $Enums.PlatformBucket
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
@@ -890,6 +950,8 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   slug?: boolean
   summary?: boolean
   icon?: boolean
+  cardImage?: boolean
+  ogImage?: boolean
   heroImage?: boolean
   bucket?: boolean
   platformTags?: boolean
@@ -912,6 +974,8 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   slug?: boolean
   summary?: boolean
   icon?: boolean
+  cardImage?: boolean
+  ogImage?: boolean
   heroImage?: boolean
   bucket?: boolean
   platformTags?: boolean
@@ -931,6 +995,8 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   slug?: boolean
   summary?: boolean
   icon?: boolean
+  cardImage?: boolean
+  ogImage?: boolean
   heroImage?: boolean
   bucket?: boolean
   platformTags?: boolean
@@ -950,6 +1016,8 @@ export type ProjectSelectScalar = {
   slug?: boolean
   summary?: boolean
   icon?: boolean
+  cardImage?: boolean
+  ogImage?: boolean
   heroImage?: boolean
   bucket?: boolean
   platformTags?: boolean
@@ -963,7 +1031,7 @@ export type ProjectSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "icon" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sections?: boolean | Prisma.Project$sectionsArgs<ExtArgs>
   links?: boolean | Prisma.Project$linksArgs<ExtArgs>
@@ -984,6 +1052,8 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     slug: string
     summary: string
     icon: string | null
+    cardImage: string | null
+    ogImage: string | null
     heroImage: string | null
     bucket: $Enums.PlatformBucket
     platformTags: $Enums.PlatformTag[]
@@ -1425,6 +1495,8 @@ export interface ProjectFieldRefs {
   readonly slug: Prisma.FieldRef<"Project", 'String'>
   readonly summary: Prisma.FieldRef<"Project", 'String'>
   readonly icon: Prisma.FieldRef<"Project", 'String'>
+  readonly cardImage: Prisma.FieldRef<"Project", 'String'>
+  readonly ogImage: Prisma.FieldRef<"Project", 'String'>
   readonly heroImage: Prisma.FieldRef<"Project", 'String'>
   readonly bucket: Prisma.FieldRef<"Project", 'PlatformBucket'>
   readonly platformTags: Prisma.FieldRef<"Project", 'PlatformTag[]'>

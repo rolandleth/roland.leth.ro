@@ -1,9 +1,11 @@
 {
-	"_comment": "Worked example. Image fields are LOCAL paths relative to this file's folder (scripts/imports/<slug>/); the import script uploads them to Blob and rewrites them to URLs. An already-hosted https URL may be used as-is. Delete this _comment in a real manifest.",
+	"_comment": "Worked example. Image fields are LOCAL paths relative to this file's folder (scripts/imports/<slug>/); the import script uploads them to Blob and rewrites them to URLs. An already-hosted https URL may be used as-is. `cardImage` (gallery card) and `ogImage` (OG/social card) are separate slots — set both when you have distinct assets, or leave `ogImage` null to fall back to `cardImage`. Delete this _comment in a real manifest.",
 	"name": "Tidemark",
 	"slug": "tidemark",
 	"summary": "A macOS menu-bar app that tracks how long you've spent in each app and nudges you when a focus block runs long.",
 	"icon": "./icon.png",
+	"cardImage": "./card.png",
+	"ogImage": "./og.png",
 	"heroImage": "./hero.png",
 	"bucket": "Mac",
 	"platformTags": ["macOS", "MenuBar"],

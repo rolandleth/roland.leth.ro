@@ -219,9 +219,10 @@ async function resolveImageUrls(
 }
 
 /**
- * Collects every image URL the validated project data references — icon, hero,
- * and section images — i.e. the set of blobs that must survive the post-import
- * orphan sweep.
+ * Collects every image URL the validated project data references — icon,
+ * cardImage, ogImage, hero, and section images — i.e. the set of blobs that
+ * must survive the post-import orphan sweep. Omitting one here deletes a
+ * freshly-uploaded blob as "orphaned".
  */
 function referencedImageUrls(
 	data: ReturnType<typeof projectCreateSchema.parse>
@@ -234,6 +235,8 @@ function referencedImageUrls(
 	}
 
 	add(data.icon)
+	add(data.cardImage)
+	add(data.ogImage)
 	add(data.heroImage)
 
 	for (const section of data.sections ?? []) {
@@ -284,6 +287,11 @@ async function writeProject(
 				role: data.role ?? null,
 				accentColor: data.accentColor ?? null,
 				icon: data.icon ?? null,
+				// Card and OG images, stored as authored. The card and OG tag resolve
+				// their fallbacks (`resolveCardImage` / `resolveOgImage`) at render
+				// time, so nothing is baked in here.
+				cardImage: data.cardImage ?? null,
+				ogImage: data.ogImage ?? null,
 				// Fall back to the first section's first image when no hero is set, so a
 				// hero-less project still gets a banner in the gallery instead of an
 				// empty card.

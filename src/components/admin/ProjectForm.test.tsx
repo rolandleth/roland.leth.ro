@@ -122,6 +122,8 @@ const initialData = {
 	role: "Developer",
 	accentColor: "#6366f1",
 	icon: null,
+	cardImage: null,
+	ogImage: null,
 	heroImage: null,
 	isFeatured: true,
 	isDiscontinued: false,
