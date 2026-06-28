@@ -292,11 +292,12 @@ async function writeProject(
 				// time, so nothing is baked in here.
 				cardImage: data.cardImage ?? null,
 				ogImage: data.ogImage ?? null,
-				// Fall back to the first section's first image when no hero is set, so a
-				// hero-less project still gets a banner in the gallery instead of an
-				// empty card.
-				heroImage:
-					data.heroImage ?? data.sections?.[0]?.images?.[0]?.url ?? null,
+				// Stored as authored — no first-image backfill. `heroImage` is the
+				// detail-page hero (used only when a project has no sections), and the
+				// card/OG resolvers (`resolveCardImage` / `resolveOgImage`) already
+				// fall through to the first section image at render time, so a null
+				// hero never yields an empty card.
+				heroImage: data.heroImage ?? null,
 				isFeatured: data.isFeatured ?? false,
 				isDiscontinued: data.isDiscontinued ?? false,
 				date: data.date ?? null,
