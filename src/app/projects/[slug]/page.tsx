@@ -3,6 +3,10 @@ import ProjectContent from "@/components/projects/ProjectContent"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
+	buildFaqJsonLd,
+	buildSoftwareApplicationJsonLd,
+} from "@/lib/content/projectJsonLd"
+import {
 	getProjectsGalleryCached,
 	loadProject,
 	resolveOgImage,
@@ -28,12 +32,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	}
 
 	return buildPageMetadata({
-		title: project.name,
+		// `metaTitle` drives the `<title>` tag when set (keyword-bearing), falling
+		// back to the brand-word `name`. The `<h1>` and gallery card still use `name`.
+		title: project.metaTitle ?? project.name,
 		description: project.summary,
 		path: `/projects/${project.slug}`,
 		// Prefer the purpose-built OG asset, then the card image, hero, and first
 		// section image (see `resolveOgImage`).
 		image: resolveOgImage(project),
+		keywords: project.keywords,
 	})
 }
 
@@ -60,11 +67,37 @@ export default async function ProjectPage({ params }: Props) {
 		))
 	)
 
+	// Structured data for search + AI answer engines. Built server-side (not in
+	// the client `ProjectContent`) so the JSON-LD is always in the SSR HTML.
+	// `buildFaqJsonLd` returns null when there are no FAQs; the SoftwareApplication
+	// block only renders for app buckets (iOS/Mac).
+	const faqJsonLd = buildFaqJsonLd(project.faqs)
+	const softwareJsonLd = buildSoftwareApplicationJsonLd(
+		project,
+		resolveOgImage(project)
+	)
+
 	return (
-		<ProjectContent
-			project={project}
-			renderedDescriptions={renderedDescriptions}
-			renderedFaqAnswers={renderedFaqAnswers}
-		/>
+		<>
+			{faqJsonLd && (
+				<script
+					type="application/ld+json"
+					dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+				/>
+			)}
+
+			{softwareJsonLd && (
+				<script
+					type="application/ld+json"
+					dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+				/>
+			)}
+
+			<ProjectContent
+				project={project}
+				renderedDescriptions={renderedDescriptions}
+				renderedFaqAnswers={renderedFaqAnswers}
+			/>
+		</>
 	)
 }
