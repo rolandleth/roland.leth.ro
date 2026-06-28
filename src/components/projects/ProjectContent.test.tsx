@@ -67,6 +67,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		updatedAt: new Date(),
 		sections: [],
 		links: [],
+		faqs: [],
 		...overrides,
 	}
 }

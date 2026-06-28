@@ -82,6 +82,7 @@ model Project {
   updatedAt      DateTime         @updatedAt
   sections       ProjectSection[]
   links          ProjectLink[]
+  faqs           ProjectFaq[]
 }
 
 // Top-level project category. Drives gallery section grouping and the
@@ -144,5 +145,15 @@ model ProjectLink {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   label     String
   url       String
+  sortOrder Int     @default(0)
+}
+
+model ProjectFaq {
+  id        Int     @id @default(autoincrement())
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  question  String
+  // Stored as markdown, rendered on read (mirrors `ProjectSection.description`).
+  answer    String
   sortOrder Int     @default(0)
 }

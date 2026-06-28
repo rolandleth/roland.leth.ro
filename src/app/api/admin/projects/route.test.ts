@@ -122,6 +122,22 @@ describe("POST /api/admin/projects", () => {
 		expect(data.slug).toBe("my-app")
 	})
 
+	it("passes FAQs through to the nested create with defaulted sortOrder", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(
+			makeRequest({
+				...validPayload,
+				faqs: [{ question: "Is it free?", answer: "Yes." }],
+			})
+		)
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.faqs).toEqual({
+			create: [{ question: "Is it free?", answer: "Yes.", sortOrder: 0 }],
+		})
+	})
+
 	it("appends after the last project when no sortOrder is provided", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 		vi.mocked(prisma.project.count).mockResolvedValue(5)

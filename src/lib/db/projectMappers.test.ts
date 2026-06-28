@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { toLinkCreate, toSectionCreate } from "./projectMappers"
+import { toFaqCreate, toLinkCreate, toSectionCreate } from "./projectMappers"
 
 // #region toSectionCreate
 
@@ -78,6 +78,34 @@ describe("toLinkCreate", () => {
 			{ label: "GitHub", url: "https://github.com/x", sortOrder: 2 },
 		])
 		expect(result?.create[0].sortOrder).toBe(2)
+	})
+})
+
+// #endregion
+
+// #region toFaqCreate
+
+describe("toFaqCreate", () => {
+	it("returns undefined when faqs is undefined (Prisma-skip)", () => {
+		expect(toFaqCreate(undefined)).toBeUndefined()
+	})
+
+	it("defaults sortOrder to 0 when not provided", () => {
+		const result = toFaqCreate([
+			{ question: "Is it free?", answer: "Yes, **forever**." },
+		])
+		expect(result?.create[0]).toEqual({
+			question: "Is it free?",
+			answer: "Yes, **forever**.",
+			sortOrder: 0,
+		})
+	})
+
+	it("preserves an explicit sortOrder", () => {
+		const result = toFaqCreate([
+			{ question: "How?", answer: "Like so.", sortOrder: 3 },
+		])
+		expect(result?.create[0].sortOrder).toBe(3)
 	})
 })
 

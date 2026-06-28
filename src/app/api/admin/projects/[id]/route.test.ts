@@ -110,6 +110,7 @@ describe("PUT /api/admin/projects/[id]", () => {
 			},
 			projectSection: { deleteMany: vi.fn() },
 			projectLink: { deleteMany: vi.fn() },
+			projectFaq: { deleteMany: vi.fn() },
 		} as unknown as Prisma.TransactionClient
 	}
 
@@ -206,6 +207,62 @@ describe("PUT /api/admin/projects/[id]", () => {
 		await PUT(putRequest("1", { sortOrder: 3 }), params("1"))
 
 		expect(updateMany).not.toHaveBeenCalled()
+	})
+
+	it("clears existing FAQs and recreates them when faqs is provided", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const deleteFaqs = vi.fn()
+		const tx = {
+			project: {
+				findUnique: vi.mocked(prisma.project.findUnique),
+				update: vi.mocked(prisma.project.update),
+				updateMany: vi.fn(),
+			},
+			projectSection: { deleteMany: vi.fn() },
+			projectLink: { deleteMany: vi.fn() },
+			projectFaq: { deleteMany: deleteFaqs },
+		} as unknown as Prisma.TransactionClient
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) => fn(tx)
+		)
+
+		await PUT(
+			putRequest("1", {
+				faqs: [{ question: "How?", answer: "Like so." }],
+			}),
+			params("1")
+		)
+
+		expect(deleteFaqs).toHaveBeenCalledWith({ where: { projectId: 1 } })
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.faqs).toEqual({
+			create: [{ question: "How?", answer: "Like so.", sortOrder: 0 }],
+		})
+	})
+
+	it("leaves FAQs untouched when faqs is omitted", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const deleteFaqs = vi.fn()
+		const tx = {
+			project: {
+				findUnique: vi.mocked(prisma.project.findUnique),
+				update: vi.mocked(prisma.project.update),
+				updateMany: vi.fn(),
+			},
+			projectSection: { deleteMany: vi.fn() },
+			projectLink: { deleteMany: vi.fn() },
+			projectFaq: { deleteMany: deleteFaqs },
+		} as unknown as Prisma.TransactionClient
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) => fn(tx)
+		)
+
+		await PUT(putRequest("1", { name: "Renamed" }), params("1"))
+
+		expect(deleteFaqs).not.toHaveBeenCalled()
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		// Prisma treats `undefined` as "skip" — an omitted faqs array must not wipe rows.
+		expect(data.faqs).toBeUndefined()
 	})
 
 	it("returns 400 for a non-numeric id", async () => {

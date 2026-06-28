@@ -55,7 +55,8 @@ export const ModelName = {
   Project: 'Project',
   ProjectSection: 'ProjectSection',
   ProjectSectionImage: 'ProjectSectionImage',
-  ProjectLink: 'ProjectLink'
+  ProjectLink: 'ProjectLink',
+  ProjectFaq: 'ProjectFaq'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -147,6 +148,17 @@ export const ProjectLinkScalarFieldEnum = {
 } as const
 
 export type ProjectLinkScalarFieldEnum = (typeof ProjectLinkScalarFieldEnum)[keyof typeof ProjectLinkScalarFieldEnum]
+
+
+export const ProjectFaqScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  question: 'question',
+  answer: 'answer',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ProjectFaqScalarFieldEnum = (typeof ProjectFaqScalarFieldEnum)[keyof typeof ProjectFaqScalarFieldEnum]
 
 
 export const SortOrder = {

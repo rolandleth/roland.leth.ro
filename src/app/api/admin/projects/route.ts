@@ -7,6 +7,7 @@ import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import {
 	projectInclude,
 	revalidateProject,
+	toFaqCreate,
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
@@ -40,6 +41,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		sortOrder,
 		sections,
 		links,
+		faqs,
 	} = parsed
 
 	try {
@@ -89,6 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 						sortOrder: targetOrder,
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
+						faqs: toFaqCreate(faqs),
 					},
 					include: projectInclude,
 				})

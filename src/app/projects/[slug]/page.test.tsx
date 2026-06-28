@@ -52,6 +52,7 @@ const existingProject = {
 	updatedAt: new Date(),
 	sections: [],
 	links: [],
+	faqs: [],
 }
 
 beforeEach(() => {

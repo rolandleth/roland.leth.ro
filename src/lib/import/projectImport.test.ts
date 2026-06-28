@@ -310,6 +310,23 @@ describe("resolveManifestImageRefs", () => {
 		expect(manifest.icon).toBe("./icon.png")
 		expect(manifest.sections?.[0].images?.[0].url).toBe("./a1.png")
 	})
+
+	it("carries FAQs through untouched (they hold no image refs)", () => {
+		const manifest: ProjectManifest = {
+			name: "Reckon",
+			icon: "./icon.png",
+			faqs: [{ question: "Is it free?", answer: "Yes.", sortOrder: 0 }],
+		}
+
+		const resolved = resolveManifestImageRefs(
+			manifest,
+			() => "https://blob/icon.png"
+		)
+
+		expect(resolved.faqs).toEqual([
+			{ question: "Is it free?", answer: "Yes.", sortOrder: 0 },
+		])
+	})
 })
 
 // #endregion

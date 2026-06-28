@@ -71,6 +71,13 @@ export interface ProjectDetail {
 		url: string
 		sortOrder: number
 	}[]
+	faqs: {
+		id: number
+		projectId: number
+		question: string
+		answer: string
+		sortOrder: number
+	}[]
 }
 
 const gallerySelect = {
@@ -262,8 +269,10 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 // module so the import script can reuse them; re-exported here to keep the
 // established `@/lib/db/projects` import surface stable for existing callers.
 export {
+	toFaqCreate,
 	toLinkCreate,
 	toSectionCreate,
+	type ProjectFaqInput,
 	type ProjectLinkInput,
 	type ProjectSectionInput,
 } from "./projectMappers"
@@ -275,6 +284,7 @@ export const projectInclude = {
 		include: { images: { orderBy: { sortOrder: "asc" as const } } },
 	},
 	links: { orderBy: { sortOrder: "asc" as const } },
+	faqs: { orderBy: { sortOrder: "asc" as const } },
 } as const
 
 // One cache wrapper per slug, built lazily on first access and reused for every

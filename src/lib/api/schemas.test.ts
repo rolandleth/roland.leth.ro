@@ -234,8 +234,39 @@ describe("projectCreateSchema", () => {
 			links: [
 				{ label: "App Store", url: "https://apps.apple.com/app", sortOrder: 0 },
 			],
+			faqs: [
+				{
+					question: "Is it free?",
+					answer: "Yes, with **markdown** support.",
+					sortOrder: 0,
+				},
+			],
 		})
 		expect(result.success).toBe(true)
+	})
+
+	it("rejects a FAQ with an empty question", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			faqs: [{ question: "", answer: "An answer." }],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a FAQ with an empty answer", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			faqs: [{ question: "A question?", answer: "" }],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a FAQ question over the 300-char cap", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			faqs: [{ question: "q".repeat(301), answer: "An answer." }],
+		})
+		expect(result.success).toBe(false)
 	})
 
 	it("rejects when name is missing", () => {

@@ -105,6 +105,13 @@ const projectLinkSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
+const projectFaqSchema = z.object({
+	question: z.string().min(1).max(300),
+	// Markdown, rendered on read like section descriptions — same generous cap.
+	answer: z.string().min(1).max(100_000),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
 	caption: z.string().max(300).nullable().optional(),
@@ -193,6 +200,7 @@ const projectFields = {
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
+	faqs: z.array(projectFaqSchema).optional(),
 }
 
 // `superRefine` is layered on the base object schemas so each surface keeps
