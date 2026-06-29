@@ -310,11 +310,11 @@ export default function ProjectContent({
 								    appears only while there's hidden content on its side. */}
 								<div
 									aria-hidden
-									className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-(--color-background) via-(--color-background)/80 to-transparent transition-opacity duration-200 ${canScrollStart ? "opacity-100" : "opacity-0"}`}
+									className={`pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-(--color-background) to-(--color-background-transparent) transition-opacity duration-200 ${canScrollStart ? "opacity-100" : "opacity-0"}`}
 								/>
 								<div
 									aria-hidden
-									className={`pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-(--color-background) via-(--color-background)/80 to-transparent transition-opacity duration-200 ${canScrollEnd ? "opacity-100" : "opacity-0"}`}
+									className={`pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-(--color-background) to-(--color-background-transparent) transition-opacity duration-200 ${canScrollEnd ? "opacity-100" : "opacity-0"}`}
 								/>
 
 								<div
@@ -380,8 +380,11 @@ export default function ProjectContent({
 												images={activeSection.images}
 												index={imageIndex}
 												direction={slideDirection}
+												canNavigate={canNavigateGallery}
 												altPrefix={activeSection.title}
 												onSelectImage={selectImage}
+												onPrev={() => navigateImage(-1)}
+												onNext={() => navigateImage(1)}
 												onEnlarge={() => setIsLightboxOpen(true)}
 											/>
 										</div>

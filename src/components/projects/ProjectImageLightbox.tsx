@@ -1,10 +1,16 @@
 "use client"
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
+import {
+	AnimatePresence,
+	motion,
+	type PanInfo,
+	useReducedMotion,
+} from "framer-motion"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
+import { resolveSwipe } from "@/lib/client/swipe"
 
 interface LightboxImage {
 	id: number
@@ -146,6 +152,22 @@ export default function ProjectImageLightbox({
 		return () => window.removeEventListener("keydown", handleKeyDown)
 	}, [isOpen, canNavigate, onClose, onPrev, onNext])
 
+	// Mirror the on-page carousel's touch affordance: swipe the enlarged image
+	// to walk the gallery. A short drag snaps back via the drag constraints.
+	function handleDragEnd(_event: unknown, info: PanInfo) {
+		if (!canNavigate) {
+			return
+		}
+
+		const swipe = resolveSwipe(info)
+
+		if (swipe === "next") {
+			onNext()
+		} else if (swipe === "prev") {
+			onPrev()
+		}
+	}
+
 	// `createPortal` reads `document.body`, undefined during SSR; render nothing
 	// on the server and let the client mount the portal.
 	if (typeof document === "undefined") {
@@ -197,6 +219,10 @@ export default function ProjectImageLightbox({
 						initial={prefersReducedMotion ? false : { scale: 0.96 }}
 						animate={{ scale: 1 }}
 						transition={{ duration: 0.2 }}
+						drag={canNavigate ? "x" : false}
+						dragConstraints={{ left: 0, right: 0 }}
+						dragElastic={0.2}
+						onDragEnd={handleDragEnd}
 					>
 						{/* `width/height={0}` zeroes the aspect-ratio hint, so the element
 						    needs one *definite* dimension or the browser falls back to the
@@ -213,8 +239,9 @@ export default function ProjectImageLightbox({
 							alt={current.caption ?? `${altPrefix} screenshot`}
 							width={0}
 							height={0}
+							draggable={false}
 							sizes="(max-width: 1024px) 100vw, 1024px"
-							className="h-auto max-h-[80vh] w-full rounded-xl object-contain"
+							className="h-auto max-h-[80vh] w-full rounded-xl object-contain select-none"
 							priority
 						/>
 

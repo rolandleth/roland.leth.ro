@@ -25,8 +25,11 @@ function renderCarousel(
 		images,
 		index: 0,
 		direction: 0,
+		canNavigate: true,
 		altPrefix: "MyApp",
 		onSelectImage: vi.fn(),
+		onPrev: vi.fn(),
+		onNext: vi.fn(),
 		onEnlarge: vi.fn(),
 		...overrides,
 	}
