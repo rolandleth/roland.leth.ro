@@ -141,6 +141,18 @@ export default function ProjectSectionCarousel({
 
 								if (naturalWidth > 0 && naturalHeight > 0) {
 									setAspectRatio(naturalWidth / naturalHeight)
+
+									return
+								}
+
+								// Invalid dimensions leave the stage on its `h-120` fallback
+								// forever — surface in dev so a broken asset is debuggable
+								// rather than silently mis-sized.
+								if (process.env.NODE_ENV !== "production") {
+									// eslint-disable-next-line no-console
+									console.warn(
+										`[ProjectSectionCarousel] image ${current.url} reported invalid dimensions (${naturalWidth}×${naturalHeight}); stage stays on its fallback height`
+									)
 								}
 							}}
 							sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
