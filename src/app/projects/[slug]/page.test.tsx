@@ -2,6 +2,7 @@ import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { siteBase } from "@/lib/api/request"
+import { markdownToReact } from "@/lib/content/markdown"
 import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
@@ -120,6 +121,41 @@ describe("ProjectPage — JSON-LD", () => {
 		const app = scripts.find((s) => s["@type"] === "SoftwareApplication")
 		expect(app.operatingSystem).toBe("macOS")
 		expect(app.offers).toMatchObject({ lowPrice: "12.00", highPrice: "249.00" })
+	})
+
+	it("renders a fallback paragraph when one FAQ's markdown fails, without 500'ing the page", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			faqs: [
+				{
+					id: 1,
+					projectId: 1,
+					question: "First?",
+					answer: "Good FAQ.",
+					sortOrder: 0,
+				},
+				{
+					id: 2,
+					projectId: 1,
+					question: "Second?",
+					answer: "Broken FAQ raw answer.",
+					sortOrder: 1,
+				},
+			],
+		})
+		// Only the second answer throws. The page must still render.
+		vi.mocked(markdownToReact)
+			.mockResolvedValueOnce(null)
+			.mockRejectedValueOnce(new Error("parse failed"))
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+		const result = await ProjectPage(paramsFor("my-app"))
+		const { container } = render(result)
+
+		expect(container.textContent).toContain("Broken FAQ raw answer.")
+		expect(consoleError).toHaveBeenCalled()
+
+		consoleError.mockRestore()
 	})
 
 	it("omits both JSON-LD blocks for a Web project with no FAQs", async () => {

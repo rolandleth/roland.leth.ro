@@ -62,12 +62,32 @@ export default async function ProjectPage({ params }: Props) {
 
 	// FAQ answers are Markdown too — render them server-side alongside the
 	// section descriptions so the accordion client component stays free of the
-	// Markdown pipeline. Aligned by index with `project.faqs`.
-	const renderedFaqAnswers = await Promise.all(
-		project.faqs.map(async (f) => (
-			<div key={f.id}>{await markdownToReact(f.answer)}</div>
-		))
+	// Markdown pipeline. Aligned by index with `project.faqs`. `allSettled` so
+	// a single bad answer renders an inline fallback instead of 500'ing the
+	// whole project page.
+	const faqRenderSettlements = await Promise.allSettled(
+		project.faqs.map(async (f) => markdownToReact(f.answer))
 	)
+	const renderedFaqAnswers = faqRenderSettlements.map((settled, index) => {
+		const faq = project.faqs[index]
+
+		if (settled.status === "fulfilled") {
+			return <div key={faq.id}>{settled.value}</div>
+		}
+
+		// Log the underlying parse error so it's visible in server logs while the
+		// user still sees a readable page. The plain `<p>` keeps the FAQ content
+		// crawlable even when Markdown rendering fails.
+		console.error("[ProjectPage] FAQ markdown render failed", {
+			projectSlug: project.slug,
+			faqId: faq.id,
+			reason: settled.reason,
+		})
+
+		return <p key={faq.id}>{faq.answer}</p>
+	})
+
+	const ogImage = resolveOgImage(project)
 
 	// Structured data for search + AI answer engines. Built server-side (not in
 	// the client `ProjectContent`) so the JSON-LD is always in the SSR HTML.
@@ -76,7 +96,7 @@ export default async function ProjectPage({ params }: Props) {
 	const faqJsonLd = buildFaqJsonLd(project.faqs)
 	const softwareJsonLd = buildSoftwareApplicationJsonLd(
 		project,
-		resolveOgImage(project),
+		ogImage,
 		await siteBase()
 	)
 
