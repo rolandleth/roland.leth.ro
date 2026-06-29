@@ -24,7 +24,10 @@ export function isBackForwardNavigation(): boolean {
  *
  * Idempotent and a no-op on the server or in browsers without the Navigation
  * API (Firefox, older Safari), where the entrance animation simply keeps
- * replaying on back as it did before — a benign degradation.
+ * replaying on back as it did before — a benign degradation, but tagged on
+ * `<html data-navigation-api="missing">` so the fallback is visible in
+ * production (Inspector or `document.documentElement.dataset.navigationApi`)
+ * rather than silent.
  */
 export function installNavigationTypeTracking(): void {
 	if (isInstalled || typeof window === "undefined") {
@@ -38,9 +41,13 @@ export function installNavigationTypeTracking(): void {
 		.navigation
 
 	if (!navigation) {
+		document.documentElement.dataset.navigationApi = "missing"
+		isInstalled = true
+
 		return
 	}
 
+	document.documentElement.dataset.navigationApi = "available"
 	isInstalled = true
 
 	navigation.addEventListener("currententrychange", (event) => {

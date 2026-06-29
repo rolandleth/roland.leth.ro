@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeAll, describe, expect, it } from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	installNavigationTypeTracking,
 	isBackForwardNavigation,
@@ -65,5 +65,26 @@ describe("navigationType", () => {
 		emitEntryChange("push")
 
 		expect(isBackForwardNavigation()).toBe(false)
+	})
+
+	it('tags <html> with `data-navigation-api="available"` when the API is present', () => {
+		expect(document.documentElement.dataset.navigationApi).toBe("available")
+	})
+})
+
+describe("navigationType — fallback path (no Navigation API)", () => {
+	beforeEach(() => {
+		// Reset the module so the install guard runs from scratch on each test.
+		vi.resetModules()
+		delete (window as unknown as { navigation?: unknown }).navigation
+		delete document.documentElement.dataset.navigationApi
+	})
+
+	it('tags <html> with `data-navigation-api="missing"` and leaves the flag false', async () => {
+		const fresh = await import("@/lib/client/navigationType")
+		fresh.installNavigationTypeTracking()
+
+		expect(document.documentElement.dataset.navigationApi).toBe("missing")
+		expect(fresh.isBackForwardNavigation()).toBe(false)
 	})
 })
