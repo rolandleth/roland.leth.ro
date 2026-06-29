@@ -3,6 +3,7 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
+	safeJsonLdString,
 } from "@/lib/content/projectJsonLd"
 import type { ProjectDetail } from "@/lib/db/projects"
 
@@ -176,6 +177,23 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		})
 	})
 
+	it("returns an array of Offer nodes for mixed currencies (AggregateOffer can't span multiple currencies)", () => {
+		const result = buildApp(
+			makeProject({
+				offers: [
+					{ name: "US", price: "9.99", priceCurrency: "USD" },
+					{ name: "EU", price: "10.99", priceCurrency: "EUR" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual([
+			{ "@type": "Offer", price: "9.99", priceCurrency: "USD" },
+			{ "@type": "Offer", price: "10.99", priceCurrency: "EUR" },
+		])
+	})
+
 	it("builds an AggregateOffer preserving the original price strings", () => {
 		const result = buildApp(
 			makeProject({
@@ -201,6 +219,47 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		expect(buildApp(makeProject({ offers: null }), null)).not.toHaveProperty(
 			"offers"
 		)
+	})
+})
+
+// #endregion
+
+// #region safeJsonLdString
+
+describe("safeJsonLdString", () => {
+	it("escapes `<`, `>`, and `&` so values can't close the script tag or inject HTML", () => {
+		const result = safeJsonLdString({
+			"@context": "https://schema.org",
+			"@type": "Question",
+			name: "What about </script><img src=x onerror=alert(1)>?",
+			text: "A & B",
+		})
+
+		expect(result).not.toContain("<")
+		expect(result).not.toContain(">")
+		expect(result).not.toContain("&")
+		expect(result).toContain("\\u003c/script\\u003e")
+		expect(result).toContain("\\u0026")
+	})
+
+	it("escapes U+2028 / U+2029 so the embedded JSON stays parseable", () => {
+		const u2028 = String.fromCharCode(0x2028)
+		const u2029 = String.fromCharCode(0x2029)
+		const result = safeJsonLdString({ text: `line${u2028}break${u2029}para` })
+
+		expect(result).not.toContain(u2028)
+		expect(result).not.toContain(u2029)
+		expect(result).toContain("\\u2028")
+		expect(result).toContain("\\u2029")
+	})
+
+	it("round-trips back to the original value via JSON.parse", () => {
+		const value = {
+			question: "Is 1 < 2 & 2 > 1?",
+			answer: "Yes",
+		}
+
+		expect(JSON.parse(safeJsonLdString(value))).toEqual(value)
 	})
 })
 

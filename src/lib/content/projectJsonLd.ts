@@ -84,14 +84,16 @@ export function buildSoftwareApplicationJsonLd(
 
 /**
  * Maps a project's price points to the right schema.org offer shape:
- * `null` when there are none (pricing unstated), a single `Offer` for one price
- * point (an upfront-paid or free app — free is an explicit `"0"`), and an
- * `AggregateOffer` spanning low→high for two or more (subscriptions, IAPs, or a
- * mix). Price strings are preserved verbatim so "12.00" stays "12.00".
+ * `null` when there are none, a single `Offer` for one price point (an
+ * upfront-paid or free app — free is an explicit `"0"`), an `AggregateOffer`
+ * spanning low→high when every price shares one currency, or a plain array of
+ * `Offer` nodes when currencies differ (AggregateOffer asserts one currency for
+ * the whole range, so multi-currency would mislabel a bound). Price strings are
+ * preserved verbatim so "12.00" stays "12.00".
  */
 function buildOfferNode(
 	offers: ProjectOffer[] | null
-): Record<string, unknown> | null {
+): Record<string, unknown> | Record<string, unknown>[] | null {
 	if (offers === null || offers.length === 0) {
 		return null
 	}
@@ -106,8 +108,19 @@ function buildOfferNode(
 		}
 	}
 
-	// AggregateOffer assumes a single currency (App Store prices share the
-	// storefront's currency); the first offer's currency labels the range.
+	// Multi-offer fallback: when currencies differ, schema.org accepts `offers`
+	// as an array of `Offer` nodes. Use that shape rather than asserting one
+	// currency across the AggregateOffer's lowPrice/highPrice bounds.
+	const currencies = new Set(offers.map((offer) => offer.priceCurrency))
+
+	if (currencies.size > 1) {
+		return offers.map((offer) => ({
+			"@type": "Offer",
+			price: offer.price,
+			priceCurrency: offer.priceCurrency,
+		}))
+	}
+
 	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
 
 	return {
@@ -117,4 +130,27 @@ function buildOfferNode(
 		highPrice: sorted[sorted.length - 1].price,
 		offerCount: offers.length,
 	}
+}
+
+// Built from a string so the U+2028/U+2029 line separators never appear as
+// literals in source — they would terminate a JS regex literal otherwise.
+const LINE_SEPARATORS_PATTERN = new RegExp("[\\u2028\\u2029]", "g")
+const U_2028_CHAR_CODE = 0x2028
+
+/**
+ * Serializes a JSON-LD object for embedding inside `<script type="application/
+ * ld+json">`. `JSON.stringify` does not escape `<`, `>`, `&`, U+2028, or
+ * U+2029, so a value containing `</script>` (or just `<`/`>`) could close the
+ * tag and inject HTML, and the line separators break some JSON parsers. We
+ * escape those bytes as unicode escapes — JSON parsers accept the escaped form
+ * unchanged, and HTML can no longer see the literal sequence.
+ */
+export function safeJsonLdString(value: unknown): string {
+	return JSON.stringify(value)
+		.replace(/</g, "\\u003c")
+		.replace(/>/g, "\\u003e")
+		.replace(/&/g, "\\u0026")
+		.replace(LINE_SEPARATORS_PATTERN, (char) =>
+			char.charCodeAt(0) === U_2028_CHAR_CODE ? "\\u2028" : "\\u2029"
+		)
 }

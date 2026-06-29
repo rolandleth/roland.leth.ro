@@ -6,6 +6,7 @@ import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
+	safeJsonLdString,
 } from "@/lib/content/projectJsonLd"
 import {
 	getProjectsGalleryCached,
@@ -84,14 +85,16 @@ export default async function ProjectPage({ params }: Props) {
 			{faqJsonLd && (
 				<script
 					type="application/ld+json"
-					dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+					dangerouslySetInnerHTML={{ __html: safeJsonLdString(faqJsonLd) }}
 				/>
 			)}
 
 			{softwareJsonLd && (
 				<script
 					type="application/ld+json"
-					dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+					dangerouslySetInnerHTML={{
+						__html: safeJsonLdString(softwareJsonLd),
+					}}
 				/>
 			)}
 
