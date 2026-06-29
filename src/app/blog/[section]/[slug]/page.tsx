@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
+import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
 import { siteBase } from "@/lib/api/request"
-import { safeJsonLdString } from "@/lib/content/jsonLd"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
@@ -66,10 +66,7 @@ export default async function PostPage({ params }: Props) {
 
 	return (
 		<>
-			<script
-				type="application/ld+json"
-				dangerouslySetInnerHTML={{ __html: safeJsonLdString(jsonLd) }}
-			/>
+			<JsonLdScript data={jsonLd} />
 
 			<PageGlow />
 			<PostContent

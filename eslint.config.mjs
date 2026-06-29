@@ -49,17 +49,19 @@ const eslintConfig = defineConfig([
 		},
 		rules: {
 			"no-console": "warn",
-			// Raw `JSON.stringify` inside `dangerouslySetInnerHTML` doesn't escape
-			// `<`, `>`, `&`, or U+2028/9, so a value containing `</script>` can break
-			// out of a JSON-LD block and inject HTML. Route every such block through
-			// `safeJsonLdString` (src/lib/content/jsonLd.ts) instead.
+			// `dangerouslySetInnerHTML` is the only HTML-injection surface in the
+			// app, and the site's sole legitimate use is embedding JSON-LD. Ban the
+			// attribute everywhere so the chokepoint can't be bypassed; the lone
+			// exception is `JsonLdScript` (overridden below), which routes its value
+			// through `safeJsonLdString` so it can't close the `<script>` tag. A
+			// narrower "no raw JSON.stringify" rule wouldn't catch a hoisted variable
+			// or a different serializer, so this guards the attribute itself.
 			"no-restricted-syntax": [
 				"error",
 				{
-					selector:
-						'JSXAttribute[name.name="dangerouslySetInnerHTML"] CallExpression[callee.object.name="JSON"][callee.property.name="stringify"]',
+					selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
 					message:
-						"Don't embed raw JSON.stringify in dangerouslySetInnerHTML — use safeJsonLdString from @/lib/content/jsonLd so values can't close the script tag.",
+						"Don't use dangerouslySetInnerHTML directly — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
 				},
 			],
 			"no-unused-vars": "off",
@@ -92,6 +94,15 @@ const eslintConfig = defineConfig([
 			"import/no-duplicates": "warn",
 			"import/newline-after-import": "warn",
 			"import/no-unassigned-import": "error",
+		},
+	},
+	{
+		// The single sanctioned home for `dangerouslySetInnerHTML`. Everywhere
+		// else the attribute is banned (see `no-restricted-syntax` above); here it
+		// is the whole point of the component, gated by `safeJsonLdString`.
+		files: ["src/components/JsonLdScript.tsx"],
+		rules: {
+			"no-restricted-syntax": "off",
 		},
 	},
 	{

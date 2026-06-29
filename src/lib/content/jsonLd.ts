@@ -18,6 +18,17 @@ const U_2028_CHAR_CODE = 0x2028
  * `JSON.stringify`.
  */
 export function safeJsonLdString(value: unknown): string {
+	// `JSON.stringify(undefined)` returns the value `undefined` (not a string),
+	// which would make the `.replace` chain throw a cryptic TypeError. A JSON-LD
+	// block must serialize a concrete value — an absent block should be skipped
+	// upstream (callers do, via `JsonLdScript`), so undefined here is a bug worth
+	// surfacing loudly rather than emitting a broken `<script>`.
+	if (value === undefined) {
+		throw new TypeError(
+			"safeJsonLdString received undefined; guard the block upstream and skip the <script> instead"
+		)
+	}
+
 	return JSON.stringify(value)
 		.replace(/</g, "\\u003c")
 		.replace(/>/g, "\\u003e")

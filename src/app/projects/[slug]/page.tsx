@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
+import JsonLdScript from "@/components/JsonLdScript"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { siteBase } from "@/lib/api/request"
-import { safeJsonLdString } from "@/lib/content/jsonLd"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
@@ -102,21 +102,8 @@ export default async function ProjectPage({ params }: Props) {
 
 	return (
 		<>
-			{faqJsonLd && (
-				<script
-					type="application/ld+json"
-					dangerouslySetInnerHTML={{ __html: safeJsonLdString(faqJsonLd) }}
-				/>
-			)}
-
-			{softwareJsonLd && (
-				<script
-					type="application/ld+json"
-					dangerouslySetInnerHTML={{
-						__html: safeJsonLdString(softwareJsonLd),
-					}}
-				/>
-			)}
+			<JsonLdScript data={faqJsonLd} />
+			<JsonLdScript data={softwareJsonLd} />
 
 			<ProjectContent
 				project={project}

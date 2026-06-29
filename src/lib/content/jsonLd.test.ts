@@ -40,6 +40,10 @@ describe("safeJsonLdString", () => {
 
 		expect(JSON.parse(safeJsonLdString(value))).toEqual(value)
 	})
+
+	it("throws on undefined rather than emitting a broken script", () => {
+		expect(() => safeJsonLdString(undefined)).toThrow(TypeError)
+	})
 })
 
 // #endregion
