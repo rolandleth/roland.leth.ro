@@ -2,7 +2,9 @@ import { notFound } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import PageGlow from "@/components/PageGlow"
+import { siteBase } from "@/lib/api/request"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
 import {
@@ -59,9 +61,15 @@ export default async function PostPage({ params }: Props) {
 	}
 
 	const readingTime = post.readingTime ?? calculateReadingTime(post.body)
+	const jsonLd = buildBlogPostingJsonLd(post, await siteBase())
 
 	return (
 		<>
+			<script
+				type="application/ld+json"
+				dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+			/>
+
 			<PageGlow />
 			<PostContent
 				title={post.title}

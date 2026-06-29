@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { siteBase } from "@/lib/api/request"
 import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
@@ -14,6 +15,10 @@ vi.mock("@/lib/db/projects", async (importOriginal) => ({
 
 vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock("@/lib/api/request", () => ({
+	siteBase: vi.fn().mockResolvedValue("https://roland.leth.ro"),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -62,6 +67,7 @@ const existingProject = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
 })
 
 describe("ProjectPage", () => {

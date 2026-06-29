@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
+import { siteBase } from "@/lib/api/request"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
@@ -74,7 +75,8 @@ export default async function ProjectPage({ params }: Props) {
 	const faqJsonLd = buildFaqJsonLd(project.faqs)
 	const softwareJsonLd = buildSoftwareApplicationJsonLd(
 		project,
-		resolveOgImage(project)
+		resolveOgImage(project),
+		await siteBase()
 	)
 
 	return (

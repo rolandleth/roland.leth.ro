@@ -1,0 +1,59 @@
+// Pure builder for the blog post page's schema.org `BlogPosting` JSON-LD. Kept
+// I/O-free and separate from the page so the shape is unit-testable and the page
+// stays a thin server component. Consumed by
+// `src/app/blog/[section]/[slug]/page.tsx`.
+
+import { postDatetimeToISO } from "@/lib/utils/format"
+import type { PostDetail } from "@/lib/db/posts"
+
+// Single author/publisher for the whole site. Reused for both fields so a
+// personal blog isn't forced to assert a separate Organization it doesn't have.
+const PERSON = { "@type": "Person", name: "Roland Leth" } as const
+
+/**
+ * Absolutizes a stored image path for structured data: Vercel Blob uploads are
+ * already absolute (`https://…`), while legacy `/images/…` assets are
+ * site-relative and need the site origin prepended.
+ */
+function absoluteImageUrl(image: string, base: string): string {
+	return image.startsWith("http") ? image : `${base}${image}`
+}
+
+/**
+ * Builds `BlogPosting` JSON-LD for a blog post. `datePublished` comes from the
+ * stored `datetime` (omitted only if it can't be parsed); `dateModified` from
+ * `updatedAt`, which `unstable_cache` may hand back as an ISO string rather than
+ * a `Date`, so it's normalized through `new Date(...)`. `image` is included only
+ * when the post has one. These are the freshness and authorship signals Google
+ * article results and AI answer engines lean on. `base` is the site origin from
+ * `siteBase()`, passed in so the builder stays pure.
+ */
+export function buildBlogPostingJsonLd(
+	post: PostDetail,
+	base: string
+): Record<string, unknown> {
+	const url = `${base}/blog/${post.section}/${post.slug}`
+	const datePublished = postDatetimeToISO(post.datetime)
+
+	const jsonLd: Record<string, unknown> = {
+		"@context": "https://schema.org",
+		"@type": "BlogPosting",
+		headline: post.title,
+		description: post.summary,
+		url,
+		mainEntityOfPage: { "@type": "WebPage", "@id": url },
+		author: PERSON,
+		publisher: PERSON,
+		dateModified: new Date(post.updatedAt).toISOString(),
+	}
+
+	if (datePublished !== undefined) {
+		jsonLd.datePublished = datePublished
+	}
+
+	if (post.imageUrl !== null) {
+		jsonLd.image = absoluteImageUrl(post.imageUrl, base)
+	}
+
+	return jsonLd
+}

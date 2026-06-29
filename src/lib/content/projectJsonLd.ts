@@ -4,13 +4,6 @@
 
 import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
-// Canonical production origin for absolute URLs in structured data. Hardcoded
-// (not derived via `siteBase()`/`headers()`) so the project pages stay
-// statically generated — reading request headers here would opt the route into
-// dynamic rendering. JSON-LD always points at the canonical host regardless of
-// which preview/proxy domain served the request.
-const SITE_ORIGIN = "https://roland.leth.ro"
-
 // Buckets that represent installable apps (vs. Web/OpenSource projects). Only
 // these emit `SoftwareApplication` markup; a website or library would be
 // mislabeled as an app.
@@ -46,11 +39,13 @@ export function buildFaqJsonLd(
  * Builds `SoftwareApplication` JSON-LD for app-bucket projects (iOS/Mac), or
  * `null` for Web/OpenSource so non-apps don't emit app markup. When the project
  * carries `offers`, an `AggregateOffer` advertises the price range. `image` is
- * the resolved OG asset (absolute Blob URL); omitted when null.
+ * the resolved OG asset (absolute Blob URL); omitted when null. `base` is the
+ * site origin from `siteBase()`, passed in so the builder stays pure.
  */
 export function buildSoftwareApplicationJsonLd(
 	project: ProjectDetail,
-	image: string | null
+	image: string | null,
+	base: string
 ): Record<string, unknown> | null {
 	if (!APP_BUCKETS.has(project.bucket)) {
 		return null
@@ -64,7 +59,7 @@ export function buildSoftwareApplicationJsonLd(
 		name,
 		description: summary,
 		operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
-		url: `${SITE_ORIGIN}/projects/${slug}`,
+		url: `${base}/projects/${slug}`,
 		author: { "@type": "Person", name: "Roland Leth" },
 	}
 

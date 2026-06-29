@@ -6,6 +6,14 @@ import {
 } from "@/lib/content/projectJsonLd"
 import type { ProjectDetail } from "@/lib/db/projects"
 
+const BASE = "https://roland.leth.ro"
+
+// The page supplies the origin from `siteBase()`; the builder is pure. This
+// wrapper injects a fixed `base` so the existing call sites stay two-arg.
+function buildApp(project: ProjectDetail, image: string | null) {
+	return buildSoftwareApplicationJsonLd(project, image, BASE)
+}
+
 function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 	return {
 		id: 1,
@@ -70,24 +78,15 @@ describe("buildFaqJsonLd", () => {
 describe("buildSoftwareApplicationJsonLd", () => {
 	it("returns null for non-app buckets (Web/OpenSource)", () => {
 		expect(
-			buildSoftwareApplicationJsonLd(
-				makeProject({ bucket: PlatformBucket.Web }),
-				null
-			)
+			buildApp(makeProject({ bucket: PlatformBucket.Web }), null)
 		).toBeNull()
 		expect(
-			buildSoftwareApplicationJsonLd(
-				makeProject({ bucket: PlatformBucket.OpenSource }),
-				null
-			)
+			buildApp(makeProject({ bucket: PlatformBucket.OpenSource }), null)
 		).toBeNull()
 	})
 
 	it("emits macOS operatingSystem for the Mac bucket", () => {
-		const result = buildSoftwareApplicationJsonLd(
-			makeProject({ bucket: PlatformBucket.Mac }),
-			null
-		)
+		const result = buildApp(makeProject({ bucket: PlatformBucket.Mac }), null)
 
 		expect(result).toMatchObject({
 			"@type": "SoftwareApplication",
@@ -99,7 +98,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("emits iOS operatingSystem for the iOS bucket", () => {
-		const result = buildSoftwareApplicationJsonLd(
+		const result = buildApp(
 			makeProject({
 				bucket: PlatformBucket.iOS,
 				platformTags: [PlatformTag.iOS],
@@ -110,20 +109,18 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("omits image when null and includes it when provided", () => {
-		expect(
-			buildSoftwareApplicationJsonLd(makeProject(), null)
-		).not.toHaveProperty("image")
-		expect(
-			buildSoftwareApplicationJsonLd(makeProject(), "https://blob/og.png")
-		).toMatchObject({ image: "https://blob/og.png" })
+		expect(buildApp(makeProject(), null)).not.toHaveProperty("image")
+		expect(buildApp(makeProject(), "https://blob/og.png")).toMatchObject({
+			image: "https://blob/og.png",
+		})
 	})
 
 	it("emits applicationCategory only when the manifest sets it", () => {
+		expect(buildApp(makeProject(), null)).not.toHaveProperty(
+			"applicationCategory"
+		)
 		expect(
-			buildSoftwareApplicationJsonLd(makeProject(), null)
-		).not.toHaveProperty("applicationCategory")
-		expect(
-			buildSoftwareApplicationJsonLd(
+			buildApp(
 				makeProject({ applicationCategory: "BusinessApplication" }),
 				null
 			)
@@ -131,7 +128,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("emits a single Offer (not AggregateOffer) for one price point — paid upfront", () => {
-		const result = buildSoftwareApplicationJsonLd(
+		const result = buildApp(
 			makeProject({
 				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
 			}),
@@ -146,7 +143,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("represents a free app as a single Offer priced 0", () => {
-		const result = buildSoftwareApplicationJsonLd(
+		const result = buildApp(
 			makeProject({
 				offers: [{ name: "Free", price: "0", priceCurrency: "USD" }],
 			}),
@@ -161,7 +158,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("spans free→paid as an AggregateOffer for a freemium app", () => {
-		const result = buildSoftwareApplicationJsonLd(
+		const result = buildApp(
 			makeProject({
 				offers: [
 					{ name: "Free", price: "0", priceCurrency: "USD" },
@@ -180,7 +177,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("builds an AggregateOffer preserving the original price strings", () => {
-		const result = buildSoftwareApplicationJsonLd(
+		const result = buildApp(
 			makeProject({
 				offers: [
 					{ name: "Monthly", price: "12.00", priceCurrency: "USD" },
@@ -201,9 +198,9 @@ describe("buildSoftwareApplicationJsonLd", () => {
 	})
 
 	it("omits offers when the project has none", () => {
-		expect(
-			buildSoftwareApplicationJsonLd(makeProject({ offers: null }), null)
-		).not.toHaveProperty("offers")
+		expect(buildApp(makeProject({ offers: null }), null)).not.toHaveProperty(
+			"offers"
+		)
 	})
 })
 

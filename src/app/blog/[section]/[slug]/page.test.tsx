@@ -1,10 +1,16 @@
+import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { siteBase } from "@/lib/api/request"
 import { loadPost } from "@/lib/db/posts"
 import PostPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/posts", () => ({
 	getAllPublishedPostSlugs: vi.fn().mockResolvedValue([]),
 	loadPost: vi.fn(),
+}))
+
+vi.mock("@/lib/api/request", () => ({
+	siteBase: vi.fn().mockResolvedValue("https://roland.leth.ro"),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -46,6 +52,7 @@ const existingPost = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
 })
 
 describe("PostPage", () => {
@@ -66,6 +73,18 @@ describe("PostPage", () => {
 		vi.mocked(loadPost).mockResolvedValue(existingPost)
 		const result = await PostPage(paramsFor("tech", "hello"))
 		expect(result).toBeDefined()
+	})
+
+	it("emits BlogPosting JSON-LD for the post", async () => {
+		vi.mocked(loadPost).mockResolvedValue(existingPost)
+
+		const { container } = render(await PostPage(paramsFor("tech", "hello")))
+		const script = container.querySelector('script[type="application/ld+json"]')
+		const jsonLd = JSON.parse(script?.innerHTML ?? "{}")
+
+		expect(jsonLd["@type"]).toBe("BlogPosting")
+		expect(jsonLd.headline).toBe("Hello")
+		expect(jsonLd.url).toBe("https://roland.leth.ro/blog/tech/hello")
 	})
 })
 

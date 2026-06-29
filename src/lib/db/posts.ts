@@ -54,6 +54,7 @@ export interface PostDetail {
 	summary: string
 	imageUrl: string | null
 	readingTime: string | null
+	updatedAt: Date
 }
 
 /**
@@ -184,6 +185,7 @@ export async function getPostBySlug(
 						summary: true,
 						imageUrl: true,
 						readingTime: true,
+						updatedAt: true,
 					},
 				}),
 			[`post-${section}-${slug}`],
