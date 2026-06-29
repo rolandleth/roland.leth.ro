@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import ClientAnalytics from "@/components/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
+import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
 import { siteBase } from "@/lib/api/request"
 import {
@@ -82,6 +83,7 @@ export default async function RootLayout({
 				</a>
 
 				<ThemeProvider initialTheme={initialTheme}>
+					<NavigationTypeTracker />
 					<Header />
 					{/* Single document `<main>` lives here so the skip link targets
 						the actual landmark. Pages render their content as plain
