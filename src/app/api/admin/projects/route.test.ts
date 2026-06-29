@@ -62,6 +62,7 @@ const createdProject = {
 	updatedAt: new Date(),
 	sections: [],
 	links: [],
+	faqs: [],
 }
 
 beforeEach(() => {

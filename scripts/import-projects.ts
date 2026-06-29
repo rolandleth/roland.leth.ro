@@ -279,48 +279,55 @@ async function writeProject(
 	slug: string,
 	data: ReturnType<typeof projectCreateSchema.parse>
 ): Promise<void> {
-	await prisma.$transaction(async (tx) => {
-		await tx.project.deleteMany({ where: { slug } })
-		await tx.project.create({
-			data: {
-				name: data.name,
-				slug,
-				summary: data.summary,
-				metaTitle: data.metaTitle ?? null,
-				keywords: data.keywords ?? [],
-				// Nullable Json column: a bare `null` is reserved by Prisma for JSON
-				// filters, so the absent case writes SQL NULL via `Prisma.DbNull`.
-				offers: data.offers ?? Prisma.DbNull,
-				applicationCategory: data.applicationCategory ?? null,
-				bucket: data.bucket,
-				platformTags: data.platformTags,
-				role: data.role ?? null,
-				accentColor: data.accentColor ?? null,
-				icon: data.icon ?? null,
-				// Card and OG images, stored as authored. The card and OG tag resolve
-				// their fallbacks (`resolveCardImage` / `resolveOgImage`) at render
-				// time, so nothing is baked in here.
-				cardImage: data.cardImage ?? null,
-				ogImage: data.ogImage ?? null,
-				// Stored as authored — no first-image backfill. `heroImage` is the
-				// detail-page hero (used only when a project has no sections), and the
-				// card/OG resolvers (`resolveCardImage` / `resolveOgImage`) already
-				// fall through to the first section image at render time, so a null
-				// hero never yields an empty card.
-				heroImage: data.heroImage ?? null,
-				isFeatured: data.isFeatured ?? false,
-				isDiscontinued: data.isDiscontinued ?? false,
-				date: data.date ?? null,
-				// Imports honour the authored `sortOrder` verbatim — unlike the
-				// admin create route, which shifts siblings to make room. The
-				// manifest author owns gallery ordering across the whole batch.
-				sortOrder: data.sortOrder ?? 0,
-				sections: toSectionCreate(data.sections),
-				links: toLinkCreate(data.links),
-				faqs: toFaqCreate(data.faqs),
-			},
-		})
-	})
+	// Serializable matches the API routes (`POST /api/admin/projects` and `PUT
+	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
+	// non-repeatable read between this script's delete-and-create on the same
+	// slug.
+	await prisma.$transaction(
+		async (tx) => {
+			await tx.project.deleteMany({ where: { slug } })
+			await tx.project.create({
+				data: {
+					name: data.name,
+					slug,
+					summary: data.summary,
+					metaTitle: data.metaTitle ?? null,
+					keywords: data.keywords ?? [],
+					// Nullable Json column: a bare `null` is reserved by Prisma for JSON
+					// filters, so the absent case writes SQL NULL via `Prisma.DbNull`.
+					offers: data.offers ?? Prisma.DbNull,
+					applicationCategory: data.applicationCategory ?? null,
+					bucket: data.bucket,
+					platformTags: data.platformTags,
+					role: data.role ?? null,
+					accentColor: data.accentColor ?? null,
+					icon: data.icon ?? null,
+					// Card and OG images, stored as authored. The card and OG tag resolve
+					// their fallbacks (`resolveCardImage` / `resolveOgImage`) at render
+					// time, so nothing is baked in here.
+					cardImage: data.cardImage ?? null,
+					ogImage: data.ogImage ?? null,
+					// Stored as authored — no first-image backfill. `heroImage` is the
+					// detail-page hero (used only when a project has no sections), and the
+					// card/OG resolvers (`resolveCardImage` / `resolveOgImage`) already
+					// fall through to the first section image at render time, so a null
+					// hero never yields an empty card.
+					heroImage: data.heroImage ?? null,
+					isFeatured: data.isFeatured ?? false,
+					isDiscontinued: data.isDiscontinued ?? false,
+					date: data.date ?? null,
+					// Imports honour the authored `sortOrder` verbatim — unlike the
+					// admin create route, which shifts siblings to make room. The
+					// manifest author owns gallery ordering across the whole batch.
+					sortOrder: data.sortOrder ?? 0,
+					sections: toSectionCreate(data.sections),
+					links: toLinkCreate(data.links),
+					faqs: toFaqCreate(data.faqs),
+				},
+			})
+		},
+		{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+	)
 }
 
 // #endregion

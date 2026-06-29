@@ -245,6 +245,30 @@ describe("PUT /api/admin/projects/[id]", () => {
 		})
 	})
 
+	it("clears all FAQs when faqs is an explicit empty array", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const deleteFaqs = vi.fn()
+		const tx = {
+			project: {
+				findUnique: vi.mocked(prisma.project.findUnique),
+				update: vi.mocked(prisma.project.update),
+				updateMany: vi.fn(),
+			},
+			projectSection: { deleteMany: vi.fn() },
+			projectLink: { deleteMany: vi.fn() },
+			projectFaq: { deleteMany: deleteFaqs },
+		} as unknown as Prisma.TransactionClient
+		vi.mocked(prisma.$transaction).mockImplementation(
+			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) => fn(tx)
+		)
+
+		await PUT(putRequest("1", { faqs: [] }), params("1"))
+
+		expect(deleteFaqs).toHaveBeenCalledWith({ where: { projectId: 1 } })
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.faqs).toEqual({ create: [] })
+	})
+
 	it("leaves FAQs untouched when faqs is omitted", async () => {
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
 		const deleteFaqs = vi.fn()
