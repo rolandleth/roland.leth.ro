@@ -24,7 +24,6 @@ function renderCarousel(
 	const props = {
 		images,
 		index: 0,
-		direction: 0,
 		canNavigate: true,
 		altPrefix: "MyApp",
 		onSelectImage: vi.fn(),

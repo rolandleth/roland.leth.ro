@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimatePresence, motion, type PanInfo } from "framer-motion"
+import { motion, type PanInfo } from "framer-motion"
 import Image from "next/image"
 import { useState } from "react"
 import { resolveSwipe } from "@/lib/client/swipe"
@@ -20,12 +20,6 @@ interface Props {
 	 */
 	index: number
 	/**
-	 * Direction of the last index change (1 forward, -1 back, 0 none), supplied
-	 * by the parent so the slide animation pushes the right way without the
-	 * carousel having to track the previous index across renders.
-	 */
-	direction: number
-	/**
 	 * Whether the gallery has anywhere to swipe. Mirrors the lightbox: `true`
 	 * even for a single-image section when the arrows can cross into another
 	 * section that holds images.
@@ -40,19 +34,9 @@ interface Props {
 	onEnlarge: () => void
 }
 
-// Hoisted so every carousel render doesn't build a new object; framer-motion
-// compares `variants` references and reinitializes the animation state when
-// the object identity changes.
-const variants = {
-	enter: (d: number) => ({ x: d > 0 ? "60%" : "-60%", opacity: 0 }),
-	center: { x: 0, opacity: 1 },
-	exit: (d: number) => ({ x: d > 0 ? "-60%" : "60%", opacity: 0 }),
-}
-
 export default function ProjectSectionCarousel({
 	images,
 	index,
-	direction,
 	canNavigate,
 	altPrefix,
 	onSelectImage,
@@ -110,21 +94,21 @@ export default function ProjectSectionCarousel({
 			{/* Image area — the stage hugs the image's measured aspect ratio so a
 			    landscape screenshot no longer letterboxes inside a tall fixed box.
 			    Capped (70vh on mobile, 480px on wider screens) so a portrait shot
-			    can't run the page off-screen; `overflow-hidden` clips the
-			    off-screen slides during transitions. Before the first image
-			    reports its size, fall back to the fixed height so the box never
-			    collapses to zero. */}
+			    can't run the page off-screen; `overflow-hidden` clips the image as
+			    it rubber-bands during a swipe. Before the first image reports its
+			    size, fall back to the fixed height so the box never collapses to
+			    zero. */}
 			<div
 				className={`relative max-h-[70vh] w-full overflow-hidden rounded-xl sm:max-h-120 ${aspectRatio === null ? "h-120" : ""}`}
 				style={aspectRatio === null ? undefined : { aspectRatio }}
 				aria-live="polite"
 				aria-atomic="true"
 			>
-				{/* Drag layer — fills the stage and stays mounted across slides so
-				    the swipe gesture has stable state while the keyed slide inside
-				    animates. Rubber-bands back to centre when the swipe falls short
-				    of the threshold; a tap below the drag threshold still reaches the
-				    enlarge button underneath. */}
+				{/* Drag layer — fills the stage and carries the swipe gesture.
+				    Rubber-bands back to centre when the swipe falls short of the
+				    threshold; a tap below the drag threshold still reaches the
+				    enlarge button underneath. The image swaps instantly on
+				    navigation, with no slide transition. */}
 				<motion.div
 					className="absolute inset-0"
 					drag={canNavigate ? "x" : false}
@@ -132,50 +116,37 @@ export default function ProjectSectionCarousel({
 					dragElastic={0.2}
 					onDragEnd={handleDragEnd}
 				>
-					<AnimatePresence initial={false} custom={direction}>
-						<motion.div
-							key={current.id}
-							custom={direction}
-							variants={variants}
-							initial="enter"
-							animate="center"
-							exit="exit"
-							transition={{ duration: 0.3, ease: "easeInOut" }}
-							className="absolute inset-0"
-						>
-							{/* `fill` + `object-contain` sizes the image from the stage
-							    box, not from its (mis-computed under `width/height={0}`)
-							    intrinsic size, so it renders at full size on every DPR.
-							    `onLoad` reads the natural dimensions to size the stage to
-							    this image's ratio. `draggable={false}` stops the browser's
-							    native image drag from hijacking the swipe. Click to
-							    enlarge: the carousel caps at 736px, so the lightbox
-							    reveals finer detail. */}
-							<button
-								type="button"
-								onClick={onEnlarge}
-								aria-label={`Enlarge ${imageAlt}`}
-								className="relative h-full w-full cursor-zoom-in"
-							>
-								<Image
-									src={current.url}
-									alt={imageAlt}
-									fill
-									loading="eager"
-									draggable={false}
-									onLoad={(event) => {
-										const { naturalWidth, naturalHeight } = event.currentTarget
+					{/* `fill` + `object-contain` sizes the image from the stage
+					    box, not from its (mis-computed under `width/height={0}`)
+					    intrinsic size, so it renders at full size on every DPR.
+					    `onLoad` reads the natural dimensions to size the stage to
+					    this image's ratio. `draggable={false}` stops the browser's
+					    native image drag from hijacking the swipe. Click to
+					    enlarge: the carousel caps at 736px, so the lightbox
+					    reveals finer detail. */}
+					<button
+						type="button"
+						onClick={onEnlarge}
+						aria-label={`Enlarge ${imageAlt}`}
+						className="absolute inset-0 cursor-zoom-in"
+					>
+						<Image
+							src={current.url}
+							alt={imageAlt}
+							fill
+							loading="eager"
+							draggable={false}
+							onLoad={(event) => {
+								const { naturalWidth, naturalHeight } = event.currentTarget
 
-										if (naturalWidth > 0 && naturalHeight > 0) {
-											setAspectRatio(naturalWidth / naturalHeight)
-										}
-									}}
-									sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
-									className="pointer-events-none object-contain select-none"
-								/>
-							</button>
-						</motion.div>
-					</AnimatePresence>
+								if (naturalWidth > 0 && naturalHeight > 0) {
+									setAspectRatio(naturalWidth / naturalHeight)
+								}
+							}}
+							sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
+							className="pointer-events-none object-contain select-none"
+						/>
+					</button>
 				</motion.div>
 			</div>
 

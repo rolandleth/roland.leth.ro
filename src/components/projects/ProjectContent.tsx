@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimatePresence, motion } from "framer-motion"
+import { motion } from "framer-motion"
 import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
@@ -42,11 +42,6 @@ export default function ProjectContent({
 	// by the carousel) so the arrows, dots, and lightbox share one position and
 	// the arrows can walk across section boundaries into the next/prev section.
 	const [imageIndex, setImageIndex] = useState(0)
-	// Direction of the last image move, so the carousel slide pushes the right
-	// way. The carousel can't derive it from `index` alone without reading a ref
-	// during render (which the lint rules forbid), so the owner of the index
-	// tracks it.
-	const [slideDirection, setSlideDirection] = useState(0)
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 	// Refs to each tab button so arrow-key navigation can move focus along
 	// with selection (APG roving-tabindex pattern).
@@ -89,12 +84,10 @@ export default function ProjectContent({
 	function goToSection(index: number) {
 		setActiveTab(index)
 		setImageIndex(0)
-		setSlideDirection(0)
 	}
 
 	// Jump straight to a dot's image within the active section.
 	function selectImage(target: number) {
-		setSlideDirection(target > imageIndex ? 1 : -1)
 		setImageIndex(target)
 	}
 
@@ -128,7 +121,6 @@ export default function ProjectContent({
 	function navigateImage(direction: 1 | -1) {
 		const images = activeSection?.images ?? []
 		const nextIndex = imageIndex + direction
-		setSlideDirection(direction)
 
 		if (nextIndex >= 0 && nextIndex < images.length) {
 			setImageIndex(nextIndex)
@@ -362,49 +354,42 @@ export default function ProjectContent({
 							</div>
 						)}
 
-						<AnimatePresence mode="wait">
-							{activeSection && (
-								<motion.div
-									key={activeSection.id}
-									role="tabpanel"
-									id={`panel-${activeSection.id}`}
-									aria-labelledby={`tab-${activeSection.id}`}
-									initial={{ opacity: 0, y: 8 }}
-									animate={{ opacity: 1, y: 0 }}
-									exit={{ opacity: 0, y: -8 }}
-									transition={{ duration: 0.2 }}
-								>
-									{activeSection.images.length > 0 && (
-										<div className="mb-6">
-											<ProjectSectionCarousel
-												images={activeSection.images}
-												index={imageIndex}
-												direction={slideDirection}
-												canNavigate={canNavigateGallery}
-												altPrefix={activeSection.title}
-												onSelectImage={selectImage}
-												onPrev={() => navigateImage(-1)}
-												onNext={() => navigateImage(1)}
-												onEnlarge={() => setIsLightboxOpen(true)}
-											/>
-										</div>
-									)}
-
-									{sections.length === 1 && (
-										<h2
-											className="mb-4 text-xl font-semibold"
-											style={{ color: accent }}
-										>
-											{activeSection.title}
-										</h2>
-									)}
-
-									<div className="prose dark:prose-invert max-w-none">
-										{renderedDescriptions[activeTab]}
+						{activeSection && (
+							<div
+								key={activeSection.id}
+								role="tabpanel"
+								id={`panel-${activeSection.id}`}
+								aria-labelledby={`tab-${activeSection.id}`}
+							>
+								{activeSection.images.length > 0 && (
+									<div className="mb-6">
+										<ProjectSectionCarousel
+											images={activeSection.images}
+											index={imageIndex}
+											canNavigate={canNavigateGallery}
+											altPrefix={activeSection.title}
+											onSelectImage={selectImage}
+											onPrev={() => navigateImage(-1)}
+											onNext={() => navigateImage(1)}
+											onEnlarge={() => setIsLightboxOpen(true)}
+										/>
 									</div>
-								</motion.div>
-							)}
-						</AnimatePresence>
+								)}
+
+								{sections.length === 1 && (
+									<h2
+										className="mb-4 text-xl font-semibold"
+										style={{ color: accent }}
+									>
+										{activeSection.title}
+									</h2>
+								)}
+
+								<div className="prose dark:prose-invert max-w-none">
+									{renderedDescriptions[activeTab]}
+								</div>
+							</div>
+						)}
 
 						{/* One lightbox for the whole gallery, kept outside the tabpanel
 						    so it survives section changes — the arrows walk across

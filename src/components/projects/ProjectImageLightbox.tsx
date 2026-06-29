@@ -1,11 +1,6 @@
 "use client"
 
-import {
-	AnimatePresence,
-	motion,
-	type PanInfo,
-	useReducedMotion,
-} from "framer-motion"
+import { AnimatePresence, motion, type PanInfo } from "framer-motion"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useRef } from "react"
@@ -56,7 +51,6 @@ export default function ProjectImageLightbox({
 	onPrev,
 	onNext,
 }: Props) {
-	const prefersReducedMotion = useReducedMotion()
 	const dialogRef = useRef<HTMLDivElement | null>(null)
 	const closeButtonRef = useRef<HTMLButtonElement | null>(null)
 	const current = images[index]
@@ -213,12 +207,8 @@ export default function ProjectImageLightbox({
 					{/* Image stage. `stopPropagation` keeps clicks on the image from
 					    bubbling to the backdrop's close handler. */}
 					<motion.div
-						key={current.id}
 						className="relative flex max-h-full w-full max-w-5xl flex-col items-center"
 						onClick={(event) => event.stopPropagation()}
-						initial={prefersReducedMotion ? false : { scale: 0.96 }}
-						animate={{ scale: 1 }}
-						transition={{ duration: 0.2 }}
 						drag={canNavigate ? "x" : false}
 						dragConstraints={{ left: 0, right: 0 }}
 						dragElastic={0.2}
