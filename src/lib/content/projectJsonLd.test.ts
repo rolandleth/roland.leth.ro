@@ -94,7 +94,11 @@ describe("buildSoftwareApplicationJsonLd", () => {
 			name: "Continuum",
 			operatingSystem: "macOS",
 			url: "https://roland.leth.ro/projects/continuum",
-			author: { "@type": "Person", name: "Roland Leth" },
+			author: {
+				"@type": "Person",
+				name: "Roland Leth",
+				url: "https://roland.leth.ro",
+			},
 		})
 	})
 

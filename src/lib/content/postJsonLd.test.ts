@@ -37,8 +37,8 @@ describe("buildBlogPostingJsonLd", () => {
 				"@type": "WebPage",
 				"@id": `${BASE}/blog/tech/hello-world`,
 			},
-			author: { "@type": "Person", name: "Roland Leth" },
-			publisher: { "@type": "Person", name: "Roland Leth" },
+			author: { "@type": "Person", name: "Roland Leth", url: BASE },
+			publisher: { "@type": "Person", name: "Roland Leth", url: BASE },
 		})
 	})
 

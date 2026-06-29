@@ -60,7 +60,7 @@ export function buildSoftwareApplicationJsonLd(
 		description: summary,
 		operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
 		url: `${base}/projects/${slug}`,
-		author: { "@type": "Person", name: "Roland Leth" },
+		author: { "@type": "Person", name: "Roland Leth", url: base },
 	}
 
 	// Category is manifest-driven, not inferred — omit when unset rather than
