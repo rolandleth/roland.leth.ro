@@ -2,6 +2,7 @@
 // and separate from the page so the shapes are unit-testable and the page stays
 // a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
 
+import { personFor } from "@/lib/content/jsonLd"
 import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
 // Buckets that represent installable apps (vs. Web/OpenSource projects). Only
@@ -60,7 +61,7 @@ export function buildSoftwareApplicationJsonLd(
 		description: summary,
 		operatingSystem: bucket === "iOS" ? "iOS" : "macOS",
 		url: `${base}/projects/${slug}`,
-		author: { "@type": "Person", name: "Roland Leth", url: base },
+		author: personFor(base),
 	}
 
 	// Category is manifest-driven, not inferred — omit when unset rather than
@@ -130,27 +131,4 @@ function buildOfferNode(
 		highPrice: sorted[sorted.length - 1].price,
 		offerCount: offers.length,
 	}
-}
-
-// Built from a string so the U+2028/U+2029 line separators never appear as
-// literals in source — they would terminate a JS regex literal otherwise.
-const LINE_SEPARATORS_PATTERN = new RegExp("[\\u2028\\u2029]", "g")
-const U_2028_CHAR_CODE = 0x2028
-
-/**
- * Serializes a JSON-LD object for embedding inside `<script type="application/
- * ld+json">`. `JSON.stringify` does not escape `<`, `>`, `&`, U+2028, or
- * U+2029, so a value containing `</script>` (or just `<`/`>`) could close the
- * tag and inject HTML, and the line separators break some JSON parsers. We
- * escape those bytes as unicode escapes — JSON parsers accept the escaped form
- * unchanged, and HTML can no longer see the literal sequence.
- */
-export function safeJsonLdString(value: unknown): string {
-	return JSON.stringify(value)
-		.replace(/</g, "\\u003c")
-		.replace(/>/g, "\\u003e")
-		.replace(/&/g, "\\u0026")
-		.replace(LINE_SEPARATORS_PATTERN, (char) =>
-			char.charCodeAt(0) === U_2028_CHAR_CODE ? "\\u2028" : "\\u2029"
-		)
 }

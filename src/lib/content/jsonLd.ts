@@ -1,0 +1,40 @@
+// Shared schema.org JSON-LD primitives used by more than one page builder
+// (`postJsonLd.ts`, `projectJsonLd.ts`). Kept I/O-free so the shapes stay
+// unit-testable and the page components stay thin.
+
+// Built from a string so the U+2028/U+2029 line separators never appear as
+// literals in source — they would terminate a JS regex literal otherwise.
+const LINE_SEPARATORS_PATTERN = new RegExp("[\\u2028\\u2029]", "g")
+const U_2028_CHAR_CODE = 0x2028
+
+/**
+ * Serializes a JSON-LD object for embedding inside `<script type="application/
+ * ld+json">`. `JSON.stringify` does not escape `<`, `>`, `&`, U+2028, or
+ * U+2029, so a value containing `</script>` (or just `<`/`>`) could close the
+ * tag and inject HTML, and the line separators break some JSON parsers. We
+ * escape those bytes as unicode escapes — JSON parsers accept the escaped form
+ * unchanged, and HTML can no longer see the literal sequence. Every JSON-LD
+ * `<script>` block on the site must serialize through this, never raw
+ * `JSON.stringify`.
+ */
+export function safeJsonLdString(value: unknown): string {
+	return JSON.stringify(value)
+		.replace(/</g, "\\u003c")
+		.replace(/>/g, "\\u003e")
+		.replace(/&/g, "\\u0026")
+		.replace(LINE_SEPARATORS_PATTERN, (char) =>
+			char.charCodeAt(0) === U_2028_CHAR_CODE ? "\\u2028" : "\\u2029"
+		)
+}
+
+/**
+ * The site's single author/publisher `Person` entity. Reused across blog and
+ * project structured data so a personal site isn't forced to assert a separate
+ * Organization it doesn't have. `url` is the site origin — Google's
+ * structured-data validator flags author entities without a `url`, and the
+ * author's homepage genuinely is this site. `base` is the origin from
+ * `siteBase()`, passed in so the builder stays pure.
+ */
+export function personFor(base: string) {
+	return { "@type": "Person", name: "Roland Leth", url: base } as const
+}

@@ -3,6 +3,7 @@ import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import PageGlow from "@/components/PageGlow"
 import { siteBase } from "@/lib/api/request"
+import { safeJsonLdString } from "@/lib/content/jsonLd"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
@@ -67,7 +68,7 @@ export default async function PostPage({ params }: Props) {
 		<>
 			<script
 				type="application/ld+json"
-				dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+				dangerouslySetInnerHTML={{ __html: safeJsonLdString(jsonLd) }}
 			/>
 
 			<PageGlow />

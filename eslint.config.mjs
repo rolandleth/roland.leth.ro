@@ -49,6 +49,19 @@ const eslintConfig = defineConfig([
 		},
 		rules: {
 			"no-console": "warn",
+			// Raw `JSON.stringify` inside `dangerouslySetInnerHTML` doesn't escape
+			// `<`, `>`, `&`, or U+2028/9, so a value containing `</script>` can break
+			// out of a JSON-LD block and inject HTML. Route every such block through
+			// `safeJsonLdString` (src/lib/content/jsonLd.ts) instead.
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector:
+						'JSXAttribute[name.name="dangerouslySetInnerHTML"] CallExpression[callee.object.name="JSON"][callee.property.name="stringify"]',
+					message:
+						"Don't embed raw JSON.stringify in dangerouslySetInnerHTML — use safeJsonLdString from @/lib/content/jsonLd so values can't close the script tag.",
+				},
+			],
 			"no-unused-vars": "off",
 			"no-empty": ["error", { allowEmptyCatch: true }],
 			"@typescript-eslint/no-non-null-assertion": "error",

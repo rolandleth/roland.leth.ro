@@ -3,16 +3,9 @@
 // stays a thin server component. Consumed by
 // `src/app/blog/[section]/[slug]/page.tsx`.
 
+import { personFor } from "@/lib/content/jsonLd"
 import { postDatetimeToISO } from "@/lib/utils/format"
 import type { PostDetail } from "@/lib/db/posts"
-
-// Single author/publisher for the whole site. Reused for both fields so a
-// personal blog isn't forced to assert a separate Organization it doesn't have.
-// `url` is the site origin — Google's structured-data validator flags author
-// entities without a `url`, and the author's homepage genuinely is this site.
-function personFor(base: string) {
-	return { "@type": "Person", name: "Roland Leth", url: base } as const
-}
 
 /**
  * Absolutizes a stored image path for structured data: Vercel Blob uploads are

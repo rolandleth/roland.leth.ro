@@ -86,6 +86,25 @@ describe("PostPage", () => {
 		expect(jsonLd.headline).toBe("Hello")
 		expect(jsonLd.url).toBe("https://roland.leth.ro/blog/tech/hello")
 	})
+
+	it("escapes a `</script>` payload in the title so it can't break out of the JSON-LD block", async () => {
+		vi.mocked(loadPost).mockResolvedValue({
+			...existingPost,
+			title: "Pwn</script><img src=x onerror=alert(1)>",
+		})
+
+		const { container } = render(await PostPage(paramsFor("tech", "hello")))
+		const script = container.querySelector('script[type="application/ld+json"]')
+		const raw = script?.innerHTML ?? ""
+
+		// The literal closing tag must never reach the HTML, but the escaped form
+		// must still parse back to the original title.
+		expect(raw).not.toContain("</script>")
+		expect(raw).toContain("\\u003c/script\\u003e")
+		expect(JSON.parse(raw).headline).toBe(
+			"Pwn</script><img src=x onerror=alert(1)>"
+		)
+	})
 })
 
 describe("generateMetadata", () => {

@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { siteBase } from "@/lib/api/request"
+import { safeJsonLdString } from "@/lib/content/jsonLd"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
-	safeJsonLdString,
 } from "@/lib/content/projectJsonLd"
 import {
 	getProjectsGalleryCached,
