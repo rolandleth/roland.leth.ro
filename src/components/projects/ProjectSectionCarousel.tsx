@@ -145,13 +145,28 @@ export default function ProjectSectionCarousel({
 									return
 								}
 
-								// Invalid dimensions leave the stage on its `h-120` fallback
-								// forever — surface in dev so a broken asset is debuggable
-								// rather than silently mis-sized.
+								// Invalid dimensions: drop to the `h-120` fallback rather than
+								// keep the previous image's ratio (a stale, mis-sized box after
+								// navigating from a valid image). Surface in dev too.
+								setAspectRatio(null)
+
 								if (process.env.NODE_ENV !== "production") {
 									// eslint-disable-next-line no-console
 									console.warn(
-										`[ProjectSectionCarousel] image ${current.url} reported invalid dimensions (${naturalWidth}×${naturalHeight}); stage stays on its fallback height`
+										`[ProjectSectionCarousel] image ${current.url} reported invalid dimensions (${naturalWidth}×${naturalHeight}); stage falls back to its fixed height`
+									)
+								}
+							}}
+							onError={() => {
+								// A broken image fires `onError`, not `onLoad`, so without this
+								// the stage would keep the previous image's ratio. Reset to the
+								// fixed-height fallback and surface it in dev.
+								setAspectRatio(null)
+
+								if (process.env.NODE_ENV !== "production") {
+									// eslint-disable-next-line no-console
+									console.warn(
+										`[ProjectSectionCarousel] image ${current.url} failed to load; stage falls back to its fixed height`
 									)
 								}
 							}}

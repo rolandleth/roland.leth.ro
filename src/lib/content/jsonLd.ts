@@ -39,6 +39,24 @@ export function safeJsonLdString(value: unknown): string {
 }
 
 /**
+ * Absolutizes a stored image path for structured data. Vercel Blob uploads
+ * (`https://…`) and any externally-hosted asset are already absolute; only
+ * legacy site-relative `/images/…` paths need the origin prepended. Anchored to
+ * a real scheme so protocol-relative (`//host/…`) and `data:` URLs — which a
+ * bare `startsWith("http")` would wrongly re-prefix into a broken URL — are left
+ * untouched. Shared by the blog and project builders so both emit valid
+ * absolute `image` values for Rich Results.
+ */
+export function absoluteImageUrl(image: string, base: string): string {
+	const isAlreadyAbsolute =
+		/^https?:\/\//.test(image) ||
+		image.startsWith("//") ||
+		image.startsWith("data:")
+
+	return isAlreadyAbsolute ? image : `${base}${image}`
+}
+
+/**
  * The site's single author/publisher `Person` entity. Reused across blog and
  * project structured data so a personal site isn't forced to assert a separate
  * Organization it doesn't have. `url` is the site origin — Google's

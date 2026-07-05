@@ -34,8 +34,12 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
 				disallow: "/api/",
 			},
 			{
+				// `$`-anchored so this stays an exact-path block: a bare `/life`
+				// disallow is a *prefix* match that would also hide a future
+				// `/lifestyle` (and `/about-team`, etc.). CCBot honors the `$`
+				// end-anchor like the other major crawlers.
 				userAgent: "CCBot",
-				disallow: ["/about", "/life"],
+				disallow: ["/about$", "/life$"],
 			},
 		],
 		sitemap: `${base}/sitemap.xml`,

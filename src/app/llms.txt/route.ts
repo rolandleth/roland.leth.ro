@@ -15,7 +15,11 @@ export async function GET(): Promise<Response> {
 	const base = await siteBase()
 	const projects = await getProjectsGalleryCached()
 
+	// Discontinued projects are sorted last in the gallery but not dropped. This
+	// file pitches itself as an "actually live" overview, so an LLM must not cite
+	// a dead app as current — filter them out here.
 	const projectLines = projects
+		.filter((project) => !project.isDiscontinued)
 		.map(
 			(project) =>
 				`- [${project.name}](${base}/projects/${project.slug}): ${oneLine(project.summary)}`

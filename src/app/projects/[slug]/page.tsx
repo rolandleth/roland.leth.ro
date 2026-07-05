@@ -54,11 +54,27 @@ export default async function ProjectPage({ params }: Props) {
 		notFound()
 	}
 
-	const renderedDescriptions = await Promise.all(
-		project.sections.map(async (s) => (
-			<div key={s.id}>{await markdownToReact(s.description)}</div>
-		))
+	// Section descriptions are Markdown. `allSettled` (like the FAQ block below)
+	// so one bad description renders an inline plain-text fallback instead of
+	// 500'ing the whole project page. Aligned by index with `project.sections`.
+	const descriptionSettlements = await Promise.allSettled(
+		project.sections.map(async (s) => markdownToReact(s.description))
 	)
+	const renderedDescriptions = descriptionSettlements.map((settled, index) => {
+		const section = project.sections[index]
+
+		if (settled.status === "fulfilled") {
+			return <div key={section.id}>{settled.value}</div>
+		}
+
+		console.error("[ProjectPage] section markdown render failed", {
+			projectSlug: project.slug,
+			sectionId: section.id,
+			reason: settled.reason,
+		})
+
+		return <p key={section.id}>{section.description}</p>
+	})
 
 	// FAQ answers are Markdown too — render them server-side alongside the
 	// section descriptions so the accordion client component stays free of the

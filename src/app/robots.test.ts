@@ -36,7 +36,7 @@ describe("robots — rules", () => {
 		const result = await robots()
 		expect(result.rules).toEqual([
 			{ userAgent: "*", allow: "/api/feed/", disallow: "/api/" },
-			{ userAgent: "CCBot", disallow: ["/about", "/life"] },
+			{ userAgent: "CCBot", disallow: ["/about$", "/life$"] },
 		])
 	})
 
@@ -50,11 +50,12 @@ describe("robots — rules", () => {
 		expect(ruleFor(result.rules, "*")?.allow).toBe("/api/feed/")
 	})
 
-	it("blocks /about and /life for CCBot only", async () => {
+	it("exact-blocks /about and /life for CCBot only", async () => {
 		const result = await robots()
+		// `$`-anchored so the block can't leak onto a future `/lifestyle`.
 		expect(ruleFor(result.rules, "CCBot")?.disallow).toEqual([
-			"/about",
-			"/life",
+			"/about$",
+			"/life$",
 		])
 	})
 

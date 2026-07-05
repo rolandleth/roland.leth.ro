@@ -3,18 +3,9 @@
 // stays a thin server component. Consumed by
 // `src/app/blog/[section]/[slug]/page.tsx`.
 
-import { personFor } from "@/lib/content/jsonLd"
+import { absoluteImageUrl, personFor } from "@/lib/content/jsonLd"
 import { postDatetimeToISO } from "@/lib/utils/format"
 import type { PostDetail } from "@/lib/db/posts"
-
-/**
- * Absolutizes a stored image path for structured data: Vercel Blob uploads are
- * already absolute (`https://…`), while legacy `/images/…` assets are
- * site-relative and need the site origin prepended.
- */
-function absoluteImageUrl(image: string, base: string): string {
-	return image.startsWith("http") ? image : `${base}${image}`
-}
 
 /**
  * Builds `BlogPosting` JSON-LD for a blog post. `datePublished` comes from the

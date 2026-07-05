@@ -2,7 +2,7 @@
 // and separate from the page so the shapes are unit-testable and the page stays
 // a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
 
-import { personFor } from "@/lib/content/jsonLd"
+import { absoluteImageUrl, personFor } from "@/lib/content/jsonLd"
 import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
 // Buckets that represent installable apps (vs. Web/OpenSource projects). Only
@@ -40,8 +40,9 @@ export function buildFaqJsonLd(
  * Builds `SoftwareApplication` JSON-LD for app-bucket projects (iOS/Mac), or
  * `null` for Web/OpenSource so non-apps don't emit app markup. When the project
  * carries `offers`, an `AggregateOffer` advertises the price range. `image` is
- * the resolved OG asset (absolute Blob URL); omitted when null. `base` is the
- * site origin from `siteBase()`, passed in so the builder stays pure.
+ * the resolved OG asset, absolutized against `base` (a legacy `/images/…` path
+ * would otherwise emit an invalid relative URL); omitted when null. `base` is
+ * the site origin from `siteBase()`, passed in so the builder stays pure.
  */
 export function buildSoftwareApplicationJsonLd(
 	project: ProjectDetail,
@@ -71,7 +72,7 @@ export function buildSoftwareApplicationJsonLd(
 	}
 
 	if (image !== null) {
-		jsonLd.image = image
+		jsonLd.image = absoluteImageUrl(image, base)
 	}
 
 	const offerNode = buildOfferNode(offers)
@@ -100,13 +101,7 @@ function buildOfferNode(
 	}
 
 	if (offers.length === 1) {
-		const [only] = offers
-
-		return {
-			"@type": "Offer",
-			price: only.price,
-			priceCurrency: only.priceCurrency,
-		}
+		return toOfferNode(offers[0])
 	}
 
 	// Multi-offer fallback: when currencies differ, schema.org accepts `offers`
@@ -115,20 +110,39 @@ function buildOfferNode(
 	const currencies = new Set(offers.map((offer) => offer.priceCurrency))
 
 	if (currencies.size > 1) {
-		return offers.map((offer) => ({
-			"@type": "Offer",
-			price: offer.price,
-			priceCurrency: offer.priceCurrency,
-		}))
+		return offers.map(toOfferNode)
+	}
+
+	// AggregateOffer asserts numeric lowPrice/highPrice bounds. If any price
+	// isn't a finite number (a future `"free"` sentinel, stray whitespace, a
+	// locale-formatted `"1,99"`), `Number()` yields `NaN`, the comparator becomes
+	// undefined, and the bounds come out silently wrong. Fall back to the
+	// array-of-Offers shape, which makes no range claim, rather than emit a
+	// corrupt range.
+	const hasNonNumericPrice = offers.some(
+		(offer) => !Number.isFinite(Number(offer.price))
+	)
+
+	if (hasNonNumericPrice) {
+		return offers.map(toOfferNode)
 	}
 
 	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
 
 	return {
 		"@type": "AggregateOffer",
-		priceCurrency: offers[0].priceCurrency,
+		priceCurrency: sorted[0].priceCurrency,
 		lowPrice: sorted[0].price,
 		highPrice: sorted[sorted.length - 1].price,
 		offerCount: offers.length,
+	}
+}
+
+/** Maps a single price point to a schema.org `Offer` node. */
+function toOfferNode(offer: ProjectOffer): Record<string, unknown> {
+	return {
+		"@type": "Offer",
+		price: offer.price,
+		priceCurrency: offer.priceCurrency,
 	}
 }
