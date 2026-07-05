@@ -443,3 +443,13 @@ export function revalidateProject(slug: string): void {
 	revalidateTag("projects", "max")
 	revalidateTag(`project-${slug}`, "max")
 }
+
+/**
+ * Invalidates every project-related cache in one shot: the gallery, the
+ * sitemap slug list, and every per-slug detail cache — they all carry the
+ * `projects` tag. Used by the admin revalidate endpoint after script imports,
+ * which write via Prisma directly and can't bust tags themselves.
+ */
+export function revalidateAllProjects(): void {
+	revalidateTag("projects", "max")
+}
