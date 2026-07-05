@@ -67,6 +67,23 @@ describe("navigationType", () => {
 		expect(isBackForwardNavigation()).toBe(false)
 	})
 
+	it("registers no second listener on repeat installs (no stacking)", () => {
+		// The install guard already tripped in `beforeAll`, so further calls must
+		// add zero `currententrychange` listeners. A behavioural check can't catch
+		// stacking (duplicate listeners set the same flag), so assert on the
+		// registration itself.
+		const addSpy = vi.spyOn(navigationStub, "addEventListener")
+		installNavigationTypeTracking()
+		installNavigationTypeTracking()
+
+		const entryChangeRegistrations = addSpy.mock.calls.filter(
+			([type]) => type === "currententrychange"
+		)
+		expect(entryChangeRegistrations).toHaveLength(0)
+
+		addSpy.mockRestore()
+	})
+
 	it('tags <html> with `data-navigation-api="available"` when the API is present', () => {
 		expect(document.documentElement.dataset.navigationApi).toBe("available")
 	})

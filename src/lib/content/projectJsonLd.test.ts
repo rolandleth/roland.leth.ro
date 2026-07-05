@@ -119,6 +119,14 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		})
 	})
 
+	it("absolutizes a legacy site-relative image path against base", () => {
+		// A relative `/images/…` would be an invalid `image` for Rich Results;
+		// the builder prepends the origin. Already-absolute URLs stay untouched.
+		expect(buildApp(makeProject(), "/images/og.png")).toMatchObject({
+			image: "https://roland.leth.ro/images/og.png",
+		})
+	})
+
 	it("emits applicationCategory only when the manifest sets it", () => {
 		expect(buildApp(makeProject(), null)).not.toHaveProperty(
 			"applicationCategory"
@@ -215,6 +223,64 @@ describe("buildSoftwareApplicationJsonLd", () => {
 			lowPrice: "12.00",
 			highPrice: "249.00",
 			offerCount: 3,
+		})
+	})
+
+	it("falls back to an Offer array when a same-currency price isn't numeric", () => {
+		// A `"free"` sentinel would make the AggregateOffer's Number()-based sort
+		// compare NaN and emit undefined-order bounds. The Offer-array shape asserts
+		// no range, so it's the safe fallback — no AggregateOffer, no corrupt bounds.
+		const result = buildApp(
+			makeProject({
+				offers: [
+					{ name: "Free", price: "free", priceCurrency: "USD" },
+					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual([
+			{ "@type": "Offer", price: "free", priceCurrency: "USD" },
+			{ "@type": "Offer", price: "9.99", priceCurrency: "USD" },
+		])
+	})
+
+	it("treats an empty/whitespace price as non-numeric (Number('') is 0, not NaN)", () => {
+		// Guards the subtle case: an empty string parses to 0, so a naive
+		// Number.isFinite check would wrongly emit an AggregateOffer with an empty
+		// `lowPrice`. It must fall back to the Offer array instead.
+		const result = buildApp(
+			makeProject({
+				offers: [
+					{ name: "Blank", price: "  ", priceCurrency: "USD" },
+					{ name: "Paid", price: "5.00", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(Array.isArray(result?.offers)).toBe(true)
+		expect(result?.offers).not.toMatchObject({ "@type": "AggregateOffer" })
+	})
+
+	it("de-dupes offerCount by (price, currency, billing period)", () => {
+		// Two identical rows (e.g. a manifest listing the same tier twice) must not
+		// inflate the count past the number of distinct offers.
+		const result = buildApp(
+			makeProject({
+				offers: [
+					{ name: "Monthly", price: "5.00", priceCurrency: "USD" },
+					{ name: "Monthly dup", price: "5.00", priceCurrency: "USD" },
+					{ name: "Yearly", price: "50.00", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toMatchObject({
+			"@type": "AggregateOffer",
+			offerCount: 2,
 		})
 	})
 

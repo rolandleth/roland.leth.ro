@@ -35,10 +35,14 @@ describe("JsonLdScript", () => {
 		expect(container.querySelector("script")).toBeNull()
 	})
 
-	it("renders nothing when data is undefined", () => {
-		const { container } = render(<JsonLdScript data={undefined} />)
-
-		expect(container.querySelector("script")).toBeNull()
+	it("throws on undefined instead of silently swallowing a builder bug", () => {
+		// `undefined` is outside the `Record | null` contract: a builder that means
+		// "no block" returns null. An `undefined` here signals a bug, so it must
+		// surface (via `safeJsonLdString`) rather than render nothing. The cast
+		// simulates an untyped caller, since the prop type now forbids `undefined`.
+		expect(() =>
+			render(<JsonLdScript data={undefined as unknown as null} />)
+		).toThrow()
 	})
 })
 

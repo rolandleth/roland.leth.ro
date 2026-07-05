@@ -153,7 +153,61 @@ describe("ProjectPage — JSON-LD", () => {
 		const { container } = render(result)
 
 		expect(container.textContent).toContain("Broken FAQ raw answer.")
-		expect(consoleError).toHaveBeenCalled()
+		// Assert the structured payload, not just that it logged: a refactor that
+		// drops or renames these fields would otherwise pass silently.
+		expect(consoleError).toHaveBeenCalledWith(
+			"[ProjectPage] FAQ markdown render failed",
+			expect.objectContaining({
+				projectSlug: "my-app",
+				faqId: 2,
+				reason: "parse failed",
+			})
+		)
+
+		consoleError.mockRestore()
+	})
+
+	it("renders a fallback paragraph when one section's markdown fails, without 500'ing the page", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			sections: [
+				{
+					id: 10,
+					projectId: 1,
+					title: "Good",
+					description: "Good section.",
+					sortOrder: 0,
+					images: [],
+				},
+				{
+					id: 11,
+					projectId: 1,
+					title: "Broken",
+					description: "Broken section raw text.",
+					sortOrder: 1,
+					images: [],
+				},
+			],
+		})
+		// Only the second section's markdown throws. Rendering must not reject —
+		// the failed section falls back to a plain paragraph and the page survives.
+		// (`ProjectContent` is mocked to null here, and section text lives in no
+		// JSON-LD, so the structured log is what proves the fallback path ran.)
+		vi.mocked(markdownToReact)
+			.mockResolvedValueOnce(null)
+			.mockRejectedValueOnce(new Error("section parse failed"))
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+		await expect(ProjectPage(paramsFor("my-app"))).resolves.toBeDefined()
+
+		expect(consoleError).toHaveBeenCalledWith(
+			"[ProjectPage] section markdown render failed",
+			expect.objectContaining({
+				projectSlug: "my-app",
+				sectionId: 11,
+				reason: "section parse failed",
+			})
+		)
 
 		consoleError.mockRestore()
 	})

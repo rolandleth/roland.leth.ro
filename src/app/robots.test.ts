@@ -65,6 +65,29 @@ describe("robots — rules", () => {
 		expect(serialized).not.toContain("auth")
 		expect(serialized).not.toContain("login")
 	})
+
+	it("names no AI citation bot, so they fall through to the allow-all rule", async () => {
+		// The project pages are the apps' main discovery channel, so answer-engine
+		// bots are welcome via `*`. A future commit adding a bot-specific rule (even
+		// a well-meant `Allow`) would trip this — the fall-through is deliberate, so
+		// changing it should be a deliberate, test-breaking act.
+		const aiBots = [
+			"GPTBot",
+			"OAI-SearchBot",
+			"ChatGPT-User",
+			"ClaudeBot",
+			"Claude-User",
+			"PerplexityBot",
+			"Perplexity-User",
+			"Google-Extended",
+			"Applebot-Extended",
+		]
+		const result = await robots()
+
+		for (const bot of aiBots) {
+			expect(ruleFor(result.rules, bot)).toBeUndefined()
+		}
+	})
 })
 
 // #endregion

@@ -202,4 +202,94 @@ describe("ProjectImageLightbox", () => {
 		await user.keyboard("{Tab}")
 		expect(closeButton).toHaveFocus()
 	})
+
+	it("wraps Tab to itself when the close button is the only focusable (canNavigate: false)", async () => {
+		// No arrows means the close button is both first and last focusable, so the
+		// trap must keep focus on it in either Tab direction rather than escape.
+		renderLightbox({ images: [images[0]], canNavigate: false })
+		const closeButton = screen.getByRole("button", {
+			name: /close enlarged image/i,
+		})
+
+		closeButton.focus()
+		await user.keyboard("{Tab}")
+		expect(closeButton).toHaveFocus()
+
+		await user.keyboard("{Shift>}{Tab}{/Shift}")
+		expect(closeButton).toHaveFocus()
+	})
+
+	it("restores a pre-existing hidden overflow on close, not a blank value", () => {
+		// The scroll lock captures whatever overflow was set at mount. If another
+		// overlay already set `hidden`, closing must restore `hidden` — not reset to
+		// "" and let the page scroll while the other overlay is still up.
+		document.body.style.overflow = "hidden"
+
+		const { rerender } = render(
+			<ProjectImageLightbox
+				isOpen={true}
+				images={images}
+				index={0}
+				altPrefix="MyApp"
+				canNavigate={true}
+				onClose={noop}
+				onPrev={noop}
+				onNext={noop}
+			/>
+		)
+		expect(document.body.style.overflow).toBe("hidden")
+
+		rerender(
+			<ProjectImageLightbox
+				isOpen={false}
+				images={images}
+				index={0}
+				altPrefix="MyApp"
+				canNavigate={true}
+				onClose={noop}
+				onPrev={noop}
+				onNext={noop}
+			/>
+		)
+		expect(document.body.style.overflow).toBe("hidden")
+
+		document.body.style.overflow = ""
+	})
+
+	it("restores focus to <body> when nothing was focused before opening", () => {
+		// No trigger focused → `activeElement` is <body>. On close the restore step
+		// must no-op gracefully (the `?.` guard) rather than throw, landing focus
+		// back on <body> instead of leaving it stranded on the close button.
+		;(document.activeElement as HTMLElement | null)?.blur()
+
+		const { rerender } = render(
+			<ProjectImageLightbox
+				isOpen={true}
+				images={images}
+				index={0}
+				altPrefix="MyApp"
+				canNavigate={true}
+				onClose={noop}
+				onPrev={noop}
+				onNext={noop}
+			/>
+		)
+		expect(
+			screen.getByRole("button", { name: /close enlarged image/i })
+		).toHaveFocus()
+
+		rerender(
+			<ProjectImageLightbox
+				isOpen={false}
+				images={images}
+				index={0}
+				altPrefix="MyApp"
+				canNavigate={true}
+				onClose={noop}
+				onPrev={noop}
+				onNext={noop}
+			/>
+		)
+		expect(document.activeElement).toBe(document.body)
+	})
 })

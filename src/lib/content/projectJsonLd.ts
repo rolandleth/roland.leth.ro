@@ -113,15 +113,17 @@ function buildOfferNode(
 		return offers.map(toOfferNode)
 	}
 
-	// AggregateOffer asserts numeric lowPrice/highPrice bounds. If any price
-	// isn't a finite number (a future `"free"` sentinel, stray whitespace, a
-	// locale-formatted `"1,99"`), `Number()` yields `NaN`, the comparator becomes
-	// undefined, and the bounds come out silently wrong. Fall back to the
-	// array-of-Offers shape, which makes no range claim, rather than emit a
-	// corrupt range.
-	const hasNonNumericPrice = offers.some(
-		(offer) => !Number.isFinite(Number(offer.price))
-	)
+	// AggregateOffer asserts numeric lowPrice/highPrice bounds. If any price isn't
+	// a finite, non-empty number — a future `"free"` sentinel, a locale-formatted
+	// `"1,99"` (`NaN`), or an empty/whitespace string (`Number("")` is `0`, not
+	// `NaN`, and would emit an empty `lowPrice`) — the sort and the preserved
+	// string bounds come out silently wrong. Fall back to the array-of-Offers
+	// shape, which makes no range claim, rather than emit a corrupt range.
+	const hasNonNumericPrice = offers.some((offer) => {
+		const trimmed = offer.price.trim()
+
+		return trimmed === "" || !Number.isFinite(Number(trimmed))
+	})
 
 	if (hasNonNumericPrice) {
 		return offers.map(toOfferNode)
