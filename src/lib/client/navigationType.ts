@@ -30,6 +30,10 @@ export function isBackForwardNavigation(): boolean {
  * rather than silent.
  */
 export function installNavigationTypeTracking(): void {
+	// Install-once for the app's lifetime: the `isInstalled` flag makes repeat
+	// calls (React StrictMode's double-invoke, route remounts) a no-op, so the
+	// single `currententrychange` listener is never added twice and needs no
+	// removal path. Keep this guard first — dropping it would stack listeners.
 	if (isInstalled || typeof window === "undefined") {
 		return
 	}
@@ -51,7 +55,12 @@ export function installNavigationTypeTracking(): void {
 	isInstalled = true
 
 	navigation.addEventListener("currententrychange", (event) => {
-		const navigationType = (event as { navigationType?: string }).navigationType
+		// Narrowed to the Navigation API's `NavigationType` union (not a bare
+		// `string`) so a typo like `"traveres"` becomes a compile error instead of
+		// a silently-always-`false` comparison.
+		const navigationType = (
+			event as { navigationType?: "reload" | "push" | "replace" | "traverse" }
+		).navigationType
 
 		cameFromBackForward = navigationType === "traverse"
 	})

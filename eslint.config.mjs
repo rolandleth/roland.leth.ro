@@ -50,18 +50,30 @@ const eslintConfig = defineConfig([
 		rules: {
 			"no-console": "warn",
 			// `dangerouslySetInnerHTML` is the only HTML-injection surface in the
-			// app, and the site's sole legitimate use is embedding JSON-LD. Ban the
-			// attribute everywhere so the chokepoint can't be bypassed; the lone
-			// exception is `JsonLdScript` (overridden below), which routes its value
-			// through `safeJsonLdString` so it can't close the `<script>` tag. A
+			// app, and the site's sole legitimate use is embedding JSON-LD. Ban both
+			// forms — the JSX attribute and the object-property key (which covers
+			// `React.createElement("script", { dangerouslySetInnerHTML })` and an
+			// inline spread object) — so the common paths route through
+			// `JsonLdScript` (overridden below), which serializes via
+			// `safeJsonLdString` so the value can't close the `<script>` tag. A
 			// narrower "no raw JSON.stringify" rule wouldn't catch a hoisted variable
 			// or a different serializer, so this guards the attribute itself.
+			//
+			// Residual gap (by design, not a hole a lint can close): a prop object
+			// carrying `dangerouslySetInnerHTML` that's built in another module and
+			// spread in (`<script {...props} />`) is invisible to a static selector.
+			// That path is caught in review, not here.
 			"no-restricted-syntax": [
 				"error",
 				{
 					selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
 					message:
 						"Don't use dangerouslySetInnerHTML directly — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
+				},
+				{
+					selector: 'Property[key.name="dangerouslySetInnerHTML"]',
+					message:
+						"Don't build a dangerouslySetInnerHTML prop — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
 				},
 			],
 			"no-unused-vars": "off",

@@ -19,6 +19,23 @@ interface Props {
 	params: Promise<{ slug: string }>
 }
 
+/**
+ * Normalizes a rejected-promise reason for structured logging: a real `Error`
+ * yields a clean `reason` message plus its `stack` as a separate field, anything
+ * else stringifies. Keeps the log legible regardless of how the log pipeline
+ * stringifies bare objects.
+ */
+function describeRenderFailure(reason: unknown): {
+	reason: string
+	stack?: string
+} {
+	if (reason instanceof Error) {
+		return { reason: reason.message, stack: reason.stack }
+	}
+
+	return { reason: String(reason) }
+}
+
 export async function generateStaticParams() {
 	const projects = await getProjectsGalleryCached()
 
@@ -70,7 +87,7 @@ export default async function ProjectPage({ params }: Props) {
 		console.error("[ProjectPage] section markdown render failed", {
 			projectSlug: project.slug,
 			sectionId: section.id,
-			reason: settled.reason,
+			...describeRenderFailure(settled.reason),
 		})
 
 		return <p key={section.id}>{section.description}</p>
@@ -97,7 +114,7 @@ export default async function ProjectPage({ params }: Props) {
 		console.error("[ProjectPage] FAQ markdown render failed", {
 			projectSlug: project.slug,
 			faqId: faq.id,
-			reason: settled.reason,
+			...describeRenderFailure(settled.reason),
 		})
 
 		return <p key={faq.id}>{faq.answer}</p>

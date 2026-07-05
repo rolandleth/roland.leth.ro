@@ -129,12 +129,22 @@ function buildOfferNode(
 
 	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
 
+	// De-dupe by (price, currency, billing period) so two identical rows (e.g. a
+	// manifest listing the same tier twice) don't inflate `offerCount` past the
+	// number of distinct offers schema.org expects.
+	const offerCount = new Set(
+		offers.map(
+			(offer) =>
+				`${offer.price}|${offer.priceCurrency}|${offer.billingPeriod ?? ""}`
+		)
+	).size
+
 	return {
 		"@type": "AggregateOffer",
 		priceCurrency: sorted[0].priceCurrency,
 		lowPrice: sorted[0].price,
 		highPrice: sorted[sorted.length - 1].price,
-		offerCount: offers.length,
+		offerCount,
 	}
 }
 

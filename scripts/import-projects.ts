@@ -283,6 +283,14 @@ async function writeProject(
 	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
 	// non-repeatable read between this script's delete-and-create on the same
 	// slug.
+	//
+	// No retry/backoff — same rationale as the admin routes: a single-admin
+	// site sees write conflicts (`P2034`) only if the operator edits in the UI
+	// mid-import, and re-running the import is the recovery. The tradeoff: the
+	// Blob uploads in `resolveImageUrls` happen *before* this transaction, so an
+	// abort leaves those blobs orphaned until a later run's `pruneOrphans`
+	// sweeps them — acceptable dead weight, not data loss. `processProject`
+	// logs `P2034` distinctly so a conflict isn't mistaken for a manifest typo.
 	await prisma.$transaction(
 		async (tx) => {
 			await tx.project.deleteMany({ where: { slug } })
@@ -417,7 +425,15 @@ async function processProject(
 		})
 		// Re-validate with the real Blob URLs in place, then persist.
 		const data = projectCreateSchema.parse(resolved)
-		await writeProject(prisma!, slug, data)
+
+		// The dry-run branch above already returned, so a live run always has a
+		// client. Guard explicitly (rather than `prisma!`) so a future reorder or
+		// added early-exit can't silently pass null into the transaction.
+		if (prisma === null) {
+			throw new Error("No database client for a non-dry-run import")
+		}
+
+		await writeProject(prisma, slug, data)
 		console.log(`  ✓ imported "${manifest.name}"`)
 
 		if (!isPruneDisabled) {
@@ -452,10 +468,35 @@ async function processProject(
 
 		return { name: manifest.name, status: "imported" }
 	} catch (error) {
-		console.error(`  ✗ ${folderName}: ${formatError(error)}`)
+		const result = toFailureResult(folderName, error)
+		console.error(`  ✗ ${folderName}: ${result.detail}`)
 
-		return { name: folderName, status: "failed", detail: formatError(error) }
+		return result
 	}
+}
+
+/**
+ * Classifies a caught import error into a failure result. A Serializable write
+ * conflict (`P2034`, a concurrent admin edit on the same slug) gets a distinct,
+ * actionable message so a real batch conflict isn't triaged as a manifest typo —
+ * the fix is to re-run, not to edit the manifest. Any blobs uploaded before the
+ * abort are swept by a later run's `pruneOrphans`. Everything else flattens
+ * through `formatError`.
+ */
+function toFailureResult(folderName: string, error: unknown): ProjectResult {
+	if (
+		error instanceof Prisma.PrismaClientKnownRequestError &&
+		error.code === "P2034"
+	) {
+		return {
+			name: folderName,
+			status: "failed",
+			detail:
+				"transaction aborted (P2034 write conflict) — re-run the import for this project",
+		}
+	}
+
+	return { name: folderName, status: "failed", detail: formatError(error) }
 }
 
 // #endregion
