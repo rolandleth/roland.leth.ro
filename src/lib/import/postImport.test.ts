@@ -3,6 +3,7 @@ import { deriveSummary } from "@/lib/content/markdown"
 import { calculateReadingTime } from "@/lib/utils/format"
 import { buildPostFile } from "./frontmatter"
 import {
+	diffBodyLines,
 	type ExistingPost,
 	type ImportFile,
 	parsePostFiles,
@@ -120,6 +121,36 @@ describe("parsePostFiles", () => {
 		])
 
 		expect(skipped[0]?.reason).toMatch(/Body is empty/)
+	})
+})
+
+// #endregion
+
+// #region diffBodyLines
+
+describe("diffBodyLines", () => {
+	it("reports a changed line as one removed (DB) and one added (file)", () => {
+		const db = "intro\ncontact me @rolandleth\noutro"
+		const file = "intro\ncontact me @roland.leth.ro\noutro"
+
+		expect(diffBodyLines(db, file)).toEqual({
+			removed: ["contact me @rolandleth"],
+			added: ["contact me @roland.leth.ro"],
+		})
+	})
+
+	it("returns empty arrays for identical bodies", () => {
+		expect(diffBodyLines("same\nlines", "same\nlines")).toEqual({
+			removed: [],
+			added: [],
+		})
+	})
+
+	it("reports a purely added line", () => {
+		expect(diffBodyLines("a\nb", "a\nb\nc")).toEqual({
+			removed: [],
+			added: ["c"],
+		})
 	})
 })
 

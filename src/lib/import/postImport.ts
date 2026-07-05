@@ -335,3 +335,49 @@ export function planPostImport(
 
 	return { creates, updates, skipped }
 }
+
+/**
+ * A line-level multiset diff between two bodies, for the importer's `--verbose`
+ * dry-run: `removed` is lines in the DB body not present in the file body,
+ * `added` is the reverse. Order-insensitive (a moved line shows as neither), so
+ * it's a "what changed" glance, not a formal patch — enough to tell a trivial
+ * whitespace drift from a substantive one before deciding to overwrite.
+ */
+export function diffBodyLines(
+	dbBody: string,
+	fileBody: string
+): { removed: string[]; added: string[] } {
+	const countLines = (body: string): Map<string, number> => {
+		const counts = new Map<string, number>()
+
+		for (const line of body.split("\n")) {
+			counts.set(line, (counts.get(line) ?? 0) + 1)
+		}
+
+		return counts
+	}
+
+	const dbCounts = countLines(dbBody)
+	const fileCounts = countLines(fileBody)
+	const excess = (
+		source: Map<string, number>,
+		other: Map<string, number>
+	): string[] => {
+		const out: string[] = []
+
+		for (const [line, count] of source) {
+			const surplus = count - (other.get(line) ?? 0)
+
+			for (let i = 0; i < surplus; i += 1) {
+				out.push(line)
+			}
+		}
+
+		return out
+	}
+
+	return {
+		removed: excess(dbCounts, fileCounts),
+		added: excess(fileCounts, dbCounts),
+	}
+}

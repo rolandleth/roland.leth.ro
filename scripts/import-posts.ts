@@ -31,23 +31,28 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import {
+	diffBodyLines,
 	type ExistingPost,
 	type ImportFile,
 	parsePostFiles,
 	type PlannedCreate,
+	type PlannedUpdate,
 	planPostImport,
 	type SkippedFile,
 } from "@/lib/import/postImport"
 import { currentDatetimeString } from "@/lib/utils/format"
 
-const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite"])
+const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite", "--verbose"])
 const SECTION_FLAG_PREFIX = "--section="
+// Cap the per-post diff so one big-body edit can't bury the report.
+const DIFF_LINE_CAP = 8
 
 // #region CLI
 
 const argv = process.argv.slice(2)
 const isDryRun = argv.includes("--dry-run")
 const isOverwrite = argv.includes("--overwrite")
+const isVerbose = argv.includes("--verbose")
 const sectionFlag = argv
 	.find((arg) => arg.startsWith(SECTION_FLAG_PREFIX))
 	?.slice(SECTION_FLAG_PREFIX.length)
@@ -132,6 +137,43 @@ function printSkips(skipped: SkippedFile[]): void {
 	}
 }
 
+/**
+ * Prints an update line, and under `--verbose` a line-level diff of the body
+ * (`-` a line only in the DB, `+` only in the file) so a trivial drift is
+ * distinguishable from a substantive one where the DB copy may be the newer,
+ * admin-edited version.
+ */
+function printUpdate(
+	update: PlannedUpdate,
+	existingBySlug: ReadonlyMap<string, ExistingPost>,
+	verbose: boolean
+): void {
+	console.log(
+		`  ~ ${update.filename} → ${update.slug} (${Object.keys(update.data).join(", ")})`
+	)
+
+	if (!verbose || update.data.body == null) {
+		return
+	}
+
+	const dbBody = existingBySlug.get(update.slug)?.body ?? ""
+	const { removed, added } = diffBodyLines(dbBody, update.data.body)
+
+	for (const line of removed.slice(0, DIFF_LINE_CAP)) {
+		console.log(`      - ${line}`)
+	}
+	for (const line of added.slice(0, DIFF_LINE_CAP)) {
+		console.log(`      + ${line}`)
+	}
+
+	const hidden =
+		Math.max(0, removed.length - DIFF_LINE_CAP) +
+		Math.max(0, added.length - DIFF_LINE_CAP)
+	if (hidden > 0) {
+		console.log(`      … ${hidden} more changed line(s)`)
+	}
+}
+
 // #endregion
 
 // #region main
@@ -148,7 +190,7 @@ async function main(): Promise<void> {
 
 	if (positionals.length !== 1) {
 		console.error(
-			"Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run]"
+			"Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run] [--verbose]"
 		)
 		process.exitCode = 1
 
@@ -207,9 +249,7 @@ async function main(): Promise<void> {
 			)
 		}
 		for (const update of plan.updates) {
-			console.log(
-				`  ~ ${update.filename} → ${update.slug} (${Object.keys(update.data).join(", ")})`
-			)
+			printUpdate(update, existingBySlug, isVerbose)
 		}
 		printSkips(skipped)
 
