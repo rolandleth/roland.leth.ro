@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import JsonLdScript from "@/components/JsonLdScript"
@@ -6,6 +6,7 @@ import PageGlow from "@/components/PageGlow"
 import { siteBase } from "@/lib/api/request"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
+import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
 import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
 import {
@@ -58,6 +59,15 @@ export default async function PostPage({ params }: Props) {
 	const post = await loadPost(section, slug)
 
 	if (!post) {
+		// A renamed legacy slug 308s to its canonical form; every other miss is a
+		// real 404. In-memory alias check on the miss path only — a found post
+		// never reaches it.
+		const alias = resolveLegacyPostAlias(slug)
+
+		if (alias && alias.section === section) {
+			permanentRedirect(`/blog/${alias.section}/${alias.slug}`)
+		}
+
 		notFound()
 	}
 

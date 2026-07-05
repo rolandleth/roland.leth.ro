@@ -17,6 +17,9 @@ vi.mock("next/navigation", () => ({
 	notFound: vi.fn(() => {
 		throw new Error("NOT_FOUND")
 	}),
+	permanentRedirect: vi.fn((url: string) => {
+		throw new Error(`REDIRECT:${url}`)
+	}),
 }))
 
 vi.mock("@/components/blog/PostContent", () => ({
@@ -67,6 +70,22 @@ describe("PostPage", () => {
 		await expect(PostPage(paramsFor("tech", "missing"))).rejects.toThrow(
 			"NOT_FOUND"
 		)
+	})
+
+	it("308-redirects a renamed legacy slug to its canonical form", async () => {
+		vi.mocked(loadPost).mockResolvedValue(null)
+		await expect(
+			PostPage(paramsFor("tech", "final-version--for-now-"))
+		).rejects.toThrow("REDIRECT:/blog/tech/final-version-for-now")
+	})
+
+	it("does not redirect an alias hit whose section differs from the URL", async () => {
+		// `final-version--for-now-` is a tech alias; requested under life it must
+		// 404, not cross-redirect into tech.
+		vi.mocked(loadPost).mockResolvedValue(null)
+		await expect(
+			PostPage(paramsFor("life", "final-version--for-now-"))
+		).rejects.toThrow("NOT_FOUND")
 	})
 
 	it("renders when both section and post are valid", async () => {

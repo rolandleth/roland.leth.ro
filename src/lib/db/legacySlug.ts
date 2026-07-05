@@ -1,6 +1,6 @@
-import { unstable_cache } from "next/cache"
-import { prisma } from "@/lib/db/db"
-import { currentDatetimeString } from "@/lib/utils/format"
+import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
+import { getAllPublishedPostSlugs } from "@/lib/db/posts"
+import { getAllProjectSlugs } from "@/lib/db/projects"
 import type { Section } from "@/lib/db/sections"
 
 export type LegacyMatch =
@@ -8,59 +8,45 @@ export type LegacyMatch =
 	| { kind: "project"; slug: string }
 	| null
 
-interface CachedLookup {
-	post: { section: Section; slug: string; datetime: string } | null
-	project: { slug: string } | null
-}
-
-// Instantiated once at module load. The `slug` argument is part of the cache
-// key, so every distinct slug gets its own entry without re-wrapping on each
-// call (which would defeat memoization and spam revalidation logs).
-const cachedLookup = unstable_cache(
-	async (slug: string): Promise<CachedLookup> => {
-		// Scheduled-post handling matches `getPostBySlug` /
-		// `getAllPublishedPostSlugs`: the row is cached without a `datetime
-		// <= now` filter and the boundary is enforced at read time, so a
-		// future-dated post's legacy alias only 308-redirects once its
-		// `datetime` has passed (and the canonical page is therefore live).
-		// `datetime` is added to the select for the read-time check.
-		const [post, project] = await Promise.all([
-			prisma.post.findFirst({
-				where: { slug, published: true },
-				select: { section: true, slug: true, datetime: true },
-			}),
-			prisma.project.findFirst({
-				where: { slug },
-				select: { slug: true },
-			}),
-		])
-
-		return { post, project }
-	},
-	["legacy-redirect"],
-	// Tagged with both `posts` and `projects` so the existing
-	// `revalidatePostSection` / project mutation paths bust stale legacy-slug
-	// entries without needing a dedicated legacy tag. Without tags a newly
-	// published slug that collides with a cached miss is invisible for up to
-	// `revalidate` seconds.
-	{ revalidate: 300, tags: ["posts", "projects"] }
-)
-
 /**
- * Looks up a legacy root-level slug against both posts and projects in parallel.
- * Cached briefly so crawler hammering on dead slugs doesn't repeatedly hit the
- * DB. Posts win over projects when both share a slug (unlikely but possible).
+ * Resolves a legacy root-level slug (`/:slug`) to its canonical location, or
+ * null. Everything is checked in memory — a slug that matches nothing costs an
+ * index scan, never a per-slug DB query:
+ *
+ *   1. An explicit legacy alias (a URL the slug cleanup renamed) — a constant.
+ *   2. A currently-known published post slug, resolved against the cached
+ *      `getAllPublishedPostSlugs` index (the same complete list the sitemap
+ *      uses). The list applies the `datetime <= now` filter, so scheduled posts
+ *      aren't matched until they go live.
+ *   3. A known project slug from the cached `getAllProjectSlugs` index.
+ *
+ * There is deliberately NO DB fallback: if the slug isn't in the alias map or
+ * the cached indexes, it 404s. That keeps junk root-level traffic
+ * (`/wp-login.php`, …) off Postgres entirely, and means that if the site ever
+ * stops caching every post, a post outside the index 404s here by design rather
+ * than triggering a probe. The indexes are the source of truth for "does this
+ * slug resolve," and they're already required to be complete for the sitemap.
+ *
+ * Posts win over projects when both share a slug (unlikely but possible).
  */
 export async function lookupLegacySlug(slug: string): Promise<LegacyMatch> {
-	const { post, project } = await cachedLookup(slug)
-	const now = currentDatetimeString()
+	const alias = resolveLegacyPostAlias(slug)
 
-	if (post && post.datetime <= now) {
+	if (alias) {
+		return { kind: "post", section: alias.section, slug: alias.slug }
+	}
+
+	const posts = await getAllPublishedPostSlugs()
+	const post = posts.find((entry) => entry.slug === slug)
+
+	if (post) {
 		return { kind: "post", section: post.section, slug: post.slug }
 	}
 
-	if (project) {
-		return { kind: "project", slug: project.slug }
+	const projects = await getAllProjectSlugs()
+
+	if (projects.some((entry) => entry.slug === slug)) {
+		return { kind: "project", slug }
 	}
 
 	return null
