@@ -7,6 +7,7 @@ import { postBulkImportSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { revalidatePostSection } from "@/lib/db/posts"
+import { parseFrontmatter } from "@/lib/import/frontmatter"
 import {
 	calculateReadingTime,
 	createSlug,
@@ -60,14 +61,28 @@ function prepareBatch(
 	const seenSlugs = new Set<string>()
 
 	for (const file of files) {
-		const result = parseBulkImportFilename(file.filename)
+		const filenameResult = parseBulkImportFilename(file.filename)
 
-		if (!result.ok) {
-			skipped.push({ filename: file.filename, reason: result.reason })
+		if (!filenameResult.ok) {
+			skipped.push({ filename: file.filename, reason: filenameResult.reason })
 			continue
 		}
 
-		const slug = createSlug(result.title)
+		// Title (and therefore slug) come from the file's `title:` frontmatter,
+		// not the filename — the filename can't hold the punctuation real titles
+		// carry. The filename is read only for the datetime. Same contract as
+		// the import script.
+		const { title, body } = parseFrontmatter(file.content)
+
+		if (title == null) {
+			skipped.push({
+				filename: file.filename,
+				reason: "Missing `title:` frontmatter",
+			})
+			continue
+		}
+
+		const slug = createSlug(title)
 
 		if (slug === "") {
 			skipped.push({
@@ -85,26 +100,34 @@ function prepareBatch(
 			continue
 		}
 
+		if (body.trim() === "") {
+			skipped.push({
+				filename: file.filename,
+				reason: "Body is empty",
+			})
+			continue
+		}
+
 		seenSlugs.add(slug)
 		slugToFilename.set(slug, file.filename)
 
 		toInsert.push({
-			title: result.title,
+			title,
 			slug,
-			body: file.content,
-			// Bulk import has no per-file summary input — the filename only
-			// encodes datetime + title. Always derive so the OG meta description
-			// and feed `<summary>` are populated. Author can refine via the
-			// admin edit form afterwards.
-			summary: deriveSummary(file.content),
-			datetime: result.datetime,
+			body,
+			// Bulk import has no per-file summary input — the frontmatter carries
+			// only the title. Always derive so the OG meta description and feed
+			// `<summary>` are populated. Author can refine via the admin edit
+			// form afterwards.
+			summary: deriveSummary(body),
+			datetime: filenameResult.datetime,
 			section,
 			// Future-dated posts are published so the existing scheduled-post
 			// auto-surface logic in `getPostsBySection` picks them up the moment
 			// their `datetime` passes. Past-dated posts default to draft so the
 			// admin reviews each before promoting it.
-			published: isFutureDatetime(result.datetime, now),
-			readingTime: calculateReadingTime(file.content),
+			published: isFutureDatetime(filenameResult.datetime, now),
+			readingTime: calculateReadingTime(body),
 		})
 	}
 

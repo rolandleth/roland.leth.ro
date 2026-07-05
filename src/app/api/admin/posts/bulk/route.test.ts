@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
+import { buildPostFile } from "@/lib/import/frontmatter"
 import { currentDatetimeString } from "@/lib/utils/format"
 import { POST } from "./route"
 
@@ -41,10 +42,16 @@ function makeRequest(body: unknown) {
 	})
 }
 
-const validFile = {
-	filename: "2026-05-15-1430-A real post.md",
-	content: "Some markdown body.",
+/** A well-formed upload file: valid filename + frontmatter title + body. */
+function file(filename: string, title: string, body: string) {
+	return { filename, content: buildPostFile(title, body) }
 }
+
+const validFile = file(
+	"2026-05-15-1430-a-real-post.md",
+	"A real post",
+	"Some markdown body."
+)
 
 beforeEach(() => {
 	vi.resetAllMocks()
@@ -79,10 +86,9 @@ describe("POST /api/admin/posts/bulk schema", () => {
 	})
 
 	it("returns 400 when files exceeds the cap", async () => {
-		const files = Array.from({ length: 51 }, (_, i) => ({
-			filename: `2026-05-15-Title ${i}.md`,
-			content: "body",
-		}))
+		const files = Array.from({ length: 51 }, (_, i) =>
+			file(`2026-05-15-title-${i}.md`, `Title ${i}`, "body")
+		)
 		const response = await POST(makeRequest({ section: "tech", files }))
 		expect(response.status).toBe(400)
 	})
@@ -112,7 +118,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		const response = await POST(
 			makeRequest({
 				section: "tech",
-				files: [validFile, { filename: "garbage.md", content: "body" }],
+				files: [validFile, file("garbage.md", "Garbage", "body")],
 			})
 		)
 
@@ -122,6 +128,31 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(data.skipped).toEqual([
 			{ filename: "garbage.md", reason: expect.stringMatching(/yyyy-MM-dd/) },
 		])
+	})
+
+	it("skips a file with no frontmatter title", async () => {
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-x.md",
+						content: "Just a plain first line\n\nBody.",
+					},
+				],
+			})
+		)
+
+		expect(response.status).toBe(200)
+		const data = await response.json()
+		expect(data.created).toBe(0)
+		expect(data.skipped).toEqual([
+			{
+				filename: "2026-05-15-x.md",
+				reason: expect.stringMatching(/Missing `title:` frontmatter/),
+			},
+		])
+		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
 	})
 
 	it("skips a slug that already exists in the same section", async () => {
@@ -153,8 +184,8 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 			makeRequest({
 				section: "tech",
 				files: [
-					{ filename: "2026-05-15-Duplicate Title.md", content: "a" },
-					{ filename: "2026-05-16-Duplicate Title.md", content: "b" },
+					file("2026-05-15-a.md", "Duplicate Title", "a"),
+					file("2026-05-16-b.md", "Duplicate Title", "b"),
 				],
 			})
 		)
@@ -163,7 +194,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(data.created).toBe(1)
 		expect(data.skipped).toEqual([
 			{
-				filename: "2026-05-16-Duplicate Title.md",
+				filename: "2026-05-16-b.md",
 				reason: expect.stringMatching(/duplicate/i),
 			},
 		])
@@ -173,7 +204,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		const response = await POST(
 			makeRequest({
 				section: "tech",
-				files: [{ filename: "garbage.md", content: "body" }],
+				files: [file("garbage.md", "Garbage", "body")],
 			})
 		)
 
@@ -182,13 +213,13 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 	})
 
 	it("skips a file whose title sanitizes to an empty slug", async () => {
-		// Parser accepts `!!!` as a title; `createSlug("!!!")` returns "" because
-		// every char is in the punctuation-strip class. Route must surface this
-		// as a skip rather than attempting an empty-slug insert.
+		// Frontmatter title `!!!`; `createSlug("!!!")` returns "" because every
+		// char is in the punctuation-strip class. Route must surface this as a
+		// skip rather than attempting an empty-slug insert.
 		const response = await POST(
 			makeRequest({
 				section: "tech",
-				files: [{ filename: "2026-05-15-!!!.md", content: "body" }],
+				files: [file("2026-05-15-punct.md", "!!!", "body")],
 			})
 		)
 
@@ -197,7 +228,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(data.created).toBe(0)
 		expect(data.skipped).toEqual([
 			{
-				filename: "2026-05-15-!!!.md",
+				filename: "2026-05-15-punct.md",
 				reason: expect.stringMatching(/empty slug/i),
 			},
 		])
@@ -216,7 +247,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		const tech = await POST(
 			makeRequest({
 				section: "tech",
-				files: [{ filename: "2026-05-15-Shared.md", content: "t" }],
+				files: [file("2026-05-15-shared.md", "Shared", "t")],
 			})
 		)
 		expect((await tech.json()).created).toBe(1)
@@ -228,7 +259,7 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		const life = await POST(
 			makeRequest({
 				section: "life",
-				files: [{ filename: "2026-05-15-Shared.md", content: "l" }],
+				files: [file("2026-05-15-shared.md", "Shared", "l")],
 			})
 		)
 		expect((await life.json()).created).toBe(1)
@@ -256,8 +287,8 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 			makeRequest({
 				section: "tech",
 				files: [
-					{ filename: "2026-05-15-Winner.md", content: "w" },
-					{ filename: "2026-05-15-Loser.md", content: "l" },
+					file("2026-05-15-winner.md", "Winner", "w"),
+					file("2026-05-15-loser.md", "Loser", "l"),
 				],
 			})
 		)
@@ -266,10 +297,61 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(data.created).toBe(1)
 		expect(data.skipped).toEqual([
 			{
-				filename: "2026-05-15-Loser.md",
+				filename: "2026-05-15-loser.md",
 				reason: expect.stringMatching(/concurrent/i),
 			},
 		])
+	})
+})
+
+// #endregion
+
+// #region Frontmatter
+
+describe("POST /api/admin/posts/bulk frontmatter", () => {
+	it("stores the title and slug from frontmatter, not the filename label", async () => {
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					file("2026-05-15-any-label.md", "A real post", "Actual body text."),
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{
+			title: string
+			slug: string
+			body: string
+			summary: string
+		}>
+		expect(data[0].title).toBe("A real post")
+		expect(data[0].slug).toBe("a-real-post")
+		expect(data[0].body).toBe("Actual body text.")
+		expect(data[0].summary).toBe("Actual body text.")
+	})
+
+	it("derives the slug from a title the filename can't hold", async () => {
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
+			{ id: 1, slug: "debuggex-com", section: "tech" } as never,
+		])
+
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					file("2013-10-18-debuggex-dot-com.md", "Debuggex.com", "Body."),
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ title: string; slug: string }>
+		expect(data[0].title).toBe("Debuggex.com")
+		expect(data[0].slug).toBe("debuggex-com")
 	})
 })
 
@@ -293,7 +375,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		await POST(
 			makeRequest({
 				section: "tech",
-				files: [validFile, { filename: "2026-06-01-Another.md", content: "x" }],
+				files: [validFile, file("2026-06-01-another.md", "Another", "x")],
 			})
 		)
 
@@ -325,7 +407,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		const response = await POST(
 			makeRequest({
 				section: "tech",
-				files: [{ filename: "garbage.md", content: "body" }],
+				files: [file("garbage.md", "Garbage", "body")],
 			})
 		)
 
@@ -337,7 +419,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(auditCalls).toEqual([])
 	})
 
-	it("derives summary from the file content on every inserted row", async () => {
+	it("derives summary from the body on every inserted row", async () => {
 		// Bulk import has no per-file summary input — every created row must
 		// carry an auto-derived summary so the OG meta description and feed
 		// `<summary>` are never blank. Pins the contract against accidental
@@ -346,14 +428,8 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 			makeRequest({
 				section: "tech",
 				files: [
-					{
-						filename: "2026-05-15-First.md",
-						content: "First post body.",
-					},
-					{
-						filename: "2026-05-16-Second.md",
-						content: "Second post body.",
-					},
+					file("2026-05-15-first.md", "First", "First post body."),
+					file("2026-05-16-second.md", "Second", "Second post body."),
 				],
 			})
 		)
@@ -370,8 +446,8 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 			makeRequest({
 				section: "tech",
 				files: [
-					{ filename: "garbage.md", content: "body" },
-					{ filename: "2026-05-15-!!!.md", content: "body" },
+					file("garbage.md", "Garbage", "body"),
+					{ filename: "2026-05-15-nofm.md", content: "no frontmatter here" },
 				],
 			})
 		)
@@ -402,8 +478,8 @@ describe("POST /api/admin/posts/bulk auto publish", () => {
 			makeRequest({
 				section: "tech",
 				files: [
-					{ filename: "2199-01-01-Future.md", content: "f" },
-					{ filename: "2000-01-01-Past.md", content: "p" },
+					file("2199-01-01-future.md", "Future", "f"),
+					file("2000-01-01-past.md", "Past", "p"),
 				],
 			})
 		)
