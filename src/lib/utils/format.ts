@@ -141,16 +141,20 @@ export function isFutureDatetime(datetime: string, now: string): boolean {
  * Converts a post title into a URL-safe slug.
  * Ported from `Post.createLink()` in the old blog.
  *
- * Steps: decompose accents (`é` → `e`), strip combining marks, drop punctuation,
- * map `&` to `and`, replace whitespace/dots/dashes with `-`, lowercase, then
- * collapse repeated `-` and trim leading/trailing `-`.
+ * Steps: decompose accents via NFKD (`é` → `e`) and strip the combining marks,
+ * spell out `&`, fold whitespace/dots/the whole dash family into a single `-`,
+ * lowercase, then keep ONLY URL-safe characters. That last step is a whitelist
+ * (`[^a-z0-9-]`), not a hand-listed blacklist — so ALL punctuation is stripped,
+ * including the typographic quotes (`’ ‘ “ ”`) a fixed list would miss and that
+ * NFKD doesn't decompose. Finally collapse repeated `-` and trim.
  */
 export function createSlug(title: string): string {
 	return (
 		title
+			// NFKD splits an accented letter into base + combining mark
+			// (`é` → `e` + ` ́`). The ASCII base survives; the mark is stripped
+			// by the URL-safe whitelist below, so no separate mark-removal step.
 			.normalize("NFKD")
-			.replace(/[̀-ͯ]/g, "")
-			.replace(/['"#,;!:?[\]{}($/)]+/g, "")
 			.replace(/&/g, "and")
 			// Dash-equivalents folded into a single ASCII hyphen. Unicode
 			// escapes (rather than literals) so the invisible soft hyphen
@@ -159,10 +163,17 @@ export function createSlug(title: string): string {
 			//                   en dash, em dash, horizontal bar
 			//   −        — math minus sign
 			//   ­        — soft hyphen
-			// All pass NFKD unchanged and previously survived to the slug,
-			// producing technically-valid-but-weird URLs.
+			// This runs before the whitelist so separators become `-` rather
+			// than being stripped (which would merge adjacent words).
 			.replace(/[\s.‐-―−­]+/g, "-")
 			.toLowerCase()
+			// Keep only URL-safe characters. A whitelist rather than an
+			// enumerated punctuation blacklist, so anything not `[a-z0-9-]` —
+			// typographic quotes, symbols, undecomposed letters — is dropped
+			// instead of leaking a raw `’`/`@`/`%` into the slug. Runs after the
+			// dash-fold (so `-` survives) and before the collapse (so a char
+			// removed from between two dashes doesn't leave a `--`).
+			.replace(/[^a-z0-9-]/g, "")
 			.replace(/-+/g, "-")
 			.replace(/^-|-$/g, "")
 	)

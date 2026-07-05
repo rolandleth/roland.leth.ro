@@ -237,6 +237,23 @@ describe("createSlug", () => {
 		expect(createSlug("wow!")).toBe("wow")
 	})
 
+	it("removes a typographic (curly) apostrophe, not just a straight one", () => {
+		// U+2019 isn't decomposed by NFKD and was missing from the old blacklist,
+		// so it leaked into the slug as `new-year’s-resolutions`. The whitelist
+		// strips it like any other non-URL-safe char.
+		expect(createSlug("New Year’s Resolutions")).toBe("new-years-resolutions")
+	})
+
+	it("removes typographic (curly) double quotes", () => {
+		expect(createSlug("The “best” way")).toBe("the-best-way")
+	})
+
+	it("strips arbitrary non-URL-safe symbols via the whitelist", () => {
+		// None of these are in any hand-listed blacklist; the whitelist catches
+		// them anyway.
+		expect(createSlug("100% @ home + more")).toBe("100-home-more")
+	})
+
 	it("handles already-clean slugs", () => {
 		expect(createSlug("my-post")).toBe("my-post")
 	})
@@ -256,8 +273,8 @@ describe("createSlug", () => {
 	})
 
 	it("returns an empty string when every character is stripped", () => {
-		// All punctuation characters listed in the regex strip away, so the
-		// result is "". Same NOT NULL concern as empty input.
+		// Every character is non-URL-safe, so the whitelist removes them all and
+		// the result is "". Same NOT NULL concern as empty input.
 		expect(createSlug("!!!???")).toBe("")
 	})
 
