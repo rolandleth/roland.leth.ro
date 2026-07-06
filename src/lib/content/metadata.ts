@@ -8,6 +8,12 @@ export interface PageMetadataInput {
 	publishedTime?: string
 	type?: "article" | "website"
 	keywords?: string[]
+	/**
+	 * When set, emits a `<link rel="alternate" type="text/markdown">` pointing at
+	 * a plain-markdown view of the page (e.g. a blog post's `.md` export), so
+	 * crawlers and AI systems can discover it without guessing the URL.
+	 */
+	markdownPath?: string
 }
 
 /**
@@ -23,8 +29,16 @@ export interface PageMetadataInput {
  * The landing page (`src/app/page.tsx`) is the canonical example.
  */
 export function buildPageMetadata(input: PageMetadataInput): Metadata {
-	const { title, description, path, image, publishedTime, type, keywords } =
-		input
+	const {
+		title,
+		description,
+		path,
+		image,
+		publishedTime,
+		type,
+		keywords,
+		markdownPath,
+	} = input
 
 	// Dev-only guard: the JSDoc above warns about the double-brand pitfall,
 	// but doc-only is regression-prone — a future caller passing a
@@ -48,6 +62,9 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		title,
 		description,
 		keywords,
+		alternates: markdownPath
+			? { types: { "text/markdown": markdownPath } }
+			: undefined,
 		openGraph: {
 			type: type ?? "website",
 			title: ogTitle,

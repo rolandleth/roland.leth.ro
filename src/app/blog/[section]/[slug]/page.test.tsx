@@ -147,4 +147,12 @@ describe("generateMetadata", () => {
 		const og = result.openGraph as { type?: string } | undefined
 		expect(og?.type).toBe("article")
 	})
+
+	it("advertises the .md alternate so crawlers can discover the raw markdown", async () => {
+		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+		expect(result.alternates?.types?.["text/markdown"]).toBe(
+			"/blog/tech/hello.md"
+		)
+	})
 })

@@ -236,6 +236,51 @@ describe("proxy — feed redirects", () => {
 
 // #endregion
 
+// #region Blog markdown rewrite
+
+describe("proxy — blog markdown rewrite", () => {
+	it("rewrites /blog/tech/:slug.md to the markdown route handler", async () => {
+		const response = await proxy(makeRequest("/blog/tech/my-post.md"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/blog/tech/my-post/md"
+		)
+		// A rewrite, not a redirect — the browser URL stays `.md`.
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("rewrites /blog/life/:slug.md to the markdown route handler", async () => {
+		const response = await proxy(makeRequest("/blog/life/some-post.md"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/blog/life/some-post/md"
+		)
+	})
+
+	it("preserves a hyphenated slug in the rewrite target", async () => {
+		const response = await proxy(
+			makeRequest("/blog/tech/my-long-post-title.md")
+		)
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/blog/tech/my-long-post-title/md"
+		)
+	})
+
+	it("does not rewrite the HTML post URL (no .md suffix)", async () => {
+		const response = await proxy(makeRequest("/blog/tech/my-post"))
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("does not rewrite a .md URL under an unknown section", async () => {
+		// The section alternation gates the regex; an unknown section falls through
+		// to Next.js routing, where the post page 404s.
+		const response = await proxy(makeRequest("/blog/garbage/my-post.md"))
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+})
+
+// #endregion
+
 // #region Legacy redirects — privacy policy
 
 describe("proxy — privacy policy redirect", () => {

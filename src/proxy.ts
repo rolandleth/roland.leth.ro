@@ -18,6 +18,12 @@ const SECTION_ARCHIVE_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/archive$`)
 const SECTION_SEARCH_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/search$`)
 const SECTION_ROOT_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})$`)
 const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
+// `/blog/:section/:slug.md` → the raw-markdown route handler. Slugs are
+// `[a-z0-9-]` only (see `createSlug`), so they never contain a dot — the single
+// `\.md$` anchor unambiguously splits slug from extension.
+const BLOG_MD_REGEX = new RegExp(
+	`^/blog/(${SECTION_ALTERNATION})/([^/]+?)\\.md$`
+)
 
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
 	const token = request.cookies.get(SESSION_COOKIE)?.value
@@ -29,6 +35,53 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 	const payload = await verifyToken(token, getSessionSecret())
 
 	return payload !== null
+}
+
+/**
+ * Maps a legacy URL to its canonical redirect *path* (query string excluded), or
+ * `null` when no legacy pattern applies. Extracted from `proxy` so the middleware's
+ * top-level branching stays within the cognitive-complexity budget; each pattern
+ * is an independent single-responsibility match. The caller appends `search` and
+ * issues the 301 — analytics/share query strings (`?ref=`, `?utm_*`) must survive.
+ */
+function matchLegacyRedirect(pathname: string): string | null {
+	if (pathname === "/privacy-policy") {
+		return "/privacy"
+	}
+
+	// /tech/blog/:slug → /blog/tech/:slug, /life/blog/:slug → /blog/life/:slug
+	const sectionBlogMatch = pathname.match(SECTION_BLOG_REGEX)
+
+	if (sectionBlogMatch) {
+		return `/blog/${sectionBlogMatch[1]}/${sectionBlogMatch[2]}`
+	}
+
+	const archiveMatch = pathname.match(SECTION_ARCHIVE_REGEX)
+
+	if (archiveMatch) {
+		return `/blog/${archiveMatch[1]}/archive`
+	}
+
+	const searchMatch = pathname.match(SECTION_SEARCH_REGEX)
+
+	if (searchMatch) {
+		return `/blog/${searchMatch[1]}/search`
+	}
+
+	const sectionRootMatch = pathname.match(SECTION_ROOT_REGEX)
+
+	if (sectionRootMatch) {
+		return `/blog/${sectionRootMatch[1]}`
+	}
+
+	// `(/tech|/life)?/feed` → `/api/feed/(tech|life)`, defaulting to first section.
+	const feedMatch = pathname.match(FEED_REGEX)
+
+	if (feedMatch) {
+		return `/api/feed/${feedMatch[1] ?? DEFAULT_FEED_SECTION}`
+	}
+
+	return null
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -73,62 +126,29 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.next()
 	}
 
-	// Analytics and share query strings (`?ref=`, `?utm_*`) must survive the
-	// legacy redirect; `new URL(path, base)` would otherwise strip `base`'s
-	// query since `path` overrides it. Append `search` to every redirect target.
+	// `/blog/:section/:slug.md` serves the raw markdown of a post (frontmatter +
+	// body). It's an internal REWRITE — the URL stays `.md` — to the route handler
+	// at `/api/blog/:section/:slug/md`, which can't live at the post's own path
+	// because a `route.ts` and a `page.tsx` can't coexist there. Rewrites don't
+	// re-run middleware, so the target skips the auth gate above harmlessly.
+	const blogMarkdownMatch = pathname.match(BLOG_MD_REGEX)
 
-	if (pathname === "/privacy-policy") {
-		return NextResponse.redirect(new URL(`/privacy${search}`, request.url), 301)
-	}
-
-	// /tech/blog/:slug → /blog/tech/:slug, /life/blog/:slug → /blog/life/:slug
-	const sectionBlogMatch = pathname.match(SECTION_BLOG_REGEX)
-
-	if (sectionBlogMatch) {
-		return NextResponse.redirect(
+	if (blogMarkdownMatch) {
+		return NextResponse.rewrite(
 			new URL(
-				`/blog/${sectionBlogMatch[1]}/${sectionBlogMatch[2]}${search}`,
+				`/api/blog/${blogMarkdownMatch[1]}/${blogMarkdownMatch[2]}/md`,
 				request.url
-			),
-			301
+			)
 		)
 	}
 
-	const archiveMatch = pathname.match(SECTION_ARCHIVE_REGEX)
+	// Legacy URL → canonical path. `search` is appended here (not in the helper)
+	// so analytics/share query strings survive the 301.
+	const legacyTarget = matchLegacyRedirect(pathname)
 
-	if (archiveMatch) {
+	if (legacyTarget) {
 		return NextResponse.redirect(
-			new URL(`/blog/${archiveMatch[1]}/archive${search}`, request.url),
-			301
-		)
-	}
-
-	const searchMatch = pathname.match(SECTION_SEARCH_REGEX)
-
-	if (searchMatch) {
-		return NextResponse.redirect(
-			new URL(`/blog/${searchMatch[1]}/search${search}`, request.url),
-			301
-		)
-	}
-
-	const sectionRootMatch = pathname.match(SECTION_ROOT_REGEX)
-
-	if (sectionRootMatch) {
-		return NextResponse.redirect(
-			new URL(`/blog/${sectionRootMatch[1]}${search}`, request.url),
-			301
-		)
-	}
-
-	// `(/tech|/life)?/feed` → `/api/feed/(tech|life)`, defaulting to first section.
-	const feedMatch = pathname.match(FEED_REGEX)
-
-	if (feedMatch) {
-		const section = feedMatch[1] ?? DEFAULT_FEED_SECTION
-
-		return NextResponse.redirect(
-			new URL(`/api/feed/${section}${search}`, request.url),
+			new URL(`${legacyTarget}${search}`, request.url),
 			301
 		)
 	}

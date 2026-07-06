@@ -46,6 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		image: post.imageUrl,
 		publishedTime: postDatetimeToISO(post.datetime),
 		type: "article",
+		markdownPath: `/blog/${post.section}/${post.slug}.md`,
 	})
 }
 

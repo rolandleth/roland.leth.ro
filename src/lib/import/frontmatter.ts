@@ -60,13 +60,21 @@ export function parseFrontmatter(raw: string): ParsedFrontmatter {
 }
 
 /**
+ * Escapes a string for embedding inside a double-quoted YAML value: `\` → `\\`,
+ * `"` → `\"`. The exact inverse of `unquote`'s double-quoted branch, so any value
+ * written with this reads back byte-for-byte. Shared by every frontmatter writer
+ * (`buildPostFile`, the `.md` export) so the write/read pair can't drift.
+ */
+export function escapeYamlDoubleQuoted(value: string): string {
+	return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+}
+
+/**
  * Builds a post file from a title and body: an always-double-quoted frontmatter
  * block, a blank line, then the body. `parseFrontmatter(buildPostFile(t, b))`
  * round-trips to `{ title: t, body: b }` for any title and any body with no
  * leading blank lines.
  */
 export function buildPostFile(title: string, body: string): string {
-	const escaped = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-
-	return `---\ntitle: "${escaped}"\n---\n\n${body.replace(/^[\r\n]+/, "")}`
+	return `---\ntitle: "${escapeYamlDoubleQuoted(title)}"\n---\n\n${body.replace(/^[\r\n]+/, "")}`
 }
