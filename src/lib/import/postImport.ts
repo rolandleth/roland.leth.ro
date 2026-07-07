@@ -39,6 +39,12 @@ export type SkippedFile = {
 	reason: string
 }
 
+/**
+ * Skip reason for an overwrite that resolved to zero field changes. Shared so
+ * the importer can roll these up into a count instead of listing every file.
+ */
+export const UNCHANGED_SKIP_REASON = "Unchanged"
+
 /** The slice of an existing row the overwrite path needs. */
 export type ExistingPost = {
 	id: number
@@ -277,7 +283,7 @@ function planOverwrite(
 	}
 
 	if (Object.keys(data).length === 0) {
-		return { kind: "skip", reason: "Unchanged" }
+		return { kind: "skip", reason: UNCHANGED_SKIP_REASON }
 	}
 
 	return {

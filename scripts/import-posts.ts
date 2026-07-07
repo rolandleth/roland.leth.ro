@@ -39,6 +39,7 @@ import {
 	type PlannedUpdate,
 	planPostImport,
 	type SkippedFile,
+	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/postImport"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -131,8 +132,17 @@ function toCreateRow(create: PlannedCreate) {
 	}
 }
 
+/**
+ * Prints one line per skip, except unchanged files (a re-run's dominant case),
+ * which stay silent to keep a large no-op run scannable — they still land in
+ * the caller's `skipped` total, surfaced by the closing summary count.
+ */
 function printSkips(skipped: SkippedFile[]): void {
 	for (const skip of skipped) {
+		if (skip.reason === UNCHANGED_SKIP_REASON) {
+			continue
+		}
+
 		console.log(`  · ${skip.filename} — ${skip.reason}`)
 	}
 }
