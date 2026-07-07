@@ -1,208 +1,206 @@
 "use client"
 
-import { motion, type PanInfo } from "framer-motion"
-import Image from "next/image"
-import { useState } from "react"
+import { animate, useMotionValue, useReducedMotion } from "framer-motion"
+import { useEffect, useRef } from "react"
+import { useElementSize } from "@/components/ui/useElementSize"
 import { resolveSwipe } from "@/lib/client/swipe"
-
-interface CarouselImage {
-	id: number
-	url: string
-	caption: string | null
-}
+import { clamp } from "@/lib/client/zoom"
+import GalleryTrack from "./GalleryTrack"
+import type { GalleryImage } from "@/lib/client/gallery"
+import type { PanInfo } from "framer-motion"
 
 interface Props {
-	images: CarouselImage[]
-	/**
-	 * Index of the visible image within `images`. Owned by the parent so the
-	 * carousel, dots, and lightbox share a single gallery position and the
-	 * arrows can walk across section boundaries.
-	 */
+	/** The whole flat gallery (across sections) — the track slides continuously. */
+	images: GalleryImage[]
+	/** Flat index of the centred slide, owned by the parent. */
 	index: number
-	/**
-	 * Whether the gallery has anywhere to swipe. Mirrors the lightbox: `true`
-	 * even for a single-image section when the arrows can cross into another
-	 * section that holds images.
-	 */
+	/** Whether there's more than one slide to move between. */
 	canNavigate: boolean
-	altPrefix: string
-	onSelectImage: (index: number) => void
-	/** Walk one image back, crossing into the previous section if needed. */
-	onPrev: () => void
-	/** Walk one image forward, crossing into the next section if needed. */
-	onNext: () => void
+	/** Project name, for the carousel's group label. */
+	galleryLabel: string
+	/** Jump to an arbitrary flat index (dot taps and multi-slide drags). */
+	onSelectImage: (flatIndex: number) => void
+	/** Enlarge the current image into the lightbox. */
 	onEnlarge: () => void
 }
+
+// Spring for snapping the strip to a slide — quick and lightly damped so it
+// settles inside Apple's 0.2–0.3s window.
+const SNAP_SPRING = { type: "spring", stiffness: 320, damping: 34 } as const
+// A drag that travels more than this (px) counts as a swipe, so the click the
+// browser fires on release is swallowed instead of also opening the lightbox.
+const SWIPE_CLICK_TRAVEL = 8
 
 export default function ProjectSectionCarousel({
 	images,
 	index,
 	canNavigate,
-	altPrefix,
+	galleryLabel,
 	onSelectImage,
-	onPrev,
-	onNext,
 	onEnlarge,
 }: Props) {
-	// Natural aspect ratio (w/h) of the displayed image, measured on load so the
-	// stage hugs the image instead of letterboxing it inside a fixed-height box.
-	// Null until the first image reports its size — the stage falls back to the
-	// fixed height so it never collapses to zero before measurement.
-	const [aspectRatio, setAspectRatio] = useState<number | null>(null)
-	// Defensive: callers gate on `section.images.length > 0`, but enforcing
-	// the contract locally means `current.url` can never throw if a future
-	// caller forgets the parent gate. A silent `return null` would otherwise
-	// mask the missing parent gate — surface it loudly in dev so the
-	// regression is debuggable, while keeping the render no-op in prod.
+	const stageRef = useRef<HTMLDivElement | null>(null)
+	const { width } = useElementSize(stageRef)
+	const x = useMotionValue(0)
+	const prefersReducedMotion = useReducedMotion()
+	// Set true by a real swipe so the trailing click doesn't also fire the
+	// enlarge; reset at the start of each new interaction (stage pointer-down).
+	const suppressEnlargeRef = useRef(false)
+
+	// Keep the strip aligned to the centred slide. Snap instantly before the
+	// stage has measured (width 0) or when reduced motion is requested; otherwise
+	// spring to it. Re-runs whenever the parent moves the index or the stage
+	// resizes.
+	useEffect(() => {
+		const target = -index * width
+
+		if (width === 0 || prefersReducedMotion) {
+			x.set(target)
+			return
+		}
+
+		const controls = animate(x, target, SNAP_SPRING)
+
+		return () => controls.stop()
+	}, [index, width, prefersReducedMotion, x])
+
+	// Translate a released drag into a slide. Snap to whichever slide the strip is
+	// closest to; a fast flick that didn't quite cross the midpoint still advances
+	// one slide in its direction.
+	function handleDragEnd(_event: unknown, info: PanInfo) {
+		// A moved drag is a swipe: suppress the click the browser fires on release
+		// so it doesn't also open the lightbox. Covers the rubber-band case too (a
+		// drag past the travel threshold that still fell short of a page step).
+		if (Math.abs(info.offset.x) > SWIPE_CLICK_TRAVEL) {
+			suppressEnlargeRef.current = true
+		}
+
+		if (!canNavigate || width === 0) {
+			animate(x, -index * width, SNAP_SPRING)
+			return
+		}
+
+		const settled = Math.round(-x.get() / width)
+		const flick = resolveSwipe(info)
+		let target = settled
+
+		if (flick === "next") {
+			target = Math.max(settled, index + 1)
+		} else if (flick === "prev") {
+			target = Math.min(settled, index - 1)
+		}
+
+		target = clamp(target, 0, images.length - 1)
+
+		if (target === index) {
+			// Fell short — rubber-band back to the current slide.
+			animate(x, -index * width, SNAP_SPRING)
+			return
+		}
+
+		// The parent moves the index; the effect above springs the strip to it.
+		onSelectImage(target)
+	}
+
+	// Enlarge unless the "click" is really the tail of a swipe (see
+	// `suppressEnlargeRef`).
+	function handleEnlarge() {
+		if (suppressEnlargeRef.current) {
+			return
+		}
+
+		onEnlarge()
+	}
+
+	// Defensive: callers gate on the active section having images, but enforcing
+	// the contract locally means a future caller that forgets the gate fails
+	// loudly in dev rather than rendering a broken, index-less strip.
 	if (images.length === 0) {
 		if (process.env.NODE_ENV !== "production") {
 			// eslint-disable-next-line no-console
 			console.warn(
-				`[ProjectSectionCarousel] rendered with empty images for "${altPrefix}" — caller should gate on \`images.length > 0\``
+				`[ProjectSectionCarousel] rendered with an empty gallery for "${galleryLabel}" — caller should gate on a non-empty gallery`
 			)
 		}
 
 		return null
 	}
 
-	const isMultiple = images.length > 1
 	const current = images[index]
-	const imageAlt = current.caption ?? `${altPrefix} screenshot`
-
-	// Translate a horizontal drag into a page step; anything short of the
-	// thresholds snaps back via the drag constraints.
-	function handleDragEnd(_event: unknown, info: PanInfo) {
-		if (!canNavigate) {
-			return
-		}
-
-		const swipe = resolveSwipe(info)
-
-		if (swipe === "next") {
-			onNext()
-		} else if (swipe === "prev") {
-			onPrev()
-		}
-	}
+	// Dots stay scoped to the *current* section even though the strip spans the
+	// whole gallery, so a project with many sections doesn't sprout a runaway row
+	// of dots. The section's first slide sits `localIndex` back from here.
+	const sectionStart = index - current.localIndex
+	const sectionImages = images.filter(
+		(image) => image.sectionIndex === current.sectionIndex
+	)
+	const isMultiple = sectionImages.length > 1
 
 	return (
 		<div
 			role="group"
 			aria-roledescription="carousel"
-			aria-label={`${altPrefix} screenshots`}
+			aria-label={`${galleryLabel} screenshots`}
 		>
-			{/* Image area — the stage hugs the image's measured aspect ratio so a
-			    landscape screenshot no longer letterboxes inside a tall fixed box.
-			    Capped (70vh on mobile, 480px on wider screens) so a portrait shot
-			    can't run the page off-screen; `overflow-hidden` clips the image as
-			    it rubber-bands during a swipe. Before the first image reports its
-			    size, fall back to the fixed height so the box never collapses to
-			    zero. */}
+			{/* Live status: every slide persists in the strip's DOM, so an
+			    aria-live region wrapping the images wouldn't announce the change on
+			    navigation. This visually-hidden line carries real text that swaps
+			    with the slide, which a screen reader does announce. */}
+			<p className="sr-only" aria-live="polite" aria-atomic="true">
+				{`Image ${current.localIndex + 1} of ${sectionImages.length}${
+					current.caption ? `: ${current.caption}` : ""
+				}`}
+			</p>
+
+			{/* Fixed-height stage: a continuous slide strip needs a stable height so
+			    it doesn't jump vertically between a portrait and a landscape shot.
+			    `object-contain` centres each image; `overflow-hidden` clips the
+			    off-screen slides. */}
 			<div
-				className={`relative max-h-[70vh] w-full overflow-hidden rounded-xl sm:max-h-120 ${aspectRatio === null ? "h-120" : ""}`}
-				style={aspectRatio === null ? undefined : { aspectRatio }}
-				aria-live="polite"
-				aria-atomic="true"
+				ref={stageRef}
+				className="relative h-[60vh] w-full overflow-hidden rounded-xl sm:h-120"
+				// Fires before the drag/click in the capture phase, so each new
+				// interaction starts with a clean suppress flag.
+				onPointerDownCapture={() => {
+					suppressEnlargeRef.current = false
+				}}
 			>
-				{/* Drag layer — fills the stage and carries the swipe gesture.
-				    Rubber-bands back to centre when the swipe falls short of the
-				    threshold; a tap below the drag threshold still reaches the
-				    enlarge button underneath. The image swaps instantly on
-				    navigation, with no slide transition. */}
-				<motion.div
-					className="absolute inset-0"
+				<GalleryTrack
+					images={images}
+					index={index}
+					x={x}
+					sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
+					onActivateSlide={handleEnlarge}
 					drag={canNavigate ? "x" : false}
-					dragConstraints={{ left: 0, right: 0 }}
-					dragElastic={0.2}
+					dragConstraints={{ left: -(images.length - 1) * width, right: 0 }}
 					onDragEnd={handleDragEnd}
-				>
-					{/* `fill` + `object-contain` sizes the image from the stage
-					    box, not from its (mis-computed under `width/height={0}`)
-					    intrinsic size, so it renders at full size on every DPR.
-					    `onLoad` reads the natural dimensions to size the stage to
-					    this image's ratio. `draggable={false}` stops the browser's
-					    native image drag from hijacking the swipe. Click to
-					    enlarge: the carousel caps at 736px, so the lightbox
-					    reveals finer detail. */}
-					<button
-						type="button"
-						onClick={onEnlarge}
-						aria-label={`Enlarge ${imageAlt}`}
-						className="absolute inset-0 cursor-zoom-in"
-					>
-						<Image
-							src={current.url}
-							alt={imageAlt}
-							fill
-							loading="eager"
-							draggable={false}
-							onLoad={(event) => {
-								const { naturalWidth, naturalHeight } = event.currentTarget
-
-								if (naturalWidth > 0 && naturalHeight > 0) {
-									setAspectRatio(naturalWidth / naturalHeight)
-
-									return
-								}
-
-								// Invalid dimensions: drop to the `h-120` fallback rather than
-								// keep the previous image's ratio (a stale, mis-sized box after
-								// navigating from a valid image). Surface in dev too.
-								setAspectRatio(null)
-
-								if (process.env.NODE_ENV !== "production") {
-									// eslint-disable-next-line no-console
-									console.warn(
-										`[ProjectSectionCarousel] image ${current.url} reported invalid dimensions (${naturalWidth}×${naturalHeight}); stage falls back to its fixed height`
-									)
-								}
-							}}
-							onError={() => {
-								// A broken image fires `onError`, not `onLoad`, so without this
-								// the stage would keep the previous image's ratio. Reset to the
-								// fixed-height fallback and surface it in dev.
-								setAspectRatio(null)
-
-								if (process.env.NODE_ENV !== "production") {
-									// eslint-disable-next-line no-console
-									console.warn(
-										`[ProjectSectionCarousel] image ${current.url} failed to load; stage falls back to its fixed height`
-									)
-								}
-							}}
-							sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
-							className="pointer-events-none object-contain select-none"
-						/>
-					</button>
-				</motion.div>
+				/>
 			</div>
 
-			{/* Caption */}
+			{/* Caption — the current slide's, below the stage. */}
 			{current.caption && (
 				<p className="text-secondary mt-2 text-center text-xs">
 					{current.caption}
 				</p>
 			)}
 
-			{/* Dot indicators — scoped to this section's images. */}
+			{/* Dot indicators — scoped to the current section's images. */}
 			{isMultiple && (
 				<div className="mt-1 flex justify-center">
-					{images.map((_, i) => (
-						// Padded button gives a ~26px square hit region (meets WCAG AAA
-						// 24px guidance) while the inner span keeps the visible indicator
-						// subtle. The prior `before:-m-2.5` pseudo overlapped adjacent
-						// dots by ~14px so a click in the visible gap mis-routed.
+					{sectionImages.map((_, i) => (
+						// Padded button gives a ~26px square hit region (WCAG AAA 24px)
+						// while the inner span keeps the visible indicator subtle.
 						<button
 							key={i}
 							type="button"
-							onClick={() => onSelectImage(i)}
+							onClick={() => onSelectImage(sectionStart + i)}
 							aria-label={`Go to image ${i + 1}`}
-							aria-current={i === index ? true : undefined}
+							aria-current={i === current.localIndex ? true : undefined}
 							className="group cursor-pointer p-2.5"
 						>
 							<span
 								className={`block h-1.5 rounded-full transition-all duration-300 ${
-									i === index
+									i === current.localIndex
 										? "w-4 bg-(--color-accent)"
 										: "w-1.5 bg-(--color-border) group-hover:bg-(--color-secondary)"
 								}`}
