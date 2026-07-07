@@ -48,6 +48,14 @@ const eslintConfig = defineConfig([
 			},
 		},
 		rules: {
+			"react/jsx-key": [
+				"error",
+				{
+					checkFragmentShorthand: true, // <>…</> used as an array item (can't take a key)
+					checkKeyMustBeforeSpread: true, // key placed after {...spread}, which React drops
+					warnOnDuplicates: true, // two siblings with the same key
+				},
+			],
 			"no-console": "warn",
 			// `dangerouslySetInnerHTML` is the only HTML-injection surface in the
 			// app, and the site's sole legitimate use is embedding JSON-LD. Ban both
