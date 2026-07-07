@@ -7,6 +7,7 @@ import {
 	getIpHashSecret,
 	getRedisConfig,
 	getSessionSecret,
+	getSiteUrl,
 } from "./env"
 
 beforeEach(() => {
@@ -163,6 +164,46 @@ describe("getRedisConfig", () => {
 		vi.stubEnv("KV_REST_API_TOKEN", "")
 		vi.stubEnv("KV_REST_API_URL", "")
 		expect(getRedisConfig()).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region site url
+
+describe("getSiteUrl", () => {
+	it("returns NEXT_PUBLIC_SITE_URL normalized to its origin", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro/")
+		expect(getSiteUrl()).toBe("https://roland.leth.ro")
+	})
+
+	it("strips a path from NEXT_PUBLIC_SITE_URL, keeping only the origin", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro/blog/tech")
+		expect(getSiteUrl()).toBe("https://roland.leth.ro")
+	})
+
+	it("throws EnvConfigError when NEXT_PUBLIC_SITE_URL is not an absolute URL", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "roland.leth.ro")
+		expect(() => getSiteUrl()).toThrow(EnvConfigError)
+		expect(() => getSiteUrl()).toThrow(/not a valid absolute URL/)
+	})
+
+	it("falls back to VERCEL_PROJECT_PRODUCTION_URL as an https origin", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "")
+		vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "my-app.vercel.app")
+		expect(getSiteUrl()).toBe("https://my-app.vercel.app")
+	})
+
+	it("prefers NEXT_PUBLIC_SITE_URL over the Vercel fallback", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
+		vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "my-app.vercel.app")
+		expect(getSiteUrl()).toBe("https://roland.leth.ro")
+	})
+
+	it("throws when neither site-url signal is set", () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "")
+		vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "")
+		expect(() => getSiteUrl()).toThrow(EnvConfigError)
 	})
 })
 

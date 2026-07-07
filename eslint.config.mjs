@@ -133,6 +133,8 @@ const eslintConfig = defineConfig([
 			"scripts/*.ts",
 		],
 		rules: {
+			"sonarjs/prefer-specific-assertions": "off",
+			"sonarjs/no-hardcoded-passwords": "off",
 			"no-console": "off",
 			"no-undef": "off",
 			"@typescript-eslint/no-non-null-assertion": "off",

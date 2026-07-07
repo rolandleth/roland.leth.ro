@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache"
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { bySection } from "@/lib/db/posts"
@@ -116,9 +116,9 @@ export async function GET(
 
 	// Atom `<id>` elements must be stable across callers; `request.url` varies
 	// with preview/proxy hosts, so feed readers would see different IDs for the
-	// same entry. `siteBase()` resolves to the canonical origin via forwarded
-	// headers, matching `sitemap.ts` and `layout.tsx`.
-	const SITE_URL = await siteBase()
+	// same entry. `getSiteUrl()` resolves to the canonical origin from env
+	// (`NEXT_PUBLIC_SITE_URL`), matching `sitemap.ts` and `layout.tsx`.
+	const SITE_URL = getSiteUrl()
 
 	const feedTitle = `Roland Leth — ${capitalizeSection(section)} blog`
 	const feedUrl = `${SITE_URL}/api/feed/${section}`

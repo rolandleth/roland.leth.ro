@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import JsonLdScript from "@/components/JsonLdScript"
 import ProjectContent from "@/components/projects/ProjectContent"
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
@@ -84,6 +84,7 @@ export default async function ProjectPage({ params }: Props) {
 			return <div key={section.id}>{settled.value}</div>
 		}
 
+		// eslint-disable-next-line no-console
 		console.error("[ProjectPage] section markdown render failed", {
 			projectSlug: project.slug,
 			sectionId: section.id,
@@ -111,6 +112,7 @@ export default async function ProjectPage({ params }: Props) {
 		// Log the underlying parse error so it's visible in server logs while the
 		// user still sees a readable page. The plain `<p>` keeps the FAQ content
 		// crawlable even when Markdown rendering fails.
+		// eslint-disable-next-line no-console
 		console.error("[ProjectPage] FAQ markdown render failed", {
 			projectSlug: project.slug,
 			faqId: faq.id,
@@ -130,7 +132,7 @@ export default async function ProjectPage({ params }: Props) {
 	const softwareJsonLd = buildSoftwareApplicationJsonLd(
 		project,
 		ogImage,
-		await siteBase()
+		getSiteUrl()
 	)
 
 	return (

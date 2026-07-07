@@ -8,7 +8,7 @@ import type { ProjectDetail } from "@/lib/db/projects"
 
 const BASE = "https://roland.leth.ro"
 
-// The page supplies the origin from `siteBase()`; the builder is pure. This
+// The page supplies the origin from `getSiteUrl()`; the builder is pure. This
 // wrapper injects a fixed `base` so the existing call sites stay two-arg.
 function buildApp(project: ProjectDetail, image: string | null) {
 	return buildSoftwareApplicationJsonLd(project, image, BASE)

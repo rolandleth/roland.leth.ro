@@ -1,6 +1,5 @@
 import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { siteBase } from "@/lib/api/request"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { GET } from "./route"
@@ -20,10 +19,6 @@ vi.mock("@/lib/db/db", () => ({
 
 vi.mock("@/lib/content/markdown", () => ({
 	markdownToHtml: vi.fn(async (md: string) => `<p>${md}</p>`),
-}))
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn(),
 }))
 
 function makeRequest(section: string) {
@@ -60,7 +55,7 @@ beforeEach(() => {
 	vi.mocked(markdownToHtml).mockImplementation(async (md) => `<p>${md}</p>`)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 	vi.mocked(prisma.post.count).mockResolvedValue(0)
-	vi.mocked(siteBase).mockResolvedValue("http://localhost")
+	vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost")
 })
 
 describe("GET /api/feed/:section", () => {
@@ -151,10 +146,10 @@ describe("GET /api/feed/:section", () => {
 		)
 	})
 
-	it("uses siteBase() rather than request.url for the canonical origin", async () => {
+	it("uses getSiteUrl() rather than request.url for the canonical origin", async () => {
 		// Feed readers key entries on `<id>`; a regression to `request.url` would
 		// make preview/proxy hosts emit different IDs for the same entry.
-		vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
 		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
 
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())

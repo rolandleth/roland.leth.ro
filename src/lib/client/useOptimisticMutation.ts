@@ -40,8 +40,7 @@ interface MutateOptions {
  * tax twice.
  */
 export type MutateResult =
-	| { ok: true }
-	| { ok: false; reason: "failure" | "superseded" }
+	{ ok: true } | { ok: false; reason: "failure" | "superseded" }
 
 /**
  * Optimistic-mutation hook for inline admin widgets that commit their

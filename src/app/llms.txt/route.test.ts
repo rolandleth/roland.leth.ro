@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { GET } from "@/app/llms.txt/route"
-import { siteBase } from "@/lib/api/request"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn(),
-}))
 
 vi.mock("@/lib/db/projects", () => ({
 	getProjectsGalleryCached: vi.fn(),
@@ -26,7 +21,6 @@ function projectStub(
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(siteBase).mockResolvedValue(BASE)
 	vi.mocked(getProjectsGalleryCached).mockResolvedValue([])
 })
 
@@ -91,8 +85,8 @@ describe("llms.txt — projects", () => {
 		)
 	})
 
-	it("derives project links from siteBase", async () => {
-		vi.mocked(siteBase).mockResolvedValue("https://preview.example.com")
+	it("uses NEXT_PUBLIC_SITE_URL for project links", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.example.com")
 		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
 			projectStub() as never,
 		])

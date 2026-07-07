@@ -1,4 +1,4 @@
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { buildPostMarkdownFile } from "@/lib/content/postMarkdown"
 import { loadPost } from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
@@ -39,7 +39,7 @@ export async function GET(
 		return notFoundResponse()
 	}
 
-	const body = buildPostMarkdownFile(post, await siteBase())
+	const body = buildPostMarkdownFile(post, getSiteUrl())
 
 	return new Response(body, {
 		status: 200,

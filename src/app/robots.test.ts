@@ -1,17 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import robots from "@/app/robots"
-import { siteBase } from "@/lib/api/request"
 import type { MetadataRoute } from "next"
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn(),
-}))
 
 const BASE = "https://roland.leth.ro"
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(siteBase).mockResolvedValue(BASE)
 })
 
 // #region Rules
@@ -100,8 +94,8 @@ describe("robots — sitemap", () => {
 		expect(result.sitemap).toBe(`${BASE}/sitemap.xml`)
 	})
 
-	it("derives the host from siteBase", async () => {
-		vi.mocked(siteBase).mockResolvedValue("https://preview.example.com")
+	it("uses NEXT_PUBLIC_SITE_URL for the sitemap host", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.example.com")
 		const result = await robots()
 		expect(result.sitemap).toBe("https://preview.example.com/sitemap.xml")
 	})

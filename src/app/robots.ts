@@ -1,10 +1,10 @@
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import type { MetadataRoute } from "next"
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
 	// Canonical origin, resolved from forwarded headers the same way `sitemap.ts`
 	// and the Atom feed do, so the `Sitemap:` line always points at the live host.
-	const base = await siteBase()
+	const base = getSiteUrl()
 
 	// One allow-all rule, by design. The project landing pages are the apps'
 	// primary discovery channel (the App Stores surface them poorly), so every

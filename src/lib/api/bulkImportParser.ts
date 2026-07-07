@@ -14,8 +14,15 @@ const FILENAME_REGEX =
 	/^(\d{4}-\d{2}-\d{2})(?:-(\d{4}))?-([^/\\\x00-\x1f\x7f]+)\.md$/
 
 export type BulkParseResult =
-	| { ok: true; datetime: string; title: string }
-	| { ok: false; reason: string }
+	| {
+			ok: true
+			datetime: string
+			title: string
+	  }
+	| {
+			ok: false
+			reason: string
+	  }
 
 /**
  * Parses a bulk-import filename into a `datetime` (`yyyy-MM-dd-HHmm`) and a

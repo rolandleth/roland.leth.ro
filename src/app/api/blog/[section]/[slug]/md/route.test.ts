@@ -1,14 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { siteBase } from "@/lib/api/request"
 import { loadPost } from "@/lib/db/posts"
 import { GET } from "./route"
 
 vi.mock("@/lib/db/posts", () => ({
 	loadPost: vi.fn(),
-}))
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn(),
 }))
 
 function makeArgs(section: string, slug: string) {
@@ -33,7 +28,6 @@ const existingPost = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
 })
 
 describe("GET /api/blog/:section/:slug/md", () => {

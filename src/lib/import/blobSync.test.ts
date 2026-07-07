@@ -33,9 +33,10 @@ function makeDeferred<T>(): Deferred<T> {
  */
 function makeStore(overrides: Partial<BlobStore> = {}): BlobStore {
 	return {
-		list: vi.fn(
-			async (): Promise<BlobListPage> => ({ blobs: [], hasMore: false })
-		),
+		list: vi.fn(async (): Promise<BlobListPage> => ({
+			blobs: [],
+			hasMore: false,
+		})),
 		put: vi.fn(async (key: string) => ({ url: `https://store/${key}` })),
 		del: vi.fn(async () => undefined),
 		...overrides,

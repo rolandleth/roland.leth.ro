@@ -38,8 +38,7 @@ export function getKeepaliveRedis(): Redis | null {
 }
 
 export type KeepaliveResult =
-	| { ok: true; value: string }
-	| { ok: false; error: Error }
+	{ ok: true; value: string } | { ok: false; error: Error }
 
 /**
  * Performs the shared Upstash write for the cron and admin keepalive routes:

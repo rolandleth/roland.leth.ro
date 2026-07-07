@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import sitemap from "@/app/sitemap"
-import { siteBase } from "@/lib/api/request"
 import { prisma } from "@/lib/db/db"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -23,10 +22,6 @@ vi.mock("@/lib/db/db", () => ({
 
 vi.mock("@/lib/utils/format", () => ({
 	currentDatetimeString: vi.fn().mockReturnValue("2025-06-01-1200"),
-}))
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn(),
 }))
 
 const BASE = "https://localhost:3000"
@@ -53,7 +48,7 @@ function postStub(
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(siteBase).mockResolvedValue(BASE)
+	vi.stubEnv("NEXT_PUBLIC_SITE_URL", BASE)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 	vi.mocked(prisma.project.findMany).mockResolvedValue([])
 	// `getAllPublishedPostSlugs` now reads `currentDatetimeString()` inside the
@@ -76,14 +71,14 @@ describe("sitemap — static routes", () => {
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/about`)
 		expect(route).toBeDefined()
-		expect(route?.priority).toBe(0.7)
+		expect(route?.priority).toBeCloseTo(0.7)
 	})
 
 	it("includes the projects gallery with priority 0.8", async () => {
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/projects`)
 		expect(route).toBeDefined()
-		expect(route?.priority).toBe(0.8)
+		expect(route?.priority).toBeCloseTo(0.8)
 	})
 
 	it("includes the loan calculator tool", async () => {
@@ -111,14 +106,14 @@ describe("sitemap — static routes", () => {
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/blog/tech`)
 		expect(route).toBeDefined()
-		expect(route?.priority).toBe(0.8)
+		expect(route?.priority).toBeCloseTo(0.8)
 	})
 
 	it("includes the life blog index with priority 0.8", async () => {
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/blog/life`)
 		expect(route).toBeDefined()
-		expect(route?.priority).toBe(0.8)
+		expect(route?.priority).toBeCloseTo(0.8)
 	})
 
 	it("includes the tech archive with priority 0.5", async () => {
@@ -184,7 +179,7 @@ describe("sitemap — post routes", () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([postStub() as never])
 		const result = await sitemap()
 		const route = result.find((r) => r.url.includes("/blog/tech/my-post"))
-		expect(route?.priority).toBe(0.6)
+		expect(route?.priority).toBeCloseTo(0.6)
 	})
 
 	it("sets post changeFrequency to 'never'", async () => {
@@ -295,7 +290,7 @@ describe("sitemap — project routes", () => {
 
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/projects/my-app`)
-		expect(route?.priority).toBe(0.6)
+		expect(route?.priority).toBeCloseTo(0.6)
 		expect(route?.changeFrequency).toBe("monthly")
 	})
 

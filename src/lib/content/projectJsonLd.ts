@@ -42,7 +42,7 @@ export function buildFaqJsonLd(
  * carries `offers`, an `AggregateOffer` advertises the price range. `image` is
  * the resolved OG asset, absolutized against `base` (a legacy `/images/…` path
  * would otherwise emit an invalid relative URL); omitted when null. `base` is
- * the site origin from `siteBase()`, passed in so the builder stays pure.
+ * the site origin from `getSiteUrl()`, passed in so the builder stays pure.
  */
 export function buildSoftwareApplicationJsonLd(
 	project: ProjectDetail,

@@ -62,7 +62,7 @@ export function absoluteImageUrl(image: string, base: string): string {
  * Organization it doesn't have. `url` is the site origin — Google's
  * structured-data validator flags author entities without a `url`, and the
  * author's homepage genuinely is this site. `base` is the origin from
- * `siteBase()`, passed in so the builder stays pure.
+ * `getSiteUrl()`, passed in so the builder stays pure.
  */
 export function personFor(base: string) {
 	return { "@type": "Person", name: "Roland Leth", url: base } as const

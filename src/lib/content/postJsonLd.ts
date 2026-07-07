@@ -14,7 +14,7 @@ import type { PostDetail } from "@/lib/db/posts"
  * a `Date`, so it's normalized through `new Date(...)`. `image` is included only
  * when the post has one. These are the freshness and authorship signals Google
  * article results and AI answer engines lean on. `base` is the site origin from
- * `siteBase()`, passed in so the builder stays pure.
+ * `getSiteUrl()`, passed in so the builder stays pure.
  */
 export function buildBlogPostingJsonLd(
 	post: PostDetail,

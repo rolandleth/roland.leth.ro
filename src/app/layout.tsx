@@ -5,7 +5,7 @@ import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import {
 	resolveInitialTheme,
 	resolveInitialThemeClass,
@@ -36,7 +36,7 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
 	return {
-		metadataBase: new URL(await siteBase()),
+		metadataBase: new URL(getSiteUrl()),
 		title: {
 			template: "%s | Roland Leth",
 			default: "Roland Leth",

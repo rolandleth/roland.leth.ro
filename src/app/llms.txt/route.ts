@@ -1,4 +1,4 @@
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 
 // `/llms.txt` is the agent-facing counterpart to the sitemap: a short, plain
@@ -12,7 +12,7 @@ function oneLine(text: string): string {
 }
 
 export async function GET(): Promise<Response> {
-	const base = await siteBase()
+	const base = getSiteUrl()
 	const projects = await getProjectsGalleryCached()
 
 	// Discontinued projects are sorted last in the gallery but not dropped. This

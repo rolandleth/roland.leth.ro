@@ -1,4 +1,4 @@
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { getAllPublishedPostSlugs } from "@/lib/db/posts"
 import { getAllProjectSlugs } from "@/lib/db/projects"
 import { SECTIONS } from "@/lib/db/sections"
@@ -9,7 +9,7 @@ function url(base: string, path: string): string {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-	const base = await siteBase()
+	const base = getSiteUrl()
 
 	const staticRoutes: MetadataRoute.Sitemap = [
 		{

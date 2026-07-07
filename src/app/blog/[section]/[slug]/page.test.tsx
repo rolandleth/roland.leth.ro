@@ -1,16 +1,11 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { siteBase } from "@/lib/api/request"
 import { loadPost } from "@/lib/db/posts"
 import PostPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/posts", () => ({
 	getAllPublishedPostSlugs: vi.fn().mockResolvedValue([]),
 	loadPost: vi.fn(),
-}))
-
-vi.mock("@/lib/api/request", () => ({
-	siteBase: vi.fn().mockResolvedValue("https://roland.leth.ro"),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -55,7 +50,6 @@ const existingPost = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(siteBase).mockResolvedValue("https://roland.leth.ro")
 })
 
 describe("PostPage", () => {

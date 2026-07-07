@@ -33,6 +33,12 @@ const envSchema = z.object({
 	KV_REST_API_TOKEN: z.string().optional(),
 	KV_REST_API_URL: z.string().optional(),
 	IP_HASH_SECRET: z.string().optional(),
+	// Canonical site origin, resolved without request headers so pages that need
+	// it can be statically prerendered. `NEXT_PUBLIC_SITE_URL` is the explicit
+	// override (full origin incl. scheme); `VERCEL_PROJECT_PRODUCTION_URL` is
+	// Vercel's platform-provided production domain (bare host, always https).
+	NEXT_PUBLIC_SITE_URL: z.string().optional(),
+	VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>
@@ -120,6 +126,50 @@ export function getAdminCredentials(): {
 /** Cron route bearer token. `null` means no cron auth is configured. */
 export function getCronSecret(): string | null {
 	return nonEmpty(readEnv().CRON_SECRET)
+}
+
+/**
+ * Canonical site origin — scheme + host, no trailing slash — resolved from env
+ * rather than request headers, so callers (metadata, JSON-LD, sitemap, robots,
+ * feed) stay static-prerenderable instead of being forced dynamic by `headers()`.
+ *
+ * Resolution order:
+ *   1. `NEXT_PUBLIC_SITE_URL` — explicit override (full origin incl. scheme);
+ *      also the local-dev value and the only one readable in client bundles.
+ *   2. `VERCEL_PROJECT_PRODUCTION_URL` — Vercel's production domain (bare host,
+ *      always https), identical on preview + prod, so canonical/OG URLs point
+ *      at production even from preview deploys.
+ *   3. Throw — a build with neither signal fails loudly rather than emitting a
+ *      wrong canonical origin.
+ */
+export function getSiteUrl(): string {
+	const env = readEnv()
+
+	const explicit = nonEmpty(env.NEXT_PUBLIC_SITE_URL)
+
+	if (explicit !== null) {
+		// `new URL(...).origin` normalizes (strips path/trailing slash) and rejects
+		// a value with no scheme, so a malformed override fails loudly right here.
+		try {
+			return new URL(explicit).origin
+		} catch {
+			throw new EnvConfigError(
+				"NEXT_PUBLIC_SITE_URL",
+				`NEXT_PUBLIC_SITE_URL is not a valid absolute URL: ${JSON.stringify(explicit)}`
+			)
+		}
+	}
+
+	const vercelHost = nonEmpty(env.VERCEL_PROJECT_PRODUCTION_URL)
+
+	if (vercelHost !== null) {
+		return `https://${vercelHost}`
+	}
+
+	throw new EnvConfigError(
+		"NEXT_PUBLIC_SITE_URL",
+		"Site origin unresolved: set NEXT_PUBLIC_SITE_URL, or deploy on Vercel (which provides VERCEL_PROJECT_PRODUCTION_URL)."
+	)
 }
 
 /**

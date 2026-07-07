@@ -3,7 +3,7 @@ import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
-import { siteBase } from "@/lib/api/request"
+import { getSiteUrl } from "@/lib/auth/env"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
@@ -73,7 +73,7 @@ export default async function PostPage({ params }: Props) {
 	}
 
 	const readingTime = post.readingTime ?? calculateReadingTime(post.body)
-	const jsonLd = buildBlogPostingJsonLd(post, await siteBase())
+	const jsonLd = buildBlogPostingJsonLd(post, getSiteUrl())
 
 	return (
 		<>
