@@ -1,11 +1,11 @@
 import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { POST } from "./route"
 import {
-	POST,
 	detectImageMime,
 	sanitizeFilename,
 	sanitizeLogString,
-} from "./route"
+} from "./uploadHelpers"
 
 // Real PNG signature so files built by `pngFile()` pass the magic-byte sniff.
 // Tests for mismatched bytes use `pngFile({ headerBytes: ... })` to override.
