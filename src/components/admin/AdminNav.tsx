@@ -13,8 +13,6 @@ export default function AdminNav() {
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
 	const [isKeepaliveRunning, setIsKeepaliveRunning] = useState(false)
 	const [keepaliveResult, setKeepaliveResult] = useState<string | null>(null)
-	const [isRevalidating, setIsRevalidating] = useState(false)
-	const [revalidateResult, setRevalidateResult] = useState<string | null>(null)
 
 	// Cancel an in-flight logout on unmount so it doesn't outlive the component.
 	// Same shape as `useAdminResource` and the other admin mutations.
@@ -22,15 +20,11 @@ export default function AdminNav() {
 	// Separate controller so a click on "Run keepalive" doesn't supersede an
 	// in-flight logout (and vice versa) — these are independent operations.
 	const keepaliveAbortRef = useRef<AbortController | null>(null)
-	// Same independence argument as the keepalive controller: a cache
-	// revalidation must not supersede an in-flight logout or keepalive.
-	const revalidateAbortRef = useRef<AbortController | null>(null)
 
 	useEffect(() => {
 		return () => {
 			abortRef.current?.abort()
 			keepaliveAbortRef.current?.abort()
-			revalidateAbortRef.current?.abort()
 		}
 	}, [])
 
@@ -69,48 +63,6 @@ export default function AdminNav() {
 		} finally {
 			if (keepaliveAbortRef.current === controller) {
 				setIsKeepaliveRunning(false)
-			}
-		}
-	}
-
-	async function handleRevalidate() {
-		setError(null)
-		setRevalidateResult(null)
-		setIsRevalidating(true)
-
-		const controller = new AbortController()
-		revalidateAbortRef.current?.abort()
-		revalidateAbortRef.current = controller
-
-		try {
-			const response = await fetch("/api/admin/revalidate", {
-				method: "POST",
-				signal: controller.signal,
-			})
-
-			if (!response.ok) {
-				const message = await readErrorMessage(response, "Revalidate failed")
-				setError(message)
-
-				return
-			}
-
-			const data = (await response.json()) as {
-				ok: boolean
-				sections: string[]
-			}
-			setRevalidateResult(`posts (${data.sections.join(", ")}) + projects`)
-		} catch (err) {
-			if (isAbortError(err)) {
-				return
-			}
-
-			// eslint-disable-next-line no-console
-			console.warn("[admin:AdminNav] revalidate failed", err)
-			setError("Revalidate failed (network error). Please retry.")
-		} finally {
-			if (revalidateAbortRef.current === controller) {
-				setIsRevalidating(false)
 			}
 		}
 	}
@@ -207,13 +159,6 @@ export default function AdminNav() {
 						{isKeepaliveRunning ? "Running…" : "Run keepalive"}
 					</button>
 					<button
-						onClick={handleRevalidate}
-						disabled={isRevalidating}
-						className="text-secondary cursor-pointer text-sm transition-colors hover:text-(--color-accent) disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{isRevalidating ? "Revalidating…" : "Revalidate caches"}
-					</button>
-					<button
 						onClick={handleLogout}
 						disabled={isLoggingOut}
 						className="text-secondary cursor-pointer text-sm transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -227,12 +172,6 @@ export default function AdminNav() {
 				<p className="text-secondary mx-auto max-w-4xl px-4 pb-2 text-xs">
 					Keepalive OK — wrote{" "}
 					<code className="font-mono">{keepaliveResult}</code>
-				</p>
-			)}
-
-			{revalidateResult && (
-				<p className="text-secondary mx-auto max-w-4xl px-4 pb-2 text-xs">
-					Caches revalidated — {revalidateResult}
 				</p>
 			)}
 

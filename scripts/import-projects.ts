@@ -76,6 +76,10 @@ type ProjectResult = {
 	name: string
 	status: "imported" | "validated" | "failed"
 	detail?: string
+	// The derived slug (= the `/projects/<slug>` last path component). Absent
+	// when a run fails before the slug is derived. Used to print the paste-ready
+	// revalidation list.
+	slug?: string
 }
 
 // #region CLI
@@ -405,7 +409,7 @@ async function processProject(
 			}
 			console.log(`  ✓ valid — nothing written (dry run)`)
 
-			return { name: manifest.name, status: "validated" }
+			return { name: manifest.name, slug, status: "validated" }
 		}
 
 		const urlByPath = await resolveImageUrls(
@@ -466,7 +470,7 @@ async function processProject(
 			console.log(`  · cleaned up ${path.relative(process.cwd(), projectDir)}`)
 		}
 
-		return { name: manifest.name, status: "imported" }
+		return { name: manifest.name, slug, status: "imported" }
 	} catch (error) {
 		const result = toFailureResult(folderName, error)
 		console.error(`  ✗ ${folderName}: ${result.detail}`)
@@ -616,6 +620,20 @@ async function main(): Promise<void> {
 		: `${imported.length} imported`
 
 	console.log(`\n${headline} complete: ${tally}, ${failed.length} failed.`)
+
+	// Script writes bypass the app, so `unstable_cache` tags aren't busted. Print
+	// the imported slugs so they paste straight into the admin dashboard's
+	// Revalidate panel ("Revalidate listed" for projects).
+	const changedSlugs = imported
+		.map((result) => result.slug)
+		.filter((slug): slug is string => slug != null)
+
+	if (changedSlugs.length > 0) {
+		console.log(
+			"\nChanged projects (paste into the admin dashboard's Revalidate panel):"
+		)
+		console.log(changedSlugs.join(", "))
+	}
 
 	if (failed.length > 0) {
 		process.exitCode = 1

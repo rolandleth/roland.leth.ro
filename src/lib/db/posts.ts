@@ -189,7 +189,7 @@ export async function getPostBySlug(
 					},
 				}),
 			[`post-${section}-${slug}`],
-			{ tags: [`post-${section}-${slug}`, `blog-${section}`] }
+			{ tags: [`post-${section}-${slug}`, "post-pages"] }
 		)
 	)
 
@@ -427,4 +427,29 @@ export function revalidatePostSection(section: Section): void {
 	revalidateTag(`feed-${section}`, "max")
 	revalidateTag(`blog-${section}`, "max")
 	revalidateTag("posts", "max")
+}
+
+/**
+ * Invalidates one post's detail page + `.md` route (its own tag) plus the
+ * section aggregates (list, archive, feed, sitemap). Editing one post refreshes
+ * only that post's detail page — siblings carry the separate `post-pages` tag,
+ * which this path deliberately leaves alone.
+ */
+export function revalidatePost(section: Section, slug: string): void {
+	revalidateTag(`post-${section}-${slug}`, "max")
+	revalidatePostSection(section)
+}
+
+/**
+ * Invalidates every post detail page (via the shared `post-pages` tag) plus the
+ * section aggregates. `post-pages` rides only on `loadPost`, and only this
+ * "revalidate everything" path busts it — the per-edit aggregate refresh does
+ * not, so editing one post never regenerates the rest.
+ */
+export function revalidateAllPosts(): void {
+	revalidateTag("post-pages", "max")
+
+	for (const section of SECTIONS) {
+		revalidatePostSection(section)
+	}
 }

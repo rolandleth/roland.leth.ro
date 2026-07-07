@@ -2,6 +2,7 @@ import Link from "next/link"
 import AdminSearch from "@/components/admin/AdminSearch"
 import PostsTab from "@/components/admin/PostsTab"
 import ProjectsTab from "@/components/admin/ProjectsTab"
+import RevalidatePanel from "@/components/admin/RevalidatePanel"
 import { parseTab } from "@/lib/client/adminPageUrl"
 import { parsePageParam } from "@/lib/utils/format"
 
@@ -18,6 +19,8 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
+			<RevalidatePanel />
+
 			<div className="border-border flex items-end border-b">
 				<Link
 					href="/admin"

@@ -325,10 +325,20 @@ async function main(): Promise<void> {
 			`\nImport complete: ${created.length} created, ${plan.updates.length} updated, ` +
 				`${skipped.length} skipped.`
 		)
-		console.log(
-			"! Caches were not revalidated (script writes bypass the app). " +
-				'Use the admin nav\'s "Revalidate caches" button so changes surface.'
-		)
+		// Script writes bypass the app, so `unstable_cache` tags aren't busted.
+		// Print the changed posts as `section/slug` so they paste straight into
+		// the admin dashboard's Revalidate panel ("Revalidate listed" for posts).
+		const changed = [
+			...created.map((row) => `${section}/${row.slug}`),
+			...plan.updates.map((update) => `${section}/${update.slug}`),
+		]
+
+		if (changed.length > 0) {
+			console.log(
+				"\nChanged posts (paste into the admin dashboard's Revalidate panel):"
+			)
+			console.log(changed.join(", "))
+		}
 	} finally {
 		await prisma.$disconnect()
 	}

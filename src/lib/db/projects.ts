@@ -335,7 +335,7 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 				)
 			},
 			[`project-${slug}`],
-			{ tags: [`project-${slug}`, "projects"] }
+			{ tags: [`project-${slug}`, "project-pages"] }
 		)
 	)
 
@@ -434,10 +434,10 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
 }
 
 /**
- * Invalidates every cache tag tied to projects so an admin write surfaces
- * immediately on the gallery, single-project page, and any cached lookup.
- * Pass `slug` (current OR previous, on a slug-changing PUT) to also bust the
- * single-project tag.
+ * Invalidates one project's detail page (`project-${slug}`) plus the gallery,
+ * `llms.txt`, and sitemap (`projects`). Pass the current OR previous slug on a
+ * slug-changing PUT. Does NOT touch other project detail pages — those carry
+ * the separate `project-pages` tag, busted only by `revalidateAllProjects`.
  */
 export function revalidateProject(slug: string): void {
 	revalidateTag("projects", "max")
@@ -445,11 +445,13 @@ export function revalidateProject(slug: string): void {
 }
 
 /**
- * Invalidates every project-related cache in one shot: the gallery, the
- * sitemap slug list, and every per-slug detail cache — they all carry the
- * `projects` tag. Used by the admin revalidate endpoint after script imports,
- * which write via Prisma directly and can't bust tags themselves.
+ * Invalidates every project cache in one shot: every detail page (via the
+ * shared `project-pages` tag, which only this path busts) plus the gallery,
+ * `llms.txt`, and sitemap (`projects`). Used by the admin revalidate endpoint's
+ * "all projects" action after script imports, which write via Prisma directly
+ * and can't bust tags themselves.
  */
 export function revalidateAllProjects(): void {
+	revalidateTag("project-pages", "max")
 	revalidateTag("projects", "max")
 }

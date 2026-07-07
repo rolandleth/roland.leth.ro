@@ -4,7 +4,7 @@ import { auditLog } from "@/lib/api/auditLog"
 import { postCreateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
-import { revalidatePostSection } from "@/lib/db/posts"
+import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime, createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -50,7 +50,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			},
 		})
 
-		revalidatePostSection(post.section)
+		revalidatePost(post.section, post.slug)
 		// Audit trail. Vercel Hobby retains runtime logs ~1h, but the structured
 		// payload makes it greppable while it's live and is the only signal that
 		// answers "did someone create a post at 3am" until external aggregation lands.

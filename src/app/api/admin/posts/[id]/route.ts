@@ -10,7 +10,7 @@ import { auditLog } from "@/lib/api/auditLog"
 import { postUpdateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
-import { revalidatePostSection } from "@/lib/db/posts"
+import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime, createSlug } from "@/lib/utils/format"
 
 export async function GET(
@@ -146,10 +146,15 @@ export async function PUT(
 			{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 		)
 
-		revalidatePostSection(post.section)
+		revalidatePost(post.section, post.slug)
 
-		if (previous != null && previous.section !== post.section) {
-			revalidatePostSection(previous.section)
+		// A slug rename OR a cross-section move leaves the old detail page cached
+		// under its previous tag; bust that one too so it 404s/redirects.
+		if (
+			previous != null &&
+			(previous.section !== post.section || previous.slug !== post.slug)
+		) {
+			revalidatePost(previous.section, previous.slug)
 		}
 		// Audit trail. Includes prior section + slug so cross-section moves and
 		// slug renames (driven by a title edit) are visible in logs distinct from
@@ -195,7 +200,7 @@ export async function DELETE(
 			select: { section: true, slug: true },
 		})
 
-		revalidatePostSection(post.section)
+		revalidatePost(post.section, post.slug)
 		// Audit trail — deletions are the highest-stakes admin write.
 		auditLog("[api:admin:posts:DELETE]", {
 			id,
