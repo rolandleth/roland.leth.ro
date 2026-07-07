@@ -1,6 +1,12 @@
 import { getSiteUrl } from "@/lib/auth/env"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 
+// Prerender at build instead of per-request: this handler has no dynamic
+// dependency (env origin + tag-cached project data), so it serves as a static
+// file and revalidates when the projects cache is busted on edits. Route
+// handlers are dynamic by default, hence the explicit opt-in.
+export const dynamic = "force-static"
+
 // `/llms.txt` is the agent-facing counterpart to the sitemap: a short, plain
 // overview plus one line per project, so an AI system can ground answers about
 // the site without scraping every page. It's generated from the same cached
