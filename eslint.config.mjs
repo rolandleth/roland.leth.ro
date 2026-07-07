@@ -117,10 +117,16 @@ const eslintConfig = defineConfig([
 		},
 	},
 	{
-		// The single sanctioned home for `dangerouslySetInnerHTML`. Everywhere
-		// else the attribute is banned (see `no-restricted-syntax` above); here it
-		// is the whole point of the component, gated by `safeJsonLdString`.
-		files: ["src/components/JsonLdScript.tsx"],
+		// The sanctioned homes for `dangerouslySetInnerHTML`. Everywhere else the
+		// attribute is banned (see `no-restricted-syntax` above); in these two it
+		// is the whole point of the component:
+		//   - JsonLdScript: structured data, gated by `safeJsonLdString`.
+		//   - ThemeScript: a raw pre-paint inline script that sets the theme class
+		//     before first paint (a static, self-authored string, no injected data).
+		files: [
+			"src/components/JsonLdScript.tsx",
+			"src/components/ThemeScript.tsx",
+		],
 		rules: {
 			"no-restricted-syntax": "off",
 		},

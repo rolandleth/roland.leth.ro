@@ -7,6 +7,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react"
+import { readStoredTheme, THEME_STORAGE_KEY } from "@/lib/client/theme"
 import type { Theme } from "@/lib/client/theme"
 
 export type { Theme } from "@/lib/client/theme"
@@ -51,19 +52,19 @@ function getServerColorSchemeSnapshot(): boolean {
 }
 
 export default function ThemeProvider({
-	initialTheme,
 	children,
 }: {
-	initialTheme: Theme
 	children: React.ReactNode
 }) {
-	const [theme, setTheme] = useState<Theme>(initialTheme)
+	// Read the stored preference in the initializer so the client's first render
+	// already matches the class the inline theme script set pre-paint — no
+	// post-mount flip. On the server this returns "system" (no localStorage);
+	// only `ThemeToggle` renders theme-dependent DOM and it guards on mount, so
+	// there is no hydration mismatch.
+	const [theme, setTheme] = useState<Theme>(readStoredTheme)
 	// `useSyncExternalStore` reads the media-query value at every render so it
 	// can never go stale when the OS preference changes while a non-"system"
-	// theme is active. Earlier we mirrored the value into local state seeded
-	// from the snapshot at first mount; that snapshot went stale across theme
-	// → light → system flips because the subscription effect's re-attach did
-	// not refresh the captured value.
+	// theme is active.
 	const systemIsDark = useSyncExternalStore(
 		subscribeToColorScheme,
 		getColorSchemeSnapshot,
@@ -76,14 +77,16 @@ export default function ThemeProvider({
 		applyTheme(isDark)
 	}, [isDark])
 
-	// Sync cookie whenever theme preference or resolved dark state changes.
-	// "system" is encoded as "system-dark" / "system-light" so the server can
-	// set the correct class on the next load without a second cookie.
+	// Persist the raw preference ("light"/"dark"/"system"); the inline script
+	// reads it on the next load.
 	useEffect(() => {
-		const value =
-			theme === "system" ? `system-${isDark ? "dark" : "light"}` : theme
-		document.cookie = `theme=${value}; path=/; max-age=31536000; SameSite=Lax`
-	}, [theme, isDark])
+		try {
+			window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+		} catch {
+			// Storage blocked (e.g. Safari private mode) — the preference just
+			// won't persist; the live session still works.
+		}
+	}, [theme])
 
 	return (
 		<ThemeContext.Provider value={{ theme, isThemeDark: isDark, setTheme }}>

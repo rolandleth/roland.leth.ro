@@ -1,15 +1,11 @@
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google"
-import { cookies } from "next/headers"
 import ClientAnalytics from "@/components/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
+import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
-import {
-	resolveInitialTheme,
-	resolveInitialThemeClass,
-} from "@/lib/client/theme"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
@@ -54,27 +50,27 @@ export async function generateMetadata(): Promise<Metadata> {
 	}
 }
 
-export default async function RootLayout({
+export default function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode
 }>) {
-	const cookieStore = await cookies()
-	const rawCookie = cookieStore.get("theme")?.value
-
-	const initialTheme = resolveInitialTheme(rawCookie)
-	// Resolve the class server-side to avoid a flash on load. First-time
-	// visitors have no cookie: no class is set and globals.css hides the page
-	// until client JS applies it.
-	const themeClass = resolveInitialThemeClass(rawCookie) ?? ""
-
 	return (
 		<html
 			lang="en"
-			className={`${newsreader.variable} ${inter.variable} ${jetBrainsMono.variable} h-full antialiased ${themeClass}`.trimEnd()}
+			className={`${newsreader.variable} ${inter.variable} ${jetBrainsMono.variable} h-full antialiased`}
 			suppressHydrationWarning
 		>
 			<body className="bg-background text-primary flex min-h-full flex-col font-sans">
+				{/* Set the theme class before first paint (no flash). `globals.css`
+					hides the page until a class is present; this reveals it once the
+					class is set — and the `<noscript>` reveals it for visitors without
+					JS, who would otherwise stay hidden. */}
+				<ThemeScript />
+				<noscript>
+					<style>{`html:not(.dark):not(.light){visibility:visible}`}</style>
+				</noscript>
+
 				<a
 					href="#main-content"
 					className="bg-background text-primary focus-visible:border-accent sr-only z-50 rounded-md border px-3 py-2 text-sm font-medium focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3"
@@ -82,7 +78,7 @@ export default async function RootLayout({
 					Skip to main content
 				</a>
 
-				<ThemeProvider initialTheme={initialTheme}>
+				<ThemeProvider>
 					<NavigationTypeTracker />
 					<Header />
 					{/* Single document `<main>` lives here so the skip link targets

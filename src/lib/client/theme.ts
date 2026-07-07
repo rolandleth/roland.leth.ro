@@ -1,43 +1,36 @@
 export type Theme = "light" | "dark" | "system"
 
-// Valid cookie values — "system" is encoded with its resolved dark/light
-// suffix so the server can set the correct class without a second cookie.
-const cookieToThemeClass = {
-	light: "light",
-	dark: "dark",
-	"system-light": "light",
-	"system-dark": "dark",
-} as const
+/** localStorage key holding the user's theme preference. */
+export const THEME_STORAGE_KEY = "theme"
 
-type ThemeCookieValue = keyof typeof cookieToThemeClass
+const THEMES: readonly Theme[] = ["light", "dark", "system"]
 
-function isThemeCookieValue(value: unknown): value is ThemeCookieValue {
-	return typeof value === "string" && value in cookieToThemeClass
+/** Narrows an arbitrary value to a valid `Theme`. */
+export function isTheme(value: unknown): value is Theme {
+	return (
+		typeof value === "string" && (THEMES as readonly string[]).includes(value)
+	)
 }
 
 /**
- * Resolves the raw `theme` cookie value to the `html` element class the
- * server should render. Returns `null` for first-time visitors (no cookie)
- * so `globals.css` can hide the page until client JS resolves a theme.
+ * Reads the stored theme preference, defaulting to `"system"`. SSR-safe:
+ * returns the default when `window`/`localStorage` is unavailable (server
+ * render, or a browser blocking storage in private mode).
+ *
+ * The pre-paint `<html>` class is set by the inline theme script in
+ * `layout.tsx`, which duplicates this resolution because it must run before any
+ * module loads and so can't import this file — keep the two in sync.
  */
-export function resolveInitialThemeClass(
-	rawCookie: string | undefined
-): "light" | "dark" | null {
-	if (!isThemeCookieValue(rawCookie)) {
-		return null
+export function readStoredTheme(): Theme {
+	if (typeof window === "undefined") {
+		return "system"
 	}
 
-	return cookieToThemeClass[rawCookie]
-}
-
-/**
- * Resolves the raw `theme` cookie value to the user's preference
- * (`"light" | "dark" | "system"`), defaulting to `"system"`.
- */
-export function resolveInitialTheme(rawCookie: string | undefined): Theme {
-	if (rawCookie === "light" || rawCookie === "dark") {
-		return rawCookie
+	try {
+		const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+		return isTheme(stored) ? stored : "system"
+	} catch {
+		// Storage blocked (e.g. Safari private mode) — fall back to the default.
+		return "system"
 	}
-
-	return "system"
 }

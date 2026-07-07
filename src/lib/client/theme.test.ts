@@ -1,81 +1,46 @@
-import { describe, expect, it } from "vitest"
-import {
-	resolveInitialTheme,
-	resolveInitialThemeClass,
-} from "@/lib/client/theme"
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it } from "vitest"
+import { isTheme, readStoredTheme, THEME_STORAGE_KEY } from "@/lib/client/theme"
 
-// #region resolveInitialThemeClass
+// #region isTheme
 
-describe("resolveInitialThemeClass", () => {
-	it("returns null for a missing cookie (first-time visitor)", () => {
-		expect(resolveInitialThemeClass(undefined)).toBeNull()
+describe("isTheme", () => {
+	it("accepts the three valid themes", () => {
+		expect(isTheme("light")).toBe(true)
+		expect(isTheme("dark")).toBe(true)
+		expect(isTheme("system")).toBe(true)
 	})
 
-	it("returns null for an empty string", () => {
-		expect(resolveInitialThemeClass("")).toBeNull()
-	})
-
-	it("returns null for an unknown cookie value", () => {
-		expect(resolveInitialThemeClass("sepia")).toBeNull()
-	})
-
-	it("returns 'light' for the plain 'light' cookie", () => {
-		expect(resolveInitialThemeClass("light")).toBe("light")
-	})
-
-	it("returns 'dark' for the plain 'dark' cookie", () => {
-		expect(resolveInitialThemeClass("dark")).toBe("dark")
-	})
-
-	it("resolves 'system-light' to the 'light' class", () => {
-		expect(resolveInitialThemeClass("system-light")).toBe("light")
-	})
-
-	it("resolves 'system-dark' to the 'dark' class", () => {
-		expect(resolveInitialThemeClass("system-dark")).toBe("dark")
-	})
-
-	it("returns null for the bare 'system' string (no resolved suffix)", () => {
-		// The cookie is only ever written with the resolved suffix, so a bare
-		// "system" is treated as malformed — fall back to no-class so CSS can
-		// hide the page until client JS picks a theme.
-		expect(resolveInitialThemeClass("system")).toBeNull()
+	it("rejects unknown strings and non-strings", () => {
+		expect(isTheme("sepia")).toBe(false)
+		expect(isTheme("")).toBe(false)
+		expect(isTheme(null)).toBe(false)
+		expect(isTheme(undefined)).toBe(false)
+		expect(isTheme(1)).toBe(false)
 	})
 })
 
 // #endregion
 
-// #region resolveInitialTheme
+// #region readStoredTheme
 
-describe("resolveInitialTheme", () => {
-	it("defaults to 'system' when there is no cookie", () => {
-		expect(resolveInitialTheme(undefined)).toBe("system")
+describe("readStoredTheme", () => {
+	afterEach(() => {
+		window.localStorage.clear()
 	})
 
-	it("defaults to 'system' for an empty string", () => {
-		expect(resolveInitialTheme("")).toBe("system")
+	it("returns the stored preference when it is a valid theme", () => {
+		window.localStorage.setItem(THEME_STORAGE_KEY, "dark")
+		expect(readStoredTheme()).toBe("dark")
 	})
 
-	it("returns 'light' for the plain 'light' cookie", () => {
-		expect(resolveInitialTheme("light")).toBe("light")
+	it("defaults to 'system' when nothing is stored", () => {
+		expect(readStoredTheme()).toBe("system")
 	})
 
-	it("returns 'dark' for the plain 'dark' cookie", () => {
-		expect(resolveInitialTheme("dark")).toBe("dark")
-	})
-
-	it("collapses 'system-light' back to the 'system' preference", () => {
-		// The suffix is only a rendering hint; the user's stored preference is
-		// still "system". Otherwise toggling OS theme wouldn't be respected.
-		expect(resolveInitialTheme("system-light")).toBe("system")
-	})
-
-	it("collapses 'system-dark' back to the 'system' preference", () => {
-		expect(resolveInitialTheme("system-dark")).toBe("system")
-	})
-
-	it("defaults to 'system' for any unknown value", () => {
-		expect(resolveInitialTheme("sepia")).toBe("system")
+	it("defaults to 'system' for an invalid stored value", () => {
+		window.localStorage.setItem(THEME_STORAGE_KEY, "sepia")
+		expect(readStoredTheme()).toBe("system")
 	})
 })
 

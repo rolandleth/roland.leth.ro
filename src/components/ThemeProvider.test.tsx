@@ -1,20 +1,28 @@
 import { act, render, renderHook, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { THEME_STORAGE_KEY } from "@/lib/client/theme"
 import ThemeProvider, { useTheme } from "./ThemeProvider"
 
+afterEach(() => {
+	document.documentElement.classList.remove("light", "dark")
+	window.localStorage.clear()
+})
+
 describe("ThemeProvider", () => {
-	it("applies `light` class to <html> when initialTheme is light", () => {
+	it("applies the stored `light` preference to <html>", () => {
+		window.localStorage.setItem(THEME_STORAGE_KEY, "light")
 		render(
-			<ThemeProvider initialTheme="light">
+			<ThemeProvider>
 				<div data-testid="child" />
 			</ThemeProvider>
 		)
 		expect(document.documentElement).toHaveClass("light")
 	})
 
-	it("applies `dark` class to <html> when initialTheme is dark", () => {
+	it("applies the stored `dark` preference to <html>", () => {
+		window.localStorage.setItem(THEME_STORAGE_KEY, "dark")
 		render(
-			<ThemeProvider initialTheme="dark">
+			<ThemeProvider>
 				<div data-testid="child" />
 			</ThemeProvider>
 		)
@@ -23,41 +31,42 @@ describe("ThemeProvider", () => {
 
 	it("renders its children", () => {
 		render(
-			<ThemeProvider initialTheme="light">
+			<ThemeProvider>
 				<div data-testid="child">hello</div>
 			</ThemeProvider>
 		)
 		expect(screen.getByTestId("child")).toHaveTextContent("hello")
 	})
 
-	it("writes a `theme` cookie reflecting the resolved theme", () => {
+	it("defaults to and persists 'system' when nothing is stored", () => {
 		render(
-			<ThemeProvider initialTheme="dark">
+			<ThemeProvider>
 				<div />
 			</ThemeProvider>
 		)
-		// Server can rehydrate the right class on next load from the cookie.
-		expect(document.cookie).toMatch(/theme=dark/)
+		expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("system")
 	})
 
-	it("encodes 'system' as system-dark or system-light in the cookie", () => {
-		render(
-			<ThemeProvider initialTheme="system">
-				<div />
-			</ThemeProvider>
-		)
-		// Server uses the dark/light suffix to set the right class without a
-		// second cookie roundtrip.
-		expect(document.cookie).toMatch(/theme=system-(dark|light)/)
+	it("writes the new preference to localStorage and <html> when setTheme runs", () => {
+		const { result } = renderHook(() => useTheme(), {
+			wrapper: ({ children }) => <ThemeProvider>{children}</ThemeProvider>,
+		})
+
+		act(() => {
+			result.current.setTheme("dark")
+		})
+
+		expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark")
+		expect(document.documentElement).toHaveClass("dark")
 	})
 })
 
-describe("ThemeProvider — useSyncExternalStore (Phase 8)", () => {
-	// Phase 8 refactor: the prior `useEffect` + `useState` mirror went stale
-	// when the user toggled system → light → system; the resubscribe re-armed
-	// the listener but kept the captured value from before. `useSyncExternalStore`
-	// re-reads `window.matchMedia(...).matches` on every render, so the value
-	// can never drift. This block pins that contract.
+describe("ThemeProvider — useSyncExternalStore", () => {
+	// The prior `useEffect` + `useState` mirror went stale when the user toggled
+	// system → light → system; the resubscribe re-armed the listener but kept the
+	// captured value from before. `useSyncExternalStore` re-reads
+	// `window.matchMedia(...).matches` on every render, so the value can never
+	// drift. This block pins that contract.
 
 	type MediaQueryListLike = {
 		matches: boolean
@@ -99,14 +108,9 @@ describe("ThemeProvider — useSyncExternalStore (Phase 8)", () => {
 		window.matchMedia = vi.fn().mockImplementation(() => mediaQueryList)
 	})
 
-	afterEach(() => {
-		// Reset between tests so the cookie + html class don't leak.
-		document.documentElement.classList.remove("light", "dark")
-	})
-
 	it("subscribes to prefers-color-scheme on mount", () => {
 		render(
-			<ThemeProvider initialTheme="system">
+			<ThemeProvider>
 				<div />
 			</ThemeProvider>
 		)
@@ -119,7 +123,7 @@ describe("ThemeProvider — useSyncExternalStore (Phase 8)", () => {
 	it("updates the html class when the OS preference flips while theme is 'system'", () => {
 		mediaQueryList.matches = false
 		render(
-			<ThemeProvider initialTheme="system">
+			<ThemeProvider>
 				<div />
 			</ThemeProvider>
 		)
@@ -136,7 +140,7 @@ describe("ThemeProvider — useSyncExternalStore (Phase 8)", () => {
 
 	it("removes the listener on unmount (no leak across remounts)", () => {
 		const { unmount } = render(
-			<ThemeProvider initialTheme="system">
+			<ThemeProvider>
 				<div />
 			</ThemeProvider>
 		)
