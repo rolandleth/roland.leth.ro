@@ -1,24 +1,21 @@
 "use client"
 
-import { AnimatePresence, motion, type PanInfo } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
-import Image from "next/image"
 import { useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
-import { resolveSwipe } from "@/lib/client/swipe"
-
-interface LightboxImage {
-	id: number
-	url: string
-	caption: string | null
-}
+import GalleryTrack from "./GalleryTrack"
+import { useLightboxGestures } from "./useLightboxGestures"
+import type { GalleryImage } from "@/lib/client/gallery"
 
 interface Props {
 	isOpen: boolean
-	images: LightboxImage[]
-	/** Index of the image to display; the parent owns this state. */
+	/** The whole flat gallery (across sections) — the lightbox slides continuously. */
+	images: GalleryImage[]
+	/** Flat index of the displayed image; the parent owns this state. */
 	index: number
-	altPrefix: string
+	/** Project name, for the dialog's accessible label. */
+	galleryLabel: string
 	/**
 	 * Whether the gallery has anywhere to navigate. The parent's prev/next
 	 * handlers cross section boundaries, so this is `true` even for a
@@ -31,21 +28,21 @@ interface Props {
 }
 
 /**
- * Full-screen overlay that shows a project screenshot at (near) full
- * resolution. Rendered into a portal on `document.body` so it escapes the
- * page's `max-w-3xl` container and any stacking context, and so the backdrop
- * truly covers the viewport.
+ * Full-screen overlay that shows a project screenshot at (near) full resolution.
+ * Rendered into a portal on `document.body` so it escapes the page's `max-w-3xl`
+ * container and any stacking context, and so the backdrop truly covers the
+ * viewport.
  *
  * Stays mounted while `isOpen` toggles so `AnimatePresence` can run the exit
  * animation. Controlled by the parent: `index`/`onPrev`/`onNext` walk the whole
- * gallery (across sections), and closing leaves the page on the last-viewed
- * image.
+ * gallery (across sections). Swipe pages the strip, and pinch / wheel /
+ * double-tap zoom the current image (see {@link useLightboxGestures}).
  */
 export default function ProjectImageLightbox({
 	isOpen,
 	images,
 	index,
-	altPrefix,
+	galleryLabel,
 	canNavigate,
 	onClose,
 	onPrev,
@@ -55,8 +52,15 @@ export default function ProjectImageLightbox({
 	const closeButtonRef = useRef<HTMLButtonElement | null>(null)
 	const current = images[index]
 
-	// Lock body scroll while open so the page behind doesn't move, restoring
-	// the original value on close (rather than assuming it was `""`).
+	const { x, slideStyle, isZoomed, setStage, handlers } = useLightboxGestures({
+		index,
+		count: images.length,
+		canNavigate,
+		onStep: (direction) => (direction === 1 ? onNext() : onPrev()),
+	})
+
+	// Lock body scroll while open so the page behind doesn't move, restoring the
+	// original value on close (rather than assuming it was `""`).
 	useEffect(() => {
 		if (!isOpen) {
 			return
@@ -146,22 +150,6 @@ export default function ProjectImageLightbox({
 		return () => window.removeEventListener("keydown", handleKeyDown)
 	}, [isOpen, canNavigate, onClose, onPrev, onNext])
 
-	// Mirror the on-page carousel's touch affordance: swipe the enlarged image
-	// to walk the gallery. A short drag snaps back via the drag constraints.
-	function handleDragEnd(_event: unknown, info: PanInfo) {
-		if (!canNavigate) {
-			return
-		}
-
-		const swipe = resolveSwipe(info)
-
-		if (swipe === "next") {
-			onNext()
-		} else if (swipe === "prev") {
-			onPrev()
-		}
-	}
-
 	// `createPortal` reads `document.body`, undefined during SSR; render nothing
 	// on the server and let the client mount the portal.
 	if (typeof document === "undefined") {
@@ -170,12 +158,12 @@ export default function ProjectImageLightbox({
 
 	return createPortal(
 		<AnimatePresence>
-			{isOpen && (
+			{isOpen && current && (
 				<motion.div
 					ref={dialogRef}
 					role="dialog"
 					aria-modal="true"
-					aria-label={`${altPrefix} screenshot, enlarged`}
+					aria-label={`${galleryLabel} screenshot, enlarged`}
 					// Opaque, no `backdrop-filter`: the screenshots are transparent PNGs
 					// with rounded corners, and a backdrop-blurred surface composites a
 					// faint fringe at a transparent child's alpha edges — the corner halo.
@@ -193,54 +181,48 @@ export default function ProjectImageLightbox({
 						ref={closeButtonRef}
 						type="button"
 						onClick={(event) => {
-							// Without this the click also bubbles to the backdrop's
-							// close handler, firing `onClose` twice.
+							// Without this the click also bubbles to the backdrop's close
+							// handler, firing `onClose` twice.
 							event.stopPropagation()
 							onClose()
 						}}
 						aria-label="Close enlarged image"
-						className="absolute top-3 right-3 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:top-5 sm:right-5"
+						className="absolute top-3 right-3 z-10 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:top-5 sm:right-5"
 					>
 						<X size={22} />
 					</button>
 
-					{/* Image stage. `stopPropagation` keeps clicks on the image from
-					    bubbling to the backdrop's close handler. */}
-					<motion.div
-						className="relative flex max-h-full w-full max-w-5xl flex-col items-center"
+					{/* Stage + caption. `stopPropagation` keeps taps on the image from
+					    reaching the backdrop's close handler. */}
+					<div
+						className="flex w-full max-w-5xl flex-col items-center"
 						onClick={(event) => event.stopPropagation()}
-						drag={canNavigate ? "x" : false}
-						dragConstraints={{ left: 0, right: 0 }}
-						dragElastic={0.2}
-						onDragEnd={handleDragEnd}
 					>
-						{/* `width/height={0}` zeroes the aspect-ratio hint, so the element
-						    needs one *definite* dimension or the browser falls back to the
-						    srcset/DPR-derived intrinsic width and renders at ~half size on
-						    retina. `w-full` (capped by the `max-w-5xl` stage) is that
-						    dimension; `h-auto` then follows the true aspect ratio, so
-						    `rounded-xl` hugs the visible image. `object-contain` keeps an
-						    unusually tall image (height-capped by `max-h-[80vh]`) from
-						    distorting. Not `fill`: that needs a fixed-height parent, which
-						    would strand the caption below an 80vh box. Storing real
-						    dimensions (planned) lets this drop to plain `w-auto h-auto`. */}
-						<Image
-							src={current.url}
-							alt={current.caption ?? `${altPrefix} screenshot`}
-							width={0}
-							height={0}
-							draggable={false}
-							sizes="(max-width: 1024px) 100vw, 1024px"
-							className="h-auto max-h-[80vh] w-full rounded-xl object-contain select-none"
-							priority
-						/>
+						{/* Gesture surface: `touch-none` hands every touch to the pointer
+						    handlers (no native scroll/zoom); `overflow-hidden` clips the
+						    off-screen slides and the zoomed image beyond the frame. */}
+						<div
+							ref={setStage}
+							className={`relative h-[80vh] w-full touch-none overflow-hidden ${
+								isZoomed ? "cursor-grab" : "cursor-zoom-in"
+							}`}
+							{...handlers}
+						>
+							<GalleryTrack
+								images={images}
+								index={index}
+								x={x}
+								sizes="(max-width: 1024px) 100vw, 1024px"
+								activeSlideStyle={slideStyle}
+							/>
+						</div>
 
 						{current.caption && (
 							<p className="mt-3 text-center text-sm text-white/80">
 								{current.caption}
 							</p>
 						)}
-					</motion.div>
+					</div>
 
 					{/* Prev / Next — siblings of the stage so clicks don't hit the
 					    backdrop, sitting against the viewport edges. */}
@@ -253,7 +235,7 @@ export default function ProjectImageLightbox({
 									onPrev()
 								}}
 								aria-label="Previous image"
-								className="absolute top-1/2 left-2 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:left-4"
+								className="absolute top-1/2 left-2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:left-4"
 							>
 								<ChevronLeft size={24} />
 							</button>
@@ -265,7 +247,7 @@ export default function ProjectImageLightbox({
 									onNext()
 								}}
 								aria-label="Next image"
-								className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:right-4"
+								className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:right-4"
 							>
 								<ChevronRight size={24} />
 							</button>

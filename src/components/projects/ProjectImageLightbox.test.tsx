@@ -3,6 +3,7 @@ import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { setupUser } from "@/test/user"
 import ProjectImageLightbox from "./ProjectImageLightbox"
+import type { GalleryImage } from "@/lib/client/gallery"
 
 const user = setupUser()
 
@@ -13,10 +14,31 @@ vi.mock("next/image", () => ({
 	},
 }))
 
-const images = [
-	{ id: 1, url: "/a.jpg", caption: "First slide" },
-	{ id: 2, url: "/b.jpg", caption: "Second slide" },
-	{ id: 3, url: "/c.jpg", caption: null },
+const images: GalleryImage[] = [
+	{
+		id: 1,
+		url: "/a.jpg",
+		caption: "First slide",
+		sectionIndex: 0,
+		localIndex: 0,
+		sectionTitle: "MyApp",
+	},
+	{
+		id: 2,
+		url: "/b.jpg",
+		caption: "Second slide",
+		sectionIndex: 0,
+		localIndex: 1,
+		sectionTitle: "MyApp",
+	},
+	{
+		id: 3,
+		url: "/c.jpg",
+		caption: null,
+		sectionIndex: 0,
+		localIndex: 2,
+		sectionTitle: "MyApp",
+	},
 ]
 
 function noop() {}
@@ -28,7 +50,7 @@ function renderLightbox(
 		isOpen: true,
 		images,
 		index: 0,
-		altPrefix: "MyApp",
+		galleryLabel: "MyApp",
 		canNavigate: true,
 		onClose: noop,
 		onPrev: noop,
@@ -52,7 +74,15 @@ describe("ProjectImageLightbox", () => {
 		expect(screen.getByAltText("First slide")).toBeInTheDocument()
 	})
 
-	it("falls back to an alt derived from altPrefix when the caption is null", () => {
+	it("lays the whole gallery out as one strip", () => {
+		// Every slide is in the DOM (the continuous track); the current one is the
+		// only one exposed to assistive tech, the rest are aria-hidden.
+		renderLightbox()
+		expect(screen.getByAltText("First slide")).toBeInTheDocument()
+		expect(screen.getByAltText("Second slide")).toBeInTheDocument()
+	})
+
+	it("falls back to an alt derived from the section title when the caption is null", () => {
 		renderLightbox({ index: 2 })
 		expect(screen.getByAltText("MyApp screenshot")).toBeInTheDocument()
 	})
@@ -130,7 +160,7 @@ describe("ProjectImageLightbox", () => {
 						isOpen={open}
 						images={images}
 						index={0}
-						altPrefix="MyApp"
+						galleryLabel="MyApp"
 						canNavigate={true}
 						onClose={() => setOpen(false)}
 						onPrev={noop}
@@ -160,7 +190,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={true}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}
@@ -174,7 +204,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={false}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}
@@ -230,7 +260,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={true}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}
@@ -244,7 +274,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={false}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}
@@ -267,7 +297,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={true}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}
@@ -283,7 +313,7 @@ describe("ProjectImageLightbox", () => {
 				isOpen={false}
 				images={images}
 				index={0}
-				altPrefix="MyApp"
+				galleryLabel="MyApp"
 				canNavigate={true}
 				onClose={noop}
 				onPrev={noop}

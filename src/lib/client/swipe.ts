@@ -7,18 +7,24 @@ const SWIPE_DISTANCE_THRESHOLD = 50
 const SWIPE_VELOCITY_THRESHOLD = 400
 
 /**
- * Maps a horizontal drag gesture to a page step. Direction is inverted from the
- * gesture: dragging left (negative offset/velocity) reveals the *next* image.
- * Returns `null` when the gesture falls short of both thresholds so the caller
- * can let it rubber-band back to centre.
+ * Maps a horizontal drag to a page step from its raw offset (px) and velocity
+ * (px/s). Direction is inverted from the gesture: dragging left (negative
+ * offset/velocity) reveals the *next* image. Returns `null` when the gesture
+ * falls short of both thresholds so the caller can let it rubber-band back to
+ * centre.
+ *
+ * The `PanInfo` overload ({@link resolveSwipe}) feeds framer-motion's carousel
+ * drag; the hand-rolled lightbox gestures call this directly with their own
+ * measured offset and velocity.
  */
-export function resolveSwipe(info: PanInfo): "next" | "prev" | null {
+export function resolveSwipeFromDelta(
+	offsetX: number,
+	velocityX: number
+): "next" | "prev" | null {
 	const movedNext =
-		info.offset.x < -SWIPE_DISTANCE_THRESHOLD ||
-		info.velocity.x < -SWIPE_VELOCITY_THRESHOLD
+		offsetX < -SWIPE_DISTANCE_THRESHOLD || velocityX < -SWIPE_VELOCITY_THRESHOLD
 	const movedPrev =
-		info.offset.x > SWIPE_DISTANCE_THRESHOLD ||
-		info.velocity.x > SWIPE_VELOCITY_THRESHOLD
+		offsetX > SWIPE_DISTANCE_THRESHOLD || velocityX > SWIPE_VELOCITY_THRESHOLD
 
 	if (movedNext) {
 		return "next"
@@ -29,4 +35,9 @@ export function resolveSwipe(info: PanInfo): "next" | "prev" | null {
 	}
 
 	return null
+}
+
+/** Framer-motion `PanInfo` adapter over {@link resolveSwipeFromDelta}. */
+export function resolveSwipe(info: PanInfo): "next" | "prev" | null {
+	return resolveSwipeFromDelta(info.offset.x, info.velocity.x)
 }

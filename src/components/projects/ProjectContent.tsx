@@ -2,8 +2,9 @@
 
 import { motion } from "framer-motion"
 import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
+import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel } from "@/lib/utils/platforms"
 import ProjectFaq from "./ProjectFaq"
@@ -38,10 +39,15 @@ export default function ProjectContent({
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
 	const [activeTab, setActiveTab] = useState(0)
-	// Position within the active section's images. Lifted here (rather than owned
-	// by the carousel) so the arrows, dots, and lightbox share one position and
-	// the arrows can walk across section boundaries into the next/prev section.
-	const [imageIndex, setImageIndex] = useState(0)
+	// Every section's images flattened into one continuous gallery. The carousel
+	// and lightbox both slide across this whole strip; each slide carries its
+	// owning section so navigation can keep the active tab in step.
+	const galleryImages = useMemo(() => flattenSections(sections), [sections])
+	const galleryCount = galleryImages.length
+	// Flat position within `galleryImages`. Lifted here (rather than owned by the
+	// carousel) so the dots, the drag, and the lightbox share one position and
+	// crossing a section boundary can move the active tab with it.
+	const [galleryIndex, setGalleryIndex] = useState(0)
 	const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 	// Refs to each tab button so arrow-key navigation can move focus along
 	// with selection (APG roving-tabindex pattern).
@@ -55,14 +61,9 @@ export default function ProjectContent({
 	const isInitialTabRender = useRef(true)
 
 	const activeSection = sections[activeTab]
-	const sectionsWithImages = sections.filter(
-		(section) => section.images.length > 0
-	).length
-	// There's somewhere to navigate if the current section has more than one
-	// image, or another section holds images the arrows can cross into.
-	const canNavigateGallery =
-		activeSection != null &&
-		(activeSection.images.length > 1 || sectionsWithImages > 1)
+	// There's somewhere to navigate whenever the gallery holds more than one
+	// slide, regardless of which section they live in.
+	const canNavigateGallery = galleryCount > 1
 
 	// Keep the selected tab visible in the scrollable tablist. Crossing sections
 	// from inside the lightbox (or via the arrows) changes `activeTab` without
@@ -81,64 +82,47 @@ export default function ProjectContent({
 		})
 	}, [activeTab])
 
+	// Select a section from the tablist: show its description and, when it holds
+	// images, move the continuous gallery to its first slide. Image-less sections
+	// leave the gallery position alone (the carousel is hidden for them anyway).
 	function goToSection(index: number) {
 		setActiveTab(index)
-		setImageIndex(0)
+
+		const first = firstIndexOfSection(galleryImages, index)
+
+		if (first !== -1) {
+			setGalleryIndex(first)
+		}
 	}
 
-	// Jump straight to a dot's image within the active section.
-	function selectImage(target: number) {
-		setImageIndex(target)
+	// Jump the gallery to an arbitrary flat index (a dot tap, or the slide a drag
+	// settled on), syncing the active tab to the section that owns that slide so
+	// the underline and the description follow the picture.
+	function goToImage(flatIndex: number) {
+		if (galleryCount === 0) {
+			return
+		}
+
+		const clamped = Math.max(0, Math.min(flatIndex, galleryCount - 1))
+		setGalleryIndex(clamped)
+		setActiveTab(galleryImages[clamped].sectionIndex)
+	}
+
+	// Page one slide with wrap-around across the whole gallery (arrows / keys).
+	function stepImage(direction: 1 | -1) {
+		if (galleryCount === 0) {
+			return
+		}
+
+		const next =
+			(((galleryIndex + direction) % galleryCount) + galleryCount) %
+			galleryCount
+		goToImage(next)
 	}
 
 	function selectTab(index: number) {
 		goToSection(index)
 		tabRefs.current[index]?.focus()
-	}
-
-	// Cyclically finds the nearest section in `direction` that actually has
-	// images, so the arrows skip image-less sections instead of stranding the
-	// gallery on one. Returns `null` when no other section has images.
-	function findAdjacentImageSection(
-		from: number,
-		direction: 1 | -1
-	): number | null {
-		const count = sections.length
-
-		for (let step = 1; step < count; step++) {
-			const index = (((from + direction * step) % count) + count) % count
-
-			if (sections[index].images.length > 0) {
-				return index
-			}
-		}
-
-		return null
-	}
-
-	// Walks the whole gallery: advances within the section until its images run
-	// out, then crosses into the adjacent section (switching the active tab).
-	function navigateImage(direction: 1 | -1) {
-		const images = activeSection?.images ?? []
-		const nextIndex = imageIndex + direction
-
-		if (nextIndex >= 0 && nextIndex < images.length) {
-			setImageIndex(nextIndex)
-			return
-		}
-
-		const adjacent = findAdjacentImageSection(activeTab, direction)
-
-		if (adjacent === null) {
-			// This is the only section with images — wrap within it.
-			setImageIndex(direction === 1 ? 0 : images.length - 1)
-			return
-		}
-
-		setActiveTab(adjacent)
-		// Forward lands on the first image of the next section; backward lands on
-		// the last image of the previous one.
-		setImageIndex(direction === 1 ? 0 : sections[adjacent].images.length - 1)
 	}
 
 	function handleTabKeyDown(
@@ -364,13 +348,11 @@ export default function ProjectContent({
 								{activeSection.images.length > 0 && (
 									<div className="mb-6">
 										<ProjectSectionCarousel
-											images={activeSection.images}
-											index={imageIndex}
+											images={galleryImages}
+											index={galleryIndex}
 											canNavigate={canNavigateGallery}
-											altPrefix={activeSection.title}
-											onSelectImage={selectImage}
-											onPrev={() => navigateImage(-1)}
-											onNext={() => navigateImage(1)}
+											galleryLabel={name}
+											onSelectImage={goToImage}
 											onEnlarge={() => setIsLightboxOpen(true)}
 										/>
 									</div>
@@ -394,16 +376,16 @@ export default function ProjectContent({
 						{/* One lightbox for the whole gallery, kept outside the tabpanel
 						    so it survives section changes — the arrows walk across
 						    sections without the overlay flickering closed. */}
-						{activeSection && activeSection.images.length > 0 && (
+						{galleryCount > 0 && (
 							<ProjectImageLightbox
 								isOpen={isLightboxOpen}
-								images={activeSection.images}
-								index={imageIndex}
-								altPrefix={activeSection.title}
+								images={galleryImages}
+								index={galleryIndex}
+								galleryLabel={name}
 								canNavigate={canNavigateGallery}
 								onClose={() => setIsLightboxOpen(false)}
-								onPrev={() => navigateImage(-1)}
-								onNext={() => navigateImage(1)}
+								onPrev={() => stepImage(-1)}
+								onNext={() => stepImage(1)}
 							/>
 						)}
 					</motion.div>

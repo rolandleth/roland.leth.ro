@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { setupUser } from "@/test/user"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
+import type { GalleryImage } from "@/lib/client/gallery"
 
 const user = setupUser()
 
@@ -12,10 +13,32 @@ vi.mock("next/image", () => ({
 	},
 }))
 
-const images = [
-	{ id: 1, url: "/a.jpg", caption: "First slide" },
-	{ id: 2, url: "/b.jpg", caption: "Second slide" },
-	{ id: 3, url: "/c.jpg", caption: null },
+// One section's worth of the flat gallery (all `sectionIndex: 0`).
+const images: GalleryImage[] = [
+	{
+		id: 1,
+		url: "/a.jpg",
+		caption: "First slide",
+		sectionIndex: 0,
+		localIndex: 0,
+		sectionTitle: "MyApp",
+	},
+	{
+		id: 2,
+		url: "/b.jpg",
+		caption: "Second slide",
+		sectionIndex: 0,
+		localIndex: 1,
+		sectionTitle: "MyApp",
+	},
+	{
+		id: 3,
+		url: "/c.jpg",
+		caption: null,
+		sectionIndex: 0,
+		localIndex: 2,
+		sectionTitle: "MyApp",
+	},
 ]
 
 function renderCarousel(
@@ -25,10 +48,8 @@ function renderCarousel(
 		images,
 		index: 0,
 		canNavigate: true,
-		altPrefix: "MyApp",
+		galleryLabel: "MyApp",
 		onSelectImage: vi.fn(),
-		onPrev: vi.fn(),
-		onNext: vi.fn(),
 		onEnlarge: vi.fn(),
 		...overrides,
 	}
@@ -58,7 +79,7 @@ describe("ProjectSectionCarousel", () => {
 		).not.toBeInTheDocument()
 	})
 
-	it("renders a dot button per image with the one at `index` marked aria-current", () => {
+	it("renders a dot button per section image with the current one aria-current", () => {
 		renderCarousel({ index: 1 })
 		const dots = screen.getAllByRole("button", { name: /go to image/i })
 		expect(dots).toHaveLength(3)
@@ -76,10 +97,48 @@ describe("ProjectSectionCarousel", () => {
 		expect(firstDot.className).not.toContain("before:-m-2.5")
 	})
 
-	it("reports the clicked dot's index to the parent", async () => {
+	it("reports the clicked dot's flat index to the parent", async () => {
 		const { props } = renderCarousel()
 		const dots = screen.getAllByRole("button", { name: /go to image/i })
 		await user.click(dots[2])
+		expect(props.onSelectImage).toHaveBeenCalledWith(2)
+	})
+
+	it("maps a dot to the right flat index when the section starts mid-gallery", async () => {
+		// A two-section gallery viewed at its second section: the dots are scoped to
+		// that section, but each must resolve to its *flat* index (offset past the
+		// first section) so the parent moves the continuous strip correctly.
+		const twoSections: GalleryImage[] = [
+			{
+				id: 1,
+				url: "/a.jpg",
+				caption: "Alpha one",
+				sectionIndex: 0,
+				localIndex: 0,
+				sectionTitle: "Alpha",
+			},
+			{
+				id: 2,
+				url: "/b.jpg",
+				caption: "Beta one",
+				sectionIndex: 1,
+				localIndex: 0,
+				sectionTitle: "Beta",
+			},
+			{
+				id: 3,
+				url: "/c.jpg",
+				caption: "Beta two",
+				sectionIndex: 1,
+				localIndex: 1,
+				sectionTitle: "Beta",
+			},
+		]
+		const { props } = renderCarousel({ images: twoSections, index: 1 })
+		const dots = screen.getAllByRole("button", { name: /go to image/i })
+		expect(dots).toHaveLength(2)
+
+		await user.click(dots[1])
 		expect(props.onSelectImage).toHaveBeenCalledWith(2)
 	})
 
@@ -91,16 +150,25 @@ describe("ProjectSectionCarousel", () => {
 		expect(props.onEnlarge).toHaveBeenCalledOnce()
 	})
 
-	it("renders nothing when images is empty (defensive guard)", () => {
-		// Callers gate on `section.images.length > 0`; enforcing the contract
-		// locally means `current.url` can never throw if a caller forgets it.
+	it("renders nothing when the gallery is empty (defensive guard)", () => {
+		// Callers gate on the active section having images; enforcing the contract
+		// locally means the index math can never throw if a caller forgets it.
 		const { container } = renderCarousel({ images: [] })
 		expect(container.firstChild).toBeNull()
 	})
 
-	it("does not render dots for a single image", () => {
+	it("does not render dots for a single-image section", () => {
 		renderCarousel({
-			images: [{ id: 1, url: "/only.jpg", caption: "Only one" }],
+			images: [
+				{
+					id: 1,
+					url: "/only.jpg",
+					caption: "Only one",
+					sectionIndex: 0,
+					localIndex: 0,
+					sectionTitle: "MyApp",
+				},
+			],
 		})
 		expect(
 			screen.queryByRole("button", { name: /go to image/i })
