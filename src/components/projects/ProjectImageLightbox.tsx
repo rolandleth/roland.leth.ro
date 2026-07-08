@@ -204,7 +204,7 @@ export default function ProjectImageLightbox({
 						<div
 							ref={setStage}
 							className={`relative h-[80vh] w-full touch-none overflow-hidden ${
-								isZoomed ? "cursor-grab" : "cursor-zoom-in"
+								isZoomed ? "cursor-grab" : ""
 							}`}
 							{...handlers}
 						>

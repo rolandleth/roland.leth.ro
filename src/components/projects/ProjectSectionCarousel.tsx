@@ -151,13 +151,14 @@ export default function ProjectSectionCarousel({
 				}`}
 			</p>
 
-			{/* Fixed-height stage: a continuous slide strip needs a stable height so
-			    it doesn't jump vertically between a portrait and a landscape shot.
-			    `object-contain` centres each image; `overflow-hidden` clips the
-			    off-screen slides. */}
+			{/* The stage tracks the 1270×760 shape every staged marketing shot ships
+			    in, so slides hug their content instead of letterboxing; the height
+			    caps keep a stable, sane stage if a differently-shaped image ever
+			    lands (it aspect-fits via `object-contain`). `overflow-hidden` clips
+			    the off-screen slides. */}
 			<div
 				ref={stageRef}
-				className="relative h-[60vh] w-full overflow-hidden rounded-xl sm:h-120"
+				className="relative aspect-[1270/760] max-h-[60vh] w-full overflow-hidden rounded-xl sm:max-h-120"
 				// Start each interaction with a clean suppress flag and record where the
 				// pointer went down. Capture phase, so it runs before the drag layer.
 				onPointerDownCapture={(event) => {
