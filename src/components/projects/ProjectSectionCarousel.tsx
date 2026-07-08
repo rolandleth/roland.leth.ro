@@ -27,8 +27,9 @@ interface Props {
 // Spring for snapping the strip to a slide — quick and lightly damped so it
 // settles inside Apple's 0.2–0.3s window.
 const SNAP_SPRING = { type: "spring", stiffness: 320, damping: 34 } as const
-// A drag that travels more than this (px) counts as a swipe, so the click the
-// browser fires on release is swallowed instead of also opening the lightbox.
+// A pointer that travels more than this (px) before release counts as a swipe,
+// so the click the browser fires on release is swallowed instead of also
+// opening the lightbox.
 const SWIPE_CLICK_TRAVEL = 8
 
 export default function ProjectSectionCarousel({
@@ -46,6 +47,11 @@ export default function ProjectSectionCarousel({
 	// Set true by a real swipe so the trailing click doesn't also fire the
 	// enlarge; reset at the start of each new interaction (stage pointer-down).
 	const suppressEnlargeRef = useRef(false)
+	// Pointer's x at the gesture's start, to measure travel on release. Framer
+	// fires `onDragEnd` a frame late (`frame.postRender`), after the browser's
+	// click — too late to gate the enlarge — so we detect the swipe from the raw
+	// pointer instead.
+	const pointerDownXRef = useRef(0)
 
 	// Keep the strip aligned to the centred slide. Snap instantly before the
 	// stage has measured (width 0) or when reduced motion is requested; otherwise
@@ -68,13 +74,6 @@ export default function ProjectSectionCarousel({
 	// closest to; a fast flick that didn't quite cross the midpoint still advances
 	// one slide in its direction.
 	function handleDragEnd(_event: unknown, info: PanInfo) {
-		// A moved drag is a swipe: suppress the click the browser fires on release
-		// so it doesn't also open the lightbox. Covers the rubber-band case too (a
-		// drag past the travel threshold that still fell short of a page step).
-		if (Math.abs(info.offset.x) > SWIPE_CLICK_TRAVEL) {
-			suppressEnlargeRef.current = true
-		}
-
 		if (!canNavigate || width === 0) {
 			animate(x, -index * width, SNAP_SPRING)
 			return
@@ -159,10 +158,30 @@ export default function ProjectSectionCarousel({
 			<div
 				ref={stageRef}
 				className="relative h-[60vh] w-full overflow-hidden rounded-xl sm:h-120"
-				// Fires before the drag/click in the capture phase, so each new
-				// interaction starts with a clean suppress flag.
-				onPointerDownCapture={() => {
+				// Start each interaction with a clean suppress flag and record where the
+				// pointer went down. Capture phase, so it runs before the drag layer.
+				onPointerDownCapture={(event) => {
+					if (!event.isPrimary) {
+						return
+					}
+
 					suppressEnlargeRef.current = false
+					pointerDownXRef.current = event.clientX
+				}}
+				// pointerup dispatches before the browser's click, so flagging a swipe
+				// here reliably gates the enlarge that the click would otherwise fire —
+				// unlike framer's `onDragEnd`, which lands a frame too late.
+				onPointerUpCapture={(event) => {
+					if (!event.isPrimary) {
+						return
+					}
+
+					if (
+						Math.abs(event.clientX - pointerDownXRef.current) >
+						SWIPE_CLICK_TRAVEL
+					) {
+						suppressEnlargeRef.current = true
+					}
 				}}
 			>
 				<GalleryTrack

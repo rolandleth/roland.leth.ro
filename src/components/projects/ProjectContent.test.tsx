@@ -199,6 +199,20 @@ describe("ProjectContent — cross-section gallery navigation", () => {
 		).not.toBeInTheDocument()
 	})
 
+	it("keeps the section panel (and its continuous carousel) mounted across a section change", async () => {
+		// Guards the cross-section swipe animation: keying the panel on the section
+		// remounts the carousel every time the active section changes, snapping its
+		// slide strip back to 0 and springing across every slide. Same panel node
+		// before and after proves the strip's identity — and its motion state —
+		// survives the crossing.
+		renderGallery()
+		const panelBefore = screen.getByRole("tabpanel")
+
+		await user.click(screen.getByRole("tab", { name: "Beta" }))
+
+		expect(screen.getByRole("tabpanel")).toBe(panelBefore)
+	})
+
 	it("steps through a section's images, then crosses into the next section", async () => {
 		renderGallery()
 		await user.click(screen.getByRole("button", { name: /enlarge alpha one/i }))

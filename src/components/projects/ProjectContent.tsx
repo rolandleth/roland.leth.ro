@@ -339,8 +339,13 @@ export default function ProjectContent({
 						)}
 
 						{activeSection && (
+							// Deliberately NOT keyed on the section: the continuous carousel
+							// lives inside this panel, and a per-section key would remount it
+							// on every cross-section move — resetting its slide strip to 0 and
+							// springing it across every slide (an accelerated fly-across)
+							// instead of stepping one slide. The panel's id/aria-labelledby
+							// swap as attributes on the same element instead.
 							<div
-								key={activeSection.id}
 								role="tabpanel"
 								id={`panel-${activeSection.id}`}
 								aria-labelledby={`tab-${activeSection.id}`}

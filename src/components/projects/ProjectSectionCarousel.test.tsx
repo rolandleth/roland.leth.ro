@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { setupUser } from "@/test/user"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
@@ -148,6 +148,32 @@ describe("ProjectSectionCarousel", () => {
 			screen.getByRole("button", { name: /enlarge first slide/i })
 		)
 		expect(props.onEnlarge).toHaveBeenCalledOnce()
+	})
+
+	it("enlarges on a tap whose pointer barely moves before release", () => {
+		const { props } = renderCarousel()
+		const slide = screen.getByRole("button", { name: /enlarge first slide/i })
+
+		// A tap: pointer down and up at (nearly) the same spot, then the click.
+		fireEvent.pointerDown(slide, { isPrimary: true, clientX: 100 })
+		fireEvent.pointerUp(slide, { isPrimary: true, clientX: 103 })
+		fireEvent.click(slide)
+
+		expect(props.onEnlarge).toHaveBeenCalledOnce()
+	})
+
+	it("suppresses the enlarge when the click is the tail of a swipe", () => {
+		// The swipe's release click would otherwise open the lightbox. Framer fires
+		// `onDragEnd` a frame after the click, so the guard reads the raw pointer
+		// travel at pointerup (before the click) instead of relying on it.
+		const { props } = renderCarousel()
+		const slide = screen.getByRole("button", { name: /enlarge first slide/i })
+
+		fireEvent.pointerDown(slide, { isPrimary: true, clientX: 100 })
+		fireEvent.pointerUp(slide, { isPrimary: true, clientX: 170 })
+		fireEvent.click(slide)
+
+		expect(props.onEnlarge).not.toHaveBeenCalled()
 	})
 
 	it("renders nothing when the gallery is empty (defensive guard)", () => {
