@@ -1,18 +1,26 @@
-// Pure, I/O-free core of the post-import script (`scripts/import-posts.ts`).
-// Mirrors the `projectImport.ts` split: everything here is deterministic and
-// unit-tested; the script is the thin imperative shell that reads files and
-// writes to the DB.
+// Pure, I/O-free core of post ingestion. Mirrors the `projectImport.ts`
+// split: everything here is deterministic and unit-tested; the import script
+// (`scripts/import-posts.ts`) is the thin imperative shell that reads files
+// and writes to the DB. The admin bulk endpoint shares `parsePostFiles`, so
+// the two ingestion paths can't drift on which files import and under what
+// slug (it ignores `slugRewrite` — an upload can't be written back).
 //
 // Title source of truth is the file's `title:` frontmatter, NOT the filename.
 // The filename (`yyyy-MM-dd[-HHmm]-<label>.md`) is authoritative only for the
 // datetime; its text label is decorative (it can't hold `:`/`/`/accents that
-// real titles do). The slug derives from the frontmatter title, matching how
-// the DB's slugs were originally built.
+// real titles do).
+//
+// Slug source of truth is the file's `slug:` frontmatter. When it's absent
+// (derive from the title) or non-canonical (normalize the value itself), the
+// parse resolves it through `createSlug` and carries the rewritten file
+// content so the shell can write the fix back into the source file — the
+// content repo converges to explicit slugs, and a later title edit can never
+// silently move a post's URL.
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { postCreateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
-import { parseFrontmatter } from "@/lib/import/frontmatter"
+import { parseFrontmatter, setFrontmatterSlug } from "@/lib/import/frontmatter"
 import {
 	calculateReadingTime,
 	createSlug,
@@ -26,12 +34,22 @@ export type ImportFile = {
 	content: string
 }
 
+/** A pending write-back of the resolved `slug:` line into the source file. */
+export type SlugRewrite = {
+	/** The full file content with the resolved `slug:` line in place. */
+	content: string
+	/** The non-canonical value being replaced, or `null` when the file had no `slug:` line. */
+	previous: string | null
+}
+
 export type ParsedPostFile = {
 	filename: string
 	title: string
 	slug: string
 	datetime: string
 	body: string
+	/** Non-null when the source file's `slug:` line needs writing (missing or normalized); the shell persists it. */
+	slugRewrite: SlugRewrite | null
 }
 
 export type SkippedFile = {
@@ -93,13 +111,55 @@ export type ImportPlan = {
 }
 
 /**
- * Parses each file into a title (from frontmatter), slug, datetime (from the
- * filename), and body, partitioning out per-file skips: malformed filename,
- * missing frontmatter title, empty slug, in-batch duplicate, empty body. The
- * title comes from the `title:` frontmatter — the filename is read only for
- * the datetime.
+ * Resolves a file's slug: the explicit `slug:` value when canonical, otherwise
+ * `createSlug` applied to the value itself (non-canonical) or to the title
+ * (absent) — `createSlug` is idempotent on a well-formed slug, so it doubles
+ * as the canonical-shape check. Returns a skip reason instead when the
+ * resolution comes out empty.
  */
-export function parsePostFiles(files: ImportFile[]): {
+function resolveSlug(
+	fileSlug: string | null,
+	title: string
+): { slug: string } | { skipReason: string } {
+	const slug = createSlug(fileSlug ?? title)
+
+	if (slug === "") {
+		return {
+			skipReason:
+				fileSlug == null
+					? "Title produces an empty slug"
+					: "`slug:` normalizes to an empty slug",
+		}
+	}
+
+	return { slug }
+}
+
+/**
+ * The pending `slug:` write-back for a file, or `null` when its `slug:` line
+ * already carries the resolved value verbatim.
+ */
+function slugRewriteFor(
+	content: string,
+	fileSlug: string | null,
+	slug: string
+): SlugRewrite | null {
+	if (fileSlug === slug) {
+		return null
+	}
+
+	return { content: setFrontmatterSlug(content, slug), previous: fileSlug }
+}
+
+/**
+ * Parses each file into a title (from frontmatter), slug (from frontmatter,
+ * resolved through `createSlug`), datetime (from the filename), and body,
+ * partitioning out per-file skips: malformed filename, missing frontmatter
+ * title, empty slug, in-batch duplicate, empty body. A file whose `slug:` was
+ * absent or non-canonical carries a `slugRewrite` with the corrected file
+ * content for the shell to persist.
+ */
+export function parsePostFiles(files: readonly ImportFile[]): {
 	parsed: ParsedPostFile[]
 	skipped: SkippedFile[]
 } {
@@ -115,7 +175,7 @@ export function parsePostFiles(files: ImportFile[]): {
 			continue
 		}
 
-		const { title, body } = parseFrontmatter(file.content)
+		const { title, slug: fileSlug, body } = parseFrontmatter(file.content)
 
 		if (title == null) {
 			skipped.push({
@@ -125,15 +185,14 @@ export function parsePostFiles(files: ImportFile[]): {
 			continue
 		}
 
-		const slug = createSlug(title)
+		const resolution = resolveSlug(fileSlug, title)
 
-		if (slug === "") {
-			skipped.push({
-				filename: file.filename,
-				reason: "Title produces an empty slug",
-			})
+		if ("skipReason" in resolution) {
+			skipped.push({ filename: file.filename, reason: resolution.skipReason })
 			continue
 		}
+
+		const { slug } = resolution
 
 		if (seenSlugs.has(slug)) {
 			skipped.push({
@@ -158,6 +217,7 @@ export function parsePostFiles(files: ImportFile[]): {
 			slug,
 			datetime: filenameResult.datetime,
 			body,
+			slugRewrite: slugRewriteFor(file.content, fileSlug, slug),
 		})
 	}
 

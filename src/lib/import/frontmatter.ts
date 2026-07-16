@@ -1,9 +1,9 @@
-// Minimal frontmatter for post files: one field, `title`. Deliberately NOT a
-// YAML library — the format is a single controlled string field we both write
-// and read, so a regex + quote-strip is more robust here than a general YAML
-// parser. The value is the LITERAL remainder of the `title:` line, so a title
-// containing `:` / `#` / `[]` (all common in the archive) needs no YAML-quoting
-// gymnastics to read back.
+// Minimal frontmatter for post files: two fields, `title` and `slug`.
+// Deliberately NOT a YAML library — the format is a pair of controlled string
+// fields we both write and read, so a regex + quote-strip is more robust here
+// than a general YAML parser. The value is the LITERAL remainder of the field's
+// line, so a title containing `:` / `#` / `[]` (all common in the archive)
+// needs no YAML-quoting gymnastics to read back.
 //
 // Writes are always double-quoted (`title: "..."`) so the block is valid YAML
 // in an editor's frontmatter view regardless of punctuation; reads tolerate
@@ -15,6 +15,7 @@ const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
 
 export type ParsedFrontmatter = {
 	title: string | null
+	slug: string | null
 	body: string
 }
 
@@ -32,31 +33,82 @@ function unquote(value: string): string {
 }
 
 /**
- * Splits a post file into its frontmatter `title` and body. Returns
- * `title: null` when there's no frontmatter block or no `title:` line inside it
- * — the caller decides whether that's a skip. The body is everything after the
- * closing `---`, with leading blank lines trimmed so it starts on real content
- * (and matches the DB body byte-for-byte on a re-import).
+ * Reads one field's value from the block's lines: the literal remainder of the
+ * `<name>:` line, unquoted and trimmed. Returns `null` when the line is absent
+ * or its value is empty. Matching on the line start, not a substring split,
+ * guards against a body (or a title) that itself contains the text `title:`.
+ */
+function readField(lines: string[], name: "title" | "slug"): string | null {
+	const line = lines.find((candidate) => candidate.startsWith(`${name}:`))
+
+	if (line == null) {
+		return null
+	}
+
+	const value = unquote(line.slice(name.length + 1).trim())
+
+	return value === "" ? null : value
+}
+
+/**
+ * Splits a post file into its frontmatter `title`, `slug`, and body. Returns
+ * `null` for a field when there's no frontmatter block or no line for it inside
+ * — the caller decides whether that's a skip (title) or a derive-and-backfill
+ * (slug). The body is everything after the closing `---`, with leading blank
+ * lines trimmed so it starts on real content (and matches the DB body
+ * byte-for-byte on a re-import).
  */
 export function parseFrontmatter(raw: string): ParsedFrontmatter {
 	const match = raw.match(FRONTMATTER_BLOCK)
 
 	if (!match) {
-		return { title: null, body: raw }
+		return { title: null, slug: null, body: raw }
 	}
 
 	const body = raw.slice(match[0].length).replace(/^[\r\n]+/, "")
-	// Match the `title:` line, not a substring split — guards against a body (or
-	// a title) that itself contains the text "title:".
-	const titleLine = match[1].split(/\r?\n/).find((line) => /^title:/.test(line))
+	const lines = match[1].split(/\r?\n/)
 
-	if (titleLine == null) {
-		return { title: null, body }
+	return {
+		title: readField(lines, "title"),
+		slug: readField(lines, "slug"),
+		body,
+	}
+}
+
+/**
+ * Writes `slug: <value>` into an existing frontmatter block — replacing the
+ * current `slug:` line, or inserting one right after `title:` (at the top of
+ * the block when there's no title line) when absent. Every other line and the
+ * body are preserved byte-for-byte, using the block's own line endings. The
+ * value is written bare: slugs are `[a-z0-9-]`, so quoting is never needed.
+ * Returns the input unchanged when there is no frontmatter block to write into
+ * — the importer only calls this for files whose `title:` parsed, which
+ * implies one.
+ */
+export function setFrontmatterSlug(raw: string, slug: string): string {
+	const match = raw.match(FRONTMATTER_BLOCK)
+
+	if (!match) {
+		return raw
 	}
 
-	const value = unquote(titleLine.replace(/^title:[ \t]*/, "").trim())
+	const eol = match[0].includes("\r\n") ? "\r\n" : "\n"
+	const lines = match[1].split(/\r?\n/)
+	const slugIndex = lines.findIndex((line) => line.startsWith("slug:"))
 
-	return { title: value === "" ? null : value, body }
+	if (slugIndex >= 0) {
+		lines[slugIndex] = `slug: ${slug}`
+	} else {
+		const titleIndex = lines.findIndex((line) => line.startsWith("title:"))
+
+		lines.splice(titleIndex + 1, 0, `slug: ${slug}`)
+	}
+
+	// The block match's trailing newline is optional; mirror whichever form the
+	// file had so the byte-for-byte claim above holds even at end-of-file.
+	const closing = match[0].endsWith("\n") ? `---${eol}` : "---"
+
+	return `---${eol}${lines.join(eol)}${eol}${closing}${raw.slice(match[0].length)}`
 }
 
 /**

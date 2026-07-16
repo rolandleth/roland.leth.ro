@@ -18,10 +18,11 @@ const basePost: PostDetail = {
 }
 
 describe("buildPostMarkdownFile", () => {
-	it("emits a frontmatter block with title, section, date, and canonical URL", () => {
+	it("emits a frontmatter block with title, slug, section, date, and canonical URL", () => {
 		const file = buildPostMarkdownFile(basePost, "https://roland.leth.ro")
 
 		expect(file).toContain('title: "Hello World"')
+		expect(file).toContain("slug: hello-world")
 		expect(file).toContain("section: tech")
 		// Date is timezone-normalized by the same formatter the JSON-LD / OG tags
 		// use; derive the expectation from it rather than hardcoding a TZ offset.
@@ -38,11 +39,14 @@ describe("buildPostMarkdownFile", () => {
 		)
 	})
 
-	it("round-trips through the importer's parseFrontmatter (title + body preserved)", () => {
+	it("round-trips through the importer's parseFrontmatter (title + slug + body preserved)", () => {
 		const file = buildPostMarkdownFile(basePost, "https://roland.leth.ro")
 		const parsed = parseFrontmatter(file)
 
 		expect(parsed.title).toBe(basePost.title)
+		// The stored slug survives even when it no longer matches what the title
+		// derives — the whole reason the export carries an explicit `slug:`.
+		expect(parsed.slug).toBe(basePost.slug)
 		expect(parsed.body).toBe(basePost.body)
 	})
 

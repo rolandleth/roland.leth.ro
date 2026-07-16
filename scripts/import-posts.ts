@@ -1,15 +1,21 @@
 // Post importer: bulk-loads markdown files (`yyyy-MM-dd[-HHmm]-Title.md`) from
 // a folder into the posts table, optionally overwriting existing rows.
 //
-//   yarn db:import-posts ../blog/posts/tech                 # create-only; section from folder name
-//   yarn db:import-posts ../blog/posts/tech --overwrite     # also update existing slugs in place
-//   yarn db:import-posts ../blog/posts/life --dry-run       # report the plan, write nothing
+//   yarn db:import-posts ../blog/tech                 # create-only; section from folder name
+//   yarn db:import-posts ../blog/tech --overwrite     # also update existing slugs in place
+//   yarn db:import-posts ../blog/life --dry-run       # report the plan, write nothing
 //   yarn db:import-posts /some/folder --section=tech        # explicit section override
 //
 // Reads only the folder's direct `*.md` files — a `drafts/` subfolder never
 // imports. The filename carries datetime + title (same convention as the admin
 // bulk picker); a first line equal to the title is stripped from the body (the
 // content repo keeps the title as the file's first line).
+//
+// The slug comes from `slug:` frontmatter. A file missing it (or carrying a
+// non-canonical value) gets the resolved slug written back into the source
+// file before any DB work — the one write this script does outside the DB —
+// so the content repo converges to explicit slugs. Dry runs report the
+// pending write-backs without touching anything.
 //
 // Creates follow the bulk endpoint's rule: future-dated files import as
 // published (scheduled), past-dated as drafts. Overwrites refresh title, body,
@@ -25,7 +31,7 @@
 // (DATABASE_URL, e.g. via `vercel env pull`). Always `--dry-run` first.
 
 import "dotenv/config"
-import { readdir, readFile } from "node:fs/promises"
+import { readdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { Prisma, PrismaClient } from "@/generated/prisma/client"
@@ -34,6 +40,7 @@ import {
 	diffBodyLines,
 	type ExistingPost,
 	type ImportFile,
+	type ParsedPostFile,
 	parsePostFiles,
 	type PlannedCreate,
 	type PlannedUpdate,
@@ -116,6 +123,38 @@ async function readMarkdownFiles(folder: string): Promise<ImportFile[]> {
 			content: await readFile(path.join(folder, filename), "utf8"),
 		}))
 	)
+}
+
+/**
+ * Persists the parse step's pending `slug:` write-backs into the source files
+ * (dry runs only report them), logging one line per file. Runs before any DB
+ * work: the rewrite is deterministic and idempotent, so a failed import later
+ * leaves the files correct and a re-run finds the slugs already explicit.
+ */
+async function applySlugRewrites(
+	folder: string,
+	parsed: ParsedPostFile[],
+	dryRun: boolean
+): Promise<void> {
+	for (const file of parsed) {
+		if (file.slugRewrite == null) {
+			continue
+		}
+
+		const { content, previous } = file.slugRewrite
+		const change =
+			previous == null
+				? `slug: ${file.slug} (from title)`
+				: `slug: "${previous}" → ${file.slug}`
+
+		if (dryRun) {
+			console.log(`  ✎ ${file.filename} — would write ${change}`)
+			continue
+		}
+
+		await writeFile(path.join(folder, file.filename), content)
+		console.log(`  ✎ ${file.filename} — wrote ${change}`)
+	}
 }
 
 /** DB-shaped create row — the originating filename stays out of the payload. */
@@ -225,6 +264,8 @@ async function main(): Promise<void> {
 	)
 
 	const { parsed, skipped: parseSkips } = parsePostFiles(files)
+
+	await applySlugRewrites(folder, parsed, isDryRun)
 
 	const prisma = makePrisma()
 

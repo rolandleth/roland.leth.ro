@@ -2,24 +2,17 @@ import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
-import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { postBulkImportSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { revalidatePostSection } from "@/lib/db/posts"
-import { parseFrontmatter } from "@/lib/import/frontmatter"
+import { parsePostFiles, type SkippedFile } from "@/lib/import/postImport"
 import {
 	calculateReadingTime,
-	createSlug,
 	currentDatetimeString,
 	isFutureDatetime,
 } from "@/lib/utils/format"
 import type { Section } from "@/lib/db/sections"
-
-interface SkippedFile {
-	filename: string
-	reason: string
-}
 
 // DB-shaped insert row. The originating filename is kept out of this type so
 // it can never accidentally leak into the Prisma `data` payload — see the
@@ -42,94 +35,40 @@ interface PreparedBatch {
 }
 
 /**
- * Parses each filename, derives the slug, and partitions the batch into
- * `toInsert` (ready for DB) and `skipped` (with a per-file reason). Pulled
- * out of `POST` so the route handler stays under the cognitive-complexity
- * budget.
+ * Runs the batch through `parsePostFiles` — the import script's parse/gate
+ * pipeline, shared so the two ingestion paths can't drift on which files
+ * import and under what slug — then maps the survivors to DB-shaped insert
+ * rows. `slugRewrite` is deliberately dropped: an upload can't be written
+ * back, so a missing `slug:` is derived here without a file fix-up.
  */
 function prepareBatch(
 	files: ReadonlyArray<{ filename: string; content: string }>,
 	section: Section,
 	now: string
 ): PreparedBatch {
-	const toInsert: InsertRow[] = []
-	const skipped: SkippedFile[] = []
-	const slugToFilename = new Map<string, string>()
-	// Per-file slug duplication WITHIN this batch is a guaranteed unique-constraint
-	// violation downstream; catch it here so the user gets one clear "duplicate
-	// filename" message instead of a generic insert failure for every collision.
-	const seenSlugs = new Set<string>()
+	const { parsed, skipped } = parsePostFiles(files)
 
-	for (const file of files) {
-		const filenameResult = parseBulkImportFilename(file.filename)
-
-		if (!filenameResult.ok) {
-			skipped.push({ filename: file.filename, reason: filenameResult.reason })
-			continue
-		}
-
-		// Title (and therefore slug) come from the file's `title:` frontmatter,
-		// not the filename — the filename can't hold the punctuation real titles
-		// carry. The filename is read only for the datetime. Same contract as
-		// the import script.
-		const { title, body } = parseFrontmatter(file.content)
-
-		if (title == null) {
-			skipped.push({
-				filename: file.filename,
-				reason: "Missing `title:` frontmatter",
-			})
-			continue
-		}
-
-		const slug = createSlug(title)
-
-		if (slug === "") {
-			skipped.push({
-				filename: file.filename,
-				reason: "Title produces an empty slug",
-			})
-			continue
-		}
-
-		if (seenSlugs.has(slug)) {
-			skipped.push({
-				filename: file.filename,
-				reason: "Duplicate slug within this batch",
-			})
-			continue
-		}
-
-		if (body.trim() === "") {
-			skipped.push({
-				filename: file.filename,
-				reason: "Body is empty",
-			})
-			continue
-		}
-
-		seenSlugs.add(slug)
-		slugToFilename.set(slug, file.filename)
-
-		toInsert.push({
-			title,
-			slug,
-			body,
-			// Bulk import has no per-file summary input — the frontmatter carries
-			// only the title. Always derive so the OG meta description and feed
-			// `<summary>` are populated. Author can refine via the admin edit
-			// form afterwards.
-			summary: deriveSummary(body),
-			datetime: filenameResult.datetime,
-			section,
-			// Future-dated posts are published so the existing scheduled-post
-			// auto-surface logic in `getPostsBySection` picks them up the moment
-			// their `datetime` passes. Past-dated posts default to draft so the
-			// admin reviews each before promoting it.
-			published: isFutureDatetime(filenameResult.datetime, now),
-			readingTime: calculateReadingTime(body),
-		})
-	}
+	const slugToFilename = new Map(
+		parsed.map((file): [string, string] => [file.slug, file.filename])
+	)
+	const toInsert: InsertRow[] = parsed.map((file) => ({
+		title: file.title,
+		slug: file.slug,
+		body: file.body,
+		// Bulk import has no per-file summary input — the frontmatter carries
+		// only the title and slug. Always derive so the OG meta description and
+		// feed `<summary>` are populated. Author can refine via the admin edit
+		// form afterwards.
+		summary: deriveSummary(file.body),
+		datetime: file.datetime,
+		section,
+		// Future-dated posts are published so the existing scheduled-post
+		// auto-surface logic in `getPostsBySection` picks them up the moment
+		// their `datetime` passes. Past-dated posts default to draft so the
+		// admin reviews each before promoting it.
+		published: isFutureDatetime(file.datetime, now),
+		readingTime: calculateReadingTime(file.body),
+	}))
 
 	return { toInsert, skipped, slugToFilename }
 }

@@ -353,6 +353,110 @@ describe("POST /api/admin/posts/bulk frontmatter", () => {
 		expect(data[0].title).toBe("Debuggex.com")
 		expect(data[0].slug).toBe("debuggex-com")
 	})
+
+	it("uses an explicit `slug:` over the title", async () => {
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
+			{ id: 1, slug: "the-original-slug", section: "tech" } as never,
+		])
+
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-renamed.md",
+						content: `---\ntitle: "A much better title"\nslug: the-original-slug\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ title: string; slug: string }>
+		expect(data[0].title).toBe("A much better title")
+		expect(data[0].slug).toBe("the-original-slug")
+	})
+
+	it("matches an explicit `slug:` against the existing row, not a title-derived duplicate", async () => {
+		// The regression this pins: a retitled file whose `slug:` names an
+		// existing row must collide with it (skip), not slip past the pre-query
+		// under a freshly derived slug and fork a duplicate post.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{ slug: "the-original-slug" } as never,
+		])
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([])
+
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-renamed.md",
+						content: `---\ntitle: "A much better title"\nslug: the-original-slug\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+
+		const data = await response.json()
+		expect(data.created).toBe(0)
+		expect(data.skipped).toEqual([
+			{
+				filename: "2026-05-15-renamed.md",
+				reason: expect.stringMatching(/already exists/i),
+			},
+		])
+		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
+	})
+
+	it("normalizes a non-canonical explicit `slug:`", async () => {
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
+			{ id: 1, slug: "my-cool-slug", section: "tech" } as never,
+		])
+
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-messy.md",
+						content: `---\ntitle: "The tools"\nslug: "My Cool Slug"\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ slug: string }>
+		expect(data[0].slug).toBe("my-cool-slug")
+	})
+
+	it("skips a `slug:` that normalizes to an empty slug", async () => {
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-punct.md",
+						content: `---\ntitle: "The tools"\nslug: "!!!"\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+
+		expect(response.status).toBe(200)
+		const data = await response.json()
+		expect(data.created).toBe(0)
+		expect(data.skipped).toEqual([
+			{
+				filename: "2026-05-15-punct.md",
+				reason: expect.stringMatching(/`slug:` normalizes to an empty slug/),
+			},
+		])
+		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
+	})
 })
 
 // #endregion

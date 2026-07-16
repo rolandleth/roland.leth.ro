@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { deriveSummary } from "@/lib/content/markdown"
 import { calculateReadingTime } from "@/lib/utils/format"
-import { buildPostFile } from "./frontmatter"
+import { buildPostFile, parseFrontmatter } from "./frontmatter"
 import {
 	diffBodyLines,
 	type ExistingPost,
@@ -53,19 +53,86 @@ describe("parsePostFiles", () => {
 				slug: "the-tools",
 				datetime: "2026-07-24-0937",
 				body: "Body text",
+				slugRewrite: {
+					content: `---\ntitle: "The tools"\nslug: the-tools\n---\n\nBody text`,
+					previous: null,
+				},
 			},
 		])
 	})
 
 	it("derives the slug from the title even when the filename label diverges", () => {
-		// The whole point of the frontmatter move: the filename can't hold the
-		// real title, so the slug must come from the title, not the label.
+		// The filename can't hold the real title, so a missing `slug:` derives
+		// from the title, not the label.
 		const { parsed } = parsePostFiles([
 			fmFile("2013-10-18-0313-debuggex-dot-com.md", "Debuggex.com", "Body"),
 		])
 
 		expect(parsed[0]?.title).toBe("Debuggex.com")
 		expect(parsed[0]?.slug).toBe("debuggex-com")
+	})
+
+	it("uses an explicit `slug:` over the title and plans no rewrite", () => {
+		const { parsed } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-renamed.md",
+				content: `---\ntitle: "A much better title"\nslug: the-original-slug\n---\n\nBody.`,
+			},
+		])
+
+		expect(parsed[0]?.slug).toBe("the-original-slug")
+		expect(parsed[0]?.slugRewrite).toBeNull()
+	})
+
+	it("normalizes a non-canonical `slug:` and carries the fixed file content", () => {
+		const { parsed } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-messy.md",
+				content: `---\ntitle: "The tools"\nslug: "My Cool Slug"\n---\n\nBody.`,
+			},
+		])
+
+		expect(parsed[0]?.slug).toBe("my-cool-slug")
+		expect(parsed[0]?.slugRewrite).toEqual({
+			content: `---\ntitle: "The tools"\nslug: my-cool-slug\n---\n\nBody.`,
+			previous: "My Cool Slug",
+		})
+	})
+
+	it("parses the rewrite content back to the resolved slug", () => {
+		const { parsed } = parsePostFiles([
+			fmFile("2026-07-24-0937-the-tools.md", "The tools", "Body text"),
+		])
+
+		const rewritten = parseFrontmatter(parsed[0]?.slugRewrite?.content ?? "")
+		expect(rewritten.slug).toBe("the-tools")
+		expect(rewritten.title).toBe("The tools")
+		expect(rewritten.body).toBe("Body text")
+	})
+
+	it("skips a `slug:` that normalizes to an empty slug", () => {
+		const { parsed, skipped } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-punct.md",
+				content: `---\ntitle: "The tools"\nslug: "!!!"\n---\n\nBody.`,
+			},
+		])
+
+		expect(parsed).toEqual([])
+		expect(skipped[0]?.reason).toMatch(/`slug:` normalizes to an empty slug/)
+	})
+
+	it("detects a duplicate between an explicit slug and a derived one", () => {
+		const { parsed, skipped } = parsePostFiles([
+			fmFile("2026-07-24-a.md", "The tools", "Body one"),
+			{
+				filename: "2026-07-25-b.md",
+				content: `---\ntitle: "Different title"\nslug: the-tools\n---\n\nBody two.`,
+			},
+		])
+
+		expect(parsed).toHaveLength(1)
+		expect(skipped[0]?.reason).toMatch(/Duplicate slug/)
 	})
 
 	it("defaults a missing time component to 0000", () => {

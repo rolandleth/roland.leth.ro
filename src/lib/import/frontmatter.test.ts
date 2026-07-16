@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { buildPostFile, parseFrontmatter } from "./frontmatter"
+import {
+	buildPostFile,
+	parseFrontmatter,
+	setFrontmatterSlug,
+} from "./frontmatter"
 
 // #region parseFrontmatter
 
@@ -9,6 +13,7 @@ describe("parseFrontmatter", () => {
 
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Hello world",
+			slug: null,
 			body: "Body text.",
 		})
 	})
@@ -44,6 +49,7 @@ describe("parseFrontmatter", () => {
 
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Hello world",
+			slug: null,
 			body: "Body.",
 		})
 	})
@@ -59,6 +65,7 @@ describe("parseFrontmatter", () => {
 
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Real title",
+			slug: null,
 			body: "Body\n\n---\n\nMore body.",
 		})
 	})
@@ -68,6 +75,7 @@ describe("parseFrontmatter", () => {
 
 		expect(parseFrontmatter(raw)).toEqual({
 			title: null,
+			slug: null,
 			body: `Just a plain title\n\nBody.`,
 		})
 	})
@@ -75,13 +83,103 @@ describe("parseFrontmatter", () => {
 	it("returns null title when the block has no title line", () => {
 		const raw = `---\ndate: 2026-01-01\n---\n\nBody.`
 
-		expect(parseFrontmatter(raw)).toEqual({ title: null, body: "Body." })
+		expect(parseFrontmatter(raw)).toEqual({
+			title: null,
+			slug: null,
+			body: "Body.",
+		})
 	})
 
 	it("returns null title for an empty title value", () => {
 		const raw = `---\ntitle: ""\n---\n\nBody.`
 
 		expect(parseFrontmatter(raw).title).toBeNull()
+	})
+
+	it("reads a bare slug value", () => {
+		const raw = `---\ntitle: "Hello world"\nslug: hello-world\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).slug).toBe("hello-world")
+	})
+
+	it("tolerates a quoted slug value from a hand-edit", () => {
+		const raw = `---\ntitle: "Hello world"\nslug: "hello-world"\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).slug).toBe("hello-world")
+	})
+
+	it("returns null slug for an empty slug value", () => {
+		const raw = `---\ntitle: "Hello world"\nslug:\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).slug).toBeNull()
+	})
+
+	it("does not read a `slug:` that appears in the body", () => {
+		const raw = `---\ntitle: "Real title"\n---\n\nThe frontmatter slug: line is nice.`
+
+		expect(parseFrontmatter(raw).slug).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region setFrontmatterSlug
+
+describe("setFrontmatterSlug", () => {
+	it("inserts the slug line right after the title, preserving other keys", () => {
+		const raw = `---\ntitle: "Hello world"\nsection: tech\ndate: 2026-01-01\n---\n\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(
+			`---\ntitle: "Hello world"\nslug: hello-world\nsection: tech\ndate: 2026-01-01\n---\n\nBody.`
+		)
+	})
+
+	it("replaces an existing slug line in place", () => {
+		const raw = `---\ntitle: "Hello world"\nslug: "Hello World"\nsection: tech\n---\n\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(
+			`---\ntitle: "Hello world"\nslug: hello-world\nsection: tech\n---\n\nBody.`
+		)
+	})
+
+	it("preserves the body byte-for-byte, including a --- inside it", () => {
+		const raw = buildPostFile("Title", "Body\n\n---\n\nMore body.")
+		const written = setFrontmatterSlug(raw, "title")
+
+		expect(parseFrontmatter(written).body).toBe("Body\n\n---\n\nMore body.")
+	})
+
+	it("keeps CRLF line endings", () => {
+		const raw = `---\r\ntitle: "Hello world"\r\n---\r\n\r\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(
+			`---\r\ntitle: "Hello world"\r\nslug: hello-world\r\n---\r\n\r\nBody.`
+		)
+	})
+
+	it("inserts at the top of the block when there is no title line", () => {
+		const raw = `---\ndate: 2026-01-01\n---\n\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(
+			`---\nslug: hello-world\ndate: 2026-01-01\n---\n\nBody.`
+		)
+	})
+
+	it("returns the input unchanged when there is no frontmatter block", () => {
+		const raw = `Just a plain title\n\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(raw)
+	})
+
+	it("round-trips through parseFrontmatter", () => {
+		const raw = buildPostFile("Hello world", "Body text.")
+		const parsed = parseFrontmatter(setFrontmatterSlug(raw, "hello-world"))
+
+		expect(parsed).toEqual({
+			title: "Hello world",
+			slug: "hello-world",
+			body: "Body text.",
+		})
 	})
 })
 
