@@ -1,4 +1,4 @@
-# Rolling History — last 30 days (through 2026-07-16)
+# Rolling History — last 30 days (through 2026-07-17)
 
 ## Themes
 
@@ -10,6 +10,8 @@
 
 - **Post slug authority & ingestion-pipeline sharing (July)** — `slug:` frontmatter became the slug source of truth for both ingestion paths, replacing per-import title-derivation (which silently moves a retitled post's URL). `postImport.ts` gained `resolveSlug` (= `createSlug(fileSlug ?? title)`, idempotency doubling as the canonical-shape check) and `setFrontmatterSlug`; the import script self-heals files lacking/malforming `slug:` by writing the resolved value back (`slugRewrite`). `.md` export (`buildPostMarkdownFile`) now emits `slug:` so round-trips land on the same row. `init-post-slugs.ts` added as an idempotent DB→files resync (match by filename datetime, title fallback; never guesses ambiguity). Closed the loop by refactoring the admin bulk route's `prepareBatch` to share `parsePostFiles` — removing a ~60-line copy that had already drifted (route was still deriving from title) — with zero test changes. [source](dev-journal/2026-07-16.md)
 
+- **Guides section design (July)** — hidden-from-nav SEO/marketing content with product CTAs, designed end-to-end in [\_guides-plan.md](dev-journal/_guides-plan.md) (build pending). Top-level `/guides/:slug`, not a blog section — blog is a dated frozen stream (sitemap `changeFrequency: "never"`), guides are maintained pages iterated from Search Console. New `Guide` + `GuideTopic` entities (not `Post` reuse — string-datetime/section/feed legacy); topics give hub-and-spoke SEO clusters, optional per guide; first topic "Making better decisions" (Reckon). Project reference by `projectSlug` string, deliberately NOT an FK: `import-projects.ts` replaces projects wholesale (delete-then-create), so an FK would cascade-delete guides on re-import. Authoring is all-markdown (no JSON manifest); importer to mirror `import-posts.ts` (plan-based, idempotent) with strict frontmatter validation (unknown/duplicate keys error — the hand-rolled parser fails silently on typo'd optional keys). Also: `scripts/imports/*/project.json` section descriptions paragraphed via `\n\n` (markdown renders end-to-end; walls of text were an authoring artifact), gitignored, re-import pending. [source](dev-journal/2026-07-17.md)
+
 ## Timeline
 
 - **2026-06-26** — Gallery position lifted to `ProjectContent`; aspect-true image sizing fix (`width={0} height={0}`); `useScrollOverflow` test hang fixed (stable `useRef` required). [source](dev-journal/2026-06-26.md)
@@ -17,3 +19,4 @@
 - **2026-06-29** — `--color-background-transparent` CSS var (to-transparent = transparent black on iOS Safari); carousel measured aspect ratio on `onLoad`; Framer swipe; back/forward entrance animation suppression (`NavigationTypeTracker` + Navigation API); `robots.ts`; `/llms.txt` route; JSON-LD origin via `siteBase()`. [source](dev-journal/2026-06-29.md)
 - **2026-07** — JSON-LD fixes; `.md` blog endpoint (route handler); featured grid 3-up; continuous gallery zoom/pointer engine; static rendering sweep; per-slug cache revalidation; Framer `onDragEnd` timing bug; panel stable identity fix; `s-maxage` dual-cache-layer flag. [source](dev-journal/2026-07.md)
 - **2026-07-16** — `slug:` frontmatter as slug source of truth (importer + admin bulk route); `resolveSlug`/`setFrontmatterSlug`/`slugRewrite` self-healing backfill; `.md` export emits `slug:`; `init-post-slugs.ts` DB→files resync; `prepareBatch` refactored onto shared `parsePostFiles`. [source](dev-journal/2026-07-16.md)
+- **2026-07-17** — Guides section designed (schema, frontmatter, importer, SEO checklist → `_guides-plan.md`); project manifests paragraphed (`\n\n`); Linear-under-"guides" citation corrected after verification (Linear uses "Method"; Stripe holds). [source](dev-journal/2026-07-17.md)
