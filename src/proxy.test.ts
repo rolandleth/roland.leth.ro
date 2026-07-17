@@ -77,6 +77,15 @@ describe("proxy — admin page protection", () => {
 		expect(response.status).toBe(307)
 		expect(response.headers.get("location")).toContain("/admin/login")
 	})
+
+	it("does not treat /admin-notes as an admin page (adjacent prefix)", async () => {
+		// The gate is boundary-matched (`=== "/admin"` or `/admin/`), mirroring
+		// `isAdminApi`. A slug that merely starts with the literal "admin" must
+		// fall through instead of redirecting to login.
+		const response = await proxy(makeRequest("/admin-notes"))
+		expect(response.headers.get("location")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
 })
 
 // #endregion
@@ -288,6 +297,84 @@ describe("proxy — privacy policy redirect", () => {
 		const response = await proxy(makeRequest("/privacy-policy"))
 		expect(response.status).toBe(301)
 		expect(response.headers.get("location")).toContain("/privacy")
+	})
+})
+
+// #endregion
+
+// #region Bot probe short-circuit
+
+describe("proxy — bot probe short-circuit", () => {
+	it.each([
+		"/wp-login.php",
+		"/xmlrpc.php",
+		"/wp-admin/setup-config.php",
+		"/index.php",
+		"/admin.aspx",
+		"/shell.jsp",
+		"/backup.sql",
+		"/site.zip",
+		"/db.tar.gz",
+		"/config.yml",
+	])("404s the script/archive probe %s", async (path) => {
+		const response = await proxy(makeRequest(path))
+		expect(response.status).toBe(404)
+		expect(response.headers.get("x-middleware-next")).toBeNull()
+	})
+
+	it.each([
+		"/.env",
+		"/.env.local",
+		"/.env.production",
+		"/.git",
+		"/.git/config",
+		"/.ssh/id_rsa",
+		"/wp-admin",
+		"/wp-includes/wlwmanifest.xml",
+		"/phpmyadmin",
+		"/administrator",
+		"/vendor/phpunit/phpunit/phpunit.xml",
+		"/actuator/health",
+	])("404s the known-bad path %s", async (path) => {
+		const response = await proxy(makeRequest(path))
+		expect(response.status).toBe(404)
+		expect(response.headers.get("x-middleware-next")).toBeNull()
+	})
+
+	it("matches path prefixes case-insensitively", async () => {
+		const response = await proxy(makeRequest("/WP-Admin"))
+		expect(response.status).toBe(404)
+	})
+
+	it.each([
+		// Dotted legacy slugs predate `createSlug`'s `[a-z0-9-]` whitelist, so the
+		// catch-all must still see them — the extension list is scoped to server
+		// tech this site never used, never a bare version/name dot.
+		"/v1.2.3",
+		"/node.js",
+		// Segment-boundary matching: a real slug that merely starts with a bad
+		// prefix must survive. (`/administrator-guide` also starts with `/admin`,
+		// which the admin gate over-matches independently — kept out here so this
+		// case tests only the probe filter.)
+		"/vendored-thoughts",
+		"/wp-my-thoughts",
+		// Real, load-bearing paths that superficially look probe-shaped.
+		"/.well-known/security.txt",
+		"/llms.txt",
+		"/sitemap.xml",
+		"/robots.txt",
+	])("does not 404 the legitimate path %s", async (path) => {
+		const response = await proxy(makeRequest(path))
+		expect(response.status).not.toBe(404)
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("still routes the .md export past the probe filter", async () => {
+		const response = await proxy(makeRequest("/blog/tech/my-post.md"))
+		expect(response.status).not.toBe(404)
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/blog/tech/my-post/md"
+		)
 	})
 })
 
