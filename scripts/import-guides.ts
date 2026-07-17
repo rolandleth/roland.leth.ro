@@ -39,6 +39,7 @@ import {
 	type ExistingTopic,
 	type GuideSourceFile,
 	parseGuideFiles,
+	type GuideWarning,
 	planGuideImport,
 	type SkippedFile,
 	TOPIC_FILENAME,
@@ -134,6 +135,24 @@ function printSkips(skipped: readonly SkippedFile[]): void {
 		}
 
 		console.log(`  · ${skip.relativePath} — ${skip.reason}`)
+	}
+}
+
+/**
+ * Prints warnings under their own heading, so they can't be read as skips —
+ * these files DID import, they just look like a mistake. Printed on a dry run
+ * and a real one alike: on a dry run it's the whole point, and on a real one it
+ * would be worse to write the row silently.
+ */
+function printWarnings(warnings: readonly GuideWarning[]): void {
+	if (warnings.length === 0) {
+		return
+	}
+
+	console.log(`\nWarnings (${warnings.length}):`)
+
+	for (const warning of warnings) {
+		console.log(`  ! ${warning.relativePath} — ${warning.message}`)
 	}
 }
 
@@ -285,6 +304,7 @@ async function main(): Promise<void> {
 			)
 		}
 		printSkips(skipped)
+		printWarnings(parsed.warnings)
 
 		const writeCount =
 			plan.topicCreates.length +

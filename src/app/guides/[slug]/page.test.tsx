@@ -172,34 +172,55 @@ describe("GuidePage — JSON-LD", () => {
 
 // #endregion
 
-// #region project CTA
+// #region project chrome
 
-describe("GuidePage — project link", () => {
-	it("renders the related-project link for a guide that names one", async () => {
+describe("GuidePage — project chrome", () => {
+	// The product link and its disclosure are authored prose in the body. The
+	// page must render no card of its own: a boilerplate block repeated on every
+	// guide is a weaker internal link than the in-content one, and — the reason
+	// it went — never actually says who made the thing.
+	it("renders no project card for a guide that names a project", async () => {
 		vi.mocked(loadGuide).mockResolvedValue({ ...guide, projectSlug: "reckon" })
 		vi.mocked(loadProject).mockResolvedValue(project)
 
-		const { getByText } = render(await GuidePage(paramsFor(guide.slug)))
-
-		expect(getByText("Reckon")).toBeInTheDocument()
-	})
-
-	it("renders no project link for a guide with no project", async () => {
-		vi.mocked(loadGuide).mockResolvedValue(guide)
-
 		const { queryByText } = render(await GuidePage(paramsFor(guide.slug)))
 
 		expect(queryByText("Related project")).toBeNull()
+	})
+
+	it("renders no project card on a topic hub", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(null)
+		vi.mocked(loadGuideTopic).mockResolvedValue({
+			...topic,
+			projectSlug: "reckon",
+		})
+		vi.mocked(loadProject).mockResolvedValue(project)
+
+		const { queryByText } = render(await GuidePage(paramsFor(topic.slug)))
+
+		expect(queryByText("Related project")).toBeNull()
+	})
+
+	// The hub fetches no project at all now — only the guide page does, and only
+	// for the JSON-LD image.
+	it("does not fetch a project to render a topic hub", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(null)
+		vi.mocked(loadGuideTopic).mockResolvedValue({
+			...topic,
+			projectSlug: "reckon",
+		})
+
+		await GuidePage(paramsFor(topic.slug))
+
 		expect(loadProject).not.toHaveBeenCalled()
 	})
 
-	it("renders no project link when the named project no longer exists", async () => {
-		vi.mocked(loadGuide).mockResolvedValue({ ...guide, projectSlug: "deleted" })
-		vi.mocked(loadProject).mockResolvedValue(null)
+	it("does not fetch a project for a guide that names none", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(guide)
 
-		const { queryByText } = render(await GuidePage(paramsFor(guide.slug)))
+		await GuidePage(paramsFor(guide.slug))
 
-		expect(queryByText("Related project")).toBeNull()
+		expect(loadProject).not.toHaveBeenCalled()
 	})
 })
 

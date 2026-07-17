@@ -107,6 +107,15 @@ export interface SkippedFile {
 	reason: string
 }
 
+/**
+ * A file that imports fine but probably isn't what the author meant. Distinct
+ * from a skip: the row still gets written, and the run still succeeds.
+ */
+export interface GuideWarning {
+	relativePath: string
+	message: string
+}
+
 /** Skip reason for an overwrite that resolved to zero field changes. */
 export const UNCHANGED_SKIP_REASON = "Unchanged"
 
@@ -338,10 +347,12 @@ export function parseGuideFiles(files: readonly GuideSourceFile[]): {
 	topics: ParsedTopic[]
 	guides: ParsedGuide[]
 	skipped: SkippedFile[]
+	warnings: GuideWarning[]
 } {
 	const topics: ParsedTopic[] = []
 	const guides: ParsedGuide[] = []
 	const skipped: SkippedFile[] = []
+	const warnings: GuideWarning[] = []
 	const seenSlugs = new Map<string, string>()
 
 	function claimSlug(slug: string, relativePath: string): boolean {
@@ -402,7 +413,78 @@ export function parseGuideFiles(files: readonly GuideSourceFile[]): {
 		}
 	}
 
-	return { topics, guides, skipped }
+	warnings.push(...projectLinkWarnings(topics, guides))
+
+	return { topics, guides, skipped, warnings }
+}
+
+/**
+ * Collects the project-link warnings across a parsed batch. A topic's body is
+ * its `description` (the hub landing page); a guide's is its `body`. Both are
+ * checked because both render a product link as prose, not a card.
+ */
+function projectLinkWarnings(
+	topics: readonly ParsedTopic[],
+	guides: readonly ParsedGuide[]
+): GuideWarning[] {
+	const pages = [
+		...topics.map((topic) => ({
+			relativePath: topic.relativePath,
+			projectSlug: topic.projectSlug,
+			body: topic.description,
+		})),
+		...guides,
+	]
+
+	return pages
+		.map(projectLinkWarningFor)
+		.filter((warning): warning is GuideWarning => warning != null)
+}
+
+/**
+ * Warns when a page names a project but its body never links to it.
+ *
+ * The product link and the disclosure that carries it live in the prose, on
+ * purpose — they're per-page and contextual, and a rendered card would be
+ * boilerplate that never actually says who made the thing. The cost of that
+ * choice is that forgetting the paragraph is silent: the page ships with no
+ * product link and no disclosure, which is the worst of both. This is the check
+ * that buys the guarantee back without putting a widget on the page.
+ *
+ * A warning, never a skip: the page is still perfectly good, and refusing to
+ * import over a missing link would be wildly out of proportion.
+ */
+function projectLinkWarningFor(entry: {
+	relativePath: string
+	projectSlug: string | null
+	body: string
+}): GuideWarning | null {
+	if (
+		entry.projectSlug == null ||
+		bodyLinksToProject(entry.body, entry.projectSlug)
+	) {
+		return null
+	}
+
+	return {
+		relativePath: entry.relativePath,
+		message: `Names project \`${entry.projectSlug}\` but the body never links to /projects/${entry.projectSlug} — so this page has no product link and no disclosure. Intended?`,
+	}
+}
+
+/**
+ * Whether a body links to a project's page. A substring check rather than a
+ * markdown parse: both an inline `[Reckon](/projects/reckon)` and a reference
+ * definition `[reckon]: /projects/reckon "…"` contain the literal path, and this
+ * runs on every import.
+ *
+ * The trailing boundary stops `/projects/reckon` from matching inside
+ * `/projects/reckon-pro`. Interpolating the slug into a regex is safe here: it
+ * has already been validated as canonical (`[a-z0-9]` and hyphens), so it can't
+ * carry a metacharacter.
+ */
+function bodyLinksToProject(body: string, projectSlug: string): boolean {
+	return new RegExp(`/projects/${projectSlug}(?![a-z0-9-])`).test(body)
 }
 
 // #endregion

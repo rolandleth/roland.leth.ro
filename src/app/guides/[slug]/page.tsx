@@ -3,7 +3,6 @@ import { cache } from "react"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import GuideContent from "@/components/guides/GuideContent"
 import GuideLinkList from "@/components/guides/GuideLinkList"
-import GuideProjectCta from "@/components/guides/GuideProjectCta"
 import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
 import { getSiteUrl } from "@/lib/auth/env"
@@ -61,6 +60,14 @@ const resolveSlug = cache(async (slug: string): Promise<Resolved> => {
  * it supports, via the same precedence the project's own pages use. Null for a
  * guide with no project, which then ships no OG image at all rather than a
  * misleading one.
+ *
+ * The image is the ONLY thing the project is fetched for. The product link and
+ * the disclosure that carries it are authored prose in the body: they're
+ * per-guide and contextual, they sit where the argument earns them rather than
+ * always last, and a boilerplate card repeated across every guide would be both
+ * a weaker internal link and, worse, not a disclosure at all — it never says who
+ * made the thing. `parseGuideFiles` warns when a guide names a project its body
+ * never links to, which is where that guarantee lives now.
  */
 async function projectFor(
 	projectSlug: string | null
@@ -152,8 +159,6 @@ async function renderGuide(guide: GuideDetail) {
 				topic={guide.topic}
 			>
 				<PostMarkdownContent content={guide.body} />
-
-				{project != null && <GuideProjectCta project={project} />}
 			</GuideContent>
 		</>
 	)
@@ -165,8 +170,6 @@ async function renderGuide(guide: GuideDetail) {
  * and wears the same "Updated" dateline.
  */
 async function renderTopicHub(topic: GuideTopicDetail) {
-	const project = await projectFor(topic.projectSlug)
-
 	return (
 		<>
 			<PageGlow />
@@ -184,8 +187,6 @@ async function renderTopicHub(topic: GuideTopicDetail) {
 						<GuideLinkList items={topic.guides.map(guideToLinkItem)} />
 					</div>
 				)}
-
-				{project != null && <GuideProjectCta project={project} />}
 			</GuideContent>
 		</>
 	)

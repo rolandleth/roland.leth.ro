@@ -67,6 +67,123 @@ Standalone body.
 	}
 }
 
+// #region parseGuideFiles — project-link warning
+
+describe("parseGuideFiles — project-link warning", () => {
+	const withLink = (body: string) => `---
+slug: how-calibrated-are-you
+title: How calibrated are you
+description: A self-test for overconfidence.
+project: reckon
+---
+
+${body}
+`
+
+	it("warns when a guide names a project its body never links to", () => {
+		const { guides, warnings } = parseGuideFiles([
+			rootGuideFile({ content: withLink("No link in here.") }),
+		])
+
+		// A warning, never a skip — the page is still fine.
+		expect(guides).toHaveLength(1)
+		expect(warnings).toHaveLength(1)
+		expect(warnings[0].message).toContain("/projects/reckon")
+	})
+
+	it("stays quiet when the body carries an inline link", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("I make [Reckon](/projects/reckon), an app."),
+			}),
+		])
+
+		expect(warnings).toEqual([])
+	})
+
+	// The four real guides use reference definitions, not inline links.
+	it("stays quiet when the body carries a reference definition", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink(
+					'I make [Reckon][reckon].\n\n[reckon]: /projects/reckon "Reckon"'
+				),
+			}),
+		])
+
+		expect(warnings).toEqual([])
+	})
+
+	it("warns on a topic hub whose body never links to its project", () => {
+		const { warnings } = parseGuideFiles([topicFile()])
+
+		expect(warnings).toHaveLength(1)
+		expect(warnings[0].relativePath).toBe("making-better-decisions/index.md")
+	})
+
+	it("warns on a grouped guide, which inherits its project from the topic", () => {
+		const { warnings } = parseGuideFiles([
+			topicFile({
+				content: `---
+slug: making-better-decisions
+title: Making better decisions
+shortDescription: A method.
+project: reckon
+---
+
+Hub body linking to [Reckon](/projects/reckon).
+`,
+			}),
+			guideFile(),
+		])
+
+		expect(warnings).toHaveLength(1)
+		expect(warnings[0].relativePath).toBe(
+			"making-better-decisions/2026-07-17-How to keep one.md"
+		)
+	})
+
+	it("never warns for a page that names no project", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: `---
+slug: how-calibrated-are-you
+title: How calibrated are you
+description: A self-test for overconfidence.
+---
+
+No project, no link, no warning.
+`,
+			}),
+		])
+
+		expect(warnings).toEqual([])
+	})
+
+	// `/projects/reckon` must not match inside a longer sibling slug.
+	it("does not accept a link to a different project whose slug shares a prefix", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("See [Reckon Pro](/projects/reckon-pro)."),
+			}),
+		])
+
+		expect(warnings).toHaveLength(1)
+	})
+
+	it("accepts a link followed by punctuation or a closing paren", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("See [Reckon](/projects/reckon), it's an app."),
+			}),
+		])
+
+		expect(warnings).toEqual([])
+	})
+})
+
+// #endregion
+
 // #region parseGuideFiles — topics
 
 describe("parseGuideFiles — topics", () => {
