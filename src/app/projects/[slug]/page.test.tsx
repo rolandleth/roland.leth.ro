@@ -2,6 +2,7 @@ import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { markdownToReact } from "@/lib/content/markdown"
+import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
 
@@ -15,6 +16,10 @@ vi.mock("@/lib/db/projects", async (importOriginal) => ({
 
 vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock("@/lib/db/guides", () => ({
+	getGuidesForProject: vi.fn().mockResolvedValue({ topics: [], ungrouped: [] }),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -63,6 +68,12 @@ const existingProject = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	// `resetAllMocks` clears the factory's `mockResolvedValue`; without this the
+	// page awaits `undefined` and destructuring the overview throws.
+	vi.mocked(getGuidesForProject).mockResolvedValue({
+		topics: [],
+		ungrouped: [],
+	})
 })
 
 describe("ProjectPage", () => {

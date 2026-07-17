@@ -91,6 +91,7 @@ describe("ProjectContent — tablist keyboard nav (Phase 8 a11y)", () => {
 					<p key={s.id}>{s.description}</p>
 				))}
 				renderedFaqAnswers={[]}
+				guides={[]}
 			/>
 		)
 	}
@@ -156,6 +157,7 @@ describe("ProjectContent — null accentColor", () => {
 				project={makeProject({ icon: null, accentColor: null })}
 				renderedDescriptions={[]}
 				renderedFaqAnswers={[]}
+				guides={[]}
 			/>
 		)
 
@@ -186,6 +188,7 @@ describe("ProjectContent — cross-section gallery navigation", () => {
 					<p key={s.id}>{s.description}</p>
 				))}
 				renderedFaqAnswers={[]}
+				guides={[]}
 			/>
 		)
 	}
@@ -281,6 +284,7 @@ describe("ProjectContent — FAQ", () => {
 				renderedFaqAnswers={faqs.map((f) => (
 					<p key={f.id}>{f.answer}</p>
 				))}
+				guides={[]}
 			/>
 		)
 
@@ -301,11 +305,110 @@ describe("ProjectContent — FAQ", () => {
 				project={makeProject({ faqs: [] })}
 				renderedDescriptions={[]}
 				renderedFaqAnswers={[]}
+				guides={[]}
 			/>
 		)
 
 		expect(
 			screen.queryByRole("heading", { name: "FAQ" })
 		).not.toBeInTheDocument()
+	})
+})
+
+describe("ProjectContent — guides", () => {
+	const guideItems = [
+		{
+			slug: "making-better-decisions",
+			title: "Making better decisions",
+			description: "A method for judging your own calls honestly.",
+			meta: "3 guides",
+		},
+		{
+			slug: "how-calibrated-are-you",
+			title: "How calibrated are you",
+			description: "A self-test.",
+			meta: "4 min read",
+		},
+	]
+
+	it("renders the guides section with a link per entry", () => {
+		render(
+			<ProjectContent
+				project={makeProject({ faqs: [] })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
+				guides={guideItems}
+			/>
+		)
+
+		expect(
+			screen.getByRole("heading", { name: "Guides", level: 2 })
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole("link", { name: "Making better decisions" })
+		).toHaveAttribute("href", "/guides/making-better-decisions")
+		expect(
+			screen.getByRole("link", { name: "How calibrated are you" })
+		).toHaveAttribute("href", "/guides/how-calibrated-are-you")
+	})
+
+	it("nests entry headings under the section heading", () => {
+		render(
+			<ProjectContent
+				project={makeProject({ faqs: [] })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
+				guides={guideItems}
+			/>
+		)
+
+		expect(
+			screen.getByRole("heading", { name: "Making better decisions", level: 3 })
+		).toBeInTheDocument()
+	})
+
+	it("omits the guides section entirely when the project has none", () => {
+		render(
+			<ProjectContent
+				project={makeProject({ faqs: [] })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
+				guides={[]}
+			/>
+		)
+
+		expect(
+			screen.queryByRole("heading", { name: "Guides" })
+		).not.toBeInTheDocument()
+	})
+
+	// The plan puts guides below the content and above the FAQ; pinned so a
+	// future reorder is a deliberate choice rather than a merge artifact.
+	it("places the guides section above the FAQ", () => {
+		const faqs = [
+			{
+				id: 1,
+				projectId: 1,
+				question: "Is it free?",
+				answer: "Yes",
+				sortOrder: 0,
+			},
+		]
+
+		const { container } = render(
+			<ProjectContent
+				project={makeProject({ faqs })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[<p key={1}>Yes</p>]}
+				guides={guideItems}
+			/>
+		)
+
+		const headings = Array.from(container.querySelectorAll("h2")).map(
+			(h) => h.textContent
+		)
+
+		expect(headings.indexOf("Guides")).toBeGreaterThanOrEqual(0)
+		expect(headings.indexOf("Guides")).toBeLessThan(headings.indexOf("FAQ"))
 	})
 })

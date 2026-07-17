@@ -8,8 +8,10 @@ import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel } from "@/lib/utils/platforms"
 import ProjectFaq from "./ProjectFaq"
+import ProjectGuides from "./ProjectGuides"
 import ProjectImageLightbox from "./ProjectImageLightbox"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
+import type { GuideLinkItem } from "@/lib/content/guideLinks"
 import type { ProjectDetail } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
@@ -17,12 +19,15 @@ interface Props {
 	project: ProjectDetail
 	renderedDescriptions: ReactNode[]
 	renderedFaqAnswers: ReactNode[]
+	/** Topic hubs and ungrouped guides naming this project; empty when it has none. */
+	guides: readonly GuideLinkItem[]
 }
 
 export default function ProjectContent({
 	project,
 	renderedDescriptions,
 	renderedFaqAnswers,
+	guides,
 }: Props) {
 	const {
 		name,
@@ -395,6 +400,9 @@ export default function ProjectContent({
 						)}
 					</motion.div>
 				)}
+
+				{/* Guides — below the content, above the FAQ. */}
+				{guides.length > 0 && <ProjectGuides items={guides} accent={accent} />}
 
 				{/* FAQ — last on the page, below the gallery + description. */}
 				{faqs.length > 0 && (
