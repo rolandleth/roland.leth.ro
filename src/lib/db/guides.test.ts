@@ -197,6 +197,74 @@ describe("getGuidesOverview", () => {
 
 // #endregion
 
+// #region getGuidesOverview — scheduling
+
+describe("getGuidesOverview — scheduling", () => {
+	const FUTURE = new Date("2999-01-01T00:00:00.000Z")
+
+	it("hides a guide whose publish date hasn't arrived", async () => {
+		mockOverview(
+			[],
+			[
+				makeOverviewGuide({ slug: "live" }),
+				makeOverviewGuide({ slug: "scheduled", publishedAt: FUTURE }),
+			]
+		)
+
+		const { ungrouped } = await getGuidesOverview()
+
+		expect(ungrouped.map((guide) => guide.slug)).toEqual(["live"])
+	})
+
+	it("hides a scheduled guide from its topic's list", async () => {
+		mockOverview(
+			[makeGuideTopicSummary({ id: 7 })],
+			[
+				makeOverviewGuide({ slug: "live", topicId: 7 }),
+				makeOverviewGuide({
+					slug: "scheduled",
+					topicId: 7,
+					publishedAt: FUTURE,
+				}),
+			]
+		)
+
+		const { topics } = await getGuidesOverview()
+
+		expect(topics[0].guides.map((guide) => guide.slug)).toEqual(["live"])
+	})
+
+	it("shows a guide with no publish date rather than hiding it", async () => {
+		mockOverview(
+			[],
+			[makeOverviewGuide({ slug: "dateless", publishedAt: null })]
+		)
+
+		const { ungrouped } = await getGuidesOverview()
+
+		expect(ungrouped.map((guide) => guide.slug)).toEqual(["dateless"])
+	})
+
+	// The load-bearing bit: the query must NOT filter on the date. The cache
+	// holds scheduled rows so they surface on the first request after their date
+	// passes — no cron, no manual revalidate. Filtering in the query (or
+	// capturing `now` inside the cached fn) would strand them until a bust.
+	it("keeps scheduled rows in the query so they can auto-surface later", async () => {
+		mockOverview([], [])
+
+		await getGuidesOverview()
+
+		const call = vi.mocked(prisma.guide.findMany).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+
+		expect(call.where.published).toBe(true)
+		expect(call.where).not.toHaveProperty("publishedAt")
+	})
+})
+
+// #endregion
+
 // #region allGuides
 
 describe("allGuides", () => {
@@ -332,6 +400,43 @@ describe("getGuideBySlug", () => {
 		expect(guide?.topic).toBeNull()
 	})
 
+	// The canonical URL must never serve a page ahead of its date.
+	it("returns null for a guide whose publish date hasn't arrived", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
+			...makeGuideListItem({ slug: "scheduled" }),
+			body: "Body.",
+			publishedAt: new Date("2999-01-01T00:00:00.000Z"),
+			topic: null,
+		} as never)
+
+		expect(await getGuideBySlug("scheduled")).toBeNull()
+	})
+
+	it("serves a guide whose publish date has passed", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
+			...makeGuideListItem({ slug: "live" }),
+			body: "Body.",
+			publishedAt: new Date("2020-01-01T00:00:00.000Z"),
+			topic: null,
+		} as never)
+
+		expect(await getGuideBySlug("live")).not.toBeNull()
+	})
+
+	// Read-time, not in the query: the cache holds the row so it starts
+	// resolving the first request after its date passes, with no bust.
+	it("does not filter on the date in the query", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
+
+		await getGuideBySlug("some-guide")
+
+		const call = vi.mocked(prisma.guide.findFirst).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+
+		expect(call.where).not.toHaveProperty("publishedAt")
+	})
+
 	it("never leaks the topic's publish flag to callers", async () => {
 		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
 			...makeGuideListItem({ slug: "with-topic" }),
@@ -373,6 +478,43 @@ describe("getGuideTopicBySlug", () => {
 		vi.mocked(prisma.guideTopic.findFirst).mockResolvedValue(null)
 
 		expect(await getGuideTopicBySlug("missing")).toBeNull()
+	})
+
+	// A hub has no date of its own, but its list still hides pending guides.
+	it("hides a scheduled guide from the hub's list", async () => {
+		vi.mocked(prisma.guideTopic.findFirst).mockResolvedValue({
+			...makeGuideTopicSummary(),
+			description: "Hub body.",
+			guides: [
+				makeGuideListItem({ slug: "live" }),
+				makeGuideListItem({
+					slug: "scheduled",
+					publishedAt: new Date("2999-01-01T00:00:00.000Z"),
+				}),
+			],
+		} as never)
+
+		const topic = await getGuideTopicBySlug("making-better-decisions")
+
+		expect(topic?.guides.map((guide) => guide.slug)).toEqual(["live"])
+	})
+
+	it("serves the hub itself regardless of its guides' dates", async () => {
+		vi.mocked(prisma.guideTopic.findFirst).mockResolvedValue({
+			...makeGuideTopicSummary(),
+			description: "Hub body.",
+			guides: [
+				makeGuideListItem({
+					slug: "scheduled",
+					publishedAt: new Date("2999-01-01T00:00:00.000Z"),
+				}),
+			],
+		} as never)
+
+		const topic = await getGuideTopicBySlug("making-better-decisions")
+
+		expect(topic).not.toBeNull()
+		expect(topic?.guides).toEqual([])
 	})
 })
 

@@ -53,7 +53,12 @@ function postStub(
 }
 
 function guideStub(
-	overrides: { slug?: string; topicId?: number | null; updatedAt?: Date } = {}
+	overrides: {
+		slug?: string
+		topicId?: number | null
+		updatedAt?: Date
+		publishedAt?: Date | null
+	} = {}
 ) {
 	return {
 		id: 1,
@@ -63,6 +68,7 @@ function guideStub(
 		projectSlug: null,
 		sortOrder: 0,
 		readingTime: null,
+		publishedAt: new Date("2026-07-17"),
 		updatedAt: new Date("2026-07-17"),
 		topicId: null,
 		...overrides,
@@ -420,6 +426,25 @@ describe("sitemap — guide routes", () => {
 		const guideRoutes = result.filter((r) => r.url.includes("/guides/in-topic"))
 		expect(guideRoutes).toHaveLength(1)
 		expect(guideRoutes[0].url).toBe(`${BASE}/guides/in-topic`)
+	})
+
+	// End-to-end check of the read-time filter: a guide dated in the future is
+	// in the DB but must not be crawlable until its date passes.
+	it("excludes a scheduled guide's URL", async () => {
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ slug: "live" }),
+			guideStub({
+				slug: "scheduled",
+				publishedAt: new Date("2999-01-01"),
+			}),
+		] as never)
+
+		const result = await sitemap()
+
+		expect(result.find((r) => r.url.endsWith("/guides/live"))).toBeDefined()
+		expect(
+			result.find((r) => r.url.endsWith("/guides/scheduled"))
+		).toBeUndefined()
 	})
 
 	it("still lists a guide whose topic is unpublished", async () => {

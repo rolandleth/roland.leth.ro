@@ -27,8 +27,11 @@
 //  - `slug:` is required and validated, never derived from the title and never
 //    normalized on the author's behalf;
 //  - no publish-state inference: importing a file is the decision to publish it,
-//    which is what `drafts/` is for. (So, unlike posts, a future-dated guide is
-//    not "scheduled" — it goes live with a future `datePublished`.)
+//    which is what `drafts/` is for. A future-dated file still imports as
+//    `published: true` — the read paths then hold it back until its date passes
+//    (`isScheduledGuide`), exactly as they do for a scheduled post. Posts flip
+//    `published` off for past-dated files; guides don't, because `drafts/`
+//    already says that.
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { guideCreateSchema, guideTopicCreateSchema } from "@/lib/api/schemas"

@@ -19,6 +19,8 @@ export function makeGuideListItem(
 		projectSlug: "reckon",
 		sortOrder: 0,
 		readingTime: "6 min read",
+		// Past by default, so a fixture is live unless a test says otherwise.
+		publishedAt: FIXTURE_DATE,
 		updatedAt: FIXTURE_DATE,
 		...overrides,
 	}

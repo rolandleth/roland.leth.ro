@@ -2,6 +2,7 @@ import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { loadGuide, loadGuideTopic } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
+import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
 import GuidePage, { generateMetadata, generateStaticParams } from "./page"
 import type { GuideDetail, GuideTopicDetail } from "@/lib/db/guides"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -291,38 +292,11 @@ describe("generateStaticParams", () => {
 		vi.mocked(getGuidesOverview).mockResolvedValue({
 			topics: [
 				{
-					id: 1,
-					slug: "making-better-decisions",
-					title: "T",
-					shortDescription: "S",
-					projectSlug: null,
-					updatedAt: new Date(),
-					guides: [
-						{
-							id: 2,
-							slug: "in-topic",
-							title: "G",
-							description: "D",
-							projectSlug: null,
-							sortOrder: 0,
-							readingTime: null,
-							updatedAt: new Date(),
-						},
-					],
+					...makeGuideTopicSummary(),
+					guides: [makeGuideListItem({ id: 2, slug: "in-topic" })],
 				},
 			],
-			ungrouped: [
-				{
-					id: 3,
-					slug: "standalone",
-					title: "G2",
-					description: "D2",
-					projectSlug: null,
-					sortOrder: 0,
-					readingTime: null,
-					updatedAt: new Date(),
-				},
-			],
+			ungrouped: [makeGuideListItem({ id: 3, slug: "standalone" })],
 		})
 
 		expect(await generateStaticParams()).toEqual([

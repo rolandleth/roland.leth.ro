@@ -2,7 +2,7 @@ import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { prisma } from "@/lib/db/db"
-import { guideOrder } from "@/lib/db/guideMappers"
+import { guideOrder, isScheduledGuide } from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // Publish state gates only the entity it sits on. A guide is listed iff
@@ -13,6 +13,18 @@ import { PAGE_SIZE } from "@/lib/utils/pagination"
 // statement about them. The alternative (topic state cascading to guides) would
 // silently deindex live pages, which is the one outcome an SEO surface can't
 // afford.
+//
+// Scheduling works exactly as it does for posts: `published: true` with a future
+// `publishedAt` means "in the database, not yet live". The filter is applied at
+// READ time, on rows the cache already holds, never inside the cached function —
+// so a scheduled guide surfaces on the first request after its date passes, with
+// no cron and no manual revalidate. Capturing `now` inside the cache would
+// freeze the comparison at fill time and strand the guide until something else
+// evicted the entry.
+//
+// Topics don't schedule: they have no `publishedAt` (a hub is a landing page,
+// not a dated piece), so a published topic is live immediately. Its guide list
+// still hides the scheduled ones.
 
 export interface GuideListItem {
 	id: number
@@ -22,6 +34,7 @@ export interface GuideListItem {
 	projectSlug: string | null
 	sortOrder: number
 	readingTime: string | null
+	publishedAt: Date | null
 	updatedAt: Date
 }
 
@@ -76,6 +89,9 @@ const guideListItemSelect = {
 	projectSlug: true,
 	sortOrder: true,
 	readingTime: true,
+	// Carried on list rows so every surface can apply the read-time scheduling
+	// filter without a second query.
+	publishedAt: true,
 	updatedAt: true,
 } as const
 
@@ -120,7 +136,9 @@ const guidesOverviewCache = unstable_cache(
 /**
  * Published topics (each with its published guides) plus the ungrouped
  * remainder — guides with no topic, or whose topic is unpublished (see the
- * publish-state note at the top of this file).
+ * publish-state note at the top of this file). Scheduled guides are filtered
+ * out here, at read time, so they surface the first request after their date
+ * passes.
  *
  * simplified: groups the full guide set in memory rather than querying per
  * topic. Correct and cheap at tens of guides; if this grows into the hundreds,
@@ -130,8 +148,14 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 	const { topics, guides } = await guidesOverviewCache()
 	const byTopicId = new Map<number, GuideListItem[]>()
 	const ungrouped: GuideListItem[] = []
+	// Captured once so a long list can't have rows disagreeing about "now".
+	const now = new Date()
 
 	for (const { topicId, ...guide } of guides) {
+		if (isScheduledGuide(guide.publishedAt, now)) {
+			continue
+		}
+
 		if (topicId == null) {
 			ungrouped.push(guide)
 			continue
@@ -254,7 +278,17 @@ export async function getGuideBySlug(
 		)
 	)
 
-	return wrapper()
+	const guide = await wrapper()
+
+	if (guide == null) {
+		return null
+	}
+
+	// Applied to the cached row rather than in the query, so a scheduled guide
+	// starts resolving the first request after its date passes without waiting
+	// for a cache bust — and 404s until then, so the canonical URL never serves
+	// a page ahead of its date.
+	return isScheduledGuide(guide.publishedAt, new Date()) ? null : guide
 }
 
 const guideTopicBySlugWrappers =
@@ -288,7 +322,22 @@ export async function getGuideTopicBySlug(
 		)
 	)
 
-	return wrapper()
+	const topic = await wrapper()
+
+	if (topic == null) {
+		return null
+	}
+
+	// The hub itself has no date to schedule against; its list still hides
+	// guides whose date hasn't arrived. Read-time, same as everywhere else.
+	const now = new Date()
+
+	return {
+		...topic,
+		guides: topic.guides.filter(
+			(guide) => !isScheduledGuide(guide.publishedAt, now)
+		),
+	}
 }
 
 /**

@@ -112,7 +112,14 @@ model Guide {
   // but deliberately NOT a frontmatter field — drafts live in the source
   // `drafts/` folder, so importing a file is itself the decision to publish.
   published   Boolean     @default(true)
-  // Set on first publish and never rewritten; feeds JSON-LD `datePublished`.
+  // The publication date, authored: the importer reads it from the filename's
+  // `yyyy-MM-dd[-HHmm]-` prefix (the admin stamps it on first publish instead,
+  // having no file to read). Feeds JSON-LD `datePublished`.
+  //
+  // A future value means scheduled — published here, held back by a read-time
+  // filter (`isScheduledGuide`) until the date passes, same as a post. Null is
+  // never scheduled.
+  //
   // Guides are dated, but unlike `Post.datetime` the date is not the organizing
   // identity — the visible dateline reads "Updated {updatedAt}", never this.
   publishedAt DateTime?

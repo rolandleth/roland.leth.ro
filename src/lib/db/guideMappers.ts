@@ -31,6 +31,31 @@ export function resolvePublishedAt(
 }
 
 /**
+ * True when a guide is published but its date hasn't arrived yet — in the
+ * database, deliberately not live. Mirrors `isFutureDatetime` for posts, and
+ * every public read path filters on it.
+ *
+ * `now` is a REQUIRED argument, same contract as `isFutureDatetime`: a list must
+ * not have rows disagreeing about what "now" is, so multi-item callers capture
+ * it once, and tests can pin it without mocking the clock.
+ *
+ * A null `publishedAt` is never scheduled. It means "published with no recorded
+ * date" (reachable for an admin-created row whose publish flag was set outside
+ * the normal path), and the safe reading of a missing date is *live* — treating
+ * it as scheduled would silently hide a page that's supposed to be up, which is
+ * the one failure this whole mechanism exists to avoid.
+ */
+export function isScheduledGuide(publishedAt: Date | null, now: Date): boolean {
+	if (publishedAt == null) {
+		return false
+	}
+
+	// `unstable_cache` round-trips through JSON, so this can arrive as an ISO
+	// string despite the type. `new Date` on a Date is a harmless clone.
+	return new Date(publishedAt).getTime() > now.getTime()
+}
+
+/**
  * Guides sort by their authored `sortOrder` within a topic, then by title so
  * the order is total — `sortOrder` defaults to 0, so an unordered import would
  * otherwise come back in whatever order Postgres feels like, and the rendered
