@@ -44,32 +44,37 @@ Guide:      id, slug (unique), title, description (meta/OG/preview text),
 
 No JSON manifest — guides are markdown prose with flat scalar metadata, like posts (projects needed JSON because they're structured non-prose data). Topics are markdown too: the hub body is a landing page, not manifest data.
 
-Frontmatter (flat, single-line values; extend `src/lib/import/frontmatter.ts` — generalize `readField` beyond `title | slug`; no YAML dependency):
+**Superseded 2026-07-17 (build): topic membership comes from the directory, not a `topic:` key.** A `guides/<folder>/index.md` declares the topic; every other `.md` in that folder is a guide in it. `index.md` (not `_topic.md`) because every guide filename starts with its date prefix, so `index.md` sorts to the bottom on its own. The directory name is decorative — the topic file's own `slug:` is authoritative, same principle as post filenames — so regrouping still can't move a URL. Guides therefore carry no `topic:` key at all: one source of membership, nothing to drift.
+
+A grouped guide also carries no `project:` key — it inherits its topic's, since the DB requires the two to match anyway, and a redundant declaration can only contradict it. Declaring one inside a topic folder is a parse error naming the fix. Ungrouped guides declare their own.
+
+Frontmatter (flat, single-line values; `parseFrontmatterFields` in `src/lib/import/frontmatter.ts` — strict, generalized, no YAML dependency, kept separate from the lenient post `parseFrontmatter`):
 
 ```yaml
 ---
-slug: how-to-keep-a-decision-journal   # required, explicit — never derived
+slug: how-to-keep-a-decision-journal   # required, explicit — never derived, never normalized
 title: How to keep a decision journal
 description: A 150–160 char meta/OG/preview text. Single line.
-project: reckon                        # optional, project slug
-topic: making-better-decisions         # optional, topic slug
+project: reckon                        # ungrouped guides only; grouped ones inherit
 sortOrder: 1                           # optional, order within topic
 ---
 Body markdown, no H1 (chrome renders the title).
 ```
 
-Topic files carry: `slug`, `title`, `shortDescription`, `project` (optional); body = hub description.
+Topic files (`index.md`) carry: `slug`, `title`, `shortDescription`, `project` (optional); body = hub description.
 
-Source layout (lives in the product repo, imported by path like posts):
+Source layout — **`~/_Work/projects/blog/guides/`** (moved 2026-07-17; the content lives in the blog repo alongside posts, not in the product repo):
 
 ```
-../reckon/marketing/content/guides/
-  topics/making-better-decisions.md
-  2026-07-17-How to keep a decision journal.md
-  drafts/                              # ignored by the importer
+blog/guides/
+  2026-07-17-How calibrated are you.md   # ungrouped guide
+  making-better-decisions/
+    2026-07-17-How to keep a decision journal.md
+    index.md                             # the topic hub
+  drafts/                                # ignored by the importer
 ```
 
-Filenames keep the `yyyy-MM-dd-Title.md` date prefix **for disk sorting only** — the importer ignores the filename entirely (slug + title come from frontmatter).
+One level of nesting only; a deeper tree is a layout mistake, and flattening it silently would import guides under the wrong topic. Filenames keep the `yyyy-MM-dd-Title.md` date prefix **for disk sorting only** — the importer ignores the filename entirely (slug + title come from frontmatter). `publishedAt` is therefore stamped at import time, not read from the filename.
 
 Import script — `yarn db:import-guides <folder>`, mirroring the posts importer (NOT the projects one): plan-based and idempotent, create-only by default, `--overwrite` updates in place, `--dry-run`, direct Prisma writes + revalidate reminder. Topics import before guides in the same run. Reading time via the existing post helper. Departures from posts: explicit `slug:` required (loud skip when missing — guide slugs are SEO-load-bearing, chosen not generated); no filename parsing; no publish-state inference. Cross-table slug uniqueness (Guide vs GuideTopic) checked in the shared plan lib that admin routes also call.
 
@@ -100,14 +105,27 @@ Additional:
 
 ## Implementation phases
 
-1. **Schema + data layer**: Prisma models, migration, `lib/db` helpers (queries for guide/topic by slug, guides per project/topic, cross-table slug check), Zod schemas.
-2. **Public routes**: `/guides` index, `/guides/[slug]` (guide page + topic hub page), reusing blog chrome components and the markdown pipeline; metadata (title, description, canonical, OG image), Article JSON-LD builder, "Updated" dateline.
-3. **Discoverability**: sitemap entries (real `lastModified`, `changeFrequency: monthly`), `## Guides` section in llms.txt route, footer link to `/guides`.
-4. **Project page**: Guides section below content, above FAQ (mirror `ProjectFaq` structure) — topic entries (title + shortDescription + link) plus ungrouped guides.
-5. **Admin CRUD**: API routes + forms for guides and topics.
-6. **Importer + content**: generalize the frontmatter lib, guide parse/plan lib (shared with admin routes for the cross-table slug check), `yarn db:import-guides` script; then create the "Making better decisions" topic + import the four Reckon guides; verify slugs match search phrasing before publishing.
+All six built on the `guides` branch, 2026-07-17, one commit per phase.
 
-Tests at every phase per repo standards. Content source: Reckon's `marketing/content/` guide drafts.
+1. ✅ **Schema + data layer**: Prisma models, `lib/db/guides.ts` (+ Next-free `guideMappers` / `guideValidation` / `guideRevalidation` splits so the import script can share them), Zod schemas.
+2. ✅ **Public routes**: `/guides` index, `/guides/[slug]` (guide + topic hub), `ProseShell` extracted from `PostContent` so both surfaces share one chrome; metadata (canonical + `modifiedTime` added to `buildPageMetadata` as opt-ins), `buildGuideArticleJsonLd`, "Updated" dateline via a new `formatDateValue`.
+3. ✅ **Discoverability**: sitemap entries (real `lastModified`, `changeFrequency: monthly`), `## Guides` section in llms.txt (topics with their guides nested — the only place the grouping is expressed to an agent), footer link.
+4. ✅ **Project page**: `ProjectGuides` below content, above FAQ.
+5. ✅ **Admin CRUD**: API routes + forms for guides and topics, a third `/admin` tab, guides row in the Revalidate panel.
+6. ✅ **Importer**: `parseFrontmatterFields`, `lib/import/guideImport.ts`, `yarn db:import-guides`.
+
+Remaining: the content itself (see Session log), and `yarn db:push` to create the two tables.
+
+Tests at every phase per repo standards.
+
+## Build notes worth keeping
+
+- **Publish state gates only the entity it sits on.** A guide is listed iff `guide.published`; it's *grouped* iff its topic exists and is published. Unpublishing a hub dissolves the grouping but leaves its guides live, listed (as ungrouped), and in the sitemap. The alternative — cascading topic state to guides — would silently deindex live pages, the one thing an SEO surface can't afford. The admin form says this out loud.
+- **A topic changing project cascades to its guides** (inside the PUT's transaction, with a log breadcrumb). The `guide.projectSlug === topic.projectSlug` invariant is enforced on every guide write, so a topic edit that skipped it would make the rule a lie. Refusing the edit instead would make a legitimate move impossible without unlinking each guide first.
+- **PUT validates *effective* values** (`payload ?? persisted`), not payload values — so patching only `topicId` still coheres with the project already on the row. This is the gap the projects PUT still has (2026-05-21 watch-out); deliberately not repeated.
+- **`formatDateValue` pins UTC and does NOT share an implementation with `formatDate`**, despite identical output. A post's `yyyy-MM-dd` is a calendar day by construction; a guide's `updatedAt` is an instant. Folding them together would shift every post's date by a day in any zone behind UTC.
+- **Canonical URLs are opt-in** (`canonicalPath`), not defaulted to `path`. Only guides pass it. Turning it on site-wide would assert a canonical for pages nobody has audited for multi-path reachability — a one-line change if that audit ever happens.
+- **`AdminSearch` now builds URLs through `buildAdminPageUrl`** instead of a hand-rolled posts/projects ternary that would have pointed every guides search at the projects list.
 
 ## Follow-ups (not part of the build)
 
@@ -117,3 +135,4 @@ Tests at every phase per repo standards. Content source: Reckon's `marketing/con
 
 - 2026-07-17: direction settled, route/name confirmed (`/guides`), manifests paragraphed (`\n\n` splits in both `scripts/imports/*/project.json` — re-import pending, note it clobbers admin edits), this plan made build-ready.
 - 2026-07-17 (later): DB schema finalized (slug-based project reference — FK would collide with the project importer's delete-then-create; `projectSlug` nullable for future non-product pieces; `published` DB-only, not frontmatter), frontmatter + source layout + importer semantics specced (all-markdown, no JSON; date-prefixed filenames for disk sorting only), `write-guide` skill noted as follow-up.
+- 2026-07-17 (build): all six phases built on the `guides` branch. Two spec changes during the build, both above: topic membership moved from a `topic:` frontmatter key to the directory (`<folder>/index.md`), and the content source moved from the product repo to `blog/guides/`. Still open: `yarn db:push` (Roland runs it), and the four Reckon guides — copied into `blog/guides/making-better-decisions/`, still needing an `index.md`, date prefixes, frontmatter cleaned to the spec above, and their placeholder internal links (`/slug`, `APP_STORE_URL`) resolved.
