@@ -6,7 +6,8 @@ import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
 interface Config {
-	resource: "posts" | "projects"
+	/** Matches the `/api/admin/<resource>` route segment exactly. */
+	resource: "posts" | "projects" | "guides" | "guide-topics"
 	id: number | null
 }
 

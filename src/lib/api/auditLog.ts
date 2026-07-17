@@ -43,6 +43,12 @@ export const ADMIN_AUDIT_TAGS = [
 	"[api:admin:projects:POST]",
 	"[api:admin:projects:PUT]",
 	"[api:admin:projects:DELETE]",
+	"[api:admin:guides:POST]",
+	"[api:admin:guides:PUT]",
+	"[api:admin:guides:DELETE]",
+	"[api:admin:guide-topics:POST]",
+	"[api:admin:guide-topics:PUT]",
+	"[api:admin:guide-topics:DELETE]",
 ] as const
 
 export type AdminAuditTag = (typeof ADMIN_AUDIT_TAGS)[number]

@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
 import {
 	allGuides,
-	findSlugOwner,
 	getGuideBySlug,
 	getGuideTopicBySlug,
 	getGuidesForProject,
@@ -379,66 +378,8 @@ describe("getGuideTopicBySlug", () => {
 
 // #endregion
 
-// #region findSlugOwner
-
-describe("findSlugOwner", () => {
-	function mockOwners(guide: number | null, topic: number | null) {
-		vi.mocked(prisma.guide.findUnique).mockResolvedValue(
-			guide == null ? null : ({ id: guide } as never)
-		)
-		vi.mocked(prisma.guideTopic.findUnique).mockResolvedValue(
-			topic == null ? null : ({ id: topic } as never)
-		)
-	}
-
-	it("returns null when the slug is free in both tables", async () => {
-		mockOwners(null, null)
-
-		expect(await findSlugOwner("free")).toBeNull()
-	})
-
-	it("reports a guide holding the slug", async () => {
-		mockOwners(1, null)
-
-		expect(await findSlugOwner("taken")).toBe("guide")
-	})
-
-	it("reports a topic holding the slug", async () => {
-		mockOwners(null, 2)
-
-		expect(await findSlugOwner("taken")).toBe("topic")
-	})
-
-	it("ignores the guide being updated so re-saving its own slug is free", async () => {
-		mockOwners(1, null)
-
-		expect(await findSlugOwner("taken", { kind: "guide", id: 1 })).toBeNull()
-	})
-
-	it("ignores the topic being updated so re-saving its own slug is free", async () => {
-		mockOwners(null, 2)
-
-		expect(await findSlugOwner("taken", { kind: "topic", id: 2 })).toBeNull()
-	})
-
-	it("still reports a conflict when a different guide holds the slug", async () => {
-		mockOwners(1, null)
-
-		expect(await findSlugOwner("taken", { kind: "guide", id: 99 })).toBe(
-			"guide"
-		)
-	})
-
-	// The cross-table case the DB can't express: a topic can't take a guide's
-	// slug just because it's a different table.
-	it("reports the topic when a guide update collides with a topic's slug", async () => {
-		mockOwners(null, 2)
-
-		expect(await findSlugOwner("taken", { kind: "guide", id: 1 })).toBe("topic")
-	})
-})
-
-// #endregion
+// `findSlugOwner` is re-exported from here but implemented (and tested) in
+// `guideValidation.ts`, which is Next-free so the import script can share it.
 
 // #region listGuidesForAdmin
 

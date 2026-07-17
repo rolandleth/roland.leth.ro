@@ -2,20 +2,21 @@
 
 import { useRouter } from "next/navigation"
 import ExpandableSearch from "@/components/ui/ExpandableSearch"
+import { buildAdminPageUrl, type AdminTab } from "@/lib/client/adminPageUrl"
 
 interface Props {
-	tab: "posts" | "projects"
+	tab: AdminTab
 	query: string
 }
 
 export default function AdminSearch({ tab, query }: Props) {
 	const router = useRouter()
 
+	// URLs come from `buildAdminPageUrl` rather than a per-tab ternary: this
+	// hand-rolled its own `tab === "posts" ? … : …` string until a third tab
+	// existed and silently pointed every guides search at the projects list.
 	function handleSubmit(nextQuery: string) {
-		const tabBase = tab === "posts" ? "/admin" : "/admin?tab=projects"
-		const separator = tab === "posts" ? "?" : "&"
-
-		router.push(`${tabBase}${separator}q=${encodeURIComponent(nextQuery)}`)
+		router.push(buildAdminPageUrl({ tab, query: nextQuery, page: 1 }))
 	}
 
 	function handleClose() {
@@ -23,7 +24,7 @@ export default function AdminSearch({ tab, query }: Props) {
 			return
 		}
 
-		router.replace(tab === "posts" ? "/admin" : "/admin?tab=projects")
+		router.replace(buildAdminPageUrl({ tab, query: "", page: 1 }))
 	}
 
 	return (

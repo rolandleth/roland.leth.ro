@@ -28,6 +28,15 @@ export function isPrismaUniqueConstraint(error: unknown): boolean {
 	return isPrismaErrorCode(error, "P2002")
 }
 
+/**
+ * Returns true for Prisma P2003 "foreign key constraint" errors. Raised when
+ * deleting a `GuideTopic` that still has guides (the relation is `Restrict`, so
+ * the delete fails loudly rather than cascading into published pages).
+ */
+export function isPrismaForeignKeyConstraint(error: unknown): boolean {
+	return isPrismaErrorCode(error, "P2003")
+}
+
 function isPrismaErrorCode(error: unknown, code: string): boolean {
 	return (
 		typeof error === "object" &&

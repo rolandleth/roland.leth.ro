@@ -1,4 +1,4 @@
-export const ADMIN_TABS = ["posts", "projects"] as const
+export const ADMIN_TABS = ["posts", "projects", "guides"] as const
 export type AdminTab = (typeof ADMIN_TABS)[number]
 
 export function parseTab(raw: string | undefined): AdminTab {

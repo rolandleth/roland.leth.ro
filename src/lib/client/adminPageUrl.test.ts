@@ -18,6 +18,10 @@ describe("parseTab", () => {
 		expect(parseTab("projects")).toBe("projects")
 	})
 
+	it("returns 'guides' when given 'guides'", () => {
+		expect(parseTab("guides")).toBe("guides")
+	})
+
 	it("rejects mixed-case (strict allowlist)", () => {
 		// Pin behaviour: a future caller flipping casing wouldn't silently
 		// fall through to 'posts' and look like a typo got accepted.
@@ -36,6 +40,20 @@ describe("buildAdminPageUrl", () => {
 		expect(buildAdminPageUrl({ tab: "projects", query: "", page: 1 })).toBe(
 			"/admin?tab=projects"
 		)
+	})
+
+	it("includes ?tab=guides for the guides tab", () => {
+		expect(buildAdminPageUrl({ tab: "guides", query: "", page: 1 })).toBe(
+			"/admin?tab=guides"
+		)
+	})
+
+	// `AdminSearch` builds its URLs through here now; it used to hand-roll a
+	// posts/projects ternary that silently pointed a guides search at projects.
+	it("keeps the tab when a query is set on a non-default tab", () => {
+		expect(
+			buildAdminPageUrl({ tab: "guides", query: "journal", page: 1 })
+		).toBe("/admin?tab=guides&q=journal")
 	})
 
 	it("includes ?q=foo when a query is set", () => {

@@ -305,42 +305,15 @@ export const loadGuideTopic = cache(async (slug: string) =>
 
 // #region Slug uniqueness
 
-export type SlugOwner = "guide" | "topic"
-
-/**
- * Which table already holds `slug`, or null when it's free. Guides and topics
- * share one flat `/guides/:slug` namespace across two tables, and Postgres has
- * no cross-table unique constraint — so this is the enforcement point, called
- * by the admin write routes and the import planner alike.
- *
- * `ignore` excludes the row being updated, so re-saving a guide without
- * touching its slug doesn't collide with itself.
- *
- * Inherently racy: two concurrent creates can both see a free slug. The
- * per-table `@@unique` still catches the same-table case (surfacing as a 409);
- * only a simultaneous guide-and-topic create of the same slug slips through,
- * which needs a single admin racing themselves in two tabs. Not worth an
- * advisory lock at single-author volume.
- */
-export async function findSlugOwner(
-	slug: string,
-	ignore?: { kind: SlugOwner; id: number }
-): Promise<SlugOwner | null> {
-	const [guide, topic] = await Promise.all([
-		prisma.guide.findUnique({ where: { slug }, select: { id: true } }),
-		prisma.guideTopic.findUnique({ where: { slug }, select: { id: true } }),
-	])
-
-	if (guide != null && !(ignore?.kind === "guide" && ignore.id === guide.id)) {
-		return "guide"
-	}
-
-	if (topic != null && !(ignore?.kind === "topic" && ignore.id === topic.id)) {
-		return "topic"
-	}
-
-	return null
-}
+// `findSlugOwner` lives in the Next-free `guideValidation` module so the import
+// script can reuse it without dragging in `next/cache`; re-exported here to keep
+// the `@/lib/db/guides` import surface whole for the admin routes.
+export {
+	describeGuideRefProblem,
+	describeTopicRefProblem,
+	findSlugOwner,
+	type SlugOwner,
+} from "./guideValidation"
 
 // #endregion
 
