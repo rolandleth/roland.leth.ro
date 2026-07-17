@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+	revalidateAllGuides,
+	revalidateGuide,
+	revalidateGuideTopic,
+} from "@/lib/db/guides"
 import { revalidateAllPosts, revalidatePost } from "@/lib/db/posts"
 import { revalidateAllProjects, revalidateProject } from "@/lib/db/projects"
 import { POST } from "./route"
@@ -10,6 +15,11 @@ vi.mock("@/lib/db/posts", () => ({
 vi.mock("@/lib/db/projects", () => ({
 	revalidateAllProjects: vi.fn(),
 	revalidateProject: vi.fn(),
+}))
+vi.mock("@/lib/db/guides", () => ({
+	revalidateAllGuides: vi.fn(),
+	revalidateGuide: vi.fn(),
+	revalidateGuideTopic: vi.fn(),
 }))
 
 function post(body: unknown): Promise<Response> {
@@ -44,11 +54,42 @@ describe("POST /api/admin/revalidate", () => {
 		expect(vi.mocked(revalidateAllPosts)).not.toHaveBeenCalled()
 	})
 
-	it("skips post entries whose section is unknown", async () => {
-		await post({ posts: ["garbage/foo", "tech/ok"] })
+	it("skips post entries whose section is unknown and reports them", async () => {
+		const response = await post({ posts: ["garbage/foo", "tech/ok"] })
 
 		expect(vi.mocked(revalidatePost)).toHaveBeenCalledTimes(1)
 		expect(vi.mocked(revalidatePost)).toHaveBeenCalledWith("tech", "ok")
+		expect(await response.json()).toEqual({
+			ok: true,
+			applied: { posts: ["tech/ok"] },
+			skipped: { posts: ["garbage/foo"] },
+		})
+	})
+
+	it("skips post entries that are not exactly section/slug", async () => {
+		const response = await post({
+			posts: ["bare-slug", "blog/tech/nested", "tech/", "tech/ok"],
+		})
+
+		expect(vi.mocked(revalidatePost)).toHaveBeenCalledTimes(1)
+		expect(vi.mocked(revalidatePost)).toHaveBeenCalledWith("tech", "ok")
+
+		const body = await response.json()
+		expect(body.skipped.posts).toEqual([
+			"bare-slug",
+			"blog/tech/nested",
+			"tech/",
+		])
+	})
+
+	it("omits `skipped` keys for batches with nothing dropped", async () => {
+		const response = await post({ posts: ["tech/ok"], projects: ["capsule"] })
+
+		expect(await response.json()).toEqual({
+			ok: true,
+			applied: { posts: ["tech/ok"], projects: ["capsule"] },
+			skipped: {},
+		})
 	})
 
 	it('busts every project for `projects: "all"`', async () => {
@@ -64,6 +105,34 @@ describe("POST /api/admin/revalidate", () => {
 		expect(vi.mocked(revalidateProject)).toHaveBeenCalledWith("capsule")
 		expect(vi.mocked(revalidateProject)).toHaveBeenCalledWith("logbook")
 		expect(vi.mocked(revalidateProject)).toHaveBeenCalledTimes(2)
+	})
+
+	it('busts every guide and topic page for `guides: "all"`', async () => {
+		const response = await post({ guides: "all" })
+
+		expect(vi.mocked(revalidateAllGuides)).toHaveBeenCalledTimes(1)
+		expect(vi.mocked(revalidateGuide)).not.toHaveBeenCalled()
+		expect(await response.json()).toEqual({
+			ok: true,
+			applied: { guides: "all" },
+			skipped: {},
+		})
+	})
+
+	it("busts each named guide slug as both a guide and a topic", async () => {
+		await post({ guides: ["decision-journal", "making-better-decisions"] })
+
+		expect(vi.mocked(revalidateGuide)).toHaveBeenCalledWith("decision-journal")
+		expect(vi.mocked(revalidateGuideTopic)).toHaveBeenCalledWith(
+			"decision-journal"
+		)
+		expect(vi.mocked(revalidateGuide)).toHaveBeenCalledWith(
+			"making-better-decisions"
+		)
+		expect(vi.mocked(revalidateGuideTopic)).toHaveBeenCalledWith(
+			"making-better-decisions"
+		)
+		expect(vi.mocked(revalidateAllGuides)).not.toHaveBeenCalled()
 	})
 
 	it("400s when neither field is provided", async () => {

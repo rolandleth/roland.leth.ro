@@ -10,6 +10,12 @@ type Action = `${ResourceKey}-all` | `${ResourceKey}-list`
 
 type RevalidateBody = Partial<Record<ResourceKey, "all" | string[]>>
 
+/** Success payload of `POST /api/admin/revalidate`: what was busted vs dropped. */
+interface RevalidateResponse {
+	applied?: Partial<Record<ResourceKey, "all" | string[]>>
+	skipped?: Partial<Record<ResourceKey, string[]>>
+}
+
 interface ResourceConfig {
 	key: ResourceKey
 	/** Singular, for the "N posts revalidated" result line. */
@@ -76,15 +82,18 @@ export default function RevalidatePanel() {
 	})
 	const [pending, setPending] = useState<Action | null>(null)
 	const [result, setResult] = useState<string | null>(null)
+	const [warning, setWarning] = useState<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const abortRef = useRef<AbortController | null>(null)
 
 	async function run(
 		action: Action,
-		body: RevalidateBody,
-		successLabel: string
+		key: ResourceKey,
+		noun: string,
+		body: RevalidateBody
 	): Promise<void> {
 		setResult(null)
+		setWarning(null)
 		setError(null)
 		setPending(action)
 
@@ -106,7 +115,24 @@ export default function RevalidatePanel() {
 				return
 			}
 
-			setResult(successLabel)
+			// The label reports what the server APPLIED, not what was submitted —
+			// entries the server dropped show up in the warning below instead.
+			// Pretending they succeeded is how the 2026-07 stale-404 hid.
+			const data = (await response.json()) as RevalidateResponse
+			const applied = data.applied?.[key]
+			const skipped = data.skipped?.[key] ?? []
+
+			setResult(
+				applied === "all"
+					? `All ${key} revalidated`
+					: countLabel(noun, applied?.length ?? 0)
+			)
+
+			if (skipped.length > 0) {
+				setWarning(
+					`Skipped (not busted): ${skipped.join(", ")} — post entries must be section/slug`
+				)
+			}
 		} catch (err) {
 			if (isAbortError(err)) {
 				return
@@ -147,9 +173,7 @@ export default function RevalidatePanel() {
 					<div key={key} className="flex flex-wrap items-center gap-2">
 						<button
 							type="button"
-							onClick={() =>
-								run(`${key}-all`, { [key]: "all" }, `All ${key} revalidated`)
-							}
+							onClick={() => run(`${key}-all`, key, noun, { [key]: "all" })}
 							disabled={isBusy}
 							className={buttonClass}
 						>
@@ -167,13 +191,7 @@ export default function RevalidatePanel() {
 						/>
 						<button
 							type="button"
-							onClick={() =>
-								run(
-									`${key}-list`,
-									{ [key]: tokens },
-									countLabel(noun, tokens.length)
-								)
-							}
+							onClick={() => run(`${key}-list`, key, noun, { [key]: tokens })}
 							disabled={isBusy || tokens.length === 0}
 							className={buttonClass}
 						>
@@ -186,6 +204,11 @@ export default function RevalidatePanel() {
 			})}
 
 			{result && <p className="text-secondary text-xs">{result}</p>}
+			{warning && (
+				<p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+					{warning}
+				</p>
+			)}
 			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
 		</section>
 	)

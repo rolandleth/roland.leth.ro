@@ -37,43 +37,66 @@ const bodySchema = z
 	)
 
 type Selection = "all" | string[]
+type ResourceKey = "posts" | "projects" | "guides"
 
-function revalidatePosts(posts: Selection): void {
+/**
+ * What a batch actually did, echoed back to the panel. `skipped` lists the
+ * entries that were NOT busted (malformed, unknown section) — reporting them is
+ * the point of this shape: silently dropping an entry while returning a bare
+ * success is how the 2026-07 stale-404 stayed undiagnosable, with the panel
+ * showing "revalidated" while nothing had been busted.
+ */
+interface Outcome {
+	applied: "all" | string[]
+	skipped: string[]
+}
+
+function revalidatePosts(posts: Selection): Outcome {
 	if (posts === "all") {
 		revalidateAllPosts()
 
-		return
+		return { applied: "all", skipped: [] }
 	}
+
+	const applied: string[] = []
+	const skipped: string[] = []
 
 	for (const entry of posts) {
-		// Entries are `section/slug`; a slug can't contain `/` (`createSlug`
-		// whitelists `[a-z0-9-]`), so a plain split is safe. Silently skip a
-		// malformed or unknown-section entry rather than fail the whole batch.
-		const [section, slug] = entry.split("/")
+		// Entries are exactly `section/slug` — two segments, a known section, a
+		// non-empty slug. A slug can't contain `/` (`createSlug` whitelists
+		// `[a-z0-9-]`), so more than two segments is malformed, not a nested slug.
+		const parts = entry.split("/")
 
-		if (isValidSection(section) && slug) {
-			revalidatePost(section, slug)
+		if (parts.length === 2 && isValidSection(parts[0]) && parts[1]) {
+			revalidatePost(parts[0], parts[1])
+			applied.push(entry)
+		} else {
+			skipped.push(entry)
 		}
 	}
+
+	return { applied, skipped }
 }
 
-function revalidateProjects(projects: Selection): void {
+function revalidateProjects(projects: Selection): Outcome {
 	if (projects === "all") {
 		revalidateAllProjects()
 
-		return
+		return { applied: "all", skipped: [] }
 	}
 
 	for (const slug of projects) {
 		revalidateProject(slug)
 	}
+
+	return { applied: projects, skipped: [] }
 }
 
-function revalidateGuides(guides: Selection): void {
+function revalidateGuides(guides: Selection): Outcome {
 	if (guides === "all") {
 		revalidateAllGuides()
 
-		return
+		return { applied: "all", skipped: [] }
 	}
 
 	for (const slug of guides) {
@@ -88,6 +111,8 @@ function revalidateGuides(guides: Selection): void {
 		revalidateGuide(slug)
 		revalidateGuideTopic(slug)
 	}
+
+	return { applied: guides, skipped: [] }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -98,27 +123,41 @@ export async function POST(request: Request): Promise<NextResponse> {
 	}
 
 	const { posts, projects, guides } = parsed
+	const applied: Partial<Record<ResourceKey, Outcome["applied"]>> = {}
+	const skipped: Partial<Record<ResourceKey, string[]>> = {}
+
+	// Collects each resource's outcome into the response maps; `skipped` keys
+	// only appear when something was actually dropped, so the panel can treat
+	// any key's presence as a warning.
+	function collect(key: ResourceKey, outcome: Outcome): void {
+		applied[key] = outcome.applied
+
+		if (outcome.skipped.length > 0) {
+			skipped[key] = outcome.skipped
+		}
+	}
 
 	try {
 		if (posts !== undefined) {
-			revalidatePosts(posts)
+			collect("posts", revalidatePosts(posts))
 		}
 
 		if (projects !== undefined) {
-			revalidateProjects(projects)
+			collect("projects", revalidateProjects(projects))
 		}
 
 		if (guides !== undefined) {
-			revalidateGuides(guides)
+			collect("guides", revalidateGuides(guides))
 		}
 	} catch (error) {
 		return respondInternalError(TAG, error)
 	}
 
 	// Mirrors the keepalive route: a success line so manual busts are
-	// distinguishable from organic revalidation in the logs.
+	// distinguishable from organic revalidation in the logs. Logs what was
+	// actually busted vs dropped, not just the raw input.
 	// eslint-disable-next-line no-console
-	console.info(`${TAG} success`, { posts, projects, guides })
+	console.info(`${TAG} success`, { applied, skipped })
 
-	return NextResponse.json({ ok: true })
+	return NextResponse.json({ ok: true, applied, skipped })
 }
