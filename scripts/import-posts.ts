@@ -13,9 +13,18 @@
 //
 // The slug comes from `slug:` frontmatter. A file missing it (or carrying a
 // non-canonical value) gets the resolved slug written back into the source
-// file before any DB work — the one write this script does outside the DB —
-// so the content repo converges to explicit slugs. Dry runs report the
-// pending write-backs without touching anything.
+// file (atomically) before any DB work — the one write this script does
+// outside the DB — so the content repo converges to explicit slugs. Dry runs
+// report the pending write-backs without touching anything.
+//
+// The slug write-back runs BEFORE the plan decides what to import, so a file
+// whose body the plan later skips (schema-invalid: oversized, empty section)
+// still gets its `slug:` stamped. That's intentional convergence, not a bug:
+// the slug is a property of the file, correct whether or not the body imports
+// today; you fix the body and re-run, and the already-explicit slug is a no-op.
+// A single write-back failure is reported and the run continues (non-zero exit)
+// rather than aborting the whole batch — the resolved slug is still applied in
+// the DB from memory; only the on-disk backfill is deferred to the next run.
 //
 // Creates follow the bulk endpoint's rule: future-dated files import as
 // published (scheduled), past-dated as drafts. Overwrites refresh title, body,
@@ -31,16 +40,19 @@
 // (DATABASE_URL, e.g. via `vercel env pull`). Always `--dry-run` first.
 
 import "dotenv/config"
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import {
+	applySlugRewrites,
+	type SlugRewriteOutcome,
+} from "@/lib/import/applySlugRewrites"
+import {
 	diffBodyLines,
 	type ExistingPost,
 	type ImportFile,
-	type ParsedPostFile,
 	parsePostFiles,
 	type PlannedCreate,
 	type PlannedUpdate,
@@ -126,35 +138,27 @@ async function readMarkdownFiles(folder: string): Promise<ImportFile[]> {
 }
 
 /**
- * Persists the parse step's pending `slug:` write-backs into the source files
- * (dry runs only report them), logging one line per file. Runs before any DB
- * work: the rewrite is deterministic and idempotent, so a failed import later
- * leaves the files correct and a re-run finds the slugs already explicit.
+ * Prints one line per slug write-back and returns the count that failed. A
+ * failed rewrite prints as a loud `✘` on stderr so a partial batch is obvious;
+ * the caller uses the count to set a non-zero exit without aborting the import.
  */
-async function applySlugRewrites(
-	folder: string,
-	parsed: ParsedPostFile[],
-	dryRun: boolean
-): Promise<void> {
-	for (const file of parsed) {
-		if (file.slugRewrite == null) {
+function logSlugRewrites(outcomes: readonly SlugRewriteOutcome[]): number {
+	let failures = 0
+
+	for (const outcome of outcomes) {
+		if (outcome.result === "failed") {
+			failures += 1
+			console.error(
+				`  ✘ ${outcome.filename} — failed to write ${outcome.change}: ${outcome.error}`
+			)
 			continue
 		}
 
-		const { content, previous } = file.slugRewrite
-		const change =
-			previous == null
-				? `slug: ${file.slug} (from title)`
-				: `slug: "${previous}" → ${file.slug}`
-
-		if (dryRun) {
-			console.log(`  ✎ ${file.filename} — would write ${change}`)
-			continue
-		}
-
-		await writeFile(path.join(folder, file.filename), content)
-		console.log(`  ✎ ${file.filename} — wrote ${change}`)
+		const verb = outcome.result === "planned" ? "would write" : "wrote"
+		console.log(`  ✎ ${outcome.filename} — ${verb} ${outcome.change}`)
 	}
+
+	return failures
 }
 
 /** DB-shaped create row — the originating filename stays out of the payload. */
@@ -265,7 +269,21 @@ async function main(): Promise<void> {
 
 	const { parsed, skipped: parseSkips } = parsePostFiles(files)
 
-	await applySlugRewrites(folder, parsed, isDryRun)
+	const rewriteFailures = logSlugRewrites(
+		await applySlugRewrites(folder, parsed, isDryRun)
+	)
+
+	if (rewriteFailures > 0) {
+		// One file's write failing (EACCES, EROFS on a mount) leaves that source
+		// file un-stamped but doesn't block the rest: the resolved slug is already
+		// in memory, so the DB import below is still correct, and a re-run retries
+		// the backfill. Loud exit so a partial rewrite can't pass for a clean one.
+		console.error(
+			`\n${rewriteFailures} slug rewrite(s) failed — source file(s) left unchanged; ` +
+				"the DB import still runs. Re-run to retry the backfill."
+		)
+		process.exitCode = 1
+	}
 
 	const prisma = makePrisma()
 
