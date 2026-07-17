@@ -11,6 +11,12 @@
  * fix, say) must not reset the page's age and make an established guide look
  * brand new to a crawler. Returns `undefined` when the column should be left
  * untouched, matching the "only send changed fields" shape the update paths use.
+ *
+ * The ADMIN path only. An imported guide's `publishedAt` comes from its
+ * filename's date prefix and re-syncs on every overwrite (see `guideImport.ts`),
+ * because there it's a date the author chose and can change. Here there's no
+ * file to read it from, so it's an artifact of when Publish was clicked — which
+ * is exactly why it must be stamped once and then left alone.
  */
 export function resolvePublishedAt(
 	current: Date | null,

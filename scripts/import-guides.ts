@@ -91,6 +91,7 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 	for (const name of rootNames) {
 		files.push({
 			relativePath: name,
+			filename: name,
 			content: await readFile(path.join(root, name), "utf8"),
 			topicFolder: null,
 			isTopicFile: false,
@@ -114,6 +115,7 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 		for (const name of names) {
 			files.push({
 				relativePath: path.join(folder, name),
+				filename: name,
 				content: await readFile(path.join(root, folder, name), "utf8"),
 				topicFolder: folder,
 				isTopicFile: name === TOPIC_FILENAME,
@@ -205,6 +207,7 @@ async function main(): Promise<void> {
 					topicId: true,
 					sortOrder: true,
 					readingTime: true,
+					publishedAt: true,
 				},
 			}),
 		])
@@ -360,7 +363,10 @@ async function main(): Promise<void> {
 							sortOrder: create.sortOrder,
 							readingTime: create.readingTime,
 							published: true,
-							publishedAt: new Date(),
+							// Authored, from the filename's date prefix — not the wall
+							// clock, so a re-import into a fresh DB reproduces the same
+							// dates rather than re-aging every guide to today.
+							publishedAt: create.publishedAt,
 						},
 					})
 				}

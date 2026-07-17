@@ -11,21 +11,29 @@
 //       index.md                              the topic hub
 //     drafts/                                 never imported
 //
-// Filenames carry a `yyyy-MM-dd-` prefix for disk sorting only — this parser
-// ignores them entirely (`index.md` sorts last in a topic folder for the same
-// reason: every sibling starts with a digit). Slug and title come from
-// frontmatter, always, so renaming a file can never move a published URL.
+// A guide's filename carries its publication date (`yyyy-MM-dd[-HHmm]-Title.md`),
+// exactly as a post's does, and that date IS `publishedAt`. Authored rather than
+// stamped at import time: otherwise the date depends on when the import happened
+// to run, and re-importing into a fresh database would silently re-age every
+// guide. `index.md` needs no date — a topic has no publication date of its own,
+// and it still sorts last in its folder because every sibling starts with a digit.
+//
+// The filename's *title* text stays decorative, same as a post's: it can't hold
+// the `:`/`/`/accents a real title does. Slug and title come from frontmatter,
+// always, so renaming a file can never move a published URL.
 //
 // Departures from the post importer, all for the same reason — a guide's slug is
 // authored to match a search query and is permanent once indexed:
 //  - `slug:` is required and validated, never derived from the title and never
 //    normalized on the author's behalf;
 //  - no publish-state inference: importing a file is the decision to publish it,
-//    which is what `drafts/` is for.
+//    which is what `drafts/` is for. (So, unlike posts, a future-dated guide is
+//    not "scheduled" — it goes live with a future `datePublished`.)
 
+import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { guideCreateSchema, guideTopicCreateSchema } from "@/lib/api/schemas"
 import { parseFrontmatterFields } from "@/lib/import/frontmatter"
-import { calculateReadingTime } from "@/lib/utils/format"
+import { calculateReadingTime, datetimeToUtcDate } from "@/lib/utils/format"
 import type { ZodError } from "zod"
 
 /** The folder whose contents never import, by convention. */
@@ -56,6 +64,8 @@ const GROUPED_GUIDE_KEYS = [
 export interface GuideSourceFile {
 	/** Path relative to the guides root, e.g. `making-better-decisions/index.md`. */
 	relativePath: string
+	/** Basename only — the date prefix a guide's `publishedAt` is read from. */
+	filename: string
 	content: string
 	/** The containing topic folder, or null for a file at the root. */
 	topicFolder: string | null
@@ -85,6 +95,8 @@ export interface ParsedGuide {
 	projectSlug: string | null
 	sortOrder: number
 	readingTime: string
+	/** From the filename's date prefix, at UTC midnight unless it carries an `HHmm`. */
+	publishedAt: Date
 }
 
 export interface SkippedFile {
@@ -112,6 +124,7 @@ export interface ExistingGuide {
 	topicId: number | null
 	sortOrder: number
 	readingTime: string | null
+	publishedAt: Date | null
 }
 
 export interface PlannedTopicCreate {
@@ -141,6 +154,7 @@ export interface PlannedGuideCreate {
 	topicFolder: string | null
 	sortOrder: number
 	readingTime: string
+	publishedAt: Date
 }
 
 export interface PlannedGuideUpdate {
@@ -155,6 +169,7 @@ export interface PlannedGuideUpdate {
 		projectSlug?: string | null
 		sortOrder?: number
 		readingTime?: string
+		publishedAt?: Date
 	}
 }
 
@@ -234,6 +249,25 @@ function parseGuideFile(
 	file: GuideSourceFile,
 	topicProjectSlug: string | null | undefined
 ): ParsedGuide | SkippedFile {
+	// The filename's date IS `publishedAt`, so a file without one has no
+	// publication date to import — a loud skip, not a silent `new Date()`.
+	// `parseBulkImportFilename` is the posts' parser: same convention, and it
+	// already rejects `2026-02-31`, an out-of-range time, and control characters.
+	const filenameResult = parseBulkImportFilename(file.filename)
+
+	if (!filenameResult.ok) {
+		return { relativePath: file.relativePath, reason: filenameResult.reason }
+	}
+
+	const publishedAt = datetimeToUtcDate(filenameResult.datetime)
+
+	if (publishedAt == null) {
+		return {
+			relativePath: file.relativePath,
+			reason: `Unparseable date in filename: ${filenameResult.datetime}`,
+		}
+	}
+
 	const isGrouped = file.topicFolder != null
 	const result = parseFrontmatterFields(
 		file.content,
@@ -279,6 +313,7 @@ function parseGuideFile(
 		...candidate,
 		topicFolder: file.topicFolder,
 		readingTime: calculateReadingTime(body),
+		publishedAt,
 	}
 }
 
@@ -454,6 +489,7 @@ function planGuide(
 				topicFolder: guide.topicFolder,
 				sortOrder: guide.sortOrder,
 				readingTime: guide.readingTime,
+				publishedAt: guide.publishedAt,
 			},
 		}
 	}
@@ -481,6 +517,15 @@ function planGuide(
 
 	if (guide.sortOrder !== existing.sortOrder) {
 		data.sortOrder = guide.sortOrder
+	}
+
+	// The filename owns the publication date, so an overwrite re-syncs it: the
+	// author renaming a file to a different date means it. This is the one place
+	// `publishedAt` moves after creation — the admin path stamps it once and
+	// never rewrites it (`resolvePublishedAt`), because there it's an artifact of
+	// clicking Publish rather than something anyone chose.
+	if (existing.publishedAt?.getTime() !== guide.publishedAt.getTime()) {
+		data.publishedAt = guide.publishedAt
 	}
 
 	if (guide.body !== existing.body) {

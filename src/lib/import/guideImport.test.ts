@@ -11,6 +11,7 @@ import {
 function topicFile(overrides: Partial<GuideSourceFile> = {}): GuideSourceFile {
 	return {
 		relativePath: "making-better-decisions/index.md",
+		filename: "index.md",
 		topicFolder: "making-better-decisions",
 		isTopicFile: true,
 		content: `---
@@ -29,6 +30,7 @@ Hub body.
 function guideFile(overrides: Partial<GuideSourceFile> = {}): GuideSourceFile {
 	return {
 		relativePath: "making-better-decisions/2026-07-17-How to keep one.md",
+		filename: "2026-07-17-How to keep one.md",
 		topicFolder: "making-better-decisions",
 		isTopicFile: false,
 		content: `---
@@ -49,6 +51,7 @@ function rootGuideFile(
 ): GuideSourceFile {
 	return {
 		relativePath: "2026-07-17-How calibrated are you.md",
+		filename: "2026-07-17-How calibrated are you.md",
 		topicFolder: null,
 		isTopicFile: false,
 		content: `---
@@ -213,6 +216,58 @@ Body.
 		const { guides } = parseGuideFiles([rootGuideFile()])
 
 		expect(guides[0].sortOrder).toBe(0)
+	})
+
+	// Authored, not stamped at import time: otherwise the date depends on when
+	// the import ran, and a re-import into a fresh DB re-ages every guide.
+	it("reads publishedAt from the filename's date prefix, at UTC midnight", () => {
+		const { guides } = parseGuideFiles([
+			rootGuideFile({ filename: "2026-07-13-How calibrated are you.md" }),
+		])
+
+		expect(guides[0].publishedAt.toISOString()).toBe("2026-07-13T00:00:00.000Z")
+	})
+
+	it("reads an optional HHmm from the filename", () => {
+		const { guides } = parseGuideFiles([
+			rootGuideFile({ filename: "2026-07-13-0930-How calibrated are you.md" }),
+		])
+
+		expect(guides[0].publishedAt.toISOString()).toBe("2026-07-13T09:30:00.000Z")
+	})
+
+	it("skips a guide whose filename carries no date", () => {
+		const { guides, skipped } = parseGuideFiles([
+			rootGuideFile({ filename: "How calibrated are you.md" }),
+		])
+
+		expect(guides).toEqual([])
+		expect(skipped[0].reason).toContain("yyyy-MM-dd")
+	})
+
+	it("skips a filename whose date isn't on the calendar", () => {
+		const { guides, skipped } = parseGuideFiles([
+			rootGuideFile({ filename: "2026-02-31-How calibrated are you.md" }),
+		])
+
+		expect(guides).toEqual([])
+		expect(skipped[0].reason).toContain("Invalid date")
+	})
+
+	it("skips a filename with an out-of-range time", () => {
+		const { skipped } = parseGuideFiles([
+			rootGuideFile({ filename: "2026-07-13-2599-How calibrated are you.md" }),
+		])
+
+		expect(skipped[0].reason).toContain("Invalid time")
+	})
+
+	// A topic has no publication date of its own, so `index.md` needs no prefix.
+	it("does not require a date on a topic's index.md", () => {
+		const { topics, skipped } = parseGuideFiles([topicFile()])
+
+		expect(skipped).toEqual([])
+		expect(topics).toHaveLength(1)
 	})
 
 	// A grouped guide's project is fully determined by its topic; declaring it
@@ -447,6 +502,9 @@ describe("planGuideImport", () => {
 		topicId: 1,
 		sortOrder: 1,
 		readingTime: "1 min read",
+		// Matches `guideFile`'s `2026-07-17-` prefix, so the default fixture is
+		// genuinely unchanged and the idempotency test means something.
+		publishedAt: new Date("2026-07-17T00:00:00.000Z"),
 	}
 
 	it("plans creates for unknown slugs", () => {
@@ -504,6 +562,68 @@ describe("planGuideImport", () => {
 		expect(result.guideUpdates[0].data).toEqual({
 			title: "How to keep a decision journal",
 		})
+	})
+
+	it("carries the filename's publishedAt onto a create", () => {
+		expect(plan().guideCreates[0].publishedAt.toISOString()).toBe(
+			"2026-07-17T00:00:00.000Z"
+		)
+	})
+
+	// The filename owns the date, so renaming a file to a different one means it.
+	it("re-syncs publishedAt when the filename's date changes", () => {
+		const result = plan(
+			{
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{
+							...existingGuide,
+							publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+						},
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates[0].data.publishedAt?.toISOString()).toBe(
+			"2026-07-17T00:00:00.000Z"
+		)
+	})
+
+	it("backfills publishedAt on a row that never had one", () => {
+		const result = plan(
+			{
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, publishedAt: null },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates[0].data.publishedAt?.toISOString()).toBe(
+			"2026-07-17T00:00:00.000Z"
+		)
+	})
+
+	it("leaves publishedAt alone when the filename's date is unchanged", () => {
+		const result = plan(
+			{
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, title: "Old title" },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates[0].data).not.toHaveProperty("publishedAt")
 	})
 
 	it("recomputes reading time when the body changes", () => {
