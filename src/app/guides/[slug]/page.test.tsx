@@ -32,8 +32,9 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/components/blog/PostMarkdownContent", () => ({
-	default: function MockPostMarkdownContent() {
-		return null
+	default: function MockPostMarkdownContent({ content }: { content: string }) {
+		// Expose the content so tests can assert what got split where.
+		return <div data-markdown>{content}</div>
 	},
 }))
 
@@ -221,6 +222,51 @@ describe("GuidePage — project chrome", () => {
 		await GuidePage(paramsFor(guide.slug))
 
 		expect(loadProject).not.toHaveBeenCalled()
+	})
+})
+
+// #endregion
+
+// #region topic hub body split
+
+describe("GuidePage — topic hub body split", () => {
+	function markdownBlocks(container: HTMLElement): string[] {
+		return Array.from(container.querySelectorAll("[data-markdown]")).map(
+			(node) => node.textContent ?? ""
+		)
+	}
+
+	it("renders the framing above the list and the disclosure below it", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(null)
+		vi.mocked(loadGuideTopic).mockResolvedValue({
+			...topic,
+			description:
+				"Framing paragraph.\n\n---\n\nFull disclosure: I make Reckon.",
+			guides: [makeGuideListItem({ slug: "a-guide" })],
+		})
+
+		const { container } = render(await GuidePage(paramsFor(topic.slug)))
+		const blocks = markdownBlocks(container)
+
+		// Two markdown blocks: intro then outro. The list sits between them in the
+		// DOM, so the disclosure lands after it.
+		expect(blocks).toEqual([
+			"Framing paragraph.",
+			"Full disclosure: I make Reckon.",
+		])
+	})
+
+	it("renders a single framing block when the hub has no disclosure", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(null)
+		vi.mocked(loadGuideTopic).mockResolvedValue({
+			...topic,
+			description: "Just framing.",
+			guides: [makeGuideListItem({ slug: "a-guide" })],
+		})
+
+		const { container } = render(await GuidePage(paramsFor(topic.slug)))
+
+		expect(markdownBlocks(container)).toEqual(["Just framing."])
 	})
 })
 

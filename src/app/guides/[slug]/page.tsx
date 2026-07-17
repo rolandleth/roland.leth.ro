@@ -8,6 +8,7 @@ import PageGlow from "@/components/PageGlow"
 import { getSiteUrl } from "@/lib/auth/env"
 import { buildGuideArticleJsonLd } from "@/lib/content/guideJsonLd"
 import { guideToLinkItem } from "@/lib/content/guideLinks"
+import { splitTopicHubBody } from "@/lib/content/guideTopicBody"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	allGuides,
@@ -168,8 +169,14 @@ async function renderGuide(guide: GuideDetail) {
  * The topic hub reuses the guide chrome with no parent link and no reading time
  * — its body is a landing page, not an article, but it's still a maintained page
  * and wears the same "Updated" dateline.
+ *
+ * The body splits on its trailing `---` (see `splitTopicHubBody`): framing above
+ * the guide list, disclosure below it. So the product link lands at the very
+ * end, after the reader has the list, instead of interrupting the framing.
  */
 async function renderTopicHub(topic: GuideTopicDetail) {
+	const { intro, outro } = splitTopicHubBody(topic.description)
+
 	return (
 		<>
 			<PageGlow />
@@ -180,11 +187,19 @@ async function renderTopicHub(topic: GuideTopicDetail) {
 				readingTime={null}
 				topic={null}
 			>
-				<PostMarkdownContent content={topic.description} />
+				<PostMarkdownContent content={intro} />
 
 				{topic.guides.length > 0 && (
 					<div className="mt-10">
 						<GuideLinkList items={topic.guides.map(guideToLinkItem)} />
+					</div>
+				)}
+
+				{outro != null && (
+					// `border-t` stands in for the `<hr>` the split consumed, so the
+					// disclosure gets the same rule-above-it look as a guide's.
+					<div className="border-border mt-10 border-t pt-6">
+						<PostMarkdownContent content={outro} />
 					</div>
 				)}
 			</GuideContent>
