@@ -1,6 +1,19 @@
 # Plan: per-post cache revalidation failure + stale-404 hardening
 
-Status: planned, not started (another session was in progress). Written 2026-07-17.
+Status: Phase 2 + tests SHIPPED 2026-07-17 (commits 07502c9, 2ab29a3) — all four
+detail lookups (posts, projects, guides, guide topics) now throw-on-miss so a
+`null` is never durably cached; revalidate endpoint returns
+`{ ok, applied, skipped }` and the panel warns on skipped entries; detail tags
+single-sourced per module; import-script output verified as already matching
+the panel's expected shapes. Post entries now require exactly two segments
+(`tech/a/b` is skipped, not silently busted as `tech/a`).
+
+Still open: Phase 0/1 — WHY the correctly-formatted individual bust failed
+while `post-pages` worked (both tags sit on the same entry). Unreproduced;
+matters less now that misses self-heal, but worth a repro pass before trusting
+targeted busts again. Also open: Phase 3 prod validation after deploy.
+
+Written 2026-07-17.
 
 ## Incident summary
 
