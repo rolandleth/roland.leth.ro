@@ -15,6 +15,7 @@ const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
 
 export type ParsedFrontmatter = {
 	title: string | null
+	/** `null` when the `slug:` line is absent, `""` when present but blank. */
 	slug: string | null
 	body: string
 }
@@ -34,11 +35,19 @@ function unquote(value: string): string {
 
 /**
  * Reads one field's value from the block's lines: the literal remainder of the
- * `<name>:` line, unquoted and trimmed. Returns `null` when the line is absent
- * or its value is empty. Matching on the line start, not a substring split,
- * guards against a body (or a title) that itself contains the text `title:`.
+ * `<name>:` line, unquoted and trimmed. Returns `null` when the line is absent;
+ * `emptyValue` when the line is present but its value is empty — `title`
+ * collapses both to `null` (an empty title is a skip either way), while `slug`
+ * keeps a present-but-blank field as `""` so the importer can tell a
+ * deliberately-blank slug from a missing one when it reports a skip. Matching on
+ * the line start, not a substring split, guards against a body (or a title)
+ * that itself contains the text `title:`.
  */
-function readField(lines: string[], name: "title" | "slug"): string | null {
+function readField(
+	lines: string[],
+	name: "title" | "slug",
+	emptyValue: string | null
+): string | null {
 	const line = lines.find((candidate) => candidate.startsWith(`${name}:`))
 
 	if (line == null) {
@@ -47,14 +56,16 @@ function readField(lines: string[], name: "title" | "slug"): string | null {
 
 	const value = unquote(line.slice(name.length + 1).trim())
 
-	return value === "" ? null : value
+	return value === "" ? emptyValue : value
 }
 
 /**
  * Splits a post file into its frontmatter `title`, `slug`, and body. Returns
  * `null` for a field when there's no frontmatter block or no line for it inside
  * — the caller decides whether that's a skip (title) or a derive-and-backfill
- * (slug). The body is everything after the closing `---`, with leading blank
+ * (slug). A present-but-blank `slug:` comes back as `""` rather than `null`, so
+ * the caller can report a blank field distinctly from a missing line. The body
+ * is everything after the closing `---`, with leading blank
  * lines trimmed so it starts on real content (and matches the DB body
  * byte-for-byte on a re-import).
  */
@@ -69,8 +80,8 @@ export function parseFrontmatter(raw: string): ParsedFrontmatter {
 	const lines = match[1].split(/\r?\n/)
 
 	return {
-		title: readField(lines, "title"),
-		slug: readField(lines, "slug"),
+		title: readField(lines, "title", null),
+		slug: readField(lines, "slug", ""),
 		body,
 	}
 }

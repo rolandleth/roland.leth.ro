@@ -121,34 +121,55 @@ function resolveSlug(
 	fileSlug: string | null,
 	title: string
 ): { slug: string } | { skipReason: string } {
-	const slug = createSlug(fileSlug ?? title)
+	// `||` (not `??`): a blank `slug:` is an empty string, and it falls back to
+	// the title exactly like an absent line does.
+	const slug = createSlug(fileSlug || title)
 
 	if (slug === "") {
-		return {
-			skipReason:
-				fileSlug == null
-					? "Title produces an empty slug"
-					: "`slug:` normalizes to an empty slug",
-		}
+		return { skipReason: emptySlugSkipReason(fileSlug) }
 	}
 
 	return { slug }
 }
 
 /**
- * The pending `slug:` write-back for a file, or `null` when its `slug:` line
- * already carries the resolved value verbatim.
+ * Why a file resolved to an empty slug, branched so a blank `slug:` field reads
+ * differently from a missing one: the author who left it blank learns the field
+ * was seen and the title fallback came up empty too, instead of the generic
+ * title message a slug-less file gets.
+ */
+function emptySlugSkipReason(fileSlug: string | null): string {
+	if (fileSlug == null) {
+		return "Title produces an empty slug"
+	}
+
+	if (fileSlug === "") {
+		return "`slug:` is blank and the title produces an empty slug"
+	}
+
+	return "`slug:` normalizes to an empty slug"
+}
+
+/**
+ * The pending `slug:` write-back for a file, or `null` when the file is already
+ * byte-for-byte canonical. Comparing the rewritten content against the original
+ * — rather than the parsed slug against the resolved one — catches drift that
+ * parses equal but differs on disk (a quoted value, trailing whitespace, a
+ * missing line), so the "converge to explicit slugs" pass actually heals it
+ * instead of leaving it in place.
  */
 function slugRewriteFor(
 	content: string,
 	fileSlug: string | null,
 	slug: string
 ): SlugRewrite | null {
-	if (fileSlug === slug) {
+	const rewritten = setFrontmatterSlug(content, slug)
+
+	if (rewritten === content) {
 		return null
 	}
 
-	return { content: setFrontmatterSlug(content, slug), previous: fileSlug }
+	return { content: rewritten, previous: fileSlug }
 }
 
 /**

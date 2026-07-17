@@ -189,6 +189,59 @@ describe("parsePostFiles", () => {
 
 		expect(skipped[0]?.reason).toMatch(/Body is empty/)
 	})
+
+	it('treats a blank `slug:` like a missing one: derives from the title, rewrite carries `previous: ""`', () => {
+		const { parsed, skipped } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-blank.md",
+				content: `---\ntitle: "The tools"\nslug:\n---\n\nBody.`,
+			},
+		])
+
+		expect(skipped).toEqual([])
+		expect(parsed[0]?.slug).toBe("the-tools")
+		expect(parsed[0]?.slugRewrite?.previous).toBe("")
+	})
+
+	it("reports a blank `slug:` distinctly from a missing line when the title is also empty", () => {
+		const { skipped } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-blank.md",
+				content: `---\ntitle: "!!!"\nslug:\n---\n\nBody.`,
+			},
+		])
+
+		expect(skipped[0]?.reason).toMatch(/`slug:` is blank/)
+	})
+
+	// The parsed value trims to the resolved slug, so the old parsed-vs-resolved
+	// comparison planned no rewrite and left the trailing space on disk.
+	it("plans a rewrite when the on-disk slug differs only by trailing whitespace", () => {
+		const { parsed } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-spaced.md",
+				content: `---\ntitle: "The tools"\nslug: the-tools \n---\n\nBody.`,
+			},
+		])
+
+		expect(parsed[0]?.slug).toBe("the-tools")
+		expect(parsed[0]?.slugRewrite?.content).toBe(
+			`---\ntitle: "The tools"\nslug: the-tools\n---\n\nBody.`
+		)
+	})
+
+	it("preserves CRLF end-to-end when it rewrites the slug", () => {
+		const { parsed } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-crlf.md",
+				content: `---\r\ntitle: "The tools"\r\n---\r\n\r\nBody.`,
+			},
+		])
+
+		expect(parsed[0]?.slugRewrite?.content).toBe(
+			`---\r\ntitle: "The tools"\r\nslug: the-tools\r\n---\r\n\r\nBody.`
+		)
+	})
 })
 
 // #endregion
@@ -349,6 +402,25 @@ describe("planPostImport — overwrite", () => {
 			overwrite: true,
 		})
 
+		expect(plan.updates[0]?.data.summary).toBeUndefined()
+	})
+
+	// Bodies diverge only past the 160-char summary window, so a still-derived
+	// summary resolves to the same text — the body updates, the summary doesn't.
+	it("omits the summary from the update when a derived summary is unchanged", () => {
+		const shared = Array.from({ length: 40 }, () => "word").join(" ")
+		const row = existing({ body: `${shared} alpha` })
+		const { parsed } = parsePostFiles([
+			fmFile("2026-01-01-0900-hello.md", "Hello world", `${shared} beta`),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data.body).toBe(`${shared} beta`)
 		expect(plan.updates[0]?.data.summary).toBeUndefined()
 	})
 

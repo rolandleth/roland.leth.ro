@@ -406,6 +406,22 @@ describe("createSlug", () => {
 	it("trims leading and trailing hyphens", () => {
 		expect(createSlug("---hello---")).toBe("hello")
 	})
+
+	// The importer's canonical-shape check relies on this: `createSlug` applied to
+	// an already-canonical slug must be a no-op, or every canonical file plans a
+	// phantom rewrite on each run.
+	it.each([
+		"Café au lait",
+		"design & code",
+		"Swift's new async/await: What's next?",
+		"Hello — World",
+		"foo---bar",
+		"100% @ home + more",
+	])("is idempotent for %j", (input) => {
+		const once = createSlug(input)
+
+		expect(createSlug(once)).toBe(once)
+	})
 })
 
 // #endregion

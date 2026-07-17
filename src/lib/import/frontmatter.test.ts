@@ -248,8 +248,14 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw).slug).toBe("hello-world")
 	})
 
-	it("returns null slug for an empty slug value", () => {
+	it("keeps a present-but-blank slug as an empty string, distinct from absent", () => {
 		const raw = `---\ntitle: "Hello world"\nslug:\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).slug).toBe("")
+	})
+
+	it("returns null slug when the line is absent", () => {
+		const raw = `---\ntitle: "Hello world"\n---\n\nBody.`
 
 		expect(parseFrontmatter(raw).slug).toBeNull()
 	})
@@ -309,6 +315,21 @@ describe("setFrontmatterSlug", () => {
 		const raw = `Just a plain title\n\nBody.`
 
 		expect(setFrontmatterSlug(raw, "hello-world")).toBe(raw)
+	})
+
+	// The importer's rewrite check is `setFrontmatterSlug(x, slug) === x`, so a
+	// canonical file must round-trip byte-for-byte or every re-run plans a phantom rewrite.
+	it("is a byte-for-byte no-op when the slug line is already canonical", () => {
+		const raw = `---\ntitle: "Hello world"\nslug: hello-world\n---\n\nBody.`
+
+		expect(setFrontmatterSlug(raw, "hello-world")).toBe(raw)
+	})
+
+	it("is idempotent — a second application changes nothing", () => {
+		const raw = `---\ntitle: "Hello world"\nslug: "Hello World"\n---\n\nBody.`
+		const once = setFrontmatterSlug(raw, "hello-world")
+
+		expect(setFrontmatterSlug(once, "hello-world")).toBe(once)
 	})
 
 	it("round-trips through parseFrontmatter", () => {
