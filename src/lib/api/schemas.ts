@@ -97,6 +97,63 @@ export const postBulkImportSchema = z.object({
 		.max(BULK_MAX_FILES),
 })
 
+// Guides
+
+// Canonical slug form — exactly what `createSlug` emits: lowercase
+// alphanumerics joined by single hyphens, no leading or trailing hyphen.
+//
+// Guide slugs are validated, never normalized. Unlike a post's (derived from
+// the title), a guide's slug is authored to match the search query it targets
+// and is permanent the moment it's indexed or shared — so a malformed one is a
+// loud error, not something to quietly rewrite. Silently rewriting the author's
+// chosen slug is exactly how a URL moves without anyone noticing.
+const canonicalSlug = z
+	.string()
+	.min(1)
+	.max(100)
+	.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+		message:
+			"Must be lowercase letters/digits separated by single hyphens, with no leading or trailing hyphen",
+	})
+
+// The meta description, the OG description, and the preview text on project and
+// topic pages all read this one field, so it's required, not optional. 160 is
+// the SERP truncation point (same reasoning as `postCreateSchema.summary`).
+const guideDescription = z.string().min(1).max(160)
+
+const guideFields = {
+	slug: canonicalSlug,
+	title: z.string().min(1).max(200),
+	description: guideDescription,
+	body: z.string().min(1).max(100_000),
+	// Slug reference, not an id — see the `projectSlug` note in schema.prisma.
+	// Validated for shape here; that it names a real project is checked in the
+	// route/import layer, which can hit the DB.
+	projectSlug: canonicalSlug.nullable().optional(),
+	topicId: z.number().int().positive().nullable().optional(),
+	sortOrder: z.number().int().min(0).optional(),
+	published: z.boolean().optional(),
+}
+
+export const guideCreateSchema = z.object(guideFields)
+export const guideUpdateSchema = z.object(guideFields).partial()
+
+const guideTopicFields = {
+	slug: canonicalSlug,
+	title: z.string().min(1).max(200),
+	// The one-line blurb on a project page. Not a meta description (the hub's
+	// own `<meta>` is derived from it but it isn't the only consumer), so it
+	// gets project-summary headroom rather than the 160-char SERP cap.
+	shortDescription: z.string().min(1).max(300),
+	// The hub body — a landing page in markdown, not manifest data.
+	description: z.string().min(1).max(100_000),
+	projectSlug: canonicalSlug.nullable().optional(),
+	published: z.boolean().optional(),
+}
+
+export const guideTopicCreateSchema = z.object(guideTopicFields)
+export const guideTopicUpdateSchema = z.object(guideTopicFields).partial()
+
 // Projects
 
 const projectLinkSchema = z.object({

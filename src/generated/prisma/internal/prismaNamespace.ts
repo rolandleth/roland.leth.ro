@@ -385,6 +385,8 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   Post: 'Post',
+  GuideTopic: 'GuideTopic',
+  Guide: 'Guide',
   Project: 'Project',
   ProjectSection: 'ProjectSection',
   ProjectSectionImage: 'ProjectSectionImage',
@@ -405,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "post" | "project" | "projectSection" | "projectSectionImage" | "projectLink" | "projectFaq"
+    modelProps: "post" | "guideTopic" | "guide" | "project" | "projectSection" | "projectSectionImage" | "projectLink" | "projectFaq"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -480,6 +482,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PostCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PostCountAggregateOutputType> | number
+        }
+      }
+    }
+    GuideTopic: {
+      payload: Prisma.$GuideTopicPayload<ExtArgs>
+      fields: Prisma.GuideTopicFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GuideTopicFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GuideTopicFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        findFirst: {
+          args: Prisma.GuideTopicFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GuideTopicFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        findMany: {
+          args: Prisma.GuideTopicFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>[]
+        }
+        create: {
+          args: Prisma.GuideTopicCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        createMany: {
+          args: Prisma.GuideTopicCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GuideTopicCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>[]
+        }
+        delete: {
+          args: Prisma.GuideTopicDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        update: {
+          args: Prisma.GuideTopicUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        deleteMany: {
+          args: Prisma.GuideTopicDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GuideTopicUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GuideTopicUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>[]
+        }
+        upsert: {
+          args: Prisma.GuideTopicUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuideTopicPayload>
+        }
+        aggregate: {
+          args: Prisma.GuideTopicAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGuideTopic>
+        }
+        groupBy: {
+          args: Prisma.GuideTopicGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuideTopicGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GuideTopicCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuideTopicCountAggregateOutputType> | number
+        }
+      }
+    }
+    Guide: {
+      payload: Prisma.$GuidePayload<ExtArgs>
+      fields: Prisma.GuideFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GuideFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GuideFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        findFirst: {
+          args: Prisma.GuideFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GuideFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        findMany: {
+          args: Prisma.GuideFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>[]
+        }
+        create: {
+          args: Prisma.GuideCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        createMany: {
+          args: Prisma.GuideCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GuideCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>[]
+        }
+        delete: {
+          args: Prisma.GuideDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        update: {
+          args: Prisma.GuideUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        deleteMany: {
+          args: Prisma.GuideDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GuideUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GuideUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>[]
+        }
+        upsert: {
+          args: Prisma.GuideUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GuidePayload>
+        }
+        aggregate: {
+          args: Prisma.GuideAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGuide>
+        }
+        groupBy: {
+          args: Prisma.GuideGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuideGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GuideCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GuideCountAggregateOutputType> | number
         }
       }
     }
@@ -910,6 +1060,40 @@ export const PostScalarFieldEnum = {
 export type PostScalarFieldEnum = (typeof PostScalarFieldEnum)[keyof typeof PostScalarFieldEnum]
 
 
+export const GuideTopicScalarFieldEnum = {
+  id: 'id',
+  slug: 'slug',
+  title: 'title',
+  shortDescription: 'shortDescription',
+  description: 'description',
+  projectSlug: 'projectSlug',
+  published: 'published',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuideTopicScalarFieldEnum = (typeof GuideTopicScalarFieldEnum)[keyof typeof GuideTopicScalarFieldEnum]
+
+
+export const GuideScalarFieldEnum = {
+  id: 'id',
+  slug: 'slug',
+  title: 'title',
+  description: 'description',
+  body: 'body',
+  projectSlug: 'projectSlug',
+  topicId: 'topicId',
+  sortOrder: 'sortOrder',
+  readingTime: 'readingTime',
+  published: 'published',
+  publishedAt: 'publishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuideScalarFieldEnum = (typeof GuideScalarFieldEnum)[keyof typeof GuideScalarFieldEnum]
+
+
 export const ProjectScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1258,6 +1442,8 @@ export type PrismaClientOptions = ({
 }
 export type GlobalOmitConfig = {
   post?: Prisma.PostOmit
+  guideTopic?: Prisma.GuideTopicOmit
+  guide?: Prisma.GuideOmit
   project?: Prisma.ProjectOmit
   projectSection?: Prisma.ProjectSectionOmit
   projectSectionImage?: Prisma.ProjectSectionImageOmit

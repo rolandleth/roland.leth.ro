@@ -9,6 +9,8 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/Post'
+export type * from './models/GuideTopic'
+export type * from './models/Guide'
 export type * from './models/Project'
 export type * from './models/ProjectSection'
 export type * from './models/ProjectSectionImage'

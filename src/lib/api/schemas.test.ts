@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import {
+	guideCreateSchema,
+	guideTopicCreateSchema,
+	guideTopicUpdateSchema,
+	guideUpdateSchema,
 	loginSchema,
 	postCreateSchema,
 	postUpdateSchema,
 	projectCreateSchema,
 	projectUpdateSchema,
 } from "@/lib/api/schemas"
+import { createSlug } from "@/lib/utils/format"
 
 // #region httpUrl (tested indirectly through schema fields that use it)
 
@@ -186,6 +191,269 @@ describe("postUpdateSchema", () => {
 	it("still rejects an invalid imageUrl in a partial update", () => {
 		expect(
 			postUpdateSchema.safeParse({ imageUrl: "javascript:void(0)" }).success
+		).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region guideCreateSchema
+
+describe("guideCreateSchema", () => {
+	const valid = {
+		slug: "how-to-keep-a-decision-journal",
+		title: "How to keep a decision journal",
+		description: "What to write down before an outcome exists, and why.",
+		body: "Body markdown.",
+	}
+
+	it("accepts a minimal valid guide", () => {
+		expect(guideCreateSchema.safeParse(valid).success).toBe(true)
+	})
+
+	it("accepts the full optional set", () => {
+		const result = guideCreateSchema.safeParse({
+			...valid,
+			projectSlug: "reckon",
+			topicId: 3,
+			sortOrder: 2,
+			published: false,
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("requires a slug — it is authored, never derived from the title", () => {
+		const { slug, ...withoutSlug } = valid
+		expect(slug).toBeDefined()
+		expect(guideCreateSchema.safeParse(withoutSlug).success).toBe(false)
+	})
+
+	it("requires a description — every guide has a meta/OG/preview surface", () => {
+		const { description, ...withoutDescription } = valid
+		expect(description).toBeDefined()
+		expect(guideCreateSchema.safeParse(withoutDescription).success).toBe(false)
+	})
+
+	it("rejects an empty body", () => {
+		expect(guideCreateSchema.safeParse({ ...valid, body: "" }).success).toBe(
+			false
+		)
+	})
+
+	it("allows a null projectSlug for a non-product guide", () => {
+		const result = guideCreateSchema.safeParse({ ...valid, projectSlug: null })
+		expect(result.success).toBe(true)
+	})
+
+	it("allows a null topicId for an ungrouped guide", () => {
+		const result = guideCreateSchema.safeParse({ ...valid, topicId: null })
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a zero or negative topicId", () => {
+		expect(guideCreateSchema.safeParse({ ...valid, topicId: 0 }).success).toBe(
+			false
+		)
+		expect(guideCreateSchema.safeParse({ ...valid, topicId: -1 }).success).toBe(
+			false
+		)
+	})
+
+	it("rejects a non-integer sortOrder", () => {
+		expect(
+			guideCreateSchema.safeParse({ ...valid, sortOrder: 1.5 }).success
+		).toBe(false)
+	})
+
+	it("rejects a negative sortOrder", () => {
+		expect(
+			guideCreateSchema.safeParse({ ...valid, sortOrder: -1 }).success
+		).toBe(false)
+	})
+
+	it("accepts a description at exactly the 160-char SERP cap", () => {
+		const result = guideCreateSchema.safeParse({
+			...valid,
+			description: "d".repeat(160),
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a description one char over the cap", () => {
+		const result = guideCreateSchema.safeParse({
+			...valid,
+			description: "d".repeat(161),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a title over 200 chars", () => {
+		expect(
+			guideCreateSchema.safeParse({ ...valid, title: "t".repeat(201) }).success
+		).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region canonical slug validation
+
+describe("guideCreateSchema — canonical slug form", () => {
+	const base = {
+		title: "T",
+		description: "D",
+		body: "B",
+	}
+
+	function parseSlug(slug: string) {
+		return guideCreateSchema.safeParse({ ...base, slug }).success
+	}
+
+	it.each([
+		["single word", "guides"],
+		["hyphenated words", "how-to-keep-a-decision-journal"],
+		["digits", "top-10-mistakes"],
+		["all digits", "2026"],
+	])("accepts %s", (_label, slug) => {
+		expect(parseSlug(slug)).toBe(true)
+	})
+
+	it.each([
+		["uppercase", "How-To"],
+		["a leading hyphen", "-leading"],
+		["a trailing hyphen", "trailing-"],
+		["a doubled hyphen", "double--hyphen"],
+		["spaces", "with spaces"],
+		["an underscore", "with_underscore"],
+		["a slash", "nested/path"],
+		["a dot", "file.md"],
+		["an accented letter", "café"],
+		["an empty string", ""],
+	])("rejects %s", (_label, slug) => {
+		expect(parseSlug(slug)).toBe(false)
+	})
+
+	it("rejects a slug over 100 chars", () => {
+		expect(parseSlug("a".repeat(101))).toBe(false)
+	})
+
+	// The validator's contract: it accepts exactly what `createSlug` emits, so a
+	// slug that survives normalization is always writable, and one that doesn't
+	// is a loud error rather than a silent rewrite.
+	it.each([
+		"How to keep a decision journal",
+		"Do decision journals work?",
+		"C++ & Rust: a comparison",
+		"Café — naïve résumé",
+	])("accepts whatever createSlug emits for %j", (title) => {
+		expect(parseSlug(createSlug(title))).toBe(true)
+	})
+
+	it("rejects a projectSlug that is not canonical", () => {
+		const result = guideCreateSchema.safeParse({
+			...base,
+			slug: "fine",
+			projectSlug: "Not Canonical",
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region guideUpdateSchema
+
+describe("guideUpdateSchema", () => {
+	it("accepts an empty object", () => {
+		expect(guideUpdateSchema.safeParse({}).success).toBe(true)
+	})
+
+	it("accepts a single field", () => {
+		expect(guideUpdateSchema.safeParse({ title: "New title" }).success).toBe(
+			true
+		)
+	})
+
+	it("still validates the fields it is given", () => {
+		expect(guideUpdateSchema.safeParse({ slug: "Not Canonical" }).success).toBe(
+			false
+		)
+	})
+})
+
+// #endregion
+
+// #region guideTopicCreateSchema
+
+describe("guideTopicCreateSchema", () => {
+	const valid = {
+		slug: "making-better-decisions",
+		title: "Making better decisions",
+		shortDescription: "A method for judging your own calls honestly.",
+		description: "Hub body markdown.",
+	}
+
+	it("accepts a minimal valid topic", () => {
+		expect(guideTopicCreateSchema.safeParse(valid).success).toBe(true)
+	})
+
+	it("accepts a project and publish state", () => {
+		const result = guideTopicCreateSchema.safeParse({
+			...valid,
+			projectSlug: "reckon",
+			published: false,
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("requires a shortDescription — it is the project-page blurb", () => {
+		const { shortDescription, ...without } = valid
+		expect(shortDescription).toBeDefined()
+		expect(guideTopicCreateSchema.safeParse(without).success).toBe(false)
+	})
+
+	it("requires a hub body", () => {
+		expect(
+			guideTopicCreateSchema.safeParse({ ...valid, description: "" }).success
+		).toBe(false)
+	})
+
+	it("accepts a shortDescription at exactly 300 chars", () => {
+		const result = guideTopicCreateSchema.safeParse({
+			...valid,
+			shortDescription: "s".repeat(300),
+		})
+		expect(result.success).toBe(true)
+	})
+
+	it("rejects a shortDescription one char over", () => {
+		const result = guideTopicCreateSchema.safeParse({
+			...valid,
+			shortDescription: "s".repeat(301),
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("rejects a non-canonical slug", () => {
+		expect(
+			guideTopicCreateSchema.safeParse({ ...valid, slug: "Making Better" })
+				.success
+		).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region guideTopicUpdateSchema
+
+describe("guideTopicUpdateSchema", () => {
+	it("accepts an empty object", () => {
+		expect(guideTopicUpdateSchema.safeParse({}).success).toBe(true)
+	})
+
+	it("still validates the fields it is given", () => {
+		expect(
+			guideTopicUpdateSchema.safeParse({ shortDescription: "" }).success
 		).toBe(false)
 	})
 })

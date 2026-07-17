@@ -1,8 +1,42 @@
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
 import type { ProjectListItem } from "@/lib/db/projects"
 
 export const TEST_SECRET = "abc123"
+
+/** Fixed so `updatedAt` assertions don't depend on wall-clock time. */
+const FIXTURE_DATE = new Date("2026-07-01T12:00:00.000Z")
+
+export function makeGuideListItem(
+	overrides: Partial<GuideListItem> = {}
+): GuideListItem {
+	return {
+		id: 1,
+		slug: "how-to-keep-a-decision-journal",
+		title: "How to keep a decision journal",
+		description: "What to write down before an outcome exists, and why.",
+		projectSlug: "reckon",
+		sortOrder: 0,
+		readingTime: "6 min read",
+		updatedAt: FIXTURE_DATE,
+		...overrides,
+	}
+}
+
+export function makeGuideTopicSummary(
+	overrides: Partial<GuideTopicSummary> = {}
+): GuideTopicSummary {
+	return {
+		id: 1,
+		slug: "making-better-decisions",
+		title: "Making better decisions",
+		shortDescription: "A method for judging your own calls honestly.",
+		projectSlug: "reckon",
+		updatedAt: FIXTURE_DATE,
+		...overrides,
+	}
+}
 
 export function makePost(overrides: Partial<PostListItem> = {}): PostListItem {
 	return {

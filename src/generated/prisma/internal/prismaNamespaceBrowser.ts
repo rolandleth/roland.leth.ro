@@ -52,6 +52,8 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Post: 'Post',
+  GuideTopic: 'GuideTopic',
+  Guide: 'Guide',
   Project: 'Project',
   ProjectSection: 'ProjectSection',
   ProjectSectionImage: 'ProjectSectionImage',
@@ -91,6 +93,40 @@ export const PostScalarFieldEnum = {
 } as const
 
 export type PostScalarFieldEnum = (typeof PostScalarFieldEnum)[keyof typeof PostScalarFieldEnum]
+
+
+export const GuideTopicScalarFieldEnum = {
+  id: 'id',
+  slug: 'slug',
+  title: 'title',
+  shortDescription: 'shortDescription',
+  description: 'description',
+  projectSlug: 'projectSlug',
+  published: 'published',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuideTopicScalarFieldEnum = (typeof GuideTopicScalarFieldEnum)[keyof typeof GuideTopicScalarFieldEnum]
+
+
+export const GuideScalarFieldEnum = {
+  id: 'id',
+  slug: 'slug',
+  title: 'title',
+  description: 'description',
+  body: 'body',
+  projectSlug: 'projectSlug',
+  topicId: 'topicId',
+  sortOrder: 'sortOrder',
+  readingTime: 'readingTime',
+  published: 'published',
+  publishedAt: 'publishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GuideScalarFieldEnum = (typeof GuideScalarFieldEnum)[keyof typeof GuideScalarFieldEnum]
 
 
 export const ProjectScalarFieldEnum = {
