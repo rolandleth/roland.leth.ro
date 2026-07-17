@@ -2,8 +2,148 @@ import { describe, expect, it } from "vitest"
 import {
 	buildPostFile,
 	parseFrontmatter,
+	parseFrontmatterFields,
 	setFrontmatterSlug,
 } from "./frontmatter"
+
+// #region parseFrontmatterFields
+
+describe("parseFrontmatterFields", () => {
+	const KEYS = ["slug", "title", "description", "sortOrder"] as const
+
+	function parse(raw: string) {
+		return parseFrontmatterFields(raw, KEYS)
+	}
+
+	it("reads every allowed key into a map, with the body after the block", () => {
+		const result = parse(`---\nslug: a-slug\ntitle: A title\n---\n\nBody text.`)
+
+		expect(result).toEqual({
+			ok: true,
+			fields: { slug: "a-slug", title: "A title" },
+			body: "Body text.",
+		})
+	})
+
+	it("reports a missing block rather than treating the whole file as body", () => {
+		const result = parse("No frontmatter here.")
+
+		expect(result).toEqual({
+			ok: false,
+			error: expect.stringContaining("No frontmatter block"),
+		})
+	})
+
+	// The block must start at byte zero; a leading blank line means no block.
+	it("reports a block that doesn't start at the first byte", () => {
+		const result = parse(`\n---\nslug: a\n---\n\nBody.`)
+
+		expect(result.ok).toBe(false)
+	})
+
+	// The parser would take the first and ignore the rest, importing a stale value.
+	it("rejects a duplicate key", () => {
+		const result = parse(`---\nslug: first\nslug: second\n---\n\nBody.`)
+
+		expect(result).toEqual({
+			ok: false,
+			error: expect.stringContaining("Duplicate frontmatter key `slug`"),
+		})
+	})
+
+	it("rejects a duplicate key even when the first occurrence was empty", () => {
+		const result = parse(`---\nslug:\nslug: second\n---\n\nBody.`)
+
+		expect(result.ok).toBe(false)
+	})
+
+	// A typo'd optional key would otherwise import quietly wrong.
+	it("rejects an unknown key and names the allowed set", () => {
+		const result = parse(`---\nslug: a\ntopics: oops\n---\n\nBody.`)
+
+		expect(result).toEqual({
+			ok: false,
+			error: expect.stringContaining("Unknown frontmatter key `topics`"),
+		})
+	})
+
+	it("rejects a line with no separator — values are single-line", () => {
+		const result = parse(`---\nslug: a\nthis is a wrapped value\n---\n\nBody.`)
+
+		expect(result).toEqual({
+			ok: false,
+			error: expect.stringContaining("Malformed frontmatter line"),
+		})
+	})
+
+	it("rejects a line starting with the separator", () => {
+		expect(parse(`---\n: value\n---\n\nBody.`).ok).toBe(false)
+	})
+
+	it("keeps colons inside a value", () => {
+		const result = parse(`---\ntitle: A title: with a colon\n---\n\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { title: "A title: with a colon" } })
+		)
+	})
+
+	it("treats an empty value as absent so a required-field check catches it", () => {
+		const result = parse(`---\nslug:\ntitle: T\n---\n\nBody.`)
+
+		expect(result).toEqual(expect.objectContaining({ fields: { title: "T" } }))
+	})
+
+	it("ignores blank lines inside the block", () => {
+		const result = parse(`---\nslug: a\n\ntitle: T\n---\n\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { slug: "a", title: "T" } })
+		)
+	})
+
+	it("unquotes a fully double-quoted value", () => {
+		const result = parse(`---\ntitle: "Quoted"\n---\n\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { title: "Quoted" } })
+		)
+	})
+
+	it("leaves a value quoted on only one end alone", () => {
+		const result = parse(`---\ntitle: "Half quoted\n---\n\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { title: '"Half quoted' } })
+		)
+	})
+
+	it("keeps sortOrder as a raw string for the caller to validate", () => {
+		const result = parse(`---\nslug: a\nsortOrder: 1.5\n---\n\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { slug: "a", sortOrder: "1.5" } })
+		)
+	})
+
+	it("handles CRLF line endings", () => {
+		const result = parse(`---\r\nslug: a\r\ntitle: T\r\n---\r\n\r\nBody.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ fields: { slug: "a", title: "T" } })
+		)
+	})
+
+	it("ends the block at the first closing `---`, not one in the body", () => {
+		const result = parse(`---\nslug: a\n---\n\nBody.\n\n---\n\nMore.`)
+
+		expect(result).toEqual(
+			expect.objectContaining({ body: "Body.\n\n---\n\nMore." })
+		)
+	})
+})
+
+// #endregion
 
 // #region parseFrontmatter
 

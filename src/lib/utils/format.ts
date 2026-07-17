@@ -67,6 +67,61 @@ export function formatDate(datetime: string): string {
 }
 
 /**
+ * Formats a `Date` as a human-readable day, in the same shape as `formatDate`
+ * ("Jul 17, 2026").
+ *
+ * Deliberately NOT sharing an implementation with `formatDate`, despite the
+ * identical output shape. A post's `yyyy-MM-dd` is a calendar day by
+ * construction — `formatDate` builds a local midnight from its parts, so the
+ * day it renders is the day that was authored, whatever the zone. A guide's
+ * `updatedAt` is an *instant*, so it needs `timeZone: "UTC"` pinned or a build
+ * at 23:30Z would render one day locally and another on Vercel — and the same
+ * value goes out as JSON-LD `dateModified`, where a visible/structured
+ * disagreement is a real inconsistency. Folding these together would silently
+ * shift every post's date by a day in any zone behind UTC.
+ */
+export function formatDateValue(date: Date): string {
+	return date.toLocaleDateString("en-US", {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		timeZone: "UTC",
+	})
+}
+
+/**
+ * Parses a `yyyy-MM-dd-HHmm` datetime string into a `Date` at that instant in
+ * UTC, or null when it doesn't parse.
+ *
+ * UTC, where `postDatetimeToISO` below builds a local `Date`, because this one
+ * feeds a real `DateTime` column (`Guide.publishedAt`) instead of being rendered
+ * back through the same local lens it was built with. A post stores its string
+ * and formats it locally on both sides, so the two cancel out. A guide's
+ * `2026-07-13-0000` built locally in UTC+2 would persist as 2026-07-12T22:00Z,
+ * and `formatDateValue` — UTC-pinned, like every guide dateline — would then
+ * render it a day early, disagreeing with the filename that authored it.
+ */
+export function datetimeToUtcDate(datetime: string): Date | null {
+	const match = datetime.match(DATETIME_REGEX)
+
+	if (!match) {
+		return null
+	}
+
+	const [, year, month, day, hours, minutes] = match
+
+	return new Date(
+		Date.UTC(
+			Number.parseInt(year, 10),
+			Number.parseInt(month, 10) - 1,
+			Number.parseInt(day, 10),
+			hours ? Number.parseInt(hours, 10) : 0,
+			minutes ? Number.parseInt(minutes, 10) : 0
+		)
+	)
+}
+
+/**
  * Parses a `yyyy-MM-dd-HHmm` datetime string into an ISO 8601 string.
  * Returns `undefined` on malformed input — `undefined` (not `null`) so
  * callers can pass the result straight into React props / Next.js

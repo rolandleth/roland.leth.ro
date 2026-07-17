@@ -111,6 +111,94 @@ export function setFrontmatterSlug(raw: string, slug: string): string {
 	return `---${eol}${lines.join(eol)}${eol}${closing}${raw.slice(match[0].length)}`
 }
 
+export type FrontmatterFields = Readonly<Record<string, string>>
+
+export type FrontmatterResult =
+	| { ok: true; fields: FrontmatterFields; body: string }
+	| { ok: false; error: string }
+
+/**
+ * Strict variant of `parseFrontmatter` for blocks with more than a couple of
+ * fields: reads every key into a map, and rejects anything it doesn't recognise.
+ *
+ * Separate from `parseFrontmatter` rather than replacing it, because the two
+ * want opposite failure modes. A post has two known fields and an archive of
+ * hand-written files that may carry anything else; ignoring the rest is correct
+ * there. A guide has six, they're all load-bearing (a typo'd `descriptoin:`
+ * would import a page with no meta description and no complaint), and its files
+ * are written against this spec — so unknown and duplicate keys are errors.
+ *
+ * The parser's inherent rules, which the authoring docs restate:
+ *  - values are single-line; a wrapped value's continuation has no `:` and is
+ *    reported as malformed rather than silently joined;
+ *  - the block must start at byte zero of the file;
+ *  - a value that both starts and ends with the same quote character is
+ *    unquoted (so quote a value fully, or not at all);
+ *  - an empty value counts as absent, so a required-field check catches it.
+ */
+export function parseFrontmatterFields(
+	raw: string,
+	allowedKeys: readonly string[]
+): FrontmatterResult {
+	const match = raw.match(FRONTMATTER_BLOCK)
+
+	if (!match) {
+		return {
+			ok: false,
+			error:
+				"No frontmatter block (`---` must be the first line, with a closing `---` below)",
+		}
+	}
+
+	const allowed = new Set(allowedKeys)
+	const seen = new Set<string>()
+	const fields: Record<string, string> = {}
+
+	for (const line of match[1].split(/\r?\n/)) {
+		if (line.trim() === "") {
+			continue
+		}
+
+		const separator = line.indexOf(":")
+
+		if (separator <= 0) {
+			return {
+				ok: false,
+				error: `Malformed frontmatter line (expected \`key: value\` on one line): ${line.trim()}`,
+			}
+		}
+
+		const key = line.slice(0, separator).trim()
+
+		if (!allowed.has(key)) {
+			return {
+				ok: false,
+				error: `Unknown frontmatter key \`${key}\` (allowed: ${allowedKeys.join(", ")})`,
+			}
+		}
+
+		// The parser would otherwise take the first and ignore the rest, so an
+		// edited-but-not-deleted line would import the stale value.
+		if (seen.has(key)) {
+			return { ok: false, error: `Duplicate frontmatter key \`${key}\`` }
+		}
+
+		seen.add(key)
+
+		const value = unquote(line.slice(separator + 1).trim())
+
+		if (value !== "") {
+			fields[key] = value
+		}
+	}
+
+	return {
+		ok: true,
+		fields,
+		body: raw.slice(match[0].length).replace(/^[\r\n]+/, ""),
+	}
+}
+
 /**
  * Escapes a string for embedding inside a double-quoted YAML value: `\` → `\\`,
  * `"` → `\"`. The exact inverse of `unquote`'s double-quoted branch, so any value

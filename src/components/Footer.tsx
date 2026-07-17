@@ -17,6 +17,15 @@ export default function Footer() {
 					>
 						Archive
 					</Link>
+					{/* Guides are deliberately out of the header nav; this link and the
+					    sitemap are their discoverability floor for anyone not arriving
+					    from search or a project page. */}
+					<Link
+						href="/guides"
+						className="transition-colors hover:text-(--color-accent)"
+					>
+						Guides
+					</Link>
 					<span aria-hidden className="h-3 w-px bg-(--color-border)" />
 					<a
 						href="https://github.com/rolandleth"

@@ -47,6 +47,16 @@ export { Prisma }
  */
 export type Post = Prisma.PostModel
 /**
+ * Model GuideTopic
+ * 
+ */
+export type GuideTopic = Prisma.GuideTopicModel
+/**
+ * Model Guide
+ * 
+ */
+export type Guide = Prisma.GuideModel
+/**
  * Model Project
  * 
  */

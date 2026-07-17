@@ -17,6 +17,12 @@ vi.mock("@/lib/db/db", () => ({
 		project: {
 			findMany: vi.fn(),
 		},
+		guide: {
+			findMany: vi.fn(),
+		},
+		guideTopic: {
+			findMany: vi.fn(),
+		},
 	},
 }))
 
@@ -46,11 +52,48 @@ function postStub(
 	}
 }
 
+function guideStub(
+	overrides: {
+		slug?: string
+		topicId?: number | null
+		updatedAt?: Date
+		publishedAt?: Date | null
+	} = {}
+) {
+	return {
+		id: 1,
+		slug: "how-to-keep-a-decision-journal",
+		title: "How to keep a decision journal",
+		description: "D",
+		projectSlug: null,
+		sortOrder: 0,
+		readingTime: null,
+		publishedAt: new Date("2026-07-17"),
+		updatedAt: new Date("2026-07-17"),
+		topicId: null,
+		...overrides,
+	}
+}
+
+function topicStub(overrides: { slug?: string; updatedAt?: Date } = {}) {
+	return {
+		id: 1,
+		slug: "making-better-decisions",
+		title: "Making better decisions",
+		shortDescription: "S",
+		projectSlug: null,
+		updatedAt: new Date("2026-07-17"),
+		...overrides,
+	}
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 	vi.stubEnv("NEXT_PUBLIC_SITE_URL", BASE)
 	vi.mocked(prisma.post.findMany).mockResolvedValue([])
 	vi.mocked(prisma.project.findMany).mockResolvedValue([])
+	vi.mocked(prisma.guide.findMany).mockResolvedValue([])
+	vi.mocked(prisma.guideTopic.findMany).mockResolvedValue([])
 	// `getAllPublishedPostSlugs` now reads `currentDatetimeString()` inside the
 	// cached fn for the `datetime <= now` filter; `resetAllMocks` clears the
 	// factory's `mockReturnValue`, so restore it here.
@@ -130,11 +173,18 @@ describe("sitemap — static routes", () => {
 		expect(route?.priority).toBe(0.5)
 	})
 
-	it("returns 10 static routes when there are no posts or projects", async () => {
+	it("includes the guides index", async () => {
+		const result = await sitemap()
+		const route = result.find((r) => r.url === `${BASE}/guides`)
+		expect(route).toBeDefined()
+		expect(route?.changeFrequency).toBe("weekly")
+	})
+
+	it("returns 11 static routes when there are no posts, projects, or guides", async () => {
 		const result = await sitemap()
 		// home + about + projects + tools/loan-calculator + privacy + privacy/body-tracking
-		// + 2 section indexes + 2 archives
-		expect(result).toHaveLength(10)
+		// + 2 section indexes + 2 archives + guides index
+		expect(result).toHaveLength(11)
 	})
 
 	it("marks home/about/projects/blog-index/archive routes as 'weekly'", async () => {
@@ -210,8 +260,8 @@ describe("sitemap — post routes", () => {
 	it("combines static and post routes", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([postStub() as never])
 		const result = await sitemap()
-		// 10 static + 1 post
-		expect(result).toHaveLength(11)
+		// 11 static + 1 post
+		expect(result).toHaveLength(12)
 	})
 
 	it("queries every published post (including scheduled) so the read-time filter can surface them", async () => {
@@ -303,6 +353,112 @@ describe("sitemap — project routes", () => {
 		const result = await sitemap()
 		const route = result.find((r) => r.url === `${BASE}/projects/my-app`)
 		expect(route?.lastModified).toEqual(updatedAt)
+	})
+})
+
+// #endregion
+
+// #region Guide routes
+
+describe("sitemap — guide routes", () => {
+	it("includes a route for each published guide", async () => {
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ slug: "first-guide" }),
+			guideStub({ slug: "second-guide" }),
+		] as never)
+
+		const result = await sitemap()
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/guides/first-guide` })
+		)
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/guides/second-guide` })
+		)
+	})
+
+	it("includes a route for each published topic hub", async () => {
+		vi.mocked(prisma.guideTopic.findMany).mockResolvedValue([
+			topicStub({ slug: "making-better-decisions" }),
+		] as never)
+
+		const result = await sitemap()
+		expect(result).toContainEqual(
+			expect.objectContaining({
+				url: `${BASE}/guides/making-better-decisions`,
+			})
+		)
+	})
+
+	// The whole reason guides got their own top-level route: they're maintained
+	// pages, so telling a crawler `never` (as posts do) is exactly wrong.
+	it("marks guides 'monthly', not 'never' like posts", async () => {
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([guideStub() as never])
+
+		const result = await sitemap()
+		const route = result.find((r) =>
+			r.url.endsWith("/guides/how-to-keep-a-decision-journal")
+		)
+		expect(route?.changeFrequency).toBe("monthly")
+	})
+
+	it("propagates the guide's real updatedAt to lastModified", async () => {
+		const updatedAt = new Date("2026-07-17")
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ updatedAt }) as never,
+		])
+
+		const result = await sitemap()
+		const route = result.find((r) =>
+			r.url.endsWith("/guides/how-to-keep-a-decision-journal")
+		)
+		expect(route?.lastModified).toEqual(updatedAt)
+	})
+
+	it("emits a grouped guide once, at its flat URL — not nested under its topic", async () => {
+		vi.mocked(prisma.guideTopic.findMany).mockResolvedValue([
+			topicStub({ slug: "topic-a" }),
+		] as never)
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ slug: "in-topic", topicId: 1 }),
+		] as never)
+
+		const result = await sitemap()
+		const guideRoutes = result.filter((r) => r.url.includes("/guides/in-topic"))
+		expect(guideRoutes).toHaveLength(1)
+		expect(guideRoutes[0].url).toBe(`${BASE}/guides/in-topic`)
+	})
+
+	// End-to-end check of the read-time filter: a guide dated in the future is
+	// in the DB but must not be crawlable until its date passes.
+	it("excludes a scheduled guide's URL", async () => {
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ slug: "live" }),
+			guideStub({
+				slug: "scheduled",
+				publishedAt: new Date("2999-01-01"),
+			}),
+		] as never)
+
+		const result = await sitemap()
+
+		expect(result.find((r) => r.url.endsWith("/guides/live"))).toBeDefined()
+		expect(
+			result.find((r) => r.url.endsWith("/guides/scheduled"))
+		).toBeUndefined()
+	})
+
+	it("still lists a guide whose topic is unpublished", async () => {
+		// Unpublishing a hub dissolves the grouping; it must never deindex the
+		// live guides underneath it.
+		vi.mocked(prisma.guideTopic.findMany).mockResolvedValue([])
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			guideStub({ slug: "orphaned", topicId: 99 }),
+		] as never)
+
+		const result = await sitemap()
+		expect(result).toContainEqual(
+			expect.objectContaining({ url: `${BASE}/guides/orphaned` })
+		)
 	})
 })
 

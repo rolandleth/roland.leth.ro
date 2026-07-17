@@ -6,6 +6,11 @@ export interface PageMetadataInput {
 	path: string
 	image?: string | null
 	publishedTime?: string
+	/**
+	 * `article:modified_time`. For maintained pages (guides), the freshness
+	 * signal that matters — unlike a blog post, the publish date isn't the point.
+	 */
+	modifiedTime?: string
 	type?: "article" | "website"
 	keywords?: string[]
 	/**
@@ -14,6 +19,14 @@ export interface PageMetadataInput {
 	 * crawlers and AI systems can discover it without guessing the URL.
 	 */
 	markdownPath?: string
+	/**
+	 * When set, emits `<link rel="canonical">` at this path (resolved against the
+	 * layout's `metadataBase`). Opt-in rather than defaulted to `path`: it's only
+	 * wired up for surfaces that get shared with tracking params attached, and
+	 * turning it on everywhere at once would silently assert a canonical for
+	 * pages nobody has audited for multi-path reachability.
+	 */
+	canonicalPath?: string
 }
 
 /**
@@ -35,9 +48,11 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		path,
 		image,
 		publishedTime,
+		modifiedTime,
 		type,
 		keywords,
 		markdownPath,
+		canonicalPath,
 	} = input
 
 	// Dev-only guard: the JSDoc above warns about the double-brand pitfall,
@@ -58,19 +73,31 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	const ogTitle = `${title} | Roland Leth`
 	const images = image ? [image] : undefined
 
+	// `canonical` and `types` are independent opt-ins, so the object is built up
+	// rather than ternary'd on one of them — and stays `undefined` when neither
+	// applies, so callers that want neither emit no `alternates` at all.
+	const alternates: NonNullable<Metadata["alternates"]> = {}
+
+	if (canonicalPath !== undefined) {
+		alternates.canonical = canonicalPath
+	}
+
+	if (markdownPath !== undefined) {
+		alternates.types = { "text/markdown": markdownPath }
+	}
+
 	return {
 		title,
 		description,
 		keywords,
-		alternates: markdownPath
-			? { types: { "text/markdown": markdownPath } }
-			: undefined,
+		alternates: Object.keys(alternates).length > 0 ? alternates : undefined,
 		openGraph: {
 			type: type ?? "website",
 			title: ogTitle,
 			description,
 			url: path,
 			publishedTime,
+			modifiedTime,
 			images,
 		},
 		twitter: {

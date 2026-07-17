@@ -3,7 +3,9 @@ import {
 	calculateReadingTime,
 	createSlug,
 	currentDatetimeString,
+	datetimeToUtcDate,
 	formatDate,
+	formatDateValue,
 	parseIntId,
 	parsePageParam,
 	postDatetimeToISO,
@@ -170,6 +172,96 @@ describe("formatDate", () => {
 
 	it("returns the raw string for an empty string", () => {
 		expect(formatDate("")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region formatDateValue
+
+describe("formatDateValue", () => {
+	it("formats a mid-year date in the same shape as formatDate", () => {
+		expect(formatDateValue(new Date("2025-01-15T09:30:00.000Z"))).toBe(
+			"Jan 15, 2025"
+		)
+	})
+
+	it("formats a leap-day date", () => {
+		expect(formatDateValue(new Date("2024-02-29T12:00:00.000Z"))).toBe(
+			"Feb 29, 2024"
+		)
+	})
+
+	// The reason this can't just delegate to `formatDate`: an instant late in the
+	// UTC day would render as the next day in any zone ahead of UTC and the
+	// previous one behind it, so the visible dateline would disagree with the
+	// JSON-LD `dateModified` built from the same value.
+	it("pins to UTC so a late-in-the-day instant renders the same day everywhere", () => {
+		expect(formatDateValue(new Date("2026-07-17T23:30:00.000Z"))).toBe(
+			"Jul 17, 2026"
+		)
+	})
+
+	it("pins to UTC for an early-in-the-day instant too", () => {
+		expect(formatDateValue(new Date("2026-07-17T00:30:00.000Z"))).toBe(
+			"Jul 17, 2026"
+		)
+	})
+
+	it("formats a year boundary without rolling into the next year", () => {
+		expect(formatDateValue(new Date("2024-12-31T23:59:00.000Z"))).toBe(
+			"Dec 31, 2024"
+		)
+	})
+})
+
+// #endregion
+
+// #region datetimeToUtcDate
+
+describe("datetimeToUtcDate", () => {
+	it("parses a date-only datetime to UTC midnight", () => {
+		expect(datetimeToUtcDate("2026-07-13-0000")?.toISOString()).toBe(
+			"2026-07-13T00:00:00.000Z"
+		)
+	})
+
+	it("parses an explicit time", () => {
+		expect(datetimeToUtcDate("2026-07-13-0930")?.toISOString()).toBe(
+			"2026-07-13T09:30:00.000Z"
+		)
+	})
+
+	it("parses a datetime with no time component at all", () => {
+		expect(datetimeToUtcDate("2026-07-13")?.toISOString()).toBe(
+			"2026-07-13T00:00:00.000Z"
+		)
+	})
+
+	// The whole reason this doesn't reuse `postDatetimeToISO`: that builds a
+	// local Date, so in any zone ahead of UTC the stored instant lands on the
+	// previous day and every UTC-pinned guide surface renders it a day early.
+	it("does not shift the day, whatever the runner's timezone", () => {
+		const parsed = datetimeToUtcDate("2026-07-13-0000")
+
+		expect(parsed?.getUTCDate()).toBe(13)
+		expect(parsed?.getUTCMonth()).toBe(6)
+		expect(parsed?.getUTCFullYear()).toBe(2026)
+	})
+
+	it("round-trips through formatDateValue to the same day", () => {
+		const parsed = datetimeToUtcDate("2026-07-13-2359")
+
+		expect(formatDateValue(parsed as Date)).toBe("Jul 13, 2026")
+	})
+
+	it("returns null on malformed input", () => {
+		expect(datetimeToUtcDate("not-a-date")).toBeNull()
+		expect(datetimeToUtcDate("")).toBeNull()
+	})
+
+	it("returns null on trailing garbage rather than parsing the prefix", () => {
+		expect(datetimeToUtcDate("2026-07-13-0000-extra")).toBeNull()
 	})
 })
 

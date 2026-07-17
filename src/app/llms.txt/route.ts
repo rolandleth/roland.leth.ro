@@ -1,5 +1,7 @@
 import { getSiteUrl } from "@/lib/auth/env"
+import { getGuidesOverview } from "@/lib/db/guides"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
+import type { GuidesOverview } from "@/lib/db/guides"
 
 // Prerender at build instead of per-request: this handler has no dynamic
 // dependency (env origin + tag-cached project data), so it serves as a static
@@ -17,9 +19,55 @@ function oneLine(text: string): string {
 	return text.replace(/\s+/g, " ").trim()
 }
 
+function linkLine(
+	base: string,
+	entry: { slug: string; title: string },
+	description: string,
+	indent = ""
+): string {
+	return `${indent}- [${entry.title}](${base}/guides/${entry.slug}): ${oneLine(description)}`
+}
+
+/**
+ * The `## Guides` block: topic hubs with their guides nested beneath them, then
+ * ungrouped guides. The nesting is the point — it's the only place the grouping
+ * is expressed to an agent, since every URL in here is flat.
+ *
+ * Returns an empty string when there are no guides, so the section header is
+ * omitted entirely rather than advertising a section that isn't there.
+ */
+function guidesSection(base: string, overview: GuidesOverview): string {
+	const lines = [
+		...overview.topics.flatMap((topic) => [
+			linkLine(base, topic, topic.shortDescription),
+			...topic.guides.map((guide) =>
+				linkLine(base, guide, guide.description, "  ")
+			),
+		]),
+		...overview.ungrouped.map((guide) =>
+			linkLine(base, guide, guide.description)
+		),
+	]
+
+	if (lines.length === 0) {
+		return ""
+	}
+
+	return `## Guides
+
+Reference pages I keep up to date, on the problems these apps are built around. Topic hubs are listed with their guides nested beneath them.
+
+${lines.join("\n")}
+
+`
+}
+
 export async function GET(): Promise<Response> {
 	const base = getSiteUrl()
-	const projects = await getProjectsGalleryCached()
+	const [projects, guides] = await Promise.all([
+		getProjectsGalleryCached(),
+		getGuidesOverview(),
+	])
 
 	// Discontinued projects are sorted last in the gallery but not dropped. This
 	// file pitches itself as an "actually live" overview, so an LLM must not cite
@@ -42,7 +90,7 @@ This file gives AI systems a clean overview of ${base.replace(/^https?:\/\//, ""
 
 ${projectLines}
 
-## Site
+${guidesSection(base, guides)}## Site
 
 - [Tech blog](${base}/blog/tech): posts on iOS, web, and software engineering.
 - [About](${base}/about): background and contact.

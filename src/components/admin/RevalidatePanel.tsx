@@ -5,12 +5,42 @@ import ErrorMessage from "@/components/admin/ErrorMessage"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
-type Action = "posts-all" | "posts-list" | "projects-all" | "projects-list"
+type ResourceKey = "posts" | "projects" | "guides"
+type Action = `${ResourceKey}-all` | `${ResourceKey}-list`
 
-interface RevalidateBody {
-	posts?: "all" | string[]
-	projects?: "all" | string[]
+type RevalidateBody = Partial<Record<ResourceKey, "all" | string[]>>
+
+interface ResourceConfig {
+	key: ResourceKey
+	/** Singular, for the "N posts revalidated" result line. */
+	noun: string
+	placeholder: string
+	ariaLabel: string
 }
+
+// One row per resource, driven by config — the three rows are identical apart
+// from their labels, and hand-rolling each is how the second one ended up with
+// a subtly different aria-label.
+const RESOURCES: readonly ResourceConfig[] = [
+	{
+		key: "posts",
+		noun: "post",
+		placeholder: "tech/my-post, life/another",
+		ariaLabel: "Post slugs to revalidate (section/slug)",
+	},
+	{
+		key: "projects",
+		noun: "project",
+		placeholder: "capsule, logbook",
+		ariaLabel: "Project slugs to revalidate",
+	},
+	{
+		key: "guides",
+		noun: "guide",
+		placeholder: "how-to-keep-a-decision-journal, making-better-decisions",
+		ariaLabel: "Guide or topic slugs to revalidate",
+	},
+]
 
 const buttonClass =
 	"border-border cursor-pointer rounded-md border px-3 py-1.5 text-sm text-secondary transition-colors hover:text-(--color-accent) disabled:cursor-not-allowed disabled:opacity-50"
@@ -34,12 +64,16 @@ function countLabel(noun: string, count: number): string {
  * Admin utility for busting caches after a direct-Prisma script import (which
  * can't bust `unstable_cache` tags itself). Paste the slugs the import script
  * prints to refresh only those pages, or use the "All" buttons as a fallback.
- * Posts are `section/slug`; projects are bare slugs. Hits the session-gated
- * `POST /api/admin/revalidate`.
+ * Posts are `section/slug`; projects and guides are bare slugs (a guide and a
+ * topic hub share one namespace, so either kind goes in the guides box). Hits
+ * the session-gated `POST /api/admin/revalidate`.
  */
 export default function RevalidatePanel() {
-	const [postsInput, setPostsInput] = useState("")
-	const [projectsInput, setProjectsInput] = useState("")
+	const [inputs, setInputs] = useState<Record<ResourceKey, string>>({
+		posts: "",
+		projects: "",
+		guides: "",
+	})
 	const [pending, setPending] = useState<Action | null>(null)
 	const [result, setResult] = useState<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
@@ -90,8 +124,6 @@ export default function RevalidatePanel() {
 		}
 	}
 
-	const postsTokens = parseTokens(postsInput)
-	const projectsTokens = parseTokens(projectsInput)
 	const isBusy = pending !== null
 
 	return (
@@ -103,80 +135,55 @@ export default function RevalidatePanel() {
 				<p className="text-secondary mt-1 text-xs">
 					After a script import, paste the slugs it printed to refresh only
 					those pages — posts as <code className="font-mono">section/slug</code>
-					, projects as slugs. The &ldquo;All&rdquo; buttons refresh every
-					detail page of that type.
+					, projects and guides as slugs. The &ldquo;All&rdquo; buttons refresh
+					every detail page of that type.
 				</p>
 			</div>
 
-			<div className="flex flex-wrap items-center gap-2">
-				<button
-					type="button"
-					onClick={() =>
-						run("posts-all", { posts: "all" }, "All posts revalidated")
-					}
-					disabled={isBusy}
-					className={buttonClass}
-				>
-					{pending === "posts-all" ? "Revalidating…" : "All posts"}
-				</button>
-				<input
-					type="text"
-					value={postsInput}
-					onChange={(event) => setPostsInput(event.target.value)}
-					placeholder="tech/my-post, life/another"
-					aria-label="Post slugs to revalidate (section/slug)"
-					className={inputClass}
-				/>
-				<button
-					type="button"
-					onClick={() =>
-						run(
-							"posts-list",
-							{ posts: postsTokens },
-							countLabel("post", postsTokens.length)
-						)
-					}
-					disabled={isBusy || postsTokens.length === 0}
-					className={buttonClass}
-				>
-					{pending === "posts-list" ? "Revalidating…" : "Revalidate listed"}
-				</button>
-			</div>
+			{RESOURCES.map(({ key, noun, placeholder, ariaLabel }) => {
+				const tokens = parseTokens(inputs[key])
 
-			<div className="flex flex-wrap items-center gap-2">
-				<button
-					type="button"
-					onClick={() =>
-						run("projects-all", { projects: "all" }, "All projects revalidated")
-					}
-					disabled={isBusy}
-					className={buttonClass}
-				>
-					{pending === "projects-all" ? "Revalidating…" : "All projects"}
-				</button>
-				<input
-					type="text"
-					value={projectsInput}
-					onChange={(event) => setProjectsInput(event.target.value)}
-					placeholder="capsule, logbook"
-					aria-label="Project slugs to revalidate"
-					className={inputClass}
-				/>
-				<button
-					type="button"
-					onClick={() =>
-						run(
-							"projects-list",
-							{ projects: projectsTokens },
-							countLabel("project", projectsTokens.length)
-						)
-					}
-					disabled={isBusy || projectsTokens.length === 0}
-					className={buttonClass}
-				>
-					{pending === "projects-list" ? "Revalidating…" : "Revalidate listed"}
-				</button>
-			</div>
+				return (
+					<div key={key} className="flex flex-wrap items-center gap-2">
+						<button
+							type="button"
+							onClick={() =>
+								run(`${key}-all`, { [key]: "all" }, `All ${key} revalidated`)
+							}
+							disabled={isBusy}
+							className={buttonClass}
+						>
+							{pending === `${key}-all` ? "Revalidating…" : `All ${key}`}
+						</button>
+						<input
+							type="text"
+							value={inputs[key]}
+							onChange={(event) =>
+								setInputs((prev) => ({ ...prev, [key]: event.target.value }))
+							}
+							placeholder={placeholder}
+							aria-label={ariaLabel}
+							className={inputClass}
+						/>
+						<button
+							type="button"
+							onClick={() =>
+								run(
+									`${key}-list`,
+									{ [key]: tokens },
+									countLabel(noun, tokens.length)
+								)
+							}
+							disabled={isBusy || tokens.length === 0}
+							className={buttonClass}
+						>
+							{pending === `${key}-list`
+								? "Revalidating…"
+								: "Revalidate listed"}
+						</button>
+					</div>
+				)
+			})}
 
 			{result && <p className="text-secondary text-xs">{result}</p>}
 			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}

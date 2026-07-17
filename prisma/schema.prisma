@@ -49,6 +49,91 @@ enum Section {
   life
 }
 
+// Maintained reference pages, edited in place from Search Console data. A
+// separate model from `Post` rather than a third `Section`: Post carries legacy
+// guides shouldn't inherit (the `yyyy-MM-dd-HHmm` datetime string, feed/archive/
+// search surfaces, a frozen-after-publish lifecycle), and reusing it would add a
+// "not guides" filter to every existing post query.
+//
+// `GuideTopic` groups guides into a hub page; both live in the same flat
+// `/guides/:slug` URL namespace, so regrouping a guide never changes its URL.
+// Cross-table slug uniqueness (Guide vs GuideTopic) has no Postgres equivalent
+// across two tables — it's enforced in the app layer (`assertSlugAvailable`),
+// which the admin routes and the import planner share.
+model GuideTopic {
+  id               Int      @id @default(autoincrement())
+  slug             String   @unique
+  title            String
+  // The blurb rendered on a project page's guides section; `description` is the
+  // hub page's own body (markdown). Two fields because the hub reads as a
+  // landing page while the project page needs one scannable line.
+  shortDescription String
+  description      String
+  // Project reference is BY SLUG, not a foreign key. `import-projects.ts`
+  // replaces projects wholesale (delete-then-create inside a transaction); an
+  // FK would either cascade-delete every guide or block the importer outright.
+  // The slug is the stable public identity, so it's the right join key here.
+  // Integrity ("this slug names a real project") is enforced in the Zod/API
+  // layer and the import script, not the database.
+  //
+  // Nullable: a guide or topic with no product is allowed (no CTA, never listed
+  // on a project page, still indexed on /guides + sitemap + llms.txt).
+  projectSlug      String?
+  published        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  guides           Guide[]
+
+  // Project pages query (projectSlug, published); no ordering column since
+  // topics are few and sort by title at read time.
+  @@index([projectSlug, published])
+}
+
+model Guide {
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
+  title       String
+  // Load-bearing, not decorative: drives the meta description, the OG
+  // description, and the preview text on both project and topic pages. Not
+  // derived from the body like `Post.summary` — a guide's description is an
+  // SEO surface, written for the search result, not an excerpt.
+  description String
+  body        String
+  // Same slug-not-FK rationale as `GuideTopic.projectSlug` above.
+  projectSlug String?
+  topicId     Int?
+  // `Restrict`, not `Cascade` or `SetNull`: deleting a topic that still has
+  // guides should fail loudly rather than silently delete published pages or
+  // orphan them out of their hub.
+  topic       GuideTopic? @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  sortOrder   Int         @default(0)
+  readingTime String?
+  // A DB column so the admin can stage or unpublish without deleting the row,
+  // but deliberately NOT a frontmatter field — drafts live in the source
+  // `drafts/` folder, so importing a file is itself the decision to publish.
+  published   Boolean     @default(true)
+  // The publication date, authored: the importer reads it from the filename's
+  // `yyyy-MM-dd[-HHmm]-` prefix (the admin stamps it on first publish instead,
+  // having no file to read). Feeds JSON-LD `datePublished`.
+  //
+  // A future value means scheduled — published here, held back by a read-time
+  // filter (`isScheduledGuide`) until the date passes, same as a post. Null is
+  // never scheduled.
+  //
+  // Guides are dated, but unlike `Post.datetime` the date is not the organizing
+  // identity — the visible dateline reads "Updated {updatedAt}", never this.
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Real `DateTime` columns throughout — none of Post's string-datetime legacy.
+  // Both list queries filter on a scope + `published`, then order by
+  // `sortOrder`; these composites let Postgres return rows in order without a
+  // sort step (same reasoning as `Post`'s section composite).
+  @@index([topicId, published, sortOrder])
+  @@index([projectSlug, published, sortOrder])
+}
+
 model Project {
   id             Int              @id @default(autoincrement())
   name           String

@@ -2,12 +2,14 @@ import { notFound } from "next/navigation"
 import JsonLdScript from "@/components/JsonLdScript"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { getSiteUrl } from "@/lib/auth/env"
+import { overviewToLinkItems } from "@/lib/content/guideLinks"
 import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
 } from "@/lib/content/projectJsonLd"
+import { getGuidesForProject } from "@/lib/db/guides"
 import {
 	getProjectsGalleryCached,
 	loadProject,
@@ -122,6 +124,10 @@ export default async function ProjectPage({ params }: Props) {
 		return <p key={faq.id}>{faq.answer}</p>
 	})
 
+	// Reads the shared guides aggregate, so this page carries the `guides` cache
+	// tag and its section refreshes whenever a guide or topic is edited.
+	const guides = overviewToLinkItems(await getGuidesForProject(project.slug))
+
 	const ogImage = resolveOgImage(project)
 
 	// Structured data for search + AI answer engines. Built server-side (not in
@@ -144,6 +150,7 @@ export default async function ProjectPage({ params }: Props) {
 				project={project}
 				renderedDescriptions={renderedDescriptions}
 				renderedFaqAnswers={renderedFaqAnswers}
+				guides={guides}
 			/>
 		</>
 	)
