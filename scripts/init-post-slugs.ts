@@ -9,32 +9,43 @@
 //   yarn tsx scripts/init-post-slugs.ts ../blog/tech             # write files
 //   yarn tsx scripts/init-post-slugs.ts /some/folder --section=tech
 //
-// Matching: filename datetime → DB row (the import contract's stable key —
-// overwrites refresh the DB datetime from the filename), falling back to an
-// exact frontmatter-title match. A file matching zero or several rows either
-// way is reported and left untouched — never guessed. Every matched file gets
-// an explicit `slug:` line, including ones whose slug the title would derive
-// correctly, so the repo converges fully and later imports plan no rewrites.
+// Matching (in `slugInit.ts`): filename datetime → DB row (the import contract's
+// stable key — overwrites refresh the DB datetime from the filename), falling
+// back to an exact frontmatter-title match ONLY for a row at the file's own
+// datetime. A file matching zero or several rows, or whose only title match sits
+// at a different datetime, is reported and left untouched — never guessed, so a
+// new file that reuses an old title can't be stamped with an unrelated slug.
+// Every matched file gets an explicit `slug:` line, including ones whose slug the
+// title would derive correctly, so the repo converges fully and later imports
+// plan no rewrites. Writes are atomic; one file's failure is reported and the
+// run continues.
 //
 // Needs DATABASE_URL (e.g. `vercel env pull`). Always `--dry-run` first.
 
 import "dotenv/config"
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@/generated/prisma/client"
-import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { isValidSection, type Section } from "@/lib/db/sections"
-import { parseFrontmatter, setFrontmatterSlug } from "@/lib/import/frontmatter"
+import { writeFileAtomic } from "@/lib/import/atomicWrite"
+import { groupBy, planStamp, type Row } from "@/lib/import/slugInit"
 
-type Row = { slug: string; title: string; datetime: string }
+const KNOWN_FLAGS = new Set(["--dry-run"])
+const SECTION_FLAG_PREFIX = "--section="
 
 const argv = process.argv.slice(2)
 const isDryRun = argv.includes("--dry-run")
 const sectionFlag = argv
-	.find((arg) => arg.startsWith("--section="))
-	?.slice("--section=".length)
+	.find((arg) => arg.startsWith(SECTION_FLAG_PREFIX))
+	?.slice(SECTION_FLAG_PREFIX.length)
 const positionals = argv.filter((arg) => !arg.startsWith("--"))
+const unknownFlags = argv.filter(
+	(arg) =>
+		arg.startsWith("--") &&
+		!KNOWN_FLAGS.has(arg) &&
+		!arg.startsWith(SECTION_FLAG_PREFIX)
+)
 
 // simplified: `makePrisma`/`resolveSection` are copied from `import-posts.ts`
 // rather than extracted — not worth a shared module for a rarely-run resync
@@ -63,118 +74,81 @@ function resolveSection(folder: string, flag: string | undefined): Section {
 	return candidate
 }
 
-function groupBy(rows: Row[], key: "datetime" | "title"): Map<string, Row[]> {
-	const map = new Map<string, Row[]>()
-
-	for (const row of rows) {
-		const group = map.get(row[key])
-
-		if (group == null) {
-			map.set(row[key], [row])
-		} else {
-			group.push(row)
-		}
-	}
-
-	return map
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error)
 }
 
-/**
- * The file's DB row when exactly one matches: by datetime first, by exact
- * title as the fallback (covers a re-dated file or a same-minute collision).
- * `null` when both keys are ambiguous or empty — the caller reports, not
- * guesses.
- */
-function matchRow(
-	byDatetime: Row[] | undefined,
-	byTitle: Row[] | undefined
-): Row | null {
-	if (byDatetime?.length === 1) {
-		return byDatetime[0]
-	}
-
-	if (byTitle?.length === 1) {
-		return byTitle[0]
-	}
-
-	return null
-}
-
-type StampResult =
-	| { kind: "written"; slug: string }
-	| { kind: "unchanged"; slug: string }
+type StampOutcome =
 	| { kind: "problem"; message: string }
+	| { kind: "unchanged"; slug: string }
+	| { kind: "written"; filename: string; slug: string; titleDiffers: boolean }
 
 /**
- * Resolves one file against the DB and writes (or dry-run reports) its
- * `slug:` line. Never guesses: an unparseable file or an ambiguous/missing
- * DB match comes back as a `problem` for the caller to surface.
+ * Reads one file, plans its stamp, and (unless dry-run) writes it. Every failure
+ * mode — an unreadable file, a bad match, a write error — comes back as a
+ * `problem` carrying the filename, so a mid-run I/O error names its file instead
+ * of surfacing as a bare top-level stack trace.
  */
 async function stampFile(
 	folder: string,
 	filename: string,
-	byDatetime: Map<string, Row[]>,
-	byTitle: Map<string, Row[]>
-): Promise<StampResult> {
-	const filenameResult = parseBulkImportFilename(filename)
+	byDatetime: ReadonlyMap<string, Row[]>,
+	byTitle: ReadonlyMap<string, Row[]>
+): Promise<StampOutcome> {
+	const filePath = path.join(folder, filename)
 
-	if (!filenameResult.ok) {
-		return {
-			kind: "problem",
-			message: `${filename} — ${filenameResult.reason}`,
-		}
+	let content: string
+
+	try {
+		content = await readFile(filePath, "utf8")
+	} catch (error) {
+		return { kind: "problem", message: `${filename} — ${errorMessage(error)}` }
 	}
 
-	const content = await readFile(path.join(folder, filename), "utf8")
-	const { title, slug: fileSlug } = parseFrontmatter(content)
+	const plan = planStamp(filename, content, byDatetime, byTitle)
 
-	if (title == null) {
-		return {
-			kind: "problem",
-			message: `${filename} — missing \`title:\` frontmatter`,
-		}
+	if (plan.kind === "problem" || plan.kind === "unchanged") {
+		return plan
 	}
 
-	const row = matchRow(
-		byDatetime.get(filenameResult.datetime),
-		byTitle.get(title)
-	)
-
-	if (row == null) {
-		return {
-			kind: "problem",
-			message: `${filename} — no unambiguous DB match (datetime ${filenameResult.datetime}, title "${title}")`,
-		}
-	}
-
-	if (fileSlug === row.slug) {
-		return { kind: "unchanged", slug: row.slug }
-	}
-
-	// A title drift means the DB copy was admin-edited after import — the
-	// slug is still right (it came from the row), but worth eyeballing.
-	const note = row.title === title ? "" : " (title differs from DB)"
-	const change =
-		fileSlug == null ? `slug: ${row.slug}` : `slug: "${fileSlug}" → ${row.slug}`
+	const note = plan.titleDiffers ? " (title differs from DB)" : ""
 
 	if (isDryRun) {
-		console.log(`  ✎ ${filename} — would write ${change}${note}`)
+		console.log(`  ✎ ${filename} — would write ${plan.change}${note}`)
 	} else {
-		await writeFile(
-			path.join(folder, filename),
-			setFrontmatterSlug(content, row.slug)
-		)
-		console.log(`  ✎ ${filename} — wrote ${change}${note}`)
+		try {
+			await writeFileAtomic(filePath, plan.content)
+		} catch (error) {
+			return {
+				kind: "problem",
+				message: `${filename} — failed to write: ${errorMessage(error)}`,
+			}
+		}
+
+		console.log(`  ✎ ${filename} — wrote ${plan.change}${note}`)
 	}
 
-	return { kind: "written", slug: row.slug }
+	return {
+		kind: "written",
+		filename,
+		slug: plan.slug,
+		titleDiffers: plan.titleDiffers,
+	}
+}
+
+type InitResult = {
+	written: number
+	unchanged: number
+	problems: string[]
+	/** Files stamped where the DB title disagrees — safe, but surfaced to eyeball. */
+	titleMismatches: string[]
 }
 
 async function initFolder(
 	prisma: PrismaClient,
 	folder: string,
 	section: Section
-): Promise<{ written: number; unchanged: number; problems: string[] }> {
+): Promise<InitResult> {
 	const entries = await readdir(folder, { withFileTypes: true })
 	const names = entries
 		.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
@@ -191,6 +165,7 @@ async function initFolder(
 	let written = 0
 	let unchanged = 0
 	const problems: string[] = []
+	const titleMismatches: string[] = []
 	const matchedSlugs = new Set<string>()
 
 	for (const filename of names) {
@@ -203,10 +178,15 @@ async function initFolder(
 
 		matchedSlugs.add(result.slug)
 
-		if (result.kind === "written") {
-			written += 1
-		} else {
+		if (result.kind === "unchanged") {
 			unchanged += 1
+			continue
+		}
+
+		written += 1
+
+		if (result.titleDiffers) {
+			titleMismatches.push(`${result.filename} → ${result.slug}`)
 		}
 	}
 
@@ -221,10 +201,19 @@ async function initFolder(
 		)
 	}
 
-	return { written, unchanged, problems }
+	return { written, unchanged, problems, titleMismatches }
 }
 
 async function main(): Promise<void> {
+	if (unknownFlags.length > 0) {
+		console.error(
+			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}, ${SECTION_FLAG_PREFIX}<section>.`
+		)
+		process.exitCode = 1
+
+		return
+	}
+
 	if (positionals.length !== 1) {
 		console.error(
 			"Usage: yarn tsx scripts/init-post-slugs.ts <folder> [--section=<section>] [--dry-run]"
@@ -245,11 +234,23 @@ async function main(): Promise<void> {
 	const prisma = makePrisma()
 
 	try {
-		const { written, unchanged, problems } = await initFolder(
+		const { written, unchanged, problems, titleMismatches } = await initFolder(
 			prisma,
 			folder,
 			section
 		)
+
+		// Safe (the slug came from the datetime-matched row) but the likeliest
+		// place a wrong stamp would hide, so surface it on its own for a human to
+		// eyeball rather than burying it in the per-file log.
+		if (titleMismatches.length > 0) {
+			console.log(
+				`\nStamped, but DB title differs — eyeball these (${titleMismatches.length}):`
+			)
+			for (const mismatch of titleMismatches) {
+				console.log(`  ? ${mismatch}`)
+			}
+		}
 
 		if (problems.length > 0) {
 			console.log(`\nNeeds manual attention (${problems.length}):`)
