@@ -1,6 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
+import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { SECTIONS, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/utils/format"
@@ -151,13 +152,27 @@ export async function getPostsBySection(
 	}
 }
 
+/**
+ * Single source for the per-post detail tag, shared by the `unstable_cache`
+ * wrapper below and the revalidation helpers at the bottom of this file. If the
+ * two ever drift, targeted busts stop reaching existing entries and a stale
+ * page (or stale 404) survives every per-post revalidation — the failure class
+ * behind the 2026-07 stale-404 incident.
+ */
+function postTag(section: Section, slug: string): string {
+	return `post-${section}-${slug}`
+}
+
+/** Rides on every post detail wrapper; busted only by `revalidateAllPosts`. */
+const POST_PAGES_TAG = "post-pages"
+
 // One cache wrapper per (section, slug) pair, built lazily on first access and
 // reused for every subsequent call. This preserves the per-post tag used by
 // targeted revalidation while avoiding the "new wrapper per call" cost and
 // the revalidation log noise that causes. Capped via `createBoundedWrapperCache`
 // so 404 probes (arbitrary slugs) can't grow the map unbounded.
 const postBySlugWrappers =
-	createBoundedWrapperCache<() => Promise<PostDetail | null>>()
+	createBoundedWrapperCache<() => Promise<PostDetail>>()
 
 export async function getPostBySlug(
 	section: Section,
@@ -172,8 +187,8 @@ export async function getPostBySlug(
 			// here — it's applied to the cached row at read time so a scheduled
 			// post auto-surfaces the first request after its `datetime` passes,
 			// without a cache bust.
-			() =>
-				prisma.post.findFirst({
+			async () => {
+				const row = await prisma.post.findFirst({
 					where: { section, slug, published: true },
 					select: {
 						id: true,
@@ -187,13 +202,23 @@ export async function getPostBySlug(
 						readingTime: true,
 						updatedAt: true,
 					},
-				}),
-			[`post-${section}-${slug}`],
-			{ tags: [`post-${section}-${slug}`, "post-pages"] }
+				})
+
+				if (row == null) {
+					// Thrown, not returned: `unstable_cache` stores only fulfilled
+					// results, so a miss is never pinned into the durable cache and a
+					// 404 heals on the next request. See `CacheMissError`.
+					throw new CacheMissError()
+				}
+
+				return row
+			},
+			[postTag(section, slug)],
+			{ tags: [postTag(section, slug), POST_PAGES_TAG] }
 		)
 	)
 
-	const post = await wrapper()
+	const post = await nullOnCacheMiss(wrapper)
 
 	if (!post) {
 		return null
@@ -436,7 +461,7 @@ export function revalidatePostSection(section: Section): void {
  * which this path deliberately leaves alone.
  */
 export function revalidatePost(section: Section, slug: string): void {
-	revalidateTag(`post-${section}-${slug}`, "max")
+	revalidateTag(postTag(section, slug), "max")
 	revalidatePostSection(section)
 }
 
@@ -447,7 +472,7 @@ export function revalidatePost(section: Section, slug: string): void {
  * not, so editing one post never regenerates the rest.
  */
 export function revalidateAllPosts(): void {
-	revalidateTag("post-pages", "max")
+	revalidateTag(POST_PAGES_TAG, "max")
 
 	for (const section of SECTIONS) {
 		revalidatePostSection(section)

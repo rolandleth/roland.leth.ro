@@ -3,6 +3,7 @@ import { cache } from "react"
 import { Prisma } from "@/generated/prisma/client"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
+import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
@@ -305,13 +306,27 @@ export const projectInclude = {
 	faqs: { orderBy: { sortOrder: "asc" as const } },
 } as const
 
+/**
+ * Single source for the per-project detail tag, shared by the `unstable_cache`
+ * wrapper below and the revalidation helpers at the bottom of this file. If the
+ * two ever drift, targeted busts stop reaching existing entries and a stale
+ * page (or stale 404) survives every per-project revalidation — the failure
+ * class behind the 2026-07 stale-404 incident.
+ */
+function projectTag(slug: string): string {
+	return `project-${slug}`
+}
+
+/** Rides on every project detail wrapper; busted only by `revalidateAllProjects`. */
+const PROJECT_PAGES_TAG = "project-pages"
+
 // One cache wrapper per slug, built lazily on first access and reused for every
 // subsequent call. Preserves the per-project tag used by targeted revalidation
 // while avoiding the "new wrapper per call" cost and the revalidation log
 // noise that causes. Capped via `createBoundedWrapperCache` so 404 probes
 // (arbitrary slugs) can't grow the map unbounded.
 const projectBySlugWrappers =
-	createBoundedWrapperCache<() => Promise<ProjectDetail | null>>()
+	createBoundedWrapperCache<() => Promise<ProjectDetail>>()
 
 /** Returns a project with its sections (and section images) and links, or null if not found. */
 export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
@@ -323,23 +338,28 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 					include: projectInclude,
 				})
 
+				if (row == null) {
+					// Thrown, not returned: `unstable_cache` stores only fulfilled
+					// results, so a miss is never pinned into the durable cache and a
+					// 404 heals on the next request. See `CacheMissError`.
+					throw new CacheMissError()
+				}
+
 				// Narrow the untyped `offers` Json column to `ProjectOffer[] | null`
 				// once, inside the cache, so every consumer gets the typed shape.
 				// The write path validates offers against `projectOfferSchema`, so
 				// the cast is safe.
-				return (
-					row && {
-						...row,
-						offers: row.offers as unknown as ProjectOffer[] | null,
-					}
-				)
+				return {
+					...row,
+					offers: row.offers as unknown as ProjectOffer[] | null,
+				}
 			},
-			[`project-${slug}`],
-			{ tags: [`project-${slug}`, "project-pages"] }
+			[projectTag(slug)],
+			{ tags: [projectTag(slug), PROJECT_PAGES_TAG] }
 		)
 	)
 
-	return wrapper()
+	return nullOnCacheMiss(wrapper)
 }
 
 /**
@@ -441,7 +461,7 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
  */
 export function revalidateProject(slug: string): void {
 	revalidateTag("projects", "max")
-	revalidateTag(`project-${slug}`, "max")
+	revalidateTag(projectTag(slug), "max")
 }
 
 /**
@@ -452,6 +472,6 @@ export function revalidateProject(slug: string): void {
  * and can't bust tags themselves.
  */
 export function revalidateAllProjects(): void {
-	revalidateTag("project-pages", "max")
+	revalidateTag(PROJECT_PAGES_TAG, "max")
 	revalidateTag("projects", "max")
 }

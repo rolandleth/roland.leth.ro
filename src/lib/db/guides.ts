@@ -1,6 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
+import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { guideOrder, isScheduledGuide } from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
@@ -224,12 +225,31 @@ export async function getGuidesForProject(
 
 // #region Detail pages
 
+/**
+ * Single sources for the per-guide and per-topic detail tags, shared by the
+ * `unstable_cache` wrappers below and the revalidation helpers at the bottom of
+ * this file. If a wrapper and its buster ever drift, targeted busts stop
+ * reaching existing entries and a stale page (or stale 404) survives every
+ * per-slug revalidation — the failure class behind the 2026-07 stale-404
+ * incident.
+ */
+function guideTag(slug: string): string {
+	return `guide-${slug}`
+}
+
+function guideTopicTag(slug: string): string {
+	return `guide-topic-${slug}`
+}
+
+/** Rides on every guide/topic detail wrapper; busted only by `revalidateAllGuides`. */
+const GUIDE_PAGES_TAG = "guide-pages"
+
 // One cache wrapper per slug, built lazily and reused, so each page keeps its
 // own revalidation tag without paying "new wrapper per call". Bounded so 404
 // probes against arbitrary slugs can't grow the map without limit — same
 // pattern as `getPostBySlug` / `getProjectBySlug`.
 const guideBySlugWrappers =
-	createBoundedWrapperCache<() => Promise<GuideDetail | null>>()
+	createBoundedWrapperCache<() => Promise<GuideDetail>>()
 
 export async function getGuideBySlug(
 	slug: string
@@ -258,7 +278,10 @@ export async function getGuideBySlug(
 				})
 
 				if (row == null) {
-					return null
+					// Thrown, not returned: `unstable_cache` stores only fulfilled
+					// results, so a miss is never pinned into the durable cache and a
+					// 404 heals on the next request. See `CacheMissError`.
+					throw new CacheMissError()
 				}
 
 				const { topic, ...guide } = row
@@ -273,12 +296,12 @@ export async function getGuideBySlug(
 							: null,
 				}
 			},
-			[`guide-${slug}`],
-			{ tags: [`guide-${slug}`, "guide-pages"] }
+			[guideTag(slug)],
+			{ tags: [guideTag(slug), GUIDE_PAGES_TAG] }
 		)
 	)
 
-	const guide = await wrapper()
+	const guide = await nullOnCacheMiss(wrapper)
 
 	if (guide == null) {
 		return null
@@ -292,15 +315,15 @@ export async function getGuideBySlug(
 }
 
 const guideTopicBySlugWrappers =
-	createBoundedWrapperCache<() => Promise<GuideTopicDetail | null>>()
+	createBoundedWrapperCache<() => Promise<GuideTopicDetail>>()
 
 export async function getGuideTopicBySlug(
 	slug: string
 ): Promise<GuideTopicDetail | null> {
 	const wrapper = guideTopicBySlugWrappers.get(slug, () =>
 		unstable_cache(
-			() =>
-				prisma.guideTopic.findFirst({
+			async () => {
+				const row = await prisma.guideTopic.findFirst({
 					where: { slug, published: true },
 					select: {
 						id: true,
@@ -316,13 +339,21 @@ export async function getGuideTopicBySlug(
 							orderBy: guideOrder,
 						},
 					},
-				}),
-			[`guide-topic-${slug}`],
-			{ tags: [`guide-topic-${slug}`, "guide-pages"] }
+				})
+
+				if (row == null) {
+					// Thrown, not returned — see the guide wrapper above.
+					throw new CacheMissError()
+				}
+
+				return row
+			},
+			[guideTopicTag(slug)],
+			{ tags: [guideTopicTag(slug), GUIDE_PAGES_TAG] }
 		)
 	)
 
-	const topic = await wrapper()
+	const topic = await nullOnCacheMiss(wrapper)
 
 	if (topic == null) {
 		return null
@@ -486,7 +517,7 @@ export function revalidateGuides(): void {
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */
 export function revalidateGuide(slug: string): void {
-	revalidateTag(`guide-${slug}`, "max")
+	revalidateTag(guideTag(slug), "max")
 	revalidateGuides()
 }
 
@@ -501,10 +532,10 @@ export function revalidateGuideTopic(
 	slug: string,
 	guideSlugs: readonly string[] = []
 ): void {
-	revalidateTag(`guide-topic-${slug}`, "max")
+	revalidateTag(guideTopicTag(slug), "max")
 
 	for (const guideSlug of guideSlugs) {
-		revalidateTag(`guide-${guideSlug}`, "max")
+		revalidateTag(guideTag(guideSlug), "max")
 	}
 
 	revalidateGuides()
@@ -517,7 +548,7 @@ export function revalidateGuideTopic(
  * themselves.
  */
 export function revalidateAllGuides(): void {
-	revalidateTag("guide-pages", "max")
+	revalidateTag(GUIDE_PAGES_TAG, "max")
 	revalidateGuides()
 }
 
