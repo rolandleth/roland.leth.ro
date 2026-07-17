@@ -88,6 +88,53 @@ describe("buildPageMetadata", () => {
 		expect(og.publishedTime).toBe("2024-06-15T09:00:00.000Z")
 	})
 
+	it("passes through modifiedTime to openGraph", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			modifiedTime: "2026-07-17T08:30:00.000Z",
+		})
+		const og = meta.openGraph as { modifiedTime?: string }
+		expect(og.modifiedTime).toBe("2026-07-17T08:30:00.000Z")
+	})
+
+	it("emits a canonical link when canonicalPath is given", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			canonicalPath: "/x",
+		})
+		expect(meta.alternates?.canonical).toBe("/x")
+	})
+
+	// Opt-in, not defaulted to `path`: turning canonicals on site-wide would
+	// assert one for pages nobody has audited for multi-path reachability.
+	it("emits no alternates at all when neither canonical nor markdown is given", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+		expect(meta.alternates).toBeUndefined()
+	})
+
+	it("carries canonical and markdown alternates together", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			canonicalPath: "/x",
+			markdownPath: "/x.md",
+		})
+		expect(meta.alternates?.canonical).toBe("/x")
+		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
+	})
+
+	it("emits only the markdown alternate when canonical is absent", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			markdownPath: "/x.md",
+		})
+		expect(meta.alternates?.canonical).toBeUndefined()
+		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
+	})
+
 	// Dev-only guard: the layout applies a `"%s | Roland Leth"` template to
 	// `metadata.title`, so a caller routing a pre-branded title through this
 	// helper would silently produce `"Roland Leth — Foo | Roland Leth"`. The

@@ -4,6 +4,7 @@ import {
 	createSlug,
 	currentDatetimeString,
 	formatDate,
+	formatDateValue,
 	parseIntId,
 	parsePageParam,
 	postDatetimeToISO,
@@ -170,6 +171,46 @@ describe("formatDate", () => {
 
 	it("returns the raw string for an empty string", () => {
 		expect(formatDate("")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region formatDateValue
+
+describe("formatDateValue", () => {
+	it("formats a mid-year date in the same shape as formatDate", () => {
+		expect(formatDateValue(new Date("2025-01-15T09:30:00.000Z"))).toBe(
+			"Jan 15, 2025"
+		)
+	})
+
+	it("formats a leap-day date", () => {
+		expect(formatDateValue(new Date("2024-02-29T12:00:00.000Z"))).toBe(
+			"Feb 29, 2024"
+		)
+	})
+
+	// The reason this can't just delegate to `formatDate`: an instant late in the
+	// UTC day would render as the next day in any zone ahead of UTC and the
+	// previous one behind it, so the visible dateline would disagree with the
+	// JSON-LD `dateModified` built from the same value.
+	it("pins to UTC so a late-in-the-day instant renders the same day everywhere", () => {
+		expect(formatDateValue(new Date("2026-07-17T23:30:00.000Z"))).toBe(
+			"Jul 17, 2026"
+		)
+	})
+
+	it("pins to UTC for an early-in-the-day instant too", () => {
+		expect(formatDateValue(new Date("2026-07-17T00:30:00.000Z"))).toBe(
+			"Jul 17, 2026"
+		)
+	})
+
+	it("formats a year boundary without rolling into the next year", () => {
+		expect(formatDateValue(new Date("2024-12-31T23:59:00.000Z"))).toBe(
+			"Dec 31, 2024"
+		)
 	})
 })
 

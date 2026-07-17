@@ -1,7 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { fadeUp } from "@/lib/client/motion"
+import ProseShell from "@/components/ui/ProseShell"
 import { postDatetimeToISO } from "@/lib/utils/format"
 
 interface Props {
@@ -20,16 +19,18 @@ export default function PostContent({
 	children,
 }: Props) {
 	return (
-		<article className="mx-auto w-full max-w-3xl px-4 py-12">
-			<motion.header className="mb-10" {...fadeUp(0)}>
-				<h1 className="mb-3 text-4xl font-bold">{title}</h1>
-				<div className="text-secondary flex gap-4 text-sm">
-					<time dateTime={postDatetimeToISO(datetime)}>{formattedDate}</time>
-					{readingTime && <span>{readingTime}</span>}
-				</div>
-			</motion.header>
-
-			<motion.div {...fadeUp(0.1)}>{children}</motion.div>
-		</article>
+		<ProseShell
+			header={
+				<>
+					<h1 className="mb-3 text-4xl font-bold">{title}</h1>
+					<div className="text-secondary flex gap-4 text-sm">
+						<time dateTime={postDatetimeToISO(datetime)}>{formattedDate}</time>
+						{readingTime && <span>{readingTime}</span>}
+					</div>
+				</>
+			}
+		>
+			{children}
+		</ProseShell>
 	)
 }
