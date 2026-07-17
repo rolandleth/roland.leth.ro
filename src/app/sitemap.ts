@@ -1,4 +1,5 @@
 import { getSiteUrl } from "@/lib/auth/env"
+import { allGuides, getGuidesOverview } from "@/lib/db/guides"
 import { getAllPublishedPostSlugs } from "@/lib/db/posts"
 import { getAllProjectSlugs } from "@/lib/db/projects"
 import { SECTIONS } from "@/lib/db/sections"
@@ -52,11 +53,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 			changeFrequency: "weekly" as const,
 			priority: 0.5,
 		})),
+		{
+			url: url(base, "/guides"),
+			changeFrequency: "weekly",
+			priority: 0.6,
+		},
 	]
 
-	const [posts, projects] = await Promise.all([
+	const [posts, projects, guides] = await Promise.all([
 		getAllPublishedPostSlugs(),
 		getAllProjectSlugs(),
+		getGuidesOverview(),
 	])
 
 	const postRoutes: MetadataRoute.Sitemap = posts.map((post) => ({
@@ -73,5 +80,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 		priority: 0.6,
 	}))
 
-	return [...staticRoutes, ...postRoutes, ...projectRoutes]
+	// `monthly`, not the posts' `never`: guides are maintained pages, edited in
+	// place from Search Console data, and telling a crawler never to come back is
+	// the opposite of what that lifecycle needs. `lastModified` is a real
+	// `updatedAt` for the same reason. Topic hubs and guides share the flat
+	// `/guides/:slug` namespace, so they're emitted alike.
+	const guideRoutes: MetadataRoute.Sitemap = [
+		...guides.topics,
+		...allGuides(guides),
+	].map((entry) => ({
+		url: url(base, `/guides/${entry.slug}`),
+		lastModified: entry.updatedAt,
+		changeFrequency: "monthly",
+		priority: 0.6,
+	}))
+
+	return [...staticRoutes, ...postRoutes, ...projectRoutes, ...guideRoutes]
 }
