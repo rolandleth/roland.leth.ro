@@ -1,7 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
-import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
+import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { SECTIONS, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/utils/format"
@@ -166,6 +166,12 @@ function postTag(section: Section, slug: string): string {
 /** Rides on every post detail wrapper; busted only by `revalidateAllPosts`. */
 const POST_PAGES_TAG = "post-pages"
 
+/**
+ * Aggregate tag on the cross-post list/feed caches, busted by any post mutation.
+ * Single-sourced so the cache-side tag and the revalidation-side bust can't drift.
+ */
+const POSTS_TAG = "posts"
+
 // One cache wrapper per (section, slug) pair, built lazily on first access and
 // reused for every subsequent call. This preserves the per-post tag used by
 // targeted revalidation while avoiding the "new wrapper per call" cost and
@@ -178,47 +184,33 @@ export async function getPostBySlug(
 	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
-	const key = `${section}:${slug}`
-	const wrapper = postBySlugWrappers.get(key, () =>
-		unstable_cache(
-			// `findFirst` (not `findUnique`) so `published: true` can be enforced
-			// at the query boundary; otherwise the canonical post URL would
-			// serve drafts. The `datetime <= now` check is intentionally NOT
-			// here — it's applied to the cached row at read time so a scheduled
-			// post auto-surfaces the first request after its `datetime` passes,
-			// without a cache bust.
-			async () => {
-				const row = await prisma.post.findFirst({
-					where: { section, slug, published: true },
-					select: {
-						id: true,
-						title: true,
-						slug: true,
-						section: true,
-						datetime: true,
-						body: true,
-						summary: true,
-						imageUrl: true,
-						readingTime: true,
-						updatedAt: true,
-					},
-				})
-
-				if (row == null) {
-					// Thrown, not returned: `unstable_cache` stores only fulfilled
-					// results, so a miss is never pinned into the durable cache and a
-					// 404 heals on the next request. See `CacheMissError`.
-					throw new CacheMissError()
-				}
-
-				return row
-			},
-			[postTag(section, slug)],
-			{ tags: [postTag(section, slug), POST_PAGES_TAG] }
-		)
+	const post = await wrapNullableDetail(
+		postBySlugWrappers,
+		`${section}:${slug}`,
+		// `findFirst` (not `findUnique`) so `published: true` can be enforced at
+		// the query boundary; otherwise the canonical post URL would serve drafts.
+		// The `datetime <= now` check is intentionally NOT here — it's applied to
+		// the cached row at read time (below) so a scheduled post auto-surfaces
+		// the first request after its `datetime` passes, without a cache bust.
+		() =>
+			prisma.post.findFirst({
+				where: { section, slug, published: true },
+				select: {
+					id: true,
+					title: true,
+					slug: true,
+					section: true,
+					datetime: true,
+					body: true,
+					summary: true,
+					imageUrl: true,
+					readingTime: true,
+					updatedAt: true,
+				},
+			}),
+		[postTag(section, slug)],
+		[postTag(section, slug), POST_PAGES_TAG]
 	)
-
-	const post = await nullOnCacheMiss(wrapper)
 
 	if (!post) {
 		return null
@@ -325,7 +317,7 @@ const allPublishedPostSlugsCache = unstable_cache(
 			orderBy: { datetime: "desc" },
 		}),
 	["all-published-post-slugs"],
-	{ tags: ["posts"] }
+	{ tags: [POSTS_TAG] }
 )
 
 export async function getAllPublishedPostSlugs() {
@@ -451,7 +443,7 @@ export async function searchPosts(
 export function revalidatePostSection(section: Section): void {
 	revalidateTag(`feed-${section}`, "max")
 	revalidateTag(`blog-${section}`, "max")
-	revalidateTag("posts", "max")
+	revalidateTag(POSTS_TAG, "max")
 }
 
 /**

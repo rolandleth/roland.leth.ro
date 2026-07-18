@@ -1,5 +1,6 @@
 import path from "node:path"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
+import { errorMessage } from "@/lib/utils/errorMessage"
 import type { ParsedPostFile } from "@/lib/import/postImport"
 
 export type SlugRewriteOutcome = {
@@ -61,7 +62,7 @@ export async function applySlugRewrites(
 				filename: file.filename,
 				change,
 				result: "failed",
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMessage(error),
 			})
 		}
 	}

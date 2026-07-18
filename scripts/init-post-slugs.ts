@@ -30,6 +30,7 @@ import { PrismaClient } from "@/generated/prisma/client"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
 import { groupBy, planStamp, type Row } from "@/lib/import/slugInit"
+import { errorMessage } from "@/lib/utils/errorMessage"
 
 const KNOWN_FLAGS = new Set(["--dry-run"])
 const SECTION_FLAG_PREFIX = "--section="
@@ -72,10 +73,6 @@ function resolveSection(folder: string, flag: string | undefined): Section {
 	}
 
 	return candidate
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
 }
 
 type StampOutcome =
@@ -271,6 +268,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	// Log the full error (not just its message) so an unexpected failure — a
+	// Prisma error, a transaction abort — surfaces its stack in CI logs.
+	console.error(error)
 	process.exit(1)
 })

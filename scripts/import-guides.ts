@@ -426,7 +426,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	// Log the full error (not just its message) so an unexpected failure — a
+	// serializable-conflict abort, a Prisma error — surfaces its stack in CI
+	// logs instead of a bare one-line message.
+	console.error(error)
 	process.exit(1)
 })
 

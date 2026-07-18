@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
 import { NextResponse } from "next/server"
+import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	detectImageMime,
 	sanitizeFilename,
@@ -75,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		// would let an attacker forge fake log lines below this one
 		// ("log injection"). Strip CR/LF/NUL and clamp the length before
 		// logging so the payload stays single-line and bounded.
-		const rawMessage = error instanceof Error ? error.message : String(error)
+		const rawMessage = errorMessage(error)
 		const safeMessage = sanitizeLogString(rawMessage)
 		// eslint-disable-next-line no-console
 		console.warn("[api:admin:upload:POST] malformed multipart", {

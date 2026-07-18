@@ -1,7 +1,7 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
-import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
+import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { guideOrder, isScheduledGuide } from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
@@ -108,6 +108,13 @@ const guideTopicSummarySelect = {
 // #region Aggregates
 
 /**
+ * Aggregate tag on the guides-overview cache, busted by any guide or topic
+ * mutation. Single-sourced so the cache-side tag and the revalidation-side bust
+ * can't drift.
+ */
+const GUIDES_TAG = "guides"
+
+/**
  * Every published topic, and every published guide with its `topicId`, in one
  * cached payload. Grouping happens at read time in `getGuidesOverview` so the
  * `/guides` index, `llms.txt`, the sitemap, and the project-page guides section
@@ -131,7 +138,7 @@ const guidesOverviewCache = unstable_cache(
 		return { topics, guides }
 	},
 	["guides-overview"],
-	{ tags: ["guides"] }
+	{ tags: [GUIDES_TAG] }
 )
 
 /**
@@ -254,54 +261,49 @@ const guideBySlugWrappers =
 export async function getGuideBySlug(
 	slug: string
 ): Promise<GuideDetail | null> {
-	const wrapper = guideBySlugWrappers.get(slug, () =>
-		unstable_cache(
-			async () => {
-				// `findFirst`, not `findUnique`, so `published: true` is enforced at
-				// the query boundary and the canonical URL can't serve a draft.
-				const row = await prisma.guide.findFirst({
-					where: { slug, published: true },
-					select: {
-						id: true,
-						slug: true,
-						title: true,
-						description: true,
-						body: true,
-						projectSlug: true,
-						readingTime: true,
-						publishedAt: true,
-						updatedAt: true,
-						topic: {
-							select: { slug: true, title: true, published: true },
-						},
+	const guide = await wrapNullableDetail(
+		guideBySlugWrappers,
+		slug,
+		async () => {
+			// `findFirst`, not `findUnique`, so `published: true` is enforced at
+			// the query boundary and the canonical URL can't serve a draft.
+			const row = await prisma.guide.findFirst({
+				where: { slug, published: true },
+				select: {
+					id: true,
+					slug: true,
+					title: true,
+					description: true,
+					body: true,
+					projectSlug: true,
+					readingTime: true,
+					publishedAt: true,
+					updatedAt: true,
+					topic: {
+						select: { slug: true, title: true, published: true },
 					},
-				})
+				},
+			})
 
-				if (row == null) {
-					// Thrown, not returned: `unstable_cache` stores only fulfilled
-					// results, so a miss is never pinned into the durable cache and a
-					// 404 heals on the next request. See `CacheMissError`.
-					throw new CacheMissError()
-				}
+			if (row == null) {
+				return null
+			}
 
-				const { topic, ...guide } = row
+			const { topic, ...guide } = row
 
-				// Drop the parent link when the hub isn't live — rendering it would
-				// point a published page at a 404.
-				return {
-					...guide,
-					topic:
-						topic?.published === true
-							? { slug: topic.slug, title: topic.title }
-							: null,
-				}
-			},
-			[guideTag(slug)],
-			{ tags: [guideTag(slug), GUIDE_PAGES_TAG] }
-		)
+			// Drop the parent link when the hub isn't live — rendering it would
+			// point a published page at a 404.
+			return {
+				...guide,
+				topic:
+					topic?.published === true
+						? { slug: topic.slug, title: topic.title }
+						: null,
+			}
+		},
+		[guideTag(slug)],
+		[guideTag(slug), GUIDE_PAGES_TAG]
 	)
-
-	const guide = await nullOnCacheMiss(wrapper)
 
 	if (guide == null) {
 		return null
@@ -320,40 +322,30 @@ const guideTopicBySlugWrappers =
 export async function getGuideTopicBySlug(
 	slug: string
 ): Promise<GuideTopicDetail | null> {
-	const wrapper = guideTopicBySlugWrappers.get(slug, () =>
-		unstable_cache(
-			async () => {
-				const row = await prisma.guideTopic.findFirst({
-					where: { slug, published: true },
-					select: {
-						id: true,
-						slug: true,
-						title: true,
-						shortDescription: true,
-						description: true,
-						projectSlug: true,
-						updatedAt: true,
-						guides: {
-							where: { published: true },
-							select: guideListItemSelect,
-							orderBy: guideOrder,
-						},
+	const topic = await wrapNullableDetail(
+		guideTopicBySlugWrappers,
+		slug,
+		() =>
+			prisma.guideTopic.findFirst({
+				where: { slug, published: true },
+				select: {
+					id: true,
+					slug: true,
+					title: true,
+					shortDescription: true,
+					description: true,
+					projectSlug: true,
+					updatedAt: true,
+					guides: {
+						where: { published: true },
+						select: guideListItemSelect,
+						orderBy: guideOrder,
 					},
-				})
-
-				if (row == null) {
-					// Thrown, not returned — see the guide wrapper above.
-					throw new CacheMissError()
-				}
-
-				return row
-			},
-			[guideTopicTag(slug)],
-			{ tags: [guideTopicTag(slug), GUIDE_PAGES_TAG] }
-		)
+				},
+			}),
+		[guideTopicTag(slug)],
+		[guideTopicTag(slug), GUIDE_PAGES_TAG]
 	)
-
-	const topic = await nullOnCacheMiss(wrapper)
 
 	if (topic == null) {
 		return null
@@ -512,7 +504,7 @@ export async function listGuideTopicOptions(): Promise<
  * this, directly or via the helpers below.
  */
 export function revalidateGuides(): void {
-	revalidateTag("guides", "max")
+	revalidateTag(GUIDES_TAG, "max")
 }
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */
