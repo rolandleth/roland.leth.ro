@@ -71,17 +71,30 @@ export function useAdminResource<TPayload>({
 				signal: controller.signal,
 			})
 
+			// A newer save/remove superseded this one while the request was in
+			// flight — let the newer one own the outcome (navigation, error, and the
+			// submitting flag). Without this, a stale response could navigate away or
+			// re-enable the button under the in-flight request.
+			if (abortRef.current !== controller) {
+				return
+			}
+
 			if (!response.ok) {
 				const message = await readErrorMessage(
 					response,
 					"Something went wrong. Please try again."
 				)
+
+				if (abortRef.current !== controller) {
+					return
+				}
+
 				throw new Error(message)
 			}
 
 			goBackToAdmin()
 		} catch (err) {
-			if (!isMountedRef.current) {
+			if (!isMountedRef.current || abortRef.current !== controller) {
 				return
 			}
 
@@ -96,7 +109,9 @@ export function useAdminResource<TPayload>({
 					: "Something went wrong. Please try again."
 			)
 		} finally {
-			if (isMountedRef.current) {
+			// Only the latest request clears the flag; a superseded save must not
+			// re-enable the button while the newer one is still running.
+			if (isMountedRef.current && abortRef.current === controller) {
 				setIsSubmitting(false)
 			}
 		}
@@ -124,17 +139,27 @@ export function useAdminResource<TPayload>({
 				signal: controller.signal,
 			})
 
+			// Superseded by a newer save/remove — see the note in `save`.
+			if (abortRef.current !== controller) {
+				return
+			}
+
 			if (!response.ok) {
 				const message = await readErrorMessage(
 					response,
 					"Delete failed. Please try again."
 				)
+
+				if (abortRef.current !== controller) {
+					return
+				}
+
 				throw new Error(message)
 			}
 
 			goBackToAdmin()
 		} catch (err) {
-			if (!isMountedRef.current) {
+			if (!isMountedRef.current || abortRef.current !== controller) {
 				return
 			}
 
@@ -146,7 +171,9 @@ export function useAdminResource<TPayload>({
 				err instanceof Error ? err.message : "Delete failed. Please try again."
 			)
 		} finally {
-			if (isMountedRef.current) {
+			// Only the latest request clears the flag; a superseded remove must not
+			// re-enable the button while the newer one is still running.
+			if (isMountedRef.current && abortRef.current === controller) {
 				setIsSubmitting(false)
 			}
 		}
