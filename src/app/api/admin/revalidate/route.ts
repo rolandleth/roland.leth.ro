@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
-import {
-	revalidateAllGuides,
-	revalidateGuide,
-	revalidateGuideTopic,
-} from "@/lib/db/guides"
+import { parseJsonBody } from "@/lib/api/apiErrors"
+import { revalidateGuideSlugs } from "@/lib/db/guideRevalidation"
+import { revalidateAllGuides } from "@/lib/db/guides"
 import { revalidateAllPosts, revalidatePost } from "@/lib/db/posts"
 import { revalidateAllProjects, revalidateProject } from "@/lib/db/projects"
 import { isValidSection } from "@/lib/db/sections"
@@ -39,23 +36,30 @@ const bodySchema = z
 type Selection = "all" | string[]
 type ResourceKey = "posts" | "projects" | "guides"
 
+/** Entries a batch declined to bust, with the reason the panel renders verbatim. */
+interface SkippedEntries {
+	entries: string[]
+	reason: string
+}
+
 /**
- * What a batch actually did, echoed back to the panel. `skipped` lists the
- * entries that were NOT busted (malformed, unknown section) — reporting them is
- * the point of this shape: silently dropping an entry while returning a bare
- * success is how the 2026-07 stale-404 stayed undiagnosable, with the panel
- * showing "revalidated" while nothing had been busted.
+ * What a batch actually did, echoed back to the panel. `skipped` names the
+ * entries that were NOT busted and WHY — reporting them is the point of this
+ * shape: silently dropping an entry while returning a bare success is how the
+ * 2026-07 stale-404 stayed undiagnosable, with the panel showing "revalidated"
+ * while nothing had been busted. The reason travels with the resource that
+ * produced it so the panel never has to hard-code which resource can skip.
  */
 interface Outcome {
 	applied: "all" | string[]
-	skipped: string[]
+	skipped: SkippedEntries | null
 }
 
-function revalidatePosts(posts: Selection): Outcome {
+function applyPostsRevalidation(posts: Selection): Outcome {
 	if (posts === "all") {
 		revalidateAllPosts()
 
-		return { applied: "all", skipped: [] }
+		return { applied: "all", skipped: null }
 	}
 
 	const applied: string[] = []
@@ -75,44 +79,66 @@ function revalidatePosts(posts: Selection): Outcome {
 		}
 	}
 
-	return { applied, skipped }
+	return {
+		applied,
+		skipped:
+			skipped.length > 0
+				? { entries: skipped, reason: "post entries must be section/slug" }
+				: null,
+	}
 }
 
-function revalidateProjects(projects: Selection): Outcome {
+function applyProjectsRevalidation(projects: Selection): Outcome {
 	if (projects === "all") {
 		revalidateAllProjects()
 
-		return { applied: "all", skipped: [] }
+		return { applied: "all", skipped: null }
 	}
 
 	for (const slug of projects) {
 		revalidateProject(slug)
 	}
 
-	return { applied: projects, skipped: [] }
+	return { applied: projects, skipped: null }
 }
 
-function revalidateGuides(guides: Selection): Outcome {
+async function applyGuidesRevalidation(guides: Selection): Promise<Outcome> {
 	if (guides === "all") {
 		revalidateAllGuides()
 
-		return { applied: "all", skipped: [] }
+		return { applied: "all", skipped: null }
 	}
 
-	for (const slug of guides) {
-		// Guides and topics share one flat slug namespace but carry distinct tags,
-		// and a pasted slug doesn't say which kind it is. Busting both is a no-op
-		// for whichever tag doesn't exist — cheaper than a lookup per slug just to
-		// pick one.
-		//
-		// This refreshes a topic's own hub, not the parent link on each of its
-		// guides. A script that flips a topic's publish state should use `"all"`;
-		// a body or title edit doesn't need to.
-		revalidateGuide(slug)
-		revalidateGuideTopic(slug)
+	// Busts each slug's detail page and, for any slug that is a guide, its parent
+	// topic hub (whose list would otherwise serve the guide's old title/summary).
+	await revalidateGuideSlugs(guides)
+
+	return { applied: guides, skipped: null }
+}
+
+/** Collapses applied arrays to counts so a big batch doesn't flood the log line. */
+function summariseApplied(
+	applied: Partial<Record<ResourceKey, Outcome["applied"]>>
+): Record<string, string | number> {
+	const summary: Record<string, string | number> = {}
+
+	for (const [key, value] of Object.entries(applied)) {
+		summary[key] = value === "all" ? "all" : value.length
 	}
 
-	return { applied: guides, skipped: [] }
+	return summary
+}
+
+function summariseSkipped(
+	skipped: Partial<Record<ResourceKey, SkippedEntries>>
+): Record<string, number> {
+	const summary: Record<string, number> = {}
+
+	for (const [key, value] of Object.entries(skipped)) {
+		summary[key] = value.entries.length
+	}
+
+	return summary
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -124,40 +150,64 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	const { posts, projects, guides } = parsed
 	const applied: Partial<Record<ResourceKey, Outcome["applied"]>> = {}
-	const skipped: Partial<Record<ResourceKey, string[]>> = {}
+	const skipped: Partial<Record<ResourceKey, SkippedEntries>> = {}
+	const errors: Partial<Record<ResourceKey, string>> = {}
 
-	// Collects each resource's outcome into the response maps; `skipped` keys
-	// only appear when something was actually dropped, so the panel can treat
-	// any key's presence as a warning.
-	function collect(key: ResourceKey, outcome: Outcome): void {
-		applied[key] = outcome.applied
+	// Each resource is busted independently: `revalidateTag` isn't transactional,
+	// so if one resource throws (e.g. resolving guide parent hubs hits the DB and
+	// fails) the buckets that already succeeded must still be reported. A bare 500
+	// that discards them would send the operator back to retry and double-bust.
+	async function runResource(
+		key: ResourceKey,
+		run: () => Outcome | Promise<Outcome>
+	): Promise<void> {
+		try {
+			const outcome = await run()
+			applied[key] = outcome.applied
 
-		if (outcome.skipped.length > 0) {
-			skipped[key] = outcome.skipped
+			if (outcome.skipped != null) {
+				skipped[key] = outcome.skipped
+			}
+		} catch (error) {
+			// Generic message to the client (admin-only, but no reason to echo DB
+			// internals); the full error goes to the server log for diagnosis.
+			errors[key] = "revalidation failed"
+			// eslint-disable-next-line no-console
+			console.error(`${TAG} ${key} revalidation failed`, error)
 		}
 	}
 
-	try {
-		if (posts !== undefined) {
-			collect("posts", revalidatePosts(posts))
-		}
-
-		if (projects !== undefined) {
-			collect("projects", revalidateProjects(projects))
-		}
-
-		if (guides !== undefined) {
-			collect("guides", revalidateGuides(guides))
-		}
-	} catch (error) {
-		return respondInternalError(TAG, error)
+	if (posts !== undefined) {
+		await runResource("posts", () => applyPostsRevalidation(posts))
 	}
 
-	// Mirrors the keepalive route: a success line so manual busts are
-	// distinguishable from organic revalidation in the logs. Logs what was
-	// actually busted vs dropped, not just the raw input.
+	if (projects !== undefined) {
+		await runResource("projects", () => applyProjectsRevalidation(projects))
+	}
+
+	if (guides !== undefined) {
+		await runResource("guides", () => applyGuidesRevalidation(guides))
+	}
+
+	const hasErrors = Object.keys(errors).length > 0
+
+	// Mirrors the keepalive route: a line so manual busts are distinguishable from
+	// organic revalidation. Arrays are summarised to counts so a 500-slug "all"
+	// batch doesn't dump every slug into one line.
 	// eslint-disable-next-line no-console
-	console.info(`${TAG} success`, { applied, skipped })
+	console.info(`${TAG} ${hasErrors ? "partial" : "success"}`, {
+		applied: summariseApplied(applied),
+		skipped: summariseSkipped(skipped),
+		errors: Object.keys(errors),
+	})
 
-	return NextResponse.json({ ok: true, applied, skipped })
+	// `revalidateTag` is fire-and-forget: it marks tags stale for the NEXT read,
+	// it does not await in-flight renders. A 200/207 here means "busts issued",
+	// not "every reader now sees fresh data". 207 (Multi-Status) flags a partial
+	// batch so the panel can surface the errored resource without discarding the
+	// ones that landed.
+	return NextResponse.json(
+		{ ok: !hasErrors, applied, skipped, errors },
+		{ status: hasErrors ? 207 : 200 }
+	)
 }

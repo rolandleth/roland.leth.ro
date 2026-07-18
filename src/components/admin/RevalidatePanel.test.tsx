@@ -45,11 +45,16 @@ describe("RevalidatePanel", () => {
 		)
 	})
 
-	it("reports the applied count and warns about skipped entries", async () => {
+	it("reports the applied count and warns about skipped entries with the server's reason", async () => {
 		mockFetchOk({
 			ok: true,
 			applied: { posts: ["tech/ok"] },
-			skipped: { posts: ["junk", "blog/tech/nested"] },
+			skipped: {
+				posts: {
+					entries: ["junk", "blog/tech/nested"],
+					reason: "post entries must be section/slug",
+				},
+			},
 		})
 		render(<RevalidatePanel />)
 
@@ -66,8 +71,9 @@ describe("RevalidatePanel", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/1 post revalidated/i)).toBeInTheDocument()
 		)
+		// The reason is rendered verbatim from the server, not hard-coded client-side.
 		expect(screen.getByRole("status")).toHaveTextContent(
-			"Skipped (not busted): junk, blog/tech/nested"
+			"Skipped (not busted): junk, blog/tech/nested — post entries must be section/slug"
 		)
 	})
 
@@ -108,6 +114,63 @@ describe("RevalidatePanel", () => {
 			"tech/foo"
 		)
 		expect(postsListed).not.toBeDisabled()
+	})
+
+	it("posts `{ guides: 'all' }` for the All guides button", async () => {
+		const fetchMock = mockFetchOk({
+			ok: true,
+			applied: { guides: "all" },
+			skipped: {},
+		})
+		render(<RevalidatePanel />)
+
+		await user.click(screen.getByRole("button", { name: /^all guides$/i }))
+
+		expect(lastBody(fetchMock)).toEqual({ guides: "all" })
+		await waitFor(() =>
+			expect(screen.getByText(/all guides revalidated/i)).toBeInTheDocument()
+		)
+	})
+
+	it("posts listed guide slugs and reports the applied count", async () => {
+		const fetchMock = mockFetchOk({
+			ok: true,
+			applied: { guides: ["decision-journal"] },
+			skipped: {},
+		})
+		render(<RevalidatePanel />)
+
+		await user.type(
+			screen.getByLabelText(/guide or topic slugs to revalidate/i),
+			"decision-journal"
+		)
+		await user.click(
+			screen.getAllByRole("button", { name: /revalidate listed/i })[2]
+		)
+
+		expect(lastBody(fetchMock)).toEqual({ guides: ["decision-journal"] })
+		await waitFor(() =>
+			expect(screen.getByText(/1 guide revalidated/i)).toBeInTheDocument()
+		)
+	})
+
+	it("surfaces a per-resource error from a 207 partial response", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 207,
+			json: () =>
+				Promise.resolve({
+					ok: false,
+					applied: {},
+					skipped: {},
+					errors: { guides: "revalidation failed" },
+				}),
+		})
+		render(<RevalidatePanel />)
+
+		await user.click(screen.getByRole("button", { name: /^all guides$/i }))
+
+		await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument())
 	})
 
 	it("surfaces a server error", async () => {

@@ -10,10 +10,18 @@ type Action = `${ResourceKey}-all` | `${ResourceKey}-list`
 
 type RevalidateBody = Partial<Record<ResourceKey, "all" | string[]>>
 
-/** Success payload of `POST /api/admin/revalidate`: what was busted vs dropped. */
+/** Entries the server declined to bust, with the reason to render verbatim. */
+interface SkippedEntries {
+	entries: string[]
+	reason: string
+}
+
+/** Payload of `POST /api/admin/revalidate`: what was busted, dropped, or errored. */
 interface RevalidateResponse {
 	applied?: Partial<Record<ResourceKey, "all" | string[]>>
-	skipped?: Partial<Record<ResourceKey, string[]>>
+	skipped?: Partial<Record<ResourceKey, SkippedEntries>>
+	/** Per-resource failure (207 Multi-Status); other resources may still apply. */
+	errors?: Partial<Record<ResourceKey, string>>
 }
 
 interface ResourceConfig {
@@ -109,8 +117,30 @@ export default function RevalidatePanel() {
 				signal: controller.signal,
 			})
 
-			if (!response.ok) {
-				setError(await readErrorMessage(response, "Revalidate failed"))
+			if (!response.ok && response.status !== 207) {
+				const message = await readErrorMessage(response, "Revalidate failed")
+
+				// A newer click may have superseded this one while the body streamed
+				// in; only the latest request may write shared state.
+				if (abortRef.current === controller) {
+					setError(message)
+				}
+
+				return
+			}
+
+			// 207 Multi-Status: some resources may have errored while others applied.
+			const data = (await response.json()) as RevalidateResponse
+
+			// Guard every setter below (not just the `finally`): the response can
+			// resolve past the abort of a superseded request, and writing its stale
+			// result over the newer click's cleared state flashes the wrong outcome.
+			if (abortRef.current !== controller) {
+				return
+			}
+
+			if (data.errors?.[key]) {
+				setError(`Revalidating ${key} failed. Please retry.`)
 
 				return
 			}
@@ -118,9 +148,8 @@ export default function RevalidatePanel() {
 			// The label reports what the server APPLIED, not what was submitted —
 			// entries the server dropped show up in the warning below instead.
 			// Pretending they succeeded is how the 2026-07 stale-404 hid.
-			const data = (await response.json()) as RevalidateResponse
 			const applied = data.applied?.[key]
-			const skipped = data.skipped?.[key] ?? []
+			const skipped = data.skipped?.[key]
 
 			setResult(
 				applied === "all"
@@ -128,13 +157,13 @@ export default function RevalidatePanel() {
 					: countLabel(noun, applied?.length ?? 0)
 			)
 
-			if (skipped.length > 0) {
+			if (skipped != null && skipped.entries.length > 0) {
 				setWarning(
-					`Skipped (not busted): ${skipped.join(", ")} — post entries must be section/slug`
+					`Skipped (not busted): ${skipped.entries.join(", ")} — ${skipped.reason}`
 				)
 			}
 		} catch (err) {
-			if (isAbortError(err)) {
+			if (isAbortError(err) || abortRef.current !== controller) {
 				return
 			}
 
