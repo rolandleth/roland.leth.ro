@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	compareGuides,
 	guideOrder,
 	isScheduledGuide,
 	resolvePublishedAt,
@@ -88,6 +89,46 @@ describe("resolvePublishedAt", () => {
 
 describe("guideOrder", () => {
 	it("orders by sortOrder then title so the order is total", () => {
+		expect(guideOrder).toEqual([{ sortOrder: "asc" }, { title: "asc" }])
+	})
+})
+
+// #endregion
+
+// #region compareGuides
+
+describe("compareGuides", () => {
+	it("orders by sortOrder ascending", () => {
+		expect(
+			compareGuides({ sortOrder: 2, title: "a" }, { sortOrder: 1, title: "b" })
+		).toBeGreaterThan(0)
+	})
+
+	it("breaks sortOrder ties by title, ascending", () => {
+		expect(
+			compareGuides(
+				{ sortOrder: 0, title: "Alpha" },
+				{ sortOrder: 0, title: "Beta" }
+			)
+		).toBeLessThan(0)
+	})
+
+	// The comparator must encode the same fields and direction as `guideOrder`, or
+	// the in-memory ungrouped list orders differently from every DB-ordered list.
+	it("sorts a list the same way guideOrder's fields describe", () => {
+		const rows = [
+			{ sortOrder: 1, title: "Zebra" },
+			{ sortOrder: 0, title: "Beta" },
+			{ sortOrder: 0, title: "Alpha" },
+			{ sortOrder: 2, title: "Alpha" },
+		]
+
+		expect([...rows].sort(compareGuides)).toEqual([
+			{ sortOrder: 0, title: "Alpha" },
+			{ sortOrder: 0, title: "Beta" },
+			{ sortOrder: 1, title: "Zebra" },
+			{ sortOrder: 2, title: "Alpha" },
+		])
 		expect(guideOrder).toEqual([{ sortOrder: "asc" }, { title: "asc" }])
 	})
 })

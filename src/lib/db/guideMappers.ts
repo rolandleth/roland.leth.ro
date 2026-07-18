@@ -60,8 +60,26 @@ export function isScheduledGuide(publishedAt: Date | null, now: Date): boolean {
  * the order is total — `sortOrder` defaults to 0, so an unordered import would
  * otherwise come back in whatever order Postgres feels like, and the rendered
  * list would shuffle between requests.
+ *
+ * `compareGuides` below MUST encode the same ordering: the overview regroups
+ * guides in memory and re-sorts the ungrouped remainder with the comparator, so
+ * if the two drift the in-memory list orders differently from every DB-ordered
+ * list. Kept side by side (and pinned together in `guideMappers.test.ts`) so a
+ * change to one is an obvious prompt to change the other.
  */
 export const guideOrder = [
 	{ sortOrder: "asc" as const },
 	{ title: "asc" as const },
 ]
+
+/**
+ * In-memory twin of `guideOrder`, for lists re-sorted after the overview regroups
+ * them (Postgres can't order the regrouped set). Typed structurally so this stays
+ * Next-free; any row with `sortOrder` + `title` (e.g. `GuideListItem`) fits.
+ */
+export function compareGuides(
+	a: { sortOrder: number; title: string },
+	b: { sortOrder: number; title: string }
+): number {
+	return a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
+}

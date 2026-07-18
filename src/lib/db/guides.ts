@@ -3,7 +3,11 @@ import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
-import { guideOrder, isScheduledGuide } from "@/lib/db/guideMappers"
+import {
+	compareGuides,
+	guideOrder,
+	isScheduledGuide,
+} from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // Publish state gates only the entity it sits on. A guide is listed iff
@@ -198,11 +202,6 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 	return { topics: grouped, ungrouped }
 }
 
-/** Mirrors the DB's `guideOrder` for lists re-sorted in memory after regrouping. */
-function compareGuides(a: GuideListItem, b: GuideListItem): number {
-	return a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
-}
-
 /** Every published guide in an overview, grouped or not — the sitemap/llms.txt set. */
 export function allGuides(overview: GuidesOverview): GuideListItem[] {
 	return [
@@ -239,9 +238,15 @@ export async function getGuidesForProject(
  * reaching existing entries and a stale page (or stale 404) survives every
  * per-slug revalidation — the failure class behind the 2026-07 stale-404
  * incident.
+ *
+ * Guides and topics share the `slug` namespace only across tables, not within
+ * one — so the two tag prefixes must not overlap either. A bare `guide-${slug}`
+ * for guides would make a guide slugged `topic-foo` collide with the topic
+ * slugged `foo` (both `guide-topic-foo`), so busting one would silently bust the
+ * other. The distinct `guide-detail-` / `guide-topic-` prefixes keep them apart.
  */
 function guideTag(slug: string): string {
-	return `guide-${slug}`
+	return `guide-detail-${slug}`
 }
 
 function guideTopicTag(slug: string): string {
