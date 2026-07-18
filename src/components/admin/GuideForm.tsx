@@ -1,20 +1,15 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import {
+	type GuideFormProjectOption,
+	type GuideFormTopicOption,
+	NONE,
+} from "@/components/admin/guideFormOptions"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
-
-export interface GuideFormTopicOption {
-	id: number
-	title: string
-	projectSlug: string | null
-}
-
-export interface GuideFormProjectOption {
-	slug: string
-	name: string
-}
+import { useFormState } from "@/components/admin/useFormState"
 
 interface Props {
 	initialData?: {
@@ -54,9 +49,6 @@ interface FormState {
 	published: boolean
 }
 
-/** The `<select>` value standing in for a null FK — `""` round-trips badly through change handlers. */
-const NONE = "none"
-
 export default function GuideForm({ initialData, topics, projects }: Props) {
 	const isEditing = initialData != null
 	const { save, remove, isSubmitting, error } = useAdminResource<GuidePayload>({
@@ -64,7 +56,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 		id: initialData?.id ?? null,
 	})
 
-	const [state, setState] = useState<FormState>({
+	const { state, setField, setState } = useFormState<FormState>({
 		slug: initialData?.slug ?? "",
 		title: initialData?.title ?? "",
 		description: initialData?.description ?? "",
@@ -74,13 +66,6 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 		sortOrder: String(initialData?.sortOrder ?? 0),
 		published: initialData?.published ?? true,
 	})
-
-	const setField = useCallback(
-		<K extends keyof FormState>(field: K, value: FormState[K]) => {
-			setState((prev) => ({ ...prev, [field]: value }))
-		},
-		[]
-	)
 
 	/**
 	 * Picking a topic adopts its project: the API rejects a guide whose project
@@ -98,7 +83,9 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 					topic == null ? prev.projectSlug : (topic.projectSlug ?? NONE),
 			}))
 		},
-		[topics]
+		// `setState` is the stable setter from `useFormState`; listed to satisfy
+		// exhaustive-deps now that it comes from a custom hook.
+		[topics, setState]
 	)
 
 	const isProjectLocked = state.topicId !== NONE
@@ -209,6 +196,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 					value={state.projectSlug}
 					disabled={isProjectLocked}
 					onChange={(e) => setField("projectSlug", e.target.value)}
+					aria-describedby="projectSlug-help"
 					className="admin-input disabled:opacity-50"
 				>
 					<option value={NONE}>No project</option>
@@ -218,7 +206,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 						</option>
 					))}
 				</select>
-				<p className="text-secondary text-xs">
+				<p id="projectSlug-help" className="text-secondary text-xs">
 					{isProjectLocked
 						? "Set by the topic. Clear the topic to choose a different project."
 						: "No project means no product link, and it won't be listed on any project page."}
@@ -278,7 +266,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 				<button
 					type="submit"
 					disabled={isSubmitting}
-					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save guide"}
 				</button>
@@ -288,7 +276,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 						type="button"
 						onClick={remove}
 						disabled={isSubmitting}
-						className="text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
+						className="admin-delete-btn"
 					>
 						Delete
 					</button>
