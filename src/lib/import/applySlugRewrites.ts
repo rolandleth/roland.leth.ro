@@ -1,5 +1,6 @@
 import path from "node:path"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
+import { errorMessage } from "@/lib/utils/errorMessage"
 import type { ParsedPostFile } from "@/lib/import/postImport"
 
 export type SlugRewriteOutcome = {
@@ -11,13 +12,17 @@ export type SlugRewriteOutcome = {
 	error?: string
 }
 
-/** How the resolved slug is being written, phrased for the operator's log. */
-function describeChange(file: ParsedPostFile): string {
-	const { previous } = file.slugRewrite ?? { previous: null }
-
+/**
+ * How the resolved slug is being written, phrased for the operator's log. Takes
+ * the resolved values directly (not the file) so it can't be called without a
+ * pending rewrite — the caller guards on `slugRewrite != null` first. A blank
+ * `previous` (`""`) is a real prior value, distinct from `null` ("from title"),
+ * so it renders as `slug: "" → x`.
+ */
+function describeChange(slug: string, previous: string | null): string {
 	return previous == null
-		? `slug: ${file.slug} (from title)`
-		: `slug: "${previous}" → ${file.slug}`
+		? `slug: ${slug} (from title)`
+		: `slug: "${previous}" → ${slug}`
 }
 
 /**
@@ -34,7 +39,7 @@ function describeChange(file: ParsedPostFile): string {
 export async function applySlugRewrites(
 	folder: string,
 	parsed: readonly ParsedPostFile[],
-	dryRun: boolean
+	isDryRun: boolean
 ): Promise<SlugRewriteOutcome[]> {
 	const outcomes: SlugRewriteOutcome[] = []
 
@@ -43,9 +48,9 @@ export async function applySlugRewrites(
 			continue
 		}
 
-		const change = describeChange(file)
+		const change = describeChange(file.slug, file.slugRewrite.previous)
 
-		if (dryRun) {
+		if (isDryRun) {
 			outcomes.push({ filename: file.filename, change, result: "planned" })
 			continue
 		}
@@ -61,7 +66,7 @@ export async function applySlugRewrites(
 				filename: file.filename,
 				change,
 				result: "failed",
-				error: error instanceof Error ? error.message : String(error),
+				error: errorMessage(error),
 			})
 		}
 	}

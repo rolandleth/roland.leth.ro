@@ -134,6 +134,9 @@ export interface ExistingGuide {
 	body: string
 	projectSlug: string | null
 	topicId: number | null
+	/** The guide's CURRENT topic slug (null when ungrouped), for detecting a move
+	 * to a different folder even when the content is otherwise unchanged. */
+	topicSlug: string | null
 	sortOrder: number
 	readingTime: string | null
 	publishedAt: Date | null
@@ -206,6 +209,9 @@ function describeIssues(error: ZodError): string {
  * coerced 0: silently collapsing `sortOrder: 1.5` (or a typo'd `sortOrder: one`)
  * to 0 would reorder a topic's guides with nothing in the output to explain it.
  */
+/** Postgres `INTEGER` (INT4) upper bound; a `sortOrder` above it can't be stored. */
+const MAX_SORT_ORDER = 2_147_483_647
+
 function parseSortOrder(
 	raw: string | undefined
 ): { value: number } | { error: string } {
@@ -219,7 +225,17 @@ function parseSortOrder(
 		}
 	}
 
-	return { value: Number.parseInt(raw, 10) }
+	const value = Number.parseInt(raw, 10)
+
+	// Postgres `INTEGER` (INT4) upper bound. Above this the write fails at insert
+	// with an opaque driver error; reject it here so the failure names its file.
+	if (value > MAX_SORT_ORDER) {
+		return {
+			error: `\`sortOrder\` must be at most ${MAX_SORT_ORDER}, got "${raw}"`,
+		}
+	}
+
+	return { value }
 }
 
 function parseTopicFile(file: GuideSourceFile): ParsedTopic | SkippedFile {
@@ -473,10 +489,16 @@ function projectLinkWarningFor(entry: {
 }
 
 /**
- * Whether a body links to a project's page. A substring check rather than a
+ * Whether a body links to a project's page. A substring check rather than a full
  * markdown parse: both an inline `[Reckon](/projects/reckon)` and a reference
  * definition `[reckon]: /projects/reckon "…"` contain the literal path, and this
  * runs on every import.
+ *
+ * Fenced and inline code are stripped first, so a `/projects/reckon` shown as a
+ * code example doesn't read as a real link and wrongly suppress the "guide has no
+ * product link" warning. (Prose that merely names the path — "don't link to
+ * /projects/reckon" — still counts; distinguishing that needs real parsing and is
+ * a rare enough case to accept.)
  *
  * The trailing boundary stops `/projects/reckon` from matching inside
  * `/projects/reckon-pro`. Interpolating the slug into a regex is safe here: it
@@ -484,7 +506,9 @@ function projectLinkWarningFor(entry: {
  * carry a metacharacter.
  */
 function bodyLinksToProject(body: string, projectSlug: string): boolean {
-	return new RegExp(`/projects/${projectSlug}(?![a-z0-9-])`).test(body)
+	const prose = body.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "")
+
+	return new RegExp(`/projects/${projectSlug}(?![a-z0-9-])`).test(prose)
 }
 
 // #endregion
@@ -556,7 +580,9 @@ function planTopic(
 function planGuide(
 	guide: ParsedGuide,
 	existing: ExistingGuide | undefined,
-	overwrite: boolean
+	overwrite: boolean,
+	/** Slug of the topic the guide's folder maps to (null when ungrouped). */
+	targetTopicSlug: string | null
 ):
 	| { kind: "create"; create: PlannedGuideCreate }
 	| { kind: "update"; update: PlannedGuideUpdate }
@@ -623,7 +649,15 @@ function planGuide(
 
 	// `published` is deliberately absent: an overwrite must never flip it, or
 	// re-importing an edited file would silently republish something staged.
-	if (Object.keys(data).length === 0) {
+
+	// A pure folder move (new topic, byte-identical content) leaves `data` empty
+	// but must still update, or the guide keeps its old `topicId`. Compare by slug:
+	// the file's target topic (folder → slug) vs. the row's current topic. The
+	// shell resolves `topicFolder` → `topicId` and applies it on the update path,
+	// so carrying the folder is enough — no `topicId` field in `data`.
+	const isTopicChanged = targetTopicSlug !== existing.topicSlug
+
+	if (Object.keys(data).length === 0 && !isTopicChanged) {
 		return { kind: "skip", reason: UNCHANGED_SKIP_REASON }
 	}
 
@@ -645,8 +679,9 @@ function planGuide(
  * fields that actually changed, so a re-run over an unchanged folder plans zero
  * writes.
  *
- * Topic membership is NOT diffed here — the shell resolves `topicFolder` to a
- * `topicId` after topics are written, and applies it on both paths.
+ * A guide's target topic (its folder → slug) is compared against its current
+ * topic slug so a pure move re-groups even with unchanged content; the shell
+ * resolves `topicFolder` to a `topicId` after topics are written and applies it.
  */
 export function planGuideImport(
 	parsed: { topics: readonly ParsedTopic[]; guides: readonly ParsedGuide[] },
@@ -683,11 +718,23 @@ export function planGuideImport(
 		}
 	}
 
+	// Folder → topic slug for this run. Every importable grouped guide's folder is
+	// guaranteed to have a parsed topic (the parser skips guides whose folder has
+	// no `index.md`), so a non-null folder always resolves here.
+	const topicSlugByFolder = new Map(
+		parsed.topics.map((topic) => [topic.folder, topic.slug])
+	)
+
 	for (const guide of parsed.guides) {
+		const targetTopicSlug =
+			guide.topicFolder == null
+				? null
+				: (topicSlugByFolder.get(guide.topicFolder) ?? null)
 		const step = planGuide(
 			guide,
 			existing.guidesBySlug.get(guide.slug),
-			options.overwrite
+			options.overwrite,
+			targetTopicSlug
 		)
 
 		if (step.kind === "create") {

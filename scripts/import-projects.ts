@@ -61,6 +61,7 @@ import {
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
+import { errorMessage } from "@/lib/utils/errorMessage"
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
 const IMPORTS_DIR = path.join(SCRIPTS_DIR, "imports")
@@ -198,7 +199,7 @@ async function listExistingBlobs(
 			throw error
 		}
 
-		const message = error instanceof Error ? error.message : String(error)
+		const message = errorMessage(error)
 		console.warn(
 			`  ! couldn't list existing blobs for ${slug} (${message}); uploading all`
 		)
@@ -458,7 +459,7 @@ async function processProject(
 					console.log(`  · pruned ${pruned} orphaned blob(s)`)
 				}
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error)
+				const message = errorMessage(error)
 				console.warn(
 					`  ! couldn't prune orphaned blobs for ${slug} (${message}); they remain in the store`
 				)
@@ -556,7 +557,7 @@ function formatError(error: unknown): string {
 		return `validation failed:\n${issues}`
 	}
 
-	return error instanceof Error ? error.message : String(error)
+	return errorMessage(error)
 }
 
 // #endregion

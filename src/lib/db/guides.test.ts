@@ -353,6 +353,26 @@ describe("getGuideBySlug", () => {
 		expect(await getGuideBySlug("missing")).toBeNull()
 	})
 
+	// The page render and the JSON-LD builder read these off the detail row; a
+	// dropped SELECT column would surface only at runtime, so pin it here.
+	it("selects the fields the detail page and JSON-LD builder need", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
+
+		await getGuideBySlug("some-guide")
+
+		expect(vi.mocked(prisma.guide.findFirst).mock.calls[0][0]).toMatchObject({
+			select: {
+				title: true,
+				slug: true,
+				description: true,
+				body: true,
+				readingTime: true,
+				publishedAt: true,
+				updatedAt: true,
+			},
+		})
+	})
+
 	it("carries the parent topic when the hub is published", async () => {
 		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
 			...makeGuideListItem({ slug: "with-topic" }),
@@ -624,7 +644,7 @@ describe("revalidateGuide", () => {
 		revalidateGuide("how-to-keep-a-decision-journal")
 
 		expect(revalidateTag).toHaveBeenCalledWith(
-			"guide-how-to-keep-a-decision-journal",
+			"guide-detail-how-to-keep-a-decision-journal",
 			"max"
 		)
 		expect(revalidateTag).toHaveBeenCalledWith("guides", "max")
@@ -647,8 +667,8 @@ describe("revalidateGuideTopic", () => {
 			"guide-topic-making-better-decisions",
 			"max"
 		)
-		expect(revalidateTag).toHaveBeenCalledWith("guide-guide-a", "max")
-		expect(revalidateTag).toHaveBeenCalledWith("guide-guide-b", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("guide-detail-guide-a", "max")
+		expect(revalidateTag).toHaveBeenCalledWith("guide-detail-guide-b", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("guides", "max")
 	})
 
@@ -657,6 +677,32 @@ describe("revalidateGuideTopic", () => {
 
 		expect(revalidateTag).toHaveBeenCalledWith("guide-topic-empty-topic", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("guides", "max")
+	})
+})
+
+describe("guide vs topic tag namespaces", () => {
+	// Regression guard: guide and topic slugs share a namespace across tables but
+	// their cache tags must not. A guide slugged `topic-foo` and a topic slugged
+	// `foo` must bust different tags — with a bare `guide-${slug}` guide tag both
+	// would be `guide-topic-foo` and one bust would silently clobber the other.
+	it("keeps a guide slugged 'topic-foo' distinct from a topic slugged 'foo'", () => {
+		revalidateGuide("topic-foo")
+		const guideDetailTag = vi
+			.mocked(revalidateTag)
+			.mock.calls.map((call) => call[0])
+			.find((tag) => tag !== "guides")
+
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideTopic("foo")
+		const topicDetailTag = vi
+			.mocked(revalidateTag)
+			.mock.calls.map((call) => call[0])
+			.find((tag) => tag !== "guides")
+
+		expect(guideDetailTag).toBe("guide-detail-topic-foo")
+		expect(topicDetailTag).toBe("guide-topic-foo")
+		expect(guideDetailTag).not.toBe(topicDetailTag)
 	})
 })
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db/db"
+import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { revalidateGuideTopic } from "@/lib/db/guides"
 import {
 	describeTopicRefProblem,
@@ -88,6 +88,17 @@ describe("POST /api/admin/guide-topics", () => {
 
 		expect(response.status).toBe(400)
 		expect(prisma.guideTopic.create).not.toHaveBeenCalled()
+	})
+
+	// `findSlugOwner` is racy; the per-table constraint holds the line when a
+	// concurrent insert wins between the check and the create — map P2002 to 409.
+	it("maps a lost slug race (unique constraint on create) to 409", async () => {
+		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
+		vi.mocked(prisma.guideTopic.create).mockRejectedValue(new Error("P2002"))
+
+		const response = await POST(makeRequest(validPayload))
+
+		expect(response.status).toBe(409)
 	})
 
 	it("busts the new hub's page", async () => {

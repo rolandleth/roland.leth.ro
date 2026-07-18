@@ -68,6 +68,7 @@ export default async function GuidesTab({ query, page }: Props) {
 								<Link
 									href={`/admin/guide-topics/${topic.id}/edit`}
 									prefetch={false}
+									aria-label={`Edit ${topic.title}`}
 									className="text-secondary hover:text-primary text-xs transition-colors"
 								>
 									Edit
@@ -136,6 +137,7 @@ export default async function GuidesTab({ query, page }: Props) {
 								<Link
 									href={`/admin/guides/${guide.id}/edit`}
 									prefetch={false}
+									aria-label={`Edit ${guide.title}`}
 									className="text-secondary hover:text-primary text-xs transition-colors"
 								>
 									Edit

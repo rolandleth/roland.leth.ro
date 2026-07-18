@@ -111,6 +111,55 @@ describe("useAdminResource.save", () => {
 		expect(result.current.isSubmitting).toBe(false)
 	})
 
+	it("keeps the button disabled when a superseded save settles before the latest resolves", async () => {
+		// The race: a rapid second save aborts the first's request. The first's
+		// `finally` used to reset `isSubmitting` unconditionally, re-enabling the
+		// button while the second save was still in flight (double-submit window).
+		mockRouter()
+		const resolvers: Array<(value: unknown) => void> = []
+		global.fetch = vi.fn().mockImplementation(
+			(_url: string, init: RequestInit) =>
+				new Promise((resolve, reject) => {
+					resolvers.push(resolve)
+					init.signal?.addEventListener("abort", () => {
+						reject(Object.assign(new Error("aborted"), { name: "AbortError" }))
+					})
+				})
+		)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		let firstSave: Promise<void> = Promise.resolve()
+		let secondSave: Promise<void> = Promise.resolve()
+		await act(async () => {
+			firstSave = result.current.save({ n: 1 })
+		})
+		await act(async () => {
+			secondSave = result.current.save({ n: 2 })
+		})
+
+		// Let the superseded first save settle (its fetch was aborted by the second).
+		await act(async () => {
+			await firstSave.catch(() => {})
+		})
+
+		// The latest save is still in flight, so the button must stay disabled.
+		expect(result.current.isSubmitting).toBe(true)
+
+		await act(async () => {
+			resolvers[1]({
+				ok: true,
+				headers: new Headers(),
+				json: () => Promise.resolve({}),
+			})
+			await secondSave
+		})
+
+		expect(result.current.isSubmitting).toBe(false)
+	})
+
 	it("aborts the in-flight fetch when the consumer unmounts mid-request", async () => {
 		// The unmount cleanup calls `abortRef.current?.abort()` so a navigation
 		// away mid-PUT does not leave a dangling network call. Earlier the

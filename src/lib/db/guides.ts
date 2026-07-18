@@ -1,9 +1,13 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
-import { CacheMissError, nullOnCacheMiss } from "@/lib/db/cacheMiss"
+import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
-import { guideOrder, isScheduledGuide } from "@/lib/db/guideMappers"
+import {
+	compareGuides,
+	guideOrder,
+	isScheduledGuide,
+} from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // Publish state gates only the entity it sits on. A guide is listed iff
@@ -108,6 +112,13 @@ const guideTopicSummarySelect = {
 // #region Aggregates
 
 /**
+ * Aggregate tag on the guides-overview cache, busted by any guide or topic
+ * mutation. Single-sourced so the cache-side tag and the revalidation-side bust
+ * can't drift.
+ */
+const GUIDES_TAG = "guides"
+
+/**
  * Every published topic, and every published guide with its `topicId`, in one
  * cached payload. Grouping happens at read time in `getGuidesOverview` so the
  * `/guides` index, `llms.txt`, the sitemap, and the project-page guides section
@@ -131,7 +142,7 @@ const guidesOverviewCache = unstable_cache(
 		return { topics, guides }
 	},
 	["guides-overview"],
-	{ tags: ["guides"] }
+	{ tags: [GUIDES_TAG] }
 )
 
 /**
@@ -147,6 +158,10 @@ const guidesOverviewCache = unstable_cache(
  */
 export async function getGuidesOverview(): Promise<GuidesOverview> {
 	const { topics, guides } = await guidesOverviewCache()
+	// Built up-front from `topics` so the single guide loop can route a guide with
+	// no published topic straight to `ungrouped`, rather than grouping everything
+	// and then re-walking the map to rescue orphans.
+	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
 	const byTopicId = new Map<number, GuideListItem[]>()
 	const ungrouped: GuideListItem[] = []
 	// Captured once so a long list can't have rows disagreeing about "now".
@@ -157,7 +172,10 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 			continue
 		}
 
-		if (topicId == null) {
+		// No topic, or a topic that didn't come back published (unpublished between
+		// the guide's write and now) → ungrouped, so it stays listed somewhere
+		// rather than vanishing from every listing at once.
+		if (topicId == null || !publishedTopicIds.has(topicId)) {
 			ungrouped.push(guide)
 			continue
 		}
@@ -176,24 +194,9 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 		guides: byTopicId.get(topic.id) ?? [],
 	}))
 
-	// A guide whose topic didn't come back published falls through to the
-	// ungrouped list rather than vanishing from every listing at once.
-	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
-
-	for (const [topicId, topicGuides] of byTopicId) {
-		if (!publishedTopicIds.has(topicId)) {
-			ungrouped.push(...topicGuides)
-		}
-	}
-
 	ungrouped.sort(compareGuides)
 
 	return { topics: grouped, ungrouped }
-}
-
-/** Mirrors the DB's `guideOrder` for lists re-sorted in memory after regrouping. */
-function compareGuides(a: GuideListItem, b: GuideListItem): number {
-	return a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)
 }
 
 /** Every published guide in an overview, grouped or not — the sitemap/llms.txt set. */
@@ -232,9 +235,15 @@ export async function getGuidesForProject(
  * reaching existing entries and a stale page (or stale 404) survives every
  * per-slug revalidation — the failure class behind the 2026-07 stale-404
  * incident.
+ *
+ * Guides and topics share the `slug` namespace only across tables, not within
+ * one — so the two tag prefixes must not overlap either. A bare `guide-${slug}`
+ * for guides would make a guide slugged `topic-foo` collide with the topic
+ * slugged `foo` (both `guide-topic-foo`), so busting one would silently bust the
+ * other. The distinct `guide-detail-` / `guide-topic-` prefixes keep them apart.
  */
 function guideTag(slug: string): string {
-	return `guide-${slug}`
+	return `guide-detail-${slug}`
 }
 
 function guideTopicTag(slug: string): string {
@@ -254,54 +263,49 @@ const guideBySlugWrappers =
 export async function getGuideBySlug(
 	slug: string
 ): Promise<GuideDetail | null> {
-	const wrapper = guideBySlugWrappers.get(slug, () =>
-		unstable_cache(
-			async () => {
-				// `findFirst`, not `findUnique`, so `published: true` is enforced at
-				// the query boundary and the canonical URL can't serve a draft.
-				const row = await prisma.guide.findFirst({
-					where: { slug, published: true },
-					select: {
-						id: true,
-						slug: true,
-						title: true,
-						description: true,
-						body: true,
-						projectSlug: true,
-						readingTime: true,
-						publishedAt: true,
-						updatedAt: true,
-						topic: {
-							select: { slug: true, title: true, published: true },
-						},
+	const guide = await wrapNullableDetail(
+		guideBySlugWrappers,
+		slug,
+		async () => {
+			// `findFirst`, not `findUnique`, so `published: true` is enforced at
+			// the query boundary and the canonical URL can't serve a draft.
+			const row = await prisma.guide.findFirst({
+				where: { slug, published: true },
+				select: {
+					id: true,
+					slug: true,
+					title: true,
+					description: true,
+					body: true,
+					projectSlug: true,
+					readingTime: true,
+					publishedAt: true,
+					updatedAt: true,
+					topic: {
+						select: { slug: true, title: true, published: true },
 					},
-				})
+				},
+			})
 
-				if (row == null) {
-					// Thrown, not returned: `unstable_cache` stores only fulfilled
-					// results, so a miss is never pinned into the durable cache and a
-					// 404 heals on the next request. See `CacheMissError`.
-					throw new CacheMissError()
-				}
+			if (row == null) {
+				return null
+			}
 
-				const { topic, ...guide } = row
+			const { topic, ...guide } = row
 
-				// Drop the parent link when the hub isn't live — rendering it would
-				// point a published page at a 404.
-				return {
-					...guide,
-					topic:
-						topic?.published === true
-							? { slug: topic.slug, title: topic.title }
-							: null,
-				}
-			},
-			[guideTag(slug)],
-			{ tags: [guideTag(slug), GUIDE_PAGES_TAG] }
-		)
+			// Drop the parent link when the hub isn't live — rendering it would
+			// point a published page at a 404.
+			return {
+				...guide,
+				topic:
+					topic?.published === true
+						? { slug: topic.slug, title: topic.title }
+						: null,
+			}
+		},
+		[guideTag(slug)],
+		[guideTag(slug), GUIDE_PAGES_TAG]
 	)
-
-	const guide = await nullOnCacheMiss(wrapper)
 
 	if (guide == null) {
 		return null
@@ -320,40 +324,30 @@ const guideTopicBySlugWrappers =
 export async function getGuideTopicBySlug(
 	slug: string
 ): Promise<GuideTopicDetail | null> {
-	const wrapper = guideTopicBySlugWrappers.get(slug, () =>
-		unstable_cache(
-			async () => {
-				const row = await prisma.guideTopic.findFirst({
-					where: { slug, published: true },
-					select: {
-						id: true,
-						slug: true,
-						title: true,
-						shortDescription: true,
-						description: true,
-						projectSlug: true,
-						updatedAt: true,
-						guides: {
-							where: { published: true },
-							select: guideListItemSelect,
-							orderBy: guideOrder,
-						},
+	const topic = await wrapNullableDetail(
+		guideTopicBySlugWrappers,
+		slug,
+		() =>
+			prisma.guideTopic.findFirst({
+				where: { slug, published: true },
+				select: {
+					id: true,
+					slug: true,
+					title: true,
+					shortDescription: true,
+					description: true,
+					projectSlug: true,
+					updatedAt: true,
+					guides: {
+						where: { published: true },
+						select: guideListItemSelect,
+						orderBy: guideOrder,
 					},
-				})
-
-				if (row == null) {
-					// Thrown, not returned — see the guide wrapper above.
-					throw new CacheMissError()
-				}
-
-				return row
-			},
-			[guideTopicTag(slug)],
-			{ tags: [guideTopicTag(slug), GUIDE_PAGES_TAG] }
-		)
+				},
+			}),
+		[guideTopicTag(slug)],
+		[guideTopicTag(slug), GUIDE_PAGES_TAG]
 	)
-
-	const topic = await nullOnCacheMiss(wrapper)
 
 	if (topic == null) {
 		return null
@@ -492,12 +486,29 @@ export async function listGuideTopicsForAdmin(): Promise<
 	}))
 }
 
-/** Topic slug/title/id list for the admin guide form's topic picker. */
+/**
+ * Topic list for the admin guide form's topic picker. Includes `published` so
+ * the picker can flag draft topics — attaching a live guide to a draft hub is
+ * allowed (the guide renders without the parent link until the hub goes live),
+ * but the editor should see they're picking one that isn't live yet.
+ */
 export async function listGuideTopicOptions(): Promise<
-	{ id: number; slug: string; title: string; projectSlug: string | null }[]
+	{
+		id: number
+		slug: string
+		title: string
+		projectSlug: string | null
+		published: boolean
+	}[]
 > {
 	return prisma.guideTopic.findMany({
-		select: { id: true, slug: true, title: true, projectSlug: true },
+		select: {
+			id: true,
+			slug: true,
+			title: true,
+			projectSlug: true,
+			published: true,
+		},
 		orderBy: { title: "asc" },
 	})
 }
@@ -512,7 +523,7 @@ export async function listGuideTopicOptions(): Promise<
  * this, directly or via the helpers below.
  */
 export function revalidateGuides(): void {
-	revalidateTag("guides", "max")
+	revalidateTag(GUIDES_TAG, "max")
 }
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */

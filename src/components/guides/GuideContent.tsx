@@ -31,7 +31,8 @@ export default function GuideContent({
 							href={`/guides/${topic.slug}`}
 							className="text-secondary hover:text-accent mb-3 inline-block text-sm"
 						>
-							← {topic.title}
+							<span aria-hidden>← </span>
+							{topic.title}
 						</Link>
 					)}
 

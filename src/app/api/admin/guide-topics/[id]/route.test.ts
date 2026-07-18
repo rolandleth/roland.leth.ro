@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { isPrismaForeignKeyConstraint, prisma } from "@/lib/db/db"
+import {
+	isPrismaForeignKeyConstraint,
+	isPrismaNotFound,
+	prisma,
+} from "@/lib/db/db"
 import { revalidateGuideTopic } from "@/lib/db/guides"
 import {
 	describeTopicRefProblem,
 	findSlugOwner,
 } from "@/lib/db/guideValidation"
-import { DELETE, PUT } from "./route"
+import { DELETE, GET, PUT } from "./route"
 
 // The PUT runs inside `$transaction`; the mock hands the callback a `tx` with
 // the same shape so the cascade path is exercised rather than stubbed out.
@@ -16,7 +20,7 @@ const tx = {
 
 vi.mock("@/lib/db/db", () => ({
 	prisma: {
-		guideTopic: { delete: vi.fn() },
+		guideTopic: { delete: vi.fn(), findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	},
 	isPrismaUniqueConstraint: vi.fn().mockReturnValue(false),
@@ -200,6 +204,56 @@ describe("DELETE /api/admin/guide-topics/[id]", () => {
 
 		expect(response.status).toBe(409)
 		expect((await response.json()).error).toContain("still has guides")
+	})
+
+	// A delete of an already-gone row (P2025) is a 404, not a 500.
+	it("returns 404 when the topic no longer exists", async () => {
+		vi.mocked(prisma.guideTopic.delete).mockRejectedValue(
+			Object.assign(new Error("not found"), { code: "P2025" })
+		)
+		vi.mocked(isPrismaNotFound).mockReturnValue(true)
+
+		const response = await DELETE(
+			new Request("http://localhost", { method: "DELETE" }),
+			paramsFor("1")
+		)
+
+		expect(response.status).toBe(404)
+	})
+})
+
+// #endregion
+
+// #region GET
+
+describe("GET /api/admin/guide-topics/[id]", () => {
+	it("returns the topic when it exists", async () => {
+		vi.mocked(prisma.guideTopic.findUnique).mockResolvedValue(updated)
+
+		const response = await GET(new Request("http://localhost"), paramsFor("1"))
+
+		expect(response.status).toBe(200)
+		expect((await response.json()).slug).toBe("making-better-decisions")
+	})
+
+	it("returns 404 when the topic does not exist", async () => {
+		vi.mocked(prisma.guideTopic.findUnique).mockResolvedValue(null)
+
+		const response = await GET(
+			new Request("http://localhost"),
+			paramsFor("999")
+		)
+
+		expect(response.status).toBe(404)
+	})
+
+	it("returns 400 for a non-numeric id", async () => {
+		const response = await GET(
+			new Request("http://localhost"),
+			paramsFor("abc")
+		)
+
+		expect(response.status).toBe(400)
 	})
 })
 

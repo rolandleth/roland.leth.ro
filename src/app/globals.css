@@ -170,6 +170,14 @@ code[data-theme*=" "] span {
 		@apply border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none;
 	}
 
+	.admin-submit-btn {
+		@apply bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.admin-delete-btn {
+		@apply text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
 	.link,
 	.prose a {
 		@apply text-accent underline decoration-transparent underline-offset-4 hover:decoration-current;

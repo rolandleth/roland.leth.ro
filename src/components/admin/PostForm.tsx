@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
+import { useFormState } from "@/components/admin/useFormState"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -53,7 +53,7 @@ export default function PostForm({ initialData }: Props) {
 	// callback identity is stable across renders (no value/closure dependency)
 	// so the heavy children — `MarkdownEditor`, `ImageUpload` — get the same
 	// `onChange` reference on every render.
-	const [state, setState] = useState<FormState>({
+	const { state, setField } = useFormState<FormState>({
 		title: initialData?.title ?? "",
 		section: initialData?.section ?? "tech",
 		datetime: initialData?.datetime ?? currentDatetimeString(),
@@ -62,13 +62,6 @@ export default function PostForm({ initialData }: Props) {
 		imageUrl: initialData?.imageUrl ?? "",
 		body: initialData?.body ?? "",
 	})
-
-	const setField = useCallback(
-		<K extends keyof FormState>(field: K, value: FormState[K]) => {
-			setState((prev) => ({ ...prev, [field]: value }))
-		},
-		[]
-	)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
@@ -192,7 +185,7 @@ export default function PostForm({ initialData }: Props) {
 				<button
 					type="submit"
 					disabled={isSubmitting}
-					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save post"}
 				</button>
@@ -202,7 +195,7 @@ export default function PostForm({ initialData }: Props) {
 						type="button"
 						onClick={remove}
 						disabled={isSubmitting}
-						className="text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
+						className="admin-delete-btn"
 					>
 						Delete
 					</button>

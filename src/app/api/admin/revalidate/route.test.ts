@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import {
-	revalidateAllGuides,
-	revalidateGuide,
-	revalidateGuideTopic,
-} from "@/lib/db/guides"
+import { revalidateGuideSlugs } from "@/lib/db/guideRevalidation"
+import { revalidateAllGuides } from "@/lib/db/guides"
 import { revalidateAllPosts, revalidatePost } from "@/lib/db/posts"
 import { revalidateAllProjects, revalidateProject } from "@/lib/db/projects"
 import { POST } from "./route"
@@ -18,8 +15,9 @@ vi.mock("@/lib/db/projects", () => ({
 }))
 vi.mock("@/lib/db/guides", () => ({
 	revalidateAllGuides: vi.fn(),
-	revalidateGuide: vi.fn(),
-	revalidateGuideTopic: vi.fn(),
+}))
+vi.mock("@/lib/db/guideRevalidation", () => ({
+	revalidateGuideSlugs: vi.fn(async () => []),
 }))
 
 function post(body: unknown): Promise<Response> {
@@ -62,7 +60,13 @@ describe("POST /api/admin/revalidate", () => {
 		expect(await response.json()).toEqual({
 			ok: true,
 			applied: { posts: ["tech/ok"] },
-			skipped: { posts: ["garbage/foo"] },
+			skipped: {
+				posts: {
+					entries: ["garbage/foo"],
+					reason: "post entries must be section/slug",
+				},
+			},
+			errors: {},
 		})
 	})
 
@@ -75,11 +79,12 @@ describe("POST /api/admin/revalidate", () => {
 		expect(vi.mocked(revalidatePost)).toHaveBeenCalledWith("tech", "ok")
 
 		const body = await response.json()
-		expect(body.skipped.posts).toEqual([
+		expect(body.skipped.posts.entries).toEqual([
 			"bare-slug",
 			"blog/tech/nested",
 			"tech/",
 		])
+		expect(body.skipped.posts.reason).toBe("post entries must be section/slug")
 	})
 
 	it("omits `skipped` keys for batches with nothing dropped", async () => {
@@ -89,6 +94,7 @@ describe("POST /api/admin/revalidate", () => {
 			ok: true,
 			applied: { posts: ["tech/ok"], projects: ["capsule"] },
 			skipped: {},
+			errors: {},
 		})
 	})
 
@@ -111,27 +117,22 @@ describe("POST /api/admin/revalidate", () => {
 		const response = await post({ guides: "all" })
 
 		expect(vi.mocked(revalidateAllGuides)).toHaveBeenCalledTimes(1)
-		expect(vi.mocked(revalidateGuide)).not.toHaveBeenCalled()
+		expect(vi.mocked(revalidateGuideSlugs)).not.toHaveBeenCalled()
 		expect(await response.json()).toEqual({
 			ok: true,
 			applied: { guides: "all" },
 			skipped: {},
+			errors: {},
 		})
 	})
 
-	it("busts each named guide slug as both a guide and a topic", async () => {
+	it("delegates named guide slugs to revalidateGuideSlugs (detail + parent hub)", async () => {
 		await post({ guides: ["decision-journal", "making-better-decisions"] })
 
-		expect(vi.mocked(revalidateGuide)).toHaveBeenCalledWith("decision-journal")
-		expect(vi.mocked(revalidateGuideTopic)).toHaveBeenCalledWith(
-			"decision-journal"
-		)
-		expect(vi.mocked(revalidateGuide)).toHaveBeenCalledWith(
-			"making-better-decisions"
-		)
-		expect(vi.mocked(revalidateGuideTopic)).toHaveBeenCalledWith(
-			"making-better-decisions"
-		)
+		expect(vi.mocked(revalidateGuideSlugs)).toHaveBeenCalledWith([
+			"decision-journal",
+			"making-better-decisions",
+		])
 		expect(vi.mocked(revalidateAllGuides)).not.toHaveBeenCalled()
 	})
 
@@ -141,13 +142,38 @@ describe("POST /api/admin/revalidate", () => {
 		expect(response.status).toBe(400)
 	})
 
-	it("returns 500 when a revalidation throws", async () => {
-		vi.mocked(revalidateAllPosts).mockImplementationOnce(() => {
+	it("isolates a failing resource: reports it in `errors`, keeps the rest, 207s", async () => {
+		vi.mocked(revalidateProject).mockImplementationOnce(() => {
 			throw new Error("revalidateTag unavailable")
 		})
 
-		const response = await post({ posts: "all" })
+		const response = await post({
+			posts: ["tech/ok"],
+			projects: ["capsule"],
+		})
 
-		expect(response.status).toBe(500)
+		expect(response.status).toBe(207)
+		const body = await response.json()
+		expect(body.ok).toBe(false)
+		// The bucket that succeeded is still reported — a retry would double-bust it.
+		expect(body.applied).toEqual({ posts: ["tech/ok"] })
+		expect(body.errors).toEqual({ projects: "revalidation failed" })
+		expect(vi.mocked(revalidatePost)).toHaveBeenCalledWith("tech", "ok")
+	})
+
+	it("surfaces a guide-batch failure without discarding earlier successes", async () => {
+		vi.mocked(revalidateGuideSlugs).mockRejectedValueOnce(
+			new Error("db unavailable")
+		)
+
+		const response = await post({
+			posts: "all",
+			guides: ["decision-journal"],
+		})
+
+		expect(response.status).toBe(207)
+		const body = await response.json()
+		expect(body.applied).toEqual({ posts: "all" })
+		expect(body.errors).toEqual({ guides: "revalidation failed" })
 	})
 })

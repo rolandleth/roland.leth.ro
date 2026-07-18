@@ -19,13 +19,23 @@ function oneLine(text: string): string {
 	return text.replace(/\s+/g, " ").trim()
 }
 
+/**
+ * A markdown link label safe to drop into `[...]`. Titles are author-freeform, so
+ * an unescaped `]` (or `[`) would close the label early and corrupt the link in
+ * this machine-parsed file; single-lines and backslash-escapes them (and `\`
+ * itself) so the label survives verbatim.
+ */
+function linkLabel(text: string): string {
+	return oneLine(text).replace(/([[\]\\])/g, "\\$1")
+}
+
 function linkLine(
 	base: string,
 	entry: { slug: string; title: string },
 	description: string,
 	indent = ""
 ): string {
-	return `${indent}- [${entry.title}](${base}/guides/${entry.slug}): ${oneLine(description)}`
+	return `${indent}- [${linkLabel(entry.title)}](${base}/guides/${entry.slug}): ${oneLine(description)}`
 }
 
 /**
@@ -76,7 +86,7 @@ export async function GET(): Promise<Response> {
 		.filter((project) => !project.isDiscontinued)
 		.map(
 			(project) =>
-				`- [${project.name}](${base}/projects/${project.slug}): ${oneLine(project.summary)}`
+				`- [${linkLabel(project.name)}](${base}/projects/${project.slug}): ${oneLine(project.summary)}`
 		)
 		.join("\n")
 

@@ -29,7 +29,9 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@/generated/prisma/client"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
+import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import { groupBy, planStamp, type Row } from "@/lib/import/slugInit"
+import { errorMessage } from "@/lib/utils/errorMessage"
 
 const KNOWN_FLAGS = new Set(["--dry-run"])
 const SECTION_FLAG_PREFIX = "--section="
@@ -74,12 +76,11 @@ function resolveSection(folder: string, flag: string | undefined): Section {
 	return candidate
 }
 
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
-}
-
 type StampOutcome =
-	| { kind: "problem"; message: string }
+	// `slug` is set only when the match succeeded but the WRITE failed — the row
+	// has a file, so it must still count as matched even though its stamp didn't
+	// land, or it would also show up in the "no matching file" list.
+	| { kind: "problem"; message: string; slug?: string }
 	| { kind: "unchanged"; slug: string }
 	| { kind: "written"; filename: string; slug: string; titleDiffers: boolean }
 
@@ -122,6 +123,7 @@ async function stampFile(
 			return {
 				kind: "problem",
 				message: `${filename} — failed to write: ${errorMessage(error)}`,
+				slug: plan.slug,
 			}
 		}
 
@@ -149,11 +151,9 @@ async function initFolder(
 	folder: string,
 	section: Section
 ): Promise<InitResult> {
-	const entries = await readdir(folder, { withFileTypes: true })
-	const names = entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-		.map((entry) => entry.name)
-		.sort()
+	const names = sortedMarkdownNames(
+		await readdir(folder, { withFileTypes: true })
+	)
 
 	const rows: Row[] = await prisma.post.findMany({
 		where: { section },
@@ -173,6 +173,14 @@ async function initFolder(
 
 		if (result.kind === "problem") {
 			problems.push(result.message)
+
+			// A write-failure carries its resolved slug: the row DOES have a file
+			// (the write just failed), so record it so it isn't also flagged as
+			// having no matching file.
+			if (result.slug != null) {
+				matchedSlugs.add(result.slug)
+			}
+
 			continue
 		}
 
@@ -252,7 +260,9 @@ async function main(): Promise<void> {
 			}
 		}
 
-		if (problems.length > 0) {
+		const hasProblems = problems.length > 0
+
+		if (hasProblems) {
 			console.log(`\nNeeds manual attention (${problems.length}):`)
 			for (const problem of problems) {
 				console.log(`  ! ${problem}`)
@@ -261,9 +271,19 @@ async function main(): Promise<void> {
 			process.exitCode = 1
 		}
 
+		// `problems` mixes unmatched files, read failures, and write failures — so
+		// label it "needing attention", not "unmatched". When any exist, the tail
+		// says FAILED (partial) so an operator scanning only the last line can't
+		// mistake a partial run for a clean one.
+		const status = isDryRun
+			? "Dry run complete"
+			: hasProblems
+				? "Init FAILED (partial)"
+				: "Init complete"
+
 		console.log(
-			`\n${isDryRun ? "Dry run" : "Init"} complete: ${written} ${isDryRun ? "to write" : "written"}, ` +
-				`${unchanged} already correct, ${problems.length} unmatched.`
+			`\n${status}: ${written} ${isDryRun ? "to write" : "written"}, ` +
+				`${unchanged} already correct, ${problems.length} needing attention.`
 		)
 	} finally {
 		await prisma.$disconnect()
@@ -271,6 +291,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	// Log the full error (not just its message) so an unexpected failure — a
+	// Prisma error, a transaction abort — surfaces its stack in CI logs.
+	console.error(error)
 	process.exit(1)
 })

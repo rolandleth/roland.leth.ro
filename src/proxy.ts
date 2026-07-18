@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSessionSecret, verifyToken } from "@/lib/auth/auth"
 import { type Section, SECTIONS } from "@/lib/db/sections"
+import { isBotProbe } from "@/lib/proxy/botProbes"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
@@ -24,89 +25,6 @@ const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
 const BLOG_MD_REGEX = new RegExp(
 	`^/blog/(${SECTION_ALTERNATION})/([^/]+?)\\.md$`
 )
-
-// Scanner/bot probes that can never be a real route or legacy slug here. Middleware
-// already runs on every request, so short-circuiting them to a bare 404 stops the
-// probe before it reaches the `[slug]` catch-all's not-found render — a billed
-// function invocation. The patterns are kept SPECIFIC on purpose: a blanket
-// "has a dot" / "starts with a dot" rule would eat legitimate dotted legacy slugs
-// (`/v1.2.3`, `/node.js`) and `/.well-known/*` (ACME, security.txt,
-// apple-app-site-association). That's the same trap the `/_next/` short-circuit
-// below documents having already fallen into once.
-
-// Server-script, config, secret, dump, and archive extensions. Deliberately NOT
-// `md` (blog markdown export), `txt`/`xml` (llms.txt, sitemap, robots), or the
-// image/css/js the `config.matcher` already excludes. This site was never PHP/ASP/
-// Java, so none of these can collide with a real legacy slug. A Set (vs. one big
-// alternation regex) keeps the check O(1) and trivially extendable from logs.
-const BOT_PROBE_EXTENSIONS = new Set([
-	"php",
-	"php5",
-	"php7",
-	"phtml",
-	"phar",
-	"asp",
-	"aspx",
-	"jsp",
-	"jspx",
-	"cgi",
-	"cfm",
-	"do",
-	"action",
-	"env",
-	"ini",
-	"conf",
-	"cfg",
-	"toml",
-	"yml",
-	"yaml",
-	"sql",
-	"bak",
-	"old",
-	"swp",
-	"sh",
-	"pl",
-	"py",
-	"rb",
-	"war",
-	"jar",
-	"dll",
-	"tar",
-	"gz",
-	"tgz",
-	"rar",
-	"7z",
-	"zip",
-])
-
-// Known scanner path segments (WordPress, PHP admin panels, VCS/secret dirs, Java
-// actuators). `/.well-known` is deliberately absent — it's a real, load-bearing
-// path. Matched with segment boundaries (see `isBotProbe`) so `/administrator`
-// 404s but a hypothetical `/administrator-guide` post slug still passes through.
-const BOT_PROBE_PATH_PREFIXES = [
-	"/wp-admin",
-	"/wp-login",
-	"/wp-content",
-	"/wp-includes",
-	"/wp-json",
-	"/wordpress",
-	"/xmlrpc",
-	"/phpmyadmin",
-	"/phpinfo",
-	"/administrator",
-	"/vendor",
-	"/cgi-bin",
-	"/actuator",
-	"/.git",
-	"/.env",
-	"/.aws",
-	"/.ssh",
-	"/.svn",
-	"/.hg",
-	"/.vscode",
-	"/.idea",
-	"/.ds_store",
-]
 
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
 	const token = request.cookies.get(SESSION_COOKIE)?.value
@@ -167,36 +85,6 @@ function matchLegacyRedirect(pathname: string): string | null {
 	return null
 }
 
-/**
- * True when `pathname` is an obvious scanner/bot probe — a script/config/archive
- * extension or a known-bad path segment (WordPress, PHP admin panels, exposed
- * VCS/secret dirs). Path prefixes match only at a segment boundary (`===`, `/`, or
- * `.`) so `/administrator` and `/.env.local` match while `/administrator-guide`
- * does not. See `BOT_PROBE_EXTENSIONS` / `BOT_PROBE_PATH_PREFIXES` for why the
- * match is kept narrow rather than a blanket dotfile/extension rule.
- */
-function isBotProbe(pathname: string): boolean {
-	const lowerPath = pathname.toLowerCase()
-	const lastSegment = lowerPath.slice(lowerPath.lastIndexOf("/") + 1)
-	const dotIndex = lastSegment.lastIndexOf(".")
-
-	// `dotIndex > 0` skips leading-dot dotfiles (`.env`): those resolve via the
-	// path-prefix list, not by extension.
-	if (
-		dotIndex > 0 &&
-		BOT_PROBE_EXTENSIONS.has(lastSegment.slice(dotIndex + 1))
-	) {
-		return true
-	}
-
-	return BOT_PROBE_PATH_PREFIXES.some(
-		(prefix) =>
-			lowerPath === prefix ||
-			lowerPath.startsWith(`${prefix}/`) ||
-			lowerPath.startsWith(`${prefix}.`)
-	)
-}
-
 export async function proxy(request: NextRequest): Promise<NextResponse> {
 	const { pathname, search } = request.nextUrl
 
@@ -219,15 +107,26 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		return new NextResponse(null, { status: 404 })
 	}
 
+	// Lower-cased so a case variant (`/ADMIN/…`) can't slip past the gate. Next.js
+	// routing is case-sensitive, so an uppercase variant 404s rather than reaching
+	// a real admin route — but matching case-insensitively here can only ever ADD
+	// protection, never remove it, and closes the asymmetry with the (already
+	// lower-cased) bot-probe filter above.
+	//
+	// Token-minting endpoints deliberately live OUTSIDE this namespace, under
+	// `/api/auth/*` (e.g. `/api/auth/login`), so they aren't gated behind the JWT
+	// they exist to issue. Don't add a login handler under `/api/admin/*`.
+	const gatedPath = pathname.toLowerCase()
+
 	// Match the `/api/admin` namespace explicitly: `startsWith("/api/admin/")`
 	// alone would let `/api/admin` (no trailing slash) bypass the auth gate
 	// and fall through to the generic `/api/*` pass-through. No route currently
 	// lives at the bare path, but the guard is cheap defense in depth.
 	const isAdminApi =
-		pathname === "/api/admin" || pathname.startsWith("/api/admin/")
+		gatedPath === "/api/admin" || gatedPath.startsWith("/api/admin/")
 	const isAdminPage =
-		(pathname === "/admin" || pathname.startsWith("/admin/")) &&
-		pathname !== "/admin/login"
+		(gatedPath === "/admin" || gatedPath.startsWith("/admin/")) &&
+		gatedPath !== "/admin/login"
 
 	if (isAdminApi || isAdminPage) {
 		const isAuthed = await isAuthenticated(request)

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { prisma } from "@/lib/db/db"
+import { isPrismaNotFound, isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { revalidateTopicsById } from "@/lib/db/guideRevalidation"
 import { revalidateGuide } from "@/lib/db/guides"
 import {
@@ -217,6 +217,17 @@ describe("PUT /api/admin/guides/[id]", () => {
 
 		expect(revalidateTopicsById).toHaveBeenCalledWith([7, 9])
 	})
+
+	// The pre-update slug check is racy; a concurrent insert winning the slug
+	// surfaces as a P2002 on update, which must map to 409, not 500.
+	it("maps a lost slug race on update to 409", async () => {
+		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
+		vi.mocked(prisma.guide.update).mockRejectedValue(new Error("P2002"))
+
+		const response = await PUT(makeRequest({ slug: "taken" }), paramsFor("1"))
+
+		expect(response.status).toBe(409)
+	})
 })
 
 // #endregion
@@ -247,6 +258,21 @@ describe("DELETE /api/admin/guides/[id]", () => {
 
 		expect(response.status).toBe(400)
 		expect(prisma.guide.delete).not.toHaveBeenCalled()
+	})
+
+	// Deleting an already-gone guide (P2025) is a 404, not a 500.
+	it("returns 404 when the guide no longer exists", async () => {
+		vi.mocked(prisma.guide.delete).mockRejectedValue(
+			Object.assign(new Error("not found"), { code: "P2025" })
+		)
+		vi.mocked(isPrismaNotFound).mockReturnValue(true)
+
+		const response = await DELETE(
+			new Request("http://localhost", { method: "DELETE" }),
+			paramsFor("1")
+		)
+
+		expect(response.status).toBe(404)
 	})
 })
 

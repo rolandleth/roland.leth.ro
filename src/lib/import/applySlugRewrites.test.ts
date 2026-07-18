@@ -69,6 +69,20 @@ describe("applySlugRewrites", () => {
 		expect(await readdir(folder)).toEqual([filename])
 	})
 
+	// A blank prior value (`""`) is a real previous slug, distinct from `null`
+	// ("derived from title"), so the log must read `slug: "" → x`, not "(from title)".
+	it("distinguishes a blank previous slug from a title-derived one", async () => {
+		const filename = "2026-07-24-0937-a.md"
+		await writeFile(path.join(folder, filename), "original", "utf8")
+		const parsed = [parsedWithRewrite(filename, "a", "rewritten", "")]
+
+		const outcomes = await applySlugRewrites(folder, parsed, false)
+
+		expect(outcomes).toEqual([
+			{ filename, change: 'slug: "" → a', result: "written" },
+		])
+	})
+
 	it("skips files with no pending rewrite", async () => {
 		const parsed: ParsedPostFile[] = [
 			{

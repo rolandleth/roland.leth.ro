@@ -1,10 +1,13 @@
 "use client"
 
-import { useCallback, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
+import {
+	type GuideFormProjectOption,
+	NONE,
+} from "@/components/admin/guideFormOptions"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
-import type { GuideFormProjectOption } from "@/components/admin/GuideForm"
+import { useFormState } from "@/components/admin/useFormState"
 
 interface Props {
 	initialData?: {
@@ -39,8 +42,6 @@ interface FormState {
 	published: boolean
 }
 
-const NONE = "none"
-
 export default function GuideTopicForm({
 	initialData,
 	projects,
@@ -53,7 +54,7 @@ export default function GuideTopicForm({
 			id: initialData?.id ?? null,
 		})
 
-	const [state, setState] = useState<FormState>({
+	const { state, setField } = useFormState<FormState>({
 		slug: initialData?.slug ?? "",
 		title: initialData?.title ?? "",
 		shortDescription: initialData?.shortDescription ?? "",
@@ -61,13 +62,6 @@ export default function GuideTopicForm({
 		projectSlug: initialData?.projectSlug ?? NONE,
 		published: initialData?.published ?? true,
 	})
-
-	const setField = useCallback(
-		<K extends keyof FormState>(field: K, value: FormState[K]) => {
-			setState((prev) => ({ ...prev, [field]: value }))
-		},
-		[]
-	)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
@@ -133,6 +127,9 @@ export default function GuideTopicForm({
 					placeholder="The one-line blurb shown on the project page and the guides index."
 					className="admin-input"
 				/>
+				<p className="text-secondary text-xs">
+					{state.shortDescription.length}/300
+				</p>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
@@ -199,7 +196,7 @@ export default function GuideTopicForm({
 				<button
 					type="submit"
 					disabled={isSubmitting}
-					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save topic"}
 				</button>
@@ -214,7 +211,7 @@ export default function GuideTopicForm({
 								? "Move or delete this topic's guides first."
 								: undefined
 						}
-						className="text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50"
+						className="admin-delete-btn"
 					>
 						Delete
 					</button>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import FaqManager, { type FaqItem } from "@/components/admin/FaqManager"
 import ImageUpload from "@/components/admin/ImageUpload"
@@ -11,6 +11,7 @@ import SectionManager, {
 	type SectionItem,
 } from "@/components/admin/SectionManager"
 import { useAdminResource } from "@/components/admin/useAdminResource"
+import { useFormState } from "@/components/admin/useFormState"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 
@@ -118,7 +119,7 @@ export default function ProjectForm({ initialData }: Props) {
 	// `LinkManager`, and `ImageUpload` get the same `onChange` reference each
 	// render — combine that with future `React.memo` on those children to skip
 	// re-renders triggered by unrelated field edits.
-	const [state, setState] = useState<FormState>({
+	const { state, setField, setState } = useFormState<FormState>({
 		name: initialData?.name ?? "",
 		bucket: initialData?.bucket ?? null,
 		platformTags: initialData?.platformTags ?? [],
@@ -160,13 +161,6 @@ export default function ProjectForm({ initialData }: Props) {
 	// previous value.
 	const [sortOrderText, setSortOrderText] = useState(
 		String(initialData?.sortOrder ?? 0)
-	)
-
-	const setField = useCallback(
-		<K extends keyof FormState>(field: K, value: FormState[K]) => {
-			setState((prev) => ({ ...prev, [field]: value }))
-		},
-		[]
 	)
 
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -436,7 +430,7 @@ export default function ProjectForm({ initialData }: Props) {
 				<button
 					type="submit"
 					disabled={isSubmitting}
-					className="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save project"}
 				</button>

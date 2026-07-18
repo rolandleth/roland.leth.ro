@@ -114,6 +114,28 @@ ${body}
 		expect(warnings).toEqual([])
 	})
 
+	// A path shown as a code example is not a real link — the warning must still
+	// fire so the maker knows the guide doesn't actually link the product.
+	it("still warns when the only mention is inside a fenced code block", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("```\nGET /projects/reckon\n```"),
+			}),
+		])
+
+		expect(warnings).toHaveLength(1)
+	})
+
+	it("still warns when the only mention is inline code", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("The route is `/projects/reckon`."),
+			}),
+		])
+
+		expect(warnings).toHaveLength(1)
+	})
+
 	it("warns on a topic hub whose body never links to its project", () => {
 		const { warnings } = parseGuideFiles([topicFile()])
 
@@ -522,6 +544,26 @@ Body.
 		expect(skipped[0].reason).toContain("sortOrder")
 	})
 
+	// Above Postgres INT4 max it would fail opaquely at insert; reject at parse.
+	it("skips a sortOrder that exceeds the Postgres integer range", () => {
+		const { guides, skipped } = parseGuideFiles([
+			rootGuideFile({
+				content: `---
+slug: g
+title: G
+description: D
+sortOrder: 9999999999
+---
+
+Body.
+`,
+			}),
+		])
+
+		expect(guides).toEqual([])
+		expect(skipped[0].reason).toContain("sortOrder")
+	})
+
 	it("skips a guide with an empty body", () => {
 		const { skipped } = parseGuideFiles([
 			rootGuideFile({
@@ -617,6 +659,7 @@ describe("planGuideImport", () => {
 		body: "Guide body.\n",
 		projectSlug: "reckon",
 		topicId: 1,
+		topicSlug: "making-better-decisions",
 		sortOrder: 1,
 		readingTime: "1 min read",
 		// Matches `guideFile`'s `2026-07-17-` prefix, so the default fixture is
@@ -679,6 +722,46 @@ describe("planGuideImport", () => {
 		expect(result.guideUpdates[0].data).toEqual({
 			title: "How to keep a decision journal",
 		})
+	})
+
+	// The shell resolves `topicFolder` → `topicId`, so an update must carry the
+	// file's current folder for a moved-and-edited guide to re-group.
+	it("carries the current topicFolder on an update so a moved guide re-groups", () => {
+		const result = plan(
+			{
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, title: "Old title", topicId: 99 },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates[0].topicFolder).toBe("making-better-decisions")
+	})
+
+	// A pure move (folder changed, content byte-identical) must still update, or
+	// the guide keeps its old topicId — the row's current topic slug differs from
+	// the file's folder-resolved target, so it's not "unchanged".
+	it("plans an update for a pure folder move even when content is unchanged", () => {
+		const result = plan(
+			{
+				topicsBySlug: new Map([["making-better-decisions", existingTopic]]),
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, topicSlug: "some-other-topic" },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates).toHaveLength(1)
+		expect(result.guideUpdates[0].data).toEqual({})
+		expect(result.guideUpdates[0].topicFolder).toBe("making-better-decisions")
 	})
 
 	it("carries the filename's publishedAt onto a create", () => {

@@ -45,6 +45,7 @@ import {
 	TOPIC_FILENAME,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/guideImport"
+import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 
 const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite"])
 
@@ -84,10 +85,7 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 	const entries = await readdir(root, { withFileTypes: true })
 	const files: GuideSourceFile[] = []
 
-	const rootNames = entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-		.map((entry) => entry.name)
-		.sort()
+	const rootNames = sortedMarkdownNames(entries)
 
 	for (const name of rootNames) {
 		files.push({
@@ -105,13 +103,9 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 		.sort()
 
 	for (const folder of folders) {
-		const folderEntries = await readdir(path.join(root, folder), {
-			withFileTypes: true,
-		})
-		const names = folderEntries
-			.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-			.map((entry) => entry.name)
-			.sort()
+		const names = sortedMarkdownNames(
+			await readdir(path.join(root, folder), { withFileTypes: true })
+		)
 
 		for (const name of names) {
 			files.push({
@@ -224,6 +218,9 @@ async function main(): Promise<void> {
 					body: true,
 					projectSlug: true,
 					topicId: true,
+					// Current topic slug so the planner can detect a folder move even
+					// when the guide's content is otherwise unchanged.
+					topic: { select: { slug: true } },
 					sortOrder: true,
 					readingTime: true,
 					publishedAt: true,
@@ -235,7 +232,10 @@ async function main(): Promise<void> {
 			existingTopics.map(({ slug, ...row }) => [slug, row])
 		)
 		const guidesBySlug = new Map<string, ExistingGuide>(
-			existingGuides.map(({ slug, ...row }) => [slug, row])
+			existingGuides.map(({ slug, topic, ...row }) => [
+				slug,
+				{ ...row, topicSlug: topic?.slug ?? null },
+			])
 		)
 
 		// Cross-table slug collisions the batch itself can't see: a guide file
@@ -299,8 +299,13 @@ async function main(): Promise<void> {
 			console.log(`  + ${create.relativePath} → ${create.slug}`)
 		}
 		for (const update of plan.guideUpdates) {
+			const changedFields = Object.keys(update.data)
+			// Empty `data` on an update means only the topic membership changed (a
+			// pure folder move); the shell applies the new `topicId` from the folder.
+			const changeLabel =
+				changedFields.length > 0 ? changedFields.join(", ") : "topic"
 			console.log(
-				`  ~ ${update.relativePath} → ${update.slug} (${Object.keys(update.data).join(", ")})`
+				`  ~ ${update.relativePath} → ${update.slug} (${changeLabel})`
 			)
 		}
 		printSkips(skipped)
@@ -354,17 +359,21 @@ async function main(): Promise<void> {
 				}
 
 				// Resolved after the topic writes so a guide can join a topic created
-				// in this same run.
+				// in this same run. One `findMany` rather than a `findUnique` per
+				// topic, so the serializable transaction holds its lock for a single
+				// round-trip instead of N.
+				const topicRows = await tx.guideTopic.findMany({
+					where: { slug: { in: parsed.topics.map((topic) => topic.slug) } },
+					select: { id: true, slug: true },
+				})
+				const idBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 				const folderToId = new Map<string, number>()
 
 				for (const topic of parsed.topics) {
-					const row = await tx.guideTopic.findUnique({
-						where: { slug: topic.slug },
-						select: { id: true },
-					})
+					const id = idBySlug.get(topic.slug)
 
-					if (row != null) {
-						folderToId.set(topic.folder, row.id)
+					if (id != null) {
+						folderToId.set(topic.folder, id)
 					}
 				}
 
@@ -426,7 +435,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-	console.error(error instanceof Error ? error.message : String(error))
+	// Log the full error (not just its message) so an unexpected failure — a
+	// serializable-conflict abort, a Prisma error — surfaces its stack in CI
+	// logs instead of a bare one-line message.
+	console.error(error)
 	process.exit(1)
 })
 

@@ -1,5 +1,10 @@
 const DEFAULT_MAX_ENTRIES = 256
 
+/** A bounded, string-keyed cache of factory-built values. */
+export type BoundedWrapperCache<T> = {
+	get(key: string, create: () => T): T
+}
+
 /**
  * Creates a bounded LRU-style cache of factory-built values keyed by string.
  * Used to memoize per-slug `unstable_cache` wrappers so each key keeps its own
@@ -12,9 +17,7 @@ const DEFAULT_MAX_ENTRIES = 256
  */
 export function createBoundedWrapperCache<T>(
 	max: number = DEFAULT_MAX_ENTRIES
-): {
-	get(key: string, create: () => T): T
-} {
+): BoundedWrapperCache<T> {
 	const map = new Map<string, T>()
 
 	return {
