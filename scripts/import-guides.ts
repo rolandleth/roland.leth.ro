@@ -45,6 +45,7 @@ import {
 	TOPIC_FILENAME,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/guideImport"
+import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 
 const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite"])
 
@@ -84,10 +85,7 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 	const entries = await readdir(root, { withFileTypes: true })
 	const files: GuideSourceFile[] = []
 
-	const rootNames = entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-		.map((entry) => entry.name)
-		.sort()
+	const rootNames = sortedMarkdownNames(entries)
 
 	for (const name of rootNames) {
 		files.push({
@@ -105,13 +103,9 @@ async function readGuideFiles(root: string): Promise<GuideSourceFile[]> {
 		.sort()
 
 	for (const folder of folders) {
-		const folderEntries = await readdir(path.join(root, folder), {
-			withFileTypes: true,
-		})
-		const names = folderEntries
-			.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-			.map((entry) => entry.name)
-			.sort()
+		const names = sortedMarkdownNames(
+			await readdir(path.join(root, folder), { withFileTypes: true })
+		)
 
 		for (const name of names) {
 			files.push({
@@ -354,17 +348,21 @@ async function main(): Promise<void> {
 				}
 
 				// Resolved after the topic writes so a guide can join a topic created
-				// in this same run.
+				// in this same run. One `findMany` rather than a `findUnique` per
+				// topic, so the serializable transaction holds its lock for a single
+				// round-trip instead of N.
+				const topicRows = await tx.guideTopic.findMany({
+					where: { slug: { in: parsed.topics.map((topic) => topic.slug) } },
+					select: { id: true, slug: true },
+				})
+				const idBySlug = new Map(topicRows.map((row) => [row.slug, row.id]))
 				const folderToId = new Map<string, number>()
 
 				for (const topic of parsed.topics) {
-					const row = await tx.guideTopic.findUnique({
-						where: { slug: topic.slug },
-						select: { id: true },
-					})
+					const id = idBySlug.get(topic.slug)
 
-					if (row != null) {
-						folderToId.set(topic.folder, row.id)
+					if (id != null) {
+						folderToId.set(topic.folder, id)
 					}
 				}
 

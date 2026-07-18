@@ -49,6 +49,7 @@ import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
+import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import {
 	diffBodyLines,
 	type ExistingPost,
@@ -123,11 +124,9 @@ function resolveSection(folder: string, flag: string | undefined): Section {
  * out), sorted by name — the date-prefixed convention makes that chronological.
  */
 async function readMarkdownFiles(folder: string): Promise<ImportFile[]> {
-	const entries = await readdir(folder, { withFileTypes: true })
-	const names = entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-		.map((entry) => entry.name)
-		.sort()
+	const names = sortedMarkdownNames(
+		await readdir(folder, { withFileTypes: true })
+	)
 
 	return Promise.all(
 		names.map(async (filename) => ({

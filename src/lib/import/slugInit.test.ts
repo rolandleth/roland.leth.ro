@@ -64,6 +64,21 @@ describe("matchRow", () => {
 
 		expect(matchRow(byDatetime.get(DT), byTitle.get("Same"), DT)).toBeNull()
 	})
+
+	// Compound guard: the file's datetime has MULTIPLE rows (so no datetime bind),
+	// and the sole title hit sits at a different datetime. A refactor that loosened
+	// the title fallback to "any title hit when datetime is ambiguous" would bind
+	// the wrong row here — pin that it stays null.
+	it("refuses a title match elsewhere when the file's datetime is ambiguous", () => {
+		const rows = [
+			row("a", "A", DT),
+			row("b", "B", DT),
+			row("loner", "Loner", "2020-01-01-0000"),
+		]
+		const { byDatetime, byTitle } = maps(rows)
+
+		expect(matchRow(byDatetime.get(DT), byTitle.get("Loner"), DT)).toBeNull()
+	})
 })
 
 // #endregion
