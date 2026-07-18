@@ -659,6 +659,7 @@ describe("planGuideImport", () => {
 		body: "Guide body.\n",
 		projectSlug: "reckon",
 		topicId: 1,
+		topicSlug: "making-better-decisions",
 		sortOrder: 1,
 		readingTime: "1 min read",
 		// Matches `guideFile`'s `2026-07-17-` prefix, so the default fixture is
@@ -724,8 +725,7 @@ describe("planGuideImport", () => {
 	})
 
 	// The shell resolves `topicFolder` → `topicId`, so an update must carry the
-	// file's current folder for a moved-and-edited guide to re-group. (A pure move
-	// with no content change is a documented limitation — it skips as unchanged.)
+	// file's current folder for a moved-and-edited guide to re-group.
 	it("carries the current topicFolder on an update so a moved guide re-groups", () => {
 		const result = plan(
 			{
@@ -739,6 +739,28 @@ describe("planGuideImport", () => {
 			true
 		)
 
+		expect(result.guideUpdates[0].topicFolder).toBe("making-better-decisions")
+	})
+
+	// A pure move (folder changed, content byte-identical) must still update, or
+	// the guide keeps its old topicId — the row's current topic slug differs from
+	// the file's folder-resolved target, so it's not "unchanged".
+	it("plans an update for a pure folder move even when content is unchanged", () => {
+		const result = plan(
+			{
+				topicsBySlug: new Map([["making-better-decisions", existingTopic]]),
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, topicSlug: "some-other-topic" },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates).toHaveLength(1)
+		expect(result.guideUpdates[0].data).toEqual({})
 		expect(result.guideUpdates[0].topicFolder).toBe("making-better-decisions")
 	})
 

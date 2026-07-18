@@ -218,6 +218,9 @@ async function main(): Promise<void> {
 					body: true,
 					projectSlug: true,
 					topicId: true,
+					// Current topic slug so the planner can detect a folder move even
+					// when the guide's content is otherwise unchanged.
+					topic: { select: { slug: true } },
 					sortOrder: true,
 					readingTime: true,
 					publishedAt: true,
@@ -229,7 +232,10 @@ async function main(): Promise<void> {
 			existingTopics.map(({ slug, ...row }) => [slug, row])
 		)
 		const guidesBySlug = new Map<string, ExistingGuide>(
-			existingGuides.map(({ slug, ...row }) => [slug, row])
+			existingGuides.map(({ slug, topic, ...row }) => [
+				slug,
+				{ ...row, topicSlug: topic?.slug ?? null },
+			])
 		)
 
 		// Cross-table slug collisions the batch itself can't see: a guide file
@@ -293,8 +299,13 @@ async function main(): Promise<void> {
 			console.log(`  + ${create.relativePath} → ${create.slug}`)
 		}
 		for (const update of plan.guideUpdates) {
+			const changedFields = Object.keys(update.data)
+			// Empty `data` on an update means only the topic membership changed (a
+			// pure folder move); the shell applies the new `topicId` from the folder.
+			const changeLabel =
+				changedFields.length > 0 ? changedFields.join(", ") : "topic"
 			console.log(
-				`  ~ ${update.relativePath} → ${update.slug} (${Object.keys(update.data).join(", ")})`
+				`  ~ ${update.relativePath} → ${update.slug} (${changeLabel})`
 			)
 		}
 		printSkips(skipped)

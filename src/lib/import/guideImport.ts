@@ -134,6 +134,9 @@ export interface ExistingGuide {
 	body: string
 	projectSlug: string | null
 	topicId: number | null
+	/** The guide's CURRENT topic slug (null when ungrouped), for detecting a move
+	 * to a different folder even when the content is otherwise unchanged. */
+	topicSlug: string | null
 	sortOrder: number
 	readingTime: string | null
 	publishedAt: Date | null
@@ -577,7 +580,9 @@ function planTopic(
 function planGuide(
 	guide: ParsedGuide,
 	existing: ExistingGuide | undefined,
-	overwrite: boolean
+	overwrite: boolean,
+	/** Slug of the topic the guide's folder maps to (null when ungrouped). */
+	targetTopicSlug: string | null
 ):
 	| { kind: "create"; create: PlannedGuideCreate }
 	| { kind: "update"; update: PlannedGuideUpdate }
@@ -644,17 +649,15 @@ function planGuide(
 
 	// `published` is deliberately absent: an overwrite must never flip it, or
 	// re-importing an edited file would silently republish something staged.
-	//
-	// KNOWN LIMITATION: topic membership can't be diffed here — the planner works
-	// in folder-space and the existing row is in topicId-space, with the mapping
-	// only known in the shell after topics are written. So a file MOVED to a new
-	// folder with otherwise byte-identical content produces an empty `data`, is
-	// skipped as unchanged, and its `topicId` is never re-resolved — the move
-	// silently doesn't take. In practice a move usually rides along with an edit
-	// (which does trigger an update, and the update carries the new folder). Fixing
-	// the pure-move case needs a design change (thread the folder→id map into the
-	// planner, or have the shell re-apply topicId on skips too).
-	if (Object.keys(data).length === 0) {
+
+	// A pure folder move (new topic, byte-identical content) leaves `data` empty
+	// but must still update, or the guide keeps its old `topicId`. Compare by slug:
+	// the file's target topic (folder → slug) vs. the row's current topic. The
+	// shell resolves `topicFolder` → `topicId` and applies it on the update path,
+	// so carrying the folder is enough — no `topicId` field in `data`.
+	const isTopicChanged = targetTopicSlug !== existing.topicSlug
+
+	if (Object.keys(data).length === 0 && !isTopicChanged) {
 		return { kind: "skip", reason: UNCHANGED_SKIP_REASON }
 	}
 
@@ -676,8 +679,9 @@ function planGuide(
  * fields that actually changed, so a re-run over an unchanged folder plans zero
  * writes.
  *
- * Topic membership is NOT diffed here — the shell resolves `topicFolder` to a
- * `topicId` after topics are written, and applies it on both paths.
+ * A guide's target topic (its folder → slug) is compared against its current
+ * topic slug so a pure move re-groups even with unchanged content; the shell
+ * resolves `topicFolder` to a `topicId` after topics are written and applies it.
  */
 export function planGuideImport(
 	parsed: { topics: readonly ParsedTopic[]; guides: readonly ParsedGuide[] },
@@ -714,11 +718,23 @@ export function planGuideImport(
 		}
 	}
 
+	// Folder → topic slug for this run. Every importable grouped guide's folder is
+	// guaranteed to have a parsed topic (the parser skips guides whose folder has
+	// no `index.md`), so a non-null folder always resolves here.
+	const topicSlugByFolder = new Map(
+		parsed.topics.map((topic) => [topic.folder, topic.slug])
+	)
+
 	for (const guide of parsed.guides) {
+		const targetTopicSlug =
+			guide.topicFolder == null
+				? null
+				: (topicSlugByFolder.get(guide.topicFolder) ?? null)
 		const step = planGuide(
 			guide,
 			existing.guidesBySlug.get(guide.slug),
-			options.overwrite
+			options.overwrite,
+			targetTopicSlug
 		)
 
 		if (step.kind === "create") {
