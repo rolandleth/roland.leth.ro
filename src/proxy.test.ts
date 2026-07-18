@@ -8,14 +8,18 @@ vi.mock("jose", () => ({
 	jwtVerify: vi.fn(),
 }))
 
-function makeRequest(path: string, sessionToken?: string): NextRequest {
+function makeRequest(
+	path: string,
+	sessionToken?: string,
+	method = "GET"
+): NextRequest {
 	const headers = new Headers()
 
 	if (sessionToken != null) {
 		headers.set("Cookie", `session=${sessionToken}`)
 	}
 
-	return new NextRequest(`http://localhost${path}`, { headers })
+	return new NextRequest(`http://localhost${path}`, { headers, method })
 }
 
 beforeEach(() => {
@@ -86,6 +90,15 @@ describe("proxy — admin page protection", () => {
 		expect(response.headers.get("location")).toBeNull()
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 	})
+
+	it("gates a case-variant admin page path (defense in depth)", async () => {
+		// Next.js routing is case-sensitive so `/ADMIN` 404s anyway, but the gate
+		// lower-cases before matching so an uppercase variant can only ever be MORE
+		// protected, never less — closing the asymmetry with the bot-probe filter.
+		const response = await proxy(makeRequest("/ADMIN/posts"))
+		expect(response.status).toBe(307)
+		expect(response.headers.get("location")).toContain("/admin/login")
+	})
 })
 
 // #endregion
@@ -137,6 +150,24 @@ describe("proxy — admin API protection", () => {
 		// Guards against the equality check being accidentally widened to startsWith.
 		const response = await proxy(makeRequest("/api/adminx"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	// The gate must be method-agnostic: a mutating verb without a session is the
+	// exact request it exists to stop. Pins that a future method-conditional
+	// branch can't open a write hole.
+	it.each(["POST", "PUT", "DELETE", "PATCH"])(
+		"returns 401 for an unauthenticated %s to /api/admin/posts",
+		async (method) => {
+			const response = await proxy(
+				makeRequest("/api/admin/posts", undefined, method)
+			)
+			expect(response.status).toBe(401)
+		}
+	)
+
+	it("gates a case-variant admin API path (defense in depth)", async () => {
+		const response = await proxy(makeRequest("/API/ADMIN/posts"))
+		expect(response.status).toBe(401)
 	})
 })
 
@@ -344,6 +375,28 @@ describe("proxy — bot probe short-circuit", () => {
 	it("matches path prefixes case-insensitively", async () => {
 		const response = await proxy(makeRequest("/WP-Admin"))
 		expect(response.status).toBe(404)
+	})
+
+	it.each(["/shell.php/anything", "/wp.php/index"])(
+		"404s a script extension on an inner segment %s",
+		async (path) => {
+			// A last-segment-only check let these through to a billed function; the
+			// extension resolves to the same handler downstream regardless of trailing
+			// segments.
+			const response = await proxy(makeRequest(path))
+			expect(response.status).toBe(404)
+		}
+	)
+
+	// The probe filter runs BEFORE the admin gate, so a probe aimed at the admin
+	// namespace 404s (cheap, no auth work) rather than triggering an auth check and
+	// a login redirect / 401. Pins that ordering explicitly.
+	it("404s an admin-shaped probe before the auth gate runs", async () => {
+		const pageProbe = await proxy(makeRequest("/admin/wp-login.php"))
+		expect(pageProbe.status).toBe(404)
+
+		const apiProbe = await proxy(makeRequest("/api/admin/shell.php"))
+		expect(apiProbe.status).toBe(404)
 	})
 
 	it.each([
