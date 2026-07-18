@@ -158,6 +158,10 @@ const guidesOverviewCache = unstable_cache(
  */
 export async function getGuidesOverview(): Promise<GuidesOverview> {
 	const { topics, guides } = await guidesOverviewCache()
+	// Built up-front from `topics` so the single guide loop can route a guide with
+	// no published topic straight to `ungrouped`, rather than grouping everything
+	// and then re-walking the map to rescue orphans.
+	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
 	const byTopicId = new Map<number, GuideListItem[]>()
 	const ungrouped: GuideListItem[] = []
 	// Captured once so a long list can't have rows disagreeing about "now".
@@ -168,7 +172,10 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 			continue
 		}
 
-		if (topicId == null) {
+		// No topic, or a topic that didn't come back published (unpublished between
+		// the guide's write and now) → ungrouped, so it stays listed somewhere
+		// rather than vanishing from every listing at once.
+		if (topicId == null || !publishedTopicIds.has(topicId)) {
 			ungrouped.push(guide)
 			continue
 		}
@@ -186,16 +193,6 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 		...topic,
 		guides: byTopicId.get(topic.id) ?? [],
 	}))
-
-	// A guide whose topic didn't come back published falls through to the
-	// ungrouped list rather than vanishing from every listing at once.
-	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
-
-	for (const [topicId, topicGuides] of byTopicId) {
-		if (!publishedTopicIds.has(topicId)) {
-			ungrouped.push(...topicGuides)
-		}
-	}
 
 	ungrouped.sort(compareGuides)
 
@@ -489,12 +486,29 @@ export async function listGuideTopicsForAdmin(): Promise<
 	}))
 }
 
-/** Topic slug/title/id list for the admin guide form's topic picker. */
+/**
+ * Topic list for the admin guide form's topic picker. Includes `published` so
+ * the picker can flag draft topics — attaching a live guide to a draft hub is
+ * allowed (the guide renders without the parent link until the hub goes live),
+ * but the editor should see they're picking one that isn't live yet.
+ */
 export async function listGuideTopicOptions(): Promise<
-	{ id: number; slug: string; title: string; projectSlug: string | null }[]
+	{
+		id: number
+		slug: string
+		title: string
+		projectSlug: string | null
+		published: boolean
+	}[]
 > {
 	return prisma.guideTopic.findMany({
-		select: { id: true, slug: true, title: true, projectSlug: true },
+		select: {
+			id: true,
+			slug: true,
+			title: true,
+			projectSlug: true,
+			published: true,
+		},
 		orderBy: { title: "asc" },
 	})
 }

@@ -184,6 +184,22 @@ describe("llms.txt — guides", () => {
 		)
 	})
 
+	// A `]` in a title would close the markdown link label early and corrupt this
+	// machine-parsed file, so labels are backslash-escaped.
+	it("escapes markdown control characters in the link label", async () => {
+		vi.mocked(getGuidesOverview).mockResolvedValue({
+			topics: [],
+			ungrouped: [
+				makeGuideListItem({ title: "Arrays [and] brackets", slug: "arrays" }),
+			],
+		})
+
+		const body = await (await GET()).text()
+		expect(body).toContain(
+			`- [Arrays \\[and\\] brackets](${BASE}/guides/arrays):`
+		)
+	})
+
 	it("uses NEXT_PUBLIC_SITE_URL for guide links", async () => {
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.example.com")
 		vi.mocked(getGuidesOverview).mockResolvedValue({

@@ -178,7 +178,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 					<option value={NONE}>No topic (standalone)</option>
 					{topics.map((topic) => (
 						<option key={topic.id} value={String(topic.id)}>
-							{topic.title}
+							{topic.published ? topic.title : `${topic.title} (draft)`}
 						</option>
 					))}
 				</select>

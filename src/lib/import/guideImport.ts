@@ -206,6 +206,9 @@ function describeIssues(error: ZodError): string {
  * coerced 0: silently collapsing `sortOrder: 1.5` (or a typo'd `sortOrder: one`)
  * to 0 would reorder a topic's guides with nothing in the output to explain it.
  */
+/** Postgres `INTEGER` (INT4) upper bound; a `sortOrder` above it can't be stored. */
+const MAX_SORT_ORDER = 2_147_483_647
+
 function parseSortOrder(
 	raw: string | undefined
 ): { value: number } | { error: string } {
@@ -219,7 +222,17 @@ function parseSortOrder(
 		}
 	}
 
-	return { value: Number.parseInt(raw, 10) }
+	const value = Number.parseInt(raw, 10)
+
+	// Postgres `INTEGER` (INT4) upper bound. Above this the write fails at insert
+	// with an opaque driver error; reject it here so the failure names its file.
+	if (value > MAX_SORT_ORDER) {
+		return {
+			error: `\`sortOrder\` must be at most ${MAX_SORT_ORDER}, got "${raw}"`,
+		}
+	}
+
+	return { value }
 }
 
 function parseTopicFile(file: GuideSourceFile): ParsedTopic | SkippedFile {
@@ -473,10 +486,16 @@ function projectLinkWarningFor(entry: {
 }
 
 /**
- * Whether a body links to a project's page. A substring check rather than a
+ * Whether a body links to a project's page. A substring check rather than a full
  * markdown parse: both an inline `[Reckon](/projects/reckon)` and a reference
  * definition `[reckon]: /projects/reckon "…"` contain the literal path, and this
  * runs on every import.
+ *
+ * Fenced and inline code are stripped first, so a `/projects/reckon` shown as a
+ * code example doesn't read as a real link and wrongly suppress the "guide has no
+ * product link" warning. (Prose that merely names the path — "don't link to
+ * /projects/reckon" — still counts; distinguishing that needs real parsing and is
+ * a rare enough case to accept.)
  *
  * The trailing boundary stops `/projects/reckon` from matching inside
  * `/projects/reckon-pro`. Interpolating the slug into a regex is safe here: it
@@ -484,7 +503,9 @@ function projectLinkWarningFor(entry: {
  * carry a metacharacter.
  */
 function bodyLinksToProject(body: string, projectSlug: string): boolean {
-	return new RegExp(`/projects/${projectSlug}(?![a-z0-9-])`).test(body)
+	const prose = body.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "")
+
+	return new RegExp(`/projects/${projectSlug}(?![a-z0-9-])`).test(prose)
 }
 
 // #endregion

@@ -128,10 +128,12 @@ export default async function GuidePage({ params }: Props) {
 		notFound()
 	}
 
-	// Awaited here rather than returned as `<Guide />` / `<TopicHub />` async
-	// child components: both shapes are just this page in two forms, and an
-	// awaited helper renders identically while staying assertable from a test
-	// (an unresolved async element only resolves inside a real RSC render).
+	// Rendered via helpers rather than returned as `<Guide />` / `<TopicHub />`
+	// async child components: both shapes are just this page in two forms, and a
+	// helper's returned element renders identically while staying assertable from
+	// a test (an unresolved async-component element only resolves inside a real
+	// RSC render). `renderGuide` awaits its project; `renderTopicHub` needs no
+	// async data, so it's a plain sync function.
 	if (resolved.kind === "topic") {
 		return renderTopicHub(resolved.topic)
 	}
@@ -174,7 +176,7 @@ async function renderGuide(guide: GuideDetail) {
  * the guide list, disclosure below it. So the product link lands at the very
  * end, after the reader has the list, instead of interrupting the framing.
  */
-async function renderTopicHub(topic: GuideTopicDetail) {
+function renderTopicHub(topic: GuideTopicDetail) {
 	const { intro, outro } = splitTopicHubBody(topic.description)
 
 	return (

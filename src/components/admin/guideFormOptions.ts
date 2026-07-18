@@ -10,6 +10,8 @@ export interface GuideFormTopicOption {
 	id: number
 	title: string
 	projectSlug: string | null
+	/** Draft topics are still selectable, but the picker flags them. */
+	published: boolean
 }
 
 /** A project a guide or topic can reference by slug. */

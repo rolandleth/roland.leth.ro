@@ -114,6 +114,28 @@ ${body}
 		expect(warnings).toEqual([])
 	})
 
+	// A path shown as a code example is not a real link — the warning must still
+	// fire so the maker knows the guide doesn't actually link the product.
+	it("still warns when the only mention is inside a fenced code block", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("```\nGET /projects/reckon\n```"),
+			}),
+		])
+
+		expect(warnings).toHaveLength(1)
+	})
+
+	it("still warns when the only mention is inline code", () => {
+		const { warnings } = parseGuideFiles([
+			rootGuideFile({
+				content: withLink("The route is `/projects/reckon`."),
+			}),
+		])
+
+		expect(warnings).toHaveLength(1)
+	})
+
 	it("warns on a topic hub whose body never links to its project", () => {
 		const { warnings } = parseGuideFiles([topicFile()])
 
@@ -519,6 +541,26 @@ Body.
 			}),
 		])
 
+		expect(skipped[0].reason).toContain("sortOrder")
+	})
+
+	// Above Postgres INT4 max it would fail opaquely at insert; reject at parse.
+	it("skips a sortOrder that exceeds the Postgres integer range", () => {
+		const { guides, skipped } = parseGuideFiles([
+			rootGuideFile({
+				content: `---
+slug: g
+title: G
+description: D
+sortOrder: 9999999999
+---
+
+Body.
+`,
+			}),
+		])
+
+		expect(guides).toEqual([])
 		expect(skipped[0].reason).toContain("sortOrder")
 	})
 
