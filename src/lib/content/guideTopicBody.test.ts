@@ -62,6 +62,17 @@ describe("splitTopicHubBody", () => {
 		expect(outro).toBeNull()
 	})
 
+	// A GFM table separator row is dashes-plus-pipes, not an all-dashes line, so
+	// the full-line anchor must leave a table in the outro intact rather than
+	// splitting the body inside it.
+	it("does not split on a table separator row", () => {
+		const body = "Framing.\n\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |"
+		const { intro, outro } = splitTopicHubBody(body)
+
+		expect(intro).toBe("Framing.")
+		expect(outro).toBe("| A | B |\n| --- | --- |\n| 1 | 2 |")
+	})
+
 	it("trims surrounding blank lines off both parts", () => {
 		const { intro, outro } = splitTopicHubBody(
 			"Framing.\n\n\n---\n\n\nDisclosure.\n"

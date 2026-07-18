@@ -162,3 +162,76 @@ describe("detail lookups still cache a hit", () => {
 })
 
 // #endregion
+
+// #region Real errors propagate and aren't cached
+
+// Only the sentinel `CacheMissError` is swallowed into `null`; a genuine failure
+// (DB down) must surface AND stay uncached, so the next request can succeed.
+describe("detail lookups propagate a non-miss error without caching it", () => {
+	it("getPostBySlug rethrows a DB error and re-queries on retry", async () => {
+		vi.mocked(prisma.post.findFirst).mockRejectedValueOnce(
+			new Error("db unavailable")
+		)
+
+		await expect(getPostBySlug("tech", "post-err")).rejects.toThrow(
+			"db unavailable"
+		)
+
+		vi.mocked(prisma.post.findFirst).mockResolvedValueOnce(
+			postRow("post-err") as never
+		)
+
+		expect(await getPostBySlug("tech", "post-err")).not.toBeNull()
+		expect(prisma.post.findFirst).toHaveBeenCalledTimes(2)
+	})
+
+	it("getGuideBySlug rethrows a DB error and re-queries on retry", async () => {
+		vi.mocked(prisma.guide.findFirst).mockRejectedValueOnce(
+			new Error("db unavailable")
+		)
+
+		await expect(getGuideBySlug("guide-err")).rejects.toThrow("db unavailable")
+
+		vi.mocked(prisma.guide.findFirst).mockResolvedValueOnce(
+			guideRow("guide-err") as never
+		)
+
+		expect(await getGuideBySlug("guide-err")).not.toBeNull()
+		expect(prisma.guide.findFirst).toHaveBeenCalledTimes(2)
+	})
+})
+
+// #endregion
+
+// #region Scheduled rows: cached, but gated to null at read time
+
+// The scheduling gate runs on the cached row (posts by `datetime`, guides by
+// `publishedAt`), NOT in the query — so a not-yet-due row IS stored, the caller
+// gets null, and the day it goes live it surfaces from cache with no re-query or
+// bust. This pins the "cache populated but caller gets null" seam.
+describe("detail lookups gate a scheduled row to null off a warm cache", () => {
+	it("getPostBySlug caches a future-dated post but returns null until due", async () => {
+		vi.mocked(prisma.post.findFirst).mockResolvedValue({
+			...postRow("post-scheduled"),
+			datetime: "2999-01-01-0000",
+		} as never)
+
+		expect(await getPostBySlug("tech", "post-scheduled")).toBeNull()
+		expect(await getPostBySlug("tech", "post-scheduled")).toBeNull()
+		// One query: the row is cached even though every read so far gates to null.
+		expect(prisma.post.findFirst).toHaveBeenCalledTimes(1)
+	})
+
+	it("getGuideBySlug caches a future-published guide but returns null until due", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
+			...guideRow("guide-scheduled"),
+			publishedAt: new Date("2999-01-01T00:00:00.000Z"),
+		} as never)
+
+		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
+		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
+		expect(prisma.guide.findFirst).toHaveBeenCalledTimes(1)
+	})
+})
+
+// #endregion

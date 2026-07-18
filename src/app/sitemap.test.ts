@@ -389,6 +389,19 @@ describe("sitemap — guide routes", () => {
 		)
 	})
 
+	it("propagates the topic hub's real updatedAt to lastModified", async () => {
+		const updatedAt = new Date("2026-06-01")
+		vi.mocked(prisma.guideTopic.findMany).mockResolvedValue([
+			topicStub({ slug: "making-better-decisions", updatedAt }),
+		] as never)
+
+		const result = await sitemap()
+		const route = result.find((r) =>
+			r.url.endsWith("/guides/making-better-decisions")
+		)
+		expect(route?.lastModified).toEqual(updatedAt)
+	})
+
 	// The whole reason guides got their own top-level route: they're maintained
 	// pages, so telling a crawler `never` (as posts do) is exactly wrong.
 	it("marks guides 'monthly', not 'never' like posts", async () => {

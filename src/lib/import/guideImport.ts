@@ -644,6 +644,16 @@ function planGuide(
 
 	// `published` is deliberately absent: an overwrite must never flip it, or
 	// re-importing an edited file would silently republish something staged.
+	//
+	// KNOWN LIMITATION: topic membership can't be diffed here — the planner works
+	// in folder-space and the existing row is in topicId-space, with the mapping
+	// only known in the shell after topics are written. So a file MOVED to a new
+	// folder with otherwise byte-identical content produces an empty `data`, is
+	// skipped as unchanged, and its `topicId` is never re-resolved — the move
+	// silently doesn't take. In practice a move usually rides along with an edit
+	// (which does trigger an update, and the update carries the new folder). Fixing
+	// the pure-move case needs a design change (thread the folder→id map into the
+	// planner, or have the shell re-apply topicId on skips too).
 	if (Object.keys(data).length === 0) {
 		return { kind: "skip", reason: UNCHANGED_SKIP_REASON }
 	}

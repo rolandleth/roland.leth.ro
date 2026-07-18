@@ -723,6 +723,25 @@ describe("planGuideImport", () => {
 		})
 	})
 
+	// The shell resolves `topicFolder` → `topicId`, so an update must carry the
+	// file's current folder for a moved-and-edited guide to re-group. (A pure move
+	// with no content change is a documented limitation — it skips as unchanged.)
+	it("carries the current topicFolder on an update so a moved guide re-groups", () => {
+		const result = plan(
+			{
+				guidesBySlug: new Map([
+					[
+						"how-to-keep-a-decision-journal",
+						{ ...existingGuide, title: "Old title", topicId: 99 },
+					],
+				]),
+			},
+			true
+		)
+
+		expect(result.guideUpdates[0].topicFolder).toBe("making-better-decisions")
+	})
+
 	it("carries the filename's publishedAt onto a create", () => {
 		expect(plan().guideCreates[0].publishedAt.toISOString()).toBe(
 			"2026-07-17T00:00:00.000Z"

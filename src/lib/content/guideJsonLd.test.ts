@@ -79,13 +79,16 @@ describe("buildGuideArticleJsonLd — dates", () => {
 		expect(jsonLd.datePublished).toBe("2026-07-01T10:00:00.000Z")
 	})
 
-	it("omits datePublished entirely for a never-published guide", () => {
+	it("omits datePublished but still emits dateModified for a never-published guide", () => {
 		const jsonLd = buildGuideArticleJsonLd(
 			makeGuide({ publishedAt: null }),
 			BASE
 		)
 
 		expect(jsonLd).not.toHaveProperty("datePublished")
+		// dateModified is the whole point of the builder — it must survive the
+		// null-publishedAt branch, not be dropped alongside datePublished.
+		expect(jsonLd.dateModified).toBe("2026-07-17T08:30:00.000Z")
 	})
 
 	// `unstable_cache` round-trips Dates through JSON, so the builder can be

@@ -353,6 +353,26 @@ describe("getGuideBySlug", () => {
 		expect(await getGuideBySlug("missing")).toBeNull()
 	})
 
+	// The page render and the JSON-LD builder read these off the detail row; a
+	// dropped SELECT column would surface only at runtime, so pin it here.
+	it("selects the fields the detail page and JSON-LD builder need", async () => {
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
+
+		await getGuideBySlug("some-guide")
+
+		expect(vi.mocked(prisma.guide.findFirst).mock.calls[0][0]).toMatchObject({
+			select: {
+				title: true,
+				slug: true,
+				description: true,
+				body: true,
+				readingTime: true,
+				publishedAt: true,
+				updatedAt: true,
+			},
+		})
+	})
+
 	it("carries the parent topic when the hub is published", async () => {
 		vi.mocked(prisma.guide.findFirst).mockResolvedValue({
 			...makeGuideListItem({ slug: "with-topic" }),
