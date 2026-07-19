@@ -39,6 +39,15 @@ const envSchema = z.object({
 	// Vercel's platform-provided production domain (bare host, always https).
 	NEXT_PUBLIC_SITE_URL: z.string().optional(),
 	VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
+	// IndexNow verification key. The protocol allows 8–128 chars from
+	// `[a-zA-Z0-9-]`; reject anything else early so a mistyped value fails here
+	// with a clear message instead of a 403 from the search engine at submit time.
+	// Empty string is still allowed so the optional accessor can return `null`.
+	INDEXNOW_KEY: z
+		.string()
+		.regex(/^[a-zA-Z0-9-]{8,128}$/, "must be 8–128 chars of [a-zA-Z0-9-]")
+		.or(z.literal(""))
+		.optional(),
 })
 
 type Env = z.infer<typeof envSchema>
@@ -181,6 +190,16 @@ export function getSiteUrl(): string {
  */
 export function getIpHashSecret(): string | null {
 	return nonEmpty(readEnv().IP_HASH_SECRET)
+}
+
+/**
+ * IndexNow verification key, or `null` when unset. Served verbatim at
+ * `/indexnow-key.txt` and sent as the `key` in submissions. `null` lets the
+ * key route return 404 and the admin submit route reject with a clear message,
+ * rather than a deploy without the key 500-ing.
+ */
+export function getIndexNowKey(): string | null {
+	return nonEmpty(readEnv().INDEXNOW_KEY)
 }
 
 /**

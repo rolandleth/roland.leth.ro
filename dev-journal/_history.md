@@ -1,4 +1,4 @@
-# Rolling History — last 30 days (through 2026-07-18)
+# Rolling History — last 30 days (through 2026-07-19)
 
 ## Themes
 
@@ -14,6 +14,8 @@
 
 - **Code-review-driven quality sweep (07-18)** — acted on the ~39-finding daily review of the guides merge + import/cache/middleware work across 8 phased commits + a follow-up (branch `fix/code-review-2026-07-18`, 1810 → 1892 tests): cache-tag namespace collision (`guide-detail-`/`guide-topic-`), a `useAdminResource` double-submit race, revalidate parent-hub busting + per-resource 207 isolation, admin-form DRY (`@apply` + `useFormState`), a `botProbes` middleware module (inner-segment probe bypass + case-insensitive gate), import-tooling hardening (`atomicWrite` uniquifier/mode, honest `init-post-slugs` status, `errorMessage`/`sortedMarkdownNames`/`wrapNullableDetail`), and a broad test backfill. Also fixed a latent bug found in review: a pure guide folder-move (byte-identical content) was silently skipped, leaving its `topicId` stale. Deferred 2 findings (miss-stampede negative cache; admin-search GIN index) and skipped 6 with reasons (incl. a false-positive P2002 message — slugs are separate per-table `@unique`s). [source](dev-journal/2026-07-18.md)
 
+- **IndexNow URL submission (07-19)** — manual "submit all sitemap URLs to IndexNow" shipped as a session-gated admin action (`POST /api/admin/indexnow` + `IndexNowPanel`), chosen over a local `tsx` script so `getSiteUrl()` resolves to the real prod origin (no `vercel env pull`, no localhost-submission risk). `INDEXNOW_KEY` (env, validated `[a-zA-Z0-9-]{8,128}`, `getIndexNowKey()`) is served from env at the fixed `/indexnow-key.txt` route via IndexNow's Option-2 `keyLocation`, so the key stays env-only — never a committed `public/{key}.txt` or a `/{key}.txt` route. URL source reuses `sitemap()`; pure lib `src/lib/content/indexnow.ts` holds payload build / `findForeignHostUrls` / `chunkUrls` (10k cap) / `isSubmittableOrigin` / `submitToIndexNow` (injectable fetch + `AbortSignal.timeout`). `?dryRun` previews the on-host + excluded lists and warns (not 4xx) on config gaps; the real POST hard-fails. `INDEXNOW_ENDPOINT` is the vendor-neutral endpoint (fans out to all participating engines, not Google). Key-path literal is duplicated across the route folder name and the `keyLocation` template (must agree). [source](dev-journal/2026-07-19.md)
+
 ## Timeline
 
 - **2026-06-26** — Gallery lifted to `ProjectContent`; aspect-true image sizing fix; `useScrollOverflow` test hang fixed (stable `useRef`). [source](dev-journal/2026-06-26.md)
@@ -23,3 +25,4 @@
 - **2026-07-16** — `slug:` frontmatter as source of truth; `resolveSlug`/`setFrontmatterSlug`/`slugRewrite`; `.md` export emits `slug:`; `init-post-slugs.ts` resync; `prepareBatch` onto shared `parsePostFiles`. [source](dev-journal/2026-07-16.md)
 - **2026-07-17** — Guides section built end to end (schema, importer, admin CRUD, public pages, `write-guide` skill); prod stale-404 hardening (throw-on-miss, revalidate applied/skipped, single-sourced detail tags); slug-tooling review fixes (byte-canonical drift heal, `matchRow` datetime guard, atomic writes); middleware bot-probe short-circuit + admin-gate over-match fix. [source](dev-journal/2026-07-17.md)
 - **2026-07-18** — Acted on the 39-finding guides/import/cache/middleware code review across 8 phased commits + a folder-move follow-up (`fix/code-review-2026-07-18`, 1810→1892 tests, unmerged); fixed a latent pure-folder-move skip. [source](dev-journal/2026-07-18.md)
+- **2026-07-19** — IndexNow submission shipped: `INDEXNOW_KEY` env + `/indexnow-key.txt` route (Option-2 `keyLocation`), pure `indexnow.ts` lib, session-gated `POST /api/admin/indexnow` reusing `sitemap()`, `IndexNowPanel` with a `?dryRun` preview; shared `adminButtonClass` extracted to `controlStyles.ts`. [source](dev-journal/2026-07-19.md)

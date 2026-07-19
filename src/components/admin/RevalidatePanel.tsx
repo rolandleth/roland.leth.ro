@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import { adminButtonClass } from "@/components/admin/controlStyles"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
@@ -55,9 +56,6 @@ const RESOURCES: readonly ResourceConfig[] = [
 		ariaLabel: "Guide or topic slugs to revalidate",
 	},
 ]
-
-const buttonClass =
-	"border-border cursor-pointer rounded-md border px-3 py-1.5 text-sm text-secondary transition-colors hover:text-(--color-accent) disabled:cursor-not-allowed disabled:opacity-50"
 
 const inputClass =
 	"border-border bg-background text-primary min-w-0 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
@@ -204,7 +202,7 @@ export default function RevalidatePanel() {
 							type="button"
 							onClick={() => run(`${key}-all`, key, noun, { [key]: "all" })}
 							disabled={isBusy}
-							className={buttonClass}
+							className={adminButtonClass}
 						>
 							{pending === `${key}-all` ? "Revalidating…" : `All ${key}`}
 						</button>
@@ -222,7 +220,7 @@ export default function RevalidatePanel() {
 							type="button"
 							onClick={() => run(`${key}-list`, key, noun, { [key]: tokens })}
 							disabled={isBusy || tokens.length === 0}
-							className={buttonClass}
+							className={adminButtonClass}
 						>
 							{pending === `${key}-list`
 								? "Revalidating…"

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import AdminSearch from "@/components/admin/AdminSearch"
 import GuidesTab from "@/components/admin/GuidesTab"
+import IndexNowPanel from "@/components/admin/IndexNowPanel"
 import PostsTab from "@/components/admin/PostsTab"
 import ProjectsTab from "@/components/admin/ProjectsTab"
 import RevalidatePanel from "@/components/admin/RevalidatePanel"
@@ -32,6 +33,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 	return (
 		<div className="flex flex-col gap-6">
 			<RevalidatePanel />
+			<IndexNowPanel />
 
 			<div className="border-border flex items-end border-b">
 				{/* Switching tabs drops the query and page — the search box is scoped
