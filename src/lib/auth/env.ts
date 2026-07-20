@@ -46,16 +46,12 @@ const envSchema = z.object({
 	// Vercel's platform-provided production domain (bare host, always https).
 	NEXT_PUBLIC_SITE_URL: z.string().optional(),
 	VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
-	// IndexNow verification key. The protocol allows 8–128 chars from
-	// `[a-zA-Z0-9-]`; reject anything else early so a mistyped value fails here
-	// with a clear message instead of a 403 from the search engine at submit time.
-	// The `^$|` arm allows empty so the optional accessor can return `null` —
-	// same mechanism as `ADMIN_HASH_PASSWORD` above, which encodes it in the
-	// quantifier. Don't reach for `.or(z.literal(""))`; one idiom per file.
-	INDEXNOW_KEY: z
-		.string()
-		.regex(/^$|^[a-zA-Z0-9-]{8,128}$/, "must be 8–128 chars of [a-zA-Z0-9-]")
-		.optional(),
+	// IndexNow verification key. Deliberately NOT format-checked here: `readEnv()`
+	// aggregates every schema issue into one throw, so a regex on this optional,
+	// single-feature var would take down login, cron auth and site-URL resolution
+	// over a typo in the least load-bearing value on the site. The format check
+	// lives in `isValidIndexNowKey`, applied at the one call site that needs it.
+	INDEXNOW_KEY: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>
@@ -208,6 +204,17 @@ export function getIpHashSecret(): string | null {
  */
 export function getIndexNowKey(): string | null {
 	return nonEmpty(readEnv().INDEXNOW_KEY)
+}
+
+/**
+ * The IndexNow protocol accepts 8–128 chars of `[a-zA-Z0-9-]`. Checked here
+ * rather than in the schema so a malformed value fails only the IndexNow
+ * action, with a message naming the actual constraint, instead of failing
+ * `readEnv()` for every consumer. `openssl rand -base64 32` is the common way
+ * to get a rejected value (`+`, `/` and `=` are all outside the charset).
+ */
+export function isValidIndexNowKey(key: string): boolean {
+	return /^[a-zA-Z0-9-]{8,128}$/.test(key)
 }
 
 /**

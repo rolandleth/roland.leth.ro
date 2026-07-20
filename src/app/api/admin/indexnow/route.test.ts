@@ -90,6 +90,20 @@ describe("POST /api/admin/indexnow", () => {
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
+	it("503s with the actual constraint when the key is malformed", async () => {
+		// Checked in the route, not the env schema: a bad value here must fail
+		// only this action. `openssl rand -base64 32` is the likely source.
+		vi.stubEnv("INDEXNOW_KEY", "Ab+c/dEf=")
+
+		const response = await POST(request())
+		const body = await response.json()
+
+		expect(response.status).toBe(503)
+		expect(body.error).toContain("malformed")
+		expect(body.error).toContain("a-zA-Z0-9-")
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
 	it("503s and never submits for a non-public origin", async () => {
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3000")
 
@@ -262,6 +276,18 @@ describe("POST /api/admin/indexnow?dryRun", () => {
 		expect(response.status).toBe(200)
 		expect(body.urls).toEqual(["https://roland.leth.ro/"])
 		expect(body.warnings.join(" ")).toContain("INDEXNOW_KEY")
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("warns that a set-but-malformed key will fail a real submission", async () => {
+		vi.stubEnv("INDEXNOW_KEY", "Ab+c/dEf=")
+
+		const response = await POST(request(true))
+		const body = await response.json()
+
+		expect(response.status).toBe(200)
+		expect(body.urls).toEqual(["https://roland.leth.ro/"])
+		expect(body.warnings.join(" ")).toContain("malformed")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 

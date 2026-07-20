@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 import sitemap from "@/app/sitemap"
-import { EnvConfigError, getIndexNowKey, getSiteUrl } from "@/lib/auth/env"
+import {
+	EnvConfigError,
+	getIndexNowKey,
+	getSiteUrl,
+	isValidIndexNowKey,
+} from "@/lib/auth/env"
 import {
 	INDEXNOW_ENDPOINT,
 	type IndexNowResult,
@@ -26,6 +31,27 @@ function isDryRunRequest(request: Request): boolean {
 	return !["false", "0", "no", "off"].includes(value.trim().toLowerCase())
 }
 
+/**
+ * Why this deploy's key can't be used, or `null` when it can. One source for
+ * both the dry run's warning and the real path's 503, so the two can't drift.
+ *
+ * The malformed case is checked here rather than in the env schema on purpose:
+ * `readEnv()` aggregates every schema issue into a single throw, so a regex
+ * there would take login and site-URL resolution down over a typo in an
+ * optional, single-feature var.
+ */
+function describeKeyProblem(key: string | null): string | null {
+	if (key === null) {
+		return "INDEXNOW_KEY is not configured for this deployment."
+	}
+
+	if (!isValidIndexNowKey(key)) {
+		return "INDEXNOW_KEY is set but malformed: must be 8–128 chars of [a-zA-Z0-9-]."
+	}
+
+	return null
+}
+
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request needs a valid
 // JWT cookie). Submits every URL in the sitemap to IndexNow in one action.
 //
@@ -43,6 +69,7 @@ function isDryRunRequest(request: Request): boolean {
 export async function POST(request: Request): Promise<NextResponse> {
 	const isDryRun = isDryRunRequest(request)
 	const key = getIndexNowKey()
+	const keyProblem = describeKeyProblem(key)
 
 	let base: string
 
@@ -95,10 +122,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 	if (isDryRun) {
 		const warnings: string[] = []
 
-		if (key === null) {
-			warnings.push(
-				"INDEXNOW_KEY is not configured — a real submission will fail."
-			)
+		if (keyProblem !== null) {
+			warnings.push(`${keyProblem} A real submission will fail.`)
 		}
 
 		if (!isPublicOrigin) {
@@ -135,11 +160,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 	// 503, not 400: the request is well-formed and nothing the caller sends can
 	// fix it — it's a gap in this deploy's config. Matches `keepalive`'s 503 for
 	// "Redis is not configured on this deploy".
-	if (key === null) {
-		return NextResponse.json(
-			{ error: "INDEXNOW_KEY is not configured for this deployment." },
-			{ status: 503 }
-		)
+	// The `key === null` arm is redundant with `keyProblem` but narrows the type
+	// for the submission below, which needs a `string`.
+	if (keyProblem !== null || key === null) {
+		const message =
+			keyProblem ?? "INDEXNOW_KEY is not configured for this deployment."
+
+		// eslint-disable-next-line no-console
+		console.error(`${TAG} ${message}`)
+
+		return NextResponse.json({ error: message }, { status: 503 })
 	}
 
 	// A dev/preview origin (http, localhost) would submit URLs no crawler can
