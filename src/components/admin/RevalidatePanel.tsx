@@ -14,6 +14,9 @@ import ErrorMessage from "@/components/admin/ErrorMessage"
 import { useAdminAction } from "@/components/admin/useAdminAction"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
+/** Live region the buttons announce into; referenced by their `aria-controls`. */
+const OUTCOME_ID = "revalidate-outcome"
+
 type ResourceKey = "posts" | "projects" | "guides"
 type Action = `${ResourceKey}-all` | `${ResourceKey}-list`
 
@@ -171,6 +174,8 @@ export default function RevalidatePanel() {
 							type="button"
 							onClick={() => start(`${key}-all`, key, noun, { [key]: "all" })}
 							disabled={isBusy}
+							aria-busy={pending === `${key}-all`}
+							aria-controls={OUTCOME_ID}
 							className={adminButtonClass}
 						>
 							{pending === `${key}-all` ? "Revalidating…" : `All ${key}`}
@@ -189,6 +194,8 @@ export default function RevalidatePanel() {
 							type="button"
 							onClick={() => start(`${key}-list`, key, noun, { [key]: tokens })}
 							disabled={isBusy || tokens.length === 0}
+							aria-busy={pending === `${key}-list`}
+							aria-controls={OUTCOME_ID}
 							className={adminButtonClass}
 						>
 							{pending === `${key}-list`
@@ -199,12 +206,19 @@ export default function RevalidatePanel() {
 				)
 			})}
 
-			{result && <p className={adminResultClass}>{result}</p>}
-			{warning && (
-				<p role="status" className={adminWarningClass}>
-					{warning}
-				</p>
-			)}
+			{/*
+			 * Rendered unconditionally: a live region has to exist BEFORE its
+			 * content arrives, or screen readers miss the update that mounts it.
+			 */}
+			<div
+				id={OUTCOME_ID}
+				role="status"
+				aria-live="polite"
+				className="flex flex-col gap-1 empty:hidden"
+			>
+				{result && <p className={adminResultClass}>{result}</p>}
+				{warning && <p className={adminWarningClass}>{warning}</p>}
+			</div>
 			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
 		</section>
 	)

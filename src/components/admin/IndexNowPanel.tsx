@@ -14,6 +14,9 @@ import { useAdminAction } from "@/components/admin/useAdminAction"
 
 const LOG_TAG = "[admin:IndexNowPanel]"
 
+/** Live region the buttons announce into; referenced by their `aria-controls`. */
+const OUTCOME_ID = "indexnow-outcome"
+
 type Action = "submit" | "dryrun"
 
 /** One batch's status, mirrored from the API route's response. */
@@ -92,15 +95,39 @@ function batchFailureReasons(batches: BatchResult[]): string[] {
 	return [...new Set(failed.map(batchFailureReason))]
 }
 
-/** A scrollable, truncating list of URLs — long lists stay contained. */
-function UrlList({ label, urls }: { label: string; urls: string[] }) {
+/**
+ * A scrollable, truncating list of URLs — long lists stay contained.
+ *
+ * `tabIndex={0}` on the scroll container is load-bearing, not decorative: the
+ * list holds no focusable children, so without it a keyboard-only user cannot
+ * scroll past the first few URLs (WCAG 2.1.1). The `title` restores the full
+ * URL that `truncate` clips.
+ */
+function UrlList({
+	id,
+	label,
+	urls,
+}: {
+	id: string
+	label: string
+	urls: string[]
+}) {
+	const labelId = `${id}-label`
+
 	return (
 		<div className="flex flex-col gap-1">
-			<p className="text-secondary text-xs font-medium">{label}</p>
-			<div className="border-border max-h-48 overflow-y-auto rounded-md border p-2">
+			<p id={labelId} className="text-secondary text-xs font-medium">
+				{label}
+			</p>
+			<div
+				tabIndex={0}
+				role="group"
+				aria-labelledby={labelId}
+				className="border-border max-h-48 overflow-y-auto rounded-md border p-2 focus-visible:outline-2 focus-visible:outline-(--color-accent)"
+			>
 				<ul className="text-secondary flex flex-col gap-0.5 font-mono text-xs">
 					{urls.map((url) => (
-						<li key={url} className="truncate">
+						<li key={url} title={url} className="truncate">
 							{url}
 						</li>
 					))}
@@ -307,6 +334,8 @@ export default function IndexNowPanel() {
 					type="button"
 					onClick={() => start("dryrun")}
 					disabled={isBusy}
+					aria-busy={pending === "dryrun"}
+					aria-controls={OUTCOME_ID}
 					className={adminButtonClass}
 				>
 					{pending === "dryrun" ? "Checking…" : "Dry run"}
@@ -315,29 +344,47 @@ export default function IndexNowPanel() {
 					type="button"
 					onClick={() => start("submit")}
 					disabled={isBusy}
+					aria-busy={pending === "submit"}
+					aria-controls={OUTCOME_ID}
 					className={adminButtonClass}
 				>
 					{pending === "submit" ? "Submitting…" : "Submit all URLs"}
 				</button>
 			</div>
 
-			{result && <p className={adminResultClass}>{result}</p>}
-
-			{warnings.length > 0 && (
-				<div role="status" className="flex flex-col gap-1">
-					{warnings.map((message) => (
-						<p key={message} className={adminWarningClass}>
-							{message}
-						</p>
-					))}
-				</div>
-			)}
+			{/*
+			 * Rendered unconditionally: a live region has to exist BEFORE its
+			 * content arrives, or screen readers miss the update that mounts it.
+			 * The outcome is the announcement that matters, so it lives here with
+			 * the warnings rather than in a bare <p>.
+			 */}
+			<div
+				id={OUTCOME_ID}
+				role="status"
+				aria-live="polite"
+				className="flex flex-col gap-1 empty:hidden"
+			>
+				{result && <p className={adminResultClass}>{result}</p>}
+				{warnings.map((message) => (
+					<p key={message} className={adminWarningClass}>
+						{message}
+					</p>
+				))}
+			</div>
 
 			{preview && preview.urls.length > 0 && (
-				<UrlList label="To be submitted" urls={preview.urls} />
+				<UrlList
+					id="indexnow-to-submit"
+					label="To be submitted"
+					urls={preview.urls}
+				/>
 			)}
 			{preview && preview.skipped.length > 0 && (
-				<UrlList label="Excluded (off-host)" urls={preview.skipped} />
+				<UrlList
+					id="indexnow-excluded"
+					label="Excluded (off-host)"
+					urls={preview.skipped}
+				/>
 			)}
 
 			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
