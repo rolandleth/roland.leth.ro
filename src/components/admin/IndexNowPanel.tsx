@@ -1,9 +1,16 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { adminButtonClass } from "@/components/admin/controlStyles"
+import { useState } from "react"
+import {
+	adminButtonClass,
+	adminPanelClass,
+	adminPanelDescriptionClass,
+	adminPanelTitleClass,
+	adminResultClass,
+	adminWarningClass,
+} from "@/components/admin/controlStyles"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { isAbortError } from "@/lib/client/isAbortError"
+import { useAdminAction } from "@/components/admin/useAdminAction"
 
 const LOG_TAG = "[admin:IndexNowPanel]"
 
@@ -235,85 +242,59 @@ async function interpret(action: Action, response: Response): Promise<Outcome> {
  * submitting, and flags config problems as warnings.
  */
 export default function IndexNowPanel() {
-	const [pending, setPending] = useState<Action | null>(null)
 	const [result, setResult] = useState<string | null>(null)
 	const [warnings, setWarnings] = useState<string[]>([])
 	const [preview, setPreview] = useState<Preview | null>(null)
-	const [error, setError] = useState<string | null>(null)
-	const abortRef = useRef<AbortController | null>(null)
+	const { pending, isBusy, error, setError, run } = useAdminAction<Action>({
+		logTag: LOG_TAG,
+		networkErrorMessage:
+			"IndexNow request failed (network error). Please retry.",
+	})
 
-	async function run(action: Action): Promise<void> {
+	function start(action: Action): Promise<void> {
 		setResult(null)
 		setWarnings([])
 		setPreview(null)
-		setError(null)
-		setPending(action)
 
-		const controller = new AbortController()
-		abortRef.current?.abort()
-		abortRef.current = controller
-
-		// A newer click may have superseded this one; only the latest request
-		// writes shared state.
-		const isLatest = () => abortRef.current === controller
-
-		try {
+		return run(action, async (signal) => {
 			const response = await fetch(
 				`/api/admin/indexnow${action === "dryrun" ? "?dryRun" : ""}`,
-				{ method: "POST", signal: controller.signal }
+				{ method: "POST", signal }
 			)
 			const outcome = await interpret(action, response)
 
-			if (!isLatest()) {
-				return
-			}
-
 			if (outcome.kind === "error") {
-				// Only the network `catch` below used to log, so a contract change or
-				// an unexpected body shape rendered a string with no console trace.
+				// Only the network path used to log, so a contract change or an
+				// unexpected body shape rendered a string with no console trace.
 				// eslint-disable-next-line no-console
 				console.warn(`${LOG_TAG} ${action} failed`, {
 					status: response.status,
 					message: outcome.message,
 				})
 
-				setError(outcome.message)
+				return () => {
+					setError(outcome.message)
+					setWarnings(outcome.warnings)
+					setPreview(outcome.preview)
+				}
+			}
+
+			return () => {
+				setResult(outcome.result)
 				setWarnings(outcome.warnings)
-				setPreview(outcome.preview)
 
-				return
+				if (outcome.kind === "dryrun") {
+					setPreview(outcome.preview)
+				}
 			}
-
-			setResult(outcome.result)
-			setWarnings(outcome.warnings)
-
-			if (outcome.kind === "dryrun") {
-				setPreview(outcome.preview)
-			}
-		} catch (err) {
-			if (isAbortError(err) || abortRef.current !== controller) {
-				return
-			}
-
-			// eslint-disable-next-line no-console
-			console.warn(`${LOG_TAG} request failed`, err)
-			setError("IndexNow request failed (network error). Please retry.")
-		} finally {
-			if (abortRef.current === controller) {
-				setPending(null)
-			}
-		}
+		})
 	}
 
-	const isBusy = pending !== null
-
 	return (
-		<section className="border-border flex flex-col gap-3 rounded-lg border p-4">
+		<section className={adminPanelClass}>
 			<div>
-				<h2 className="text-primary text-sm font-semibold">
-					Submit to IndexNow
-				</h2>
-				<p className="text-secondary mt-1 text-xs">
+				<h2 className={adminPanelTitleClass}>Submit to IndexNow</h2>
+				<p className={adminPanelDescriptionClass}>
 					Pings participating search engines (Bing, Yandex, and others — not
 					Google) to recrawl every URL in the sitemap. Safe to run after
 					publishing or editing. Use <strong>Dry run</strong> first to preview
@@ -324,7 +305,7 @@ export default function IndexNowPanel() {
 			<div className="flex flex-wrap gap-2">
 				<button
 					type="button"
-					onClick={() => run("dryrun")}
+					onClick={() => start("dryrun")}
 					disabled={isBusy}
 					className={adminButtonClass}
 				>
@@ -332,7 +313,7 @@ export default function IndexNowPanel() {
 				</button>
 				<button
 					type="button"
-					onClick={() => run("submit")}
+					onClick={() => start("submit")}
 					disabled={isBusy}
 					className={adminButtonClass}
 				>
@@ -340,15 +321,12 @@ export default function IndexNowPanel() {
 				</button>
 			</div>
 
-			{result && <p className="text-secondary text-xs">{result}</p>}
+			{result && <p className={adminResultClass}>{result}</p>}
 
 			{warnings.length > 0 && (
 				<div role="status" className="flex flex-col gap-1">
 					{warnings.map((message) => (
-						<p
-							key={message}
-							className="text-xs text-amber-600 dark:text-amber-400"
-						>
+						<p key={message} className={adminWarningClass}>
 							{message}
 						</p>
 					))}

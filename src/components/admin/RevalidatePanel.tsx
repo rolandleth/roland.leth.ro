@@ -1,9 +1,17 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { adminButtonClass } from "@/components/admin/controlStyles"
+import { useState } from "react"
+import {
+	adminButtonClass,
+	adminInputClass,
+	adminPanelClass,
+	adminPanelDescriptionClass,
+	adminPanelTitleClass,
+	adminResultClass,
+	adminWarningClass,
+} from "@/components/admin/controlStyles"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { isAbortError } from "@/lib/client/isAbortError"
+import { useAdminAction } from "@/components/admin/useAdminAction"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
 type ResourceKey = "posts" | "projects" | "guides"
@@ -57,9 +65,6 @@ const RESOURCES: readonly ResourceConfig[] = [
 	},
 ]
 
-const inputClass =
-	"border-border bg-background text-primary min-w-0 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
-
 /** Splits a pasted list on commas / whitespace / newlines into non-empty tokens. */
 function parseTokens(raw: string): string[] {
 	return raw
@@ -86,13 +91,14 @@ export default function RevalidatePanel() {
 		projects: "",
 		guides: "",
 	})
-	const [pending, setPending] = useState<Action | null>(null)
 	const [result, setResult] = useState<string | null>(null)
 	const [warning, setWarning] = useState<string | null>(null)
-	const [error, setError] = useState<string | null>(null)
-	const abortRef = useRef<AbortController | null>(null)
+	const { pending, isBusy, error, setError, run } = useAdminAction<Action>({
+		logTag: "[admin:RevalidatePanel]",
+		networkErrorMessage: "Revalidate failed (network error). Please retry.",
+	})
 
-	async function run(
+	function start(
 		action: Action,
 		key: ResourceKey,
 		noun: string,
@@ -100,47 +106,26 @@ export default function RevalidatePanel() {
 	): Promise<void> {
 		setResult(null)
 		setWarning(null)
-		setError(null)
-		setPending(action)
 
-		const controller = new AbortController()
-		abortRef.current?.abort()
-		abortRef.current = controller
-
-		try {
+		return run(action, async (signal) => {
 			const response = await fetch("/api/admin/revalidate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
-				signal: controller.signal,
+				signal,
 			})
 
 			if (!response.ok && response.status !== 207) {
 				const message = await readErrorMessage(response, "Revalidate failed")
 
-				// A newer click may have superseded this one while the body streamed
-				// in; only the latest request may write shared state.
-				if (abortRef.current === controller) {
-					setError(message)
-				}
-
-				return
+				return () => setError(message)
 			}
 
 			// 207 Multi-Status: some resources may have errored while others applied.
 			const data = (await response.json()) as RevalidateResponse
 
-			// Guard every setter below (not just the `finally`): the response can
-			// resolve past the abort of a superseded request, and writing its stale
-			// result over the newer click's cleared state flashes the wrong outcome.
-			if (abortRef.current !== controller) {
-				return
-			}
-
 			if (data.errors?.[key]) {
-				setError(`Revalidating ${key} failed. Please retry.`)
-
-				return
+				return () => setError(`Revalidating ${key} failed. Please retry.`)
 			}
 
 			// The label reports what the server APPLIED, not what was submitted —
@@ -149,43 +134,27 @@ export default function RevalidatePanel() {
 			const applied = data.applied?.[key]
 			const skipped = data.skipped?.[key]
 
-			setResult(
-				applied === "all"
-					? `All ${key} revalidated`
-					: countLabel(noun, applied?.length ?? 0)
-			)
-
-			if (skipped != null && skipped.entries.length > 0) {
-				setWarning(
-					`Skipped (not busted): ${skipped.entries.join(", ")} — ${skipped.reason}`
+			return () => {
+				setResult(
+					applied === "all"
+						? `All ${key} revalidated`
+						: countLabel(noun, applied?.length ?? 0)
 				)
-			}
-		} catch (err) {
-			if (isAbortError(err) || abortRef.current !== controller) {
-				return
-			}
 
-			// eslint-disable-next-line no-console
-			console.warn("[admin:RevalidatePanel] revalidate failed", err)
-			setError("Revalidate failed (network error). Please retry.")
-		} finally {
-			// Supersession guard, same as the other admin mutations: only clear the
-			// pending flag if this is still the latest request.
-			if (abortRef.current === controller) {
-				setPending(null)
+				if (skipped != null && skipped.entries.length > 0) {
+					setWarning(
+						`Skipped (not busted): ${skipped.entries.join(", ")} — ${skipped.reason}`
+					)
+				}
 			}
-		}
+		})
 	}
 
-	const isBusy = pending !== null
-
 	return (
-		<section className="border-border flex flex-col gap-4 rounded-lg border p-4">
+		<section className={adminPanelClass}>
 			<div>
-				<h2 className="text-primary text-sm font-semibold">
-					Revalidate caches
-				</h2>
-				<p className="text-secondary mt-1 text-xs">
+				<h2 className={adminPanelTitleClass}>Revalidate caches</h2>
+				<p className={adminPanelDescriptionClass}>
 					After a script import, paste the slugs it printed to refresh only
 					those pages — posts as <code className="font-mono">section/slug</code>
 					, projects and guides as slugs. The &ldquo;All&rdquo; buttons refresh
@@ -200,7 +169,7 @@ export default function RevalidatePanel() {
 					<div key={key} className="flex flex-wrap items-center gap-2">
 						<button
 							type="button"
-							onClick={() => run(`${key}-all`, key, noun, { [key]: "all" })}
+							onClick={() => start(`${key}-all`, key, noun, { [key]: "all" })}
 							disabled={isBusy}
 							className={adminButtonClass}
 						>
@@ -214,11 +183,11 @@ export default function RevalidatePanel() {
 							}
 							placeholder={placeholder}
 							aria-label={ariaLabel}
-							className={inputClass}
+							className={adminInputClass}
 						/>
 						<button
 							type="button"
-							onClick={() => run(`${key}-list`, key, noun, { [key]: tokens })}
+							onClick={() => start(`${key}-list`, key, noun, { [key]: tokens })}
 							disabled={isBusy || tokens.length === 0}
 							className={adminButtonClass}
 						>
@@ -230,9 +199,9 @@ export default function RevalidatePanel() {
 				)
 			})}
 
-			{result && <p className="text-secondary text-xs">{result}</p>}
+			{result && <p className={adminResultClass}>{result}</p>}
 			{warning && (
-				<p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+				<p role="status" className={adminWarningClass}>
 					{warning}
 				</p>
 			)}
