@@ -13,6 +13,7 @@ interface BatchResult {
 	status: number
 	ok: boolean
 	message: string
+	errorName: string | null
 	count: number
 }
 
@@ -24,7 +25,10 @@ interface BatchResult {
 interface IndexNowResponse {
 	ok: boolean
 	dryRun: boolean
-	submitted: number
+	/** URLs sent (or, on a dry run, that would be sent) — including rejected batches. */
+	attempted: number
+	/** URLs carried by batches IndexNow accepted. Absent on a dry run. */
+	accepted: number
 	urls: string[]
 	skipped: string[]
 	warnings: string[]
@@ -118,21 +122,30 @@ async function interpret(action: Action, response: Response): Promise<Outcome> {
 	const skipped = data.skipped ?? []
 
 	if (action === "dryrun") {
-		const submitted = data.submitted ?? 0
+		const attempted = data.attempted ?? 0
 
 		return {
 			kind: "dryrun",
 			result:
-				`Dry run: ${countLabel(submitted)} would be submitted` +
+				`Dry run: ${countLabel(attempted)} would be submitted` +
 				(skipped.length > 0 ? `, ${countLabel(skipped.length)} excluded` : ""),
 			preview: { urls: data.urls ?? [], skipped },
 			warnings: data.warnings ?? [],
 		}
 	}
 
+	const attempted = data.attempted ?? 0
+	const accepted = data.accepted ?? 0
+
 	return {
 		kind: "submit",
-		result: `Submitted ${countLabel(data.submitted ?? 0)} to IndexNow.`,
+		// Report what IndexNow ACCEPTED, not what was sent. A partial acceptance
+		// names both numbers so "47 submitted" can't stand in for a run where
+		// most of the batches were rejected.
+		result:
+			accepted === attempted
+				? `Submitted ${countLabel(accepted)} to IndexNow.`
+				: `Submitted ${accepted} of ${countLabel(attempted)} to IndexNow.`,
 		warnings:
 			skipped.length > 0
 				? [

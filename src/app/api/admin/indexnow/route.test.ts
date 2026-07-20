@@ -22,11 +22,12 @@ function entry(url: string): MetadataRoute.Sitemap[number] {
 	return { url }
 }
 
-function okResult(submitted: number): IndexNowResult {
+function okResult(count: number): IndexNowResult {
 	return {
 		ok: true,
-		submitted,
-		batches: [{ status: 200, ok: true, message: "", count: submitted }],
+		attempted: count,
+		accepted: count,
+		batches: [{ status: 200, ok: true, message: "", errorName: null, count }],
 	}
 }
 
@@ -58,7 +59,8 @@ describe("POST /api/admin/indexnow", () => {
 
 		expect(response.status).toBe(200)
 		expect(body.ok).toBe(true)
-		expect(body.submitted).toBe(2)
+		expect(body.attempted).toBe(2)
+		expect(body.accepted).toBe(2)
 		expect(body.skipped).toEqual([])
 
 		expect(submitToIndexNow).toHaveBeenCalledWith({
@@ -118,8 +120,17 @@ describe("POST /api/admin/indexnow", () => {
 	it("returns 502 when IndexNow rejects the submission", async () => {
 		vi.mocked(submitToIndexNow).mockResolvedValue({
 			ok: false,
-			submitted: 1,
-			batches: [{ status: 403, ok: false, message: "key not found", count: 1 }],
+			attempted: 1,
+			accepted: 0,
+			batches: [
+				{
+					status: 403,
+					ok: false,
+					message: "key not found",
+					errorName: null,
+					count: 1,
+				},
+			],
 		})
 
 		const response = await POST(request())
@@ -128,6 +139,34 @@ describe("POST /api/admin/indexnow", () => {
 		expect(response.status).toBe(502)
 		expect(body.ok).toBe(false)
 		expect(body.batches[0].status).toBe(403)
+	})
+
+	it("reports accepted separately from attempted on a partial acceptance", async () => {
+		// The operator must be able to tell "47 sent, 12 landed" from "47 landed";
+		// reporting the attempt count as the outcome is how the former reads as
+		// the latter.
+		vi.mocked(submitToIndexNow).mockResolvedValue({
+			ok: false,
+			attempted: 4,
+			accepted: 2,
+			batches: [
+				{ status: 200, ok: true, message: "", errorName: null, count: 2 },
+				{
+					status: 403,
+					ok: false,
+					message: "key not found",
+					errorName: null,
+					count: 2,
+				},
+			],
+		})
+
+		const response = await POST(request())
+		const body = await response.json()
+
+		expect(response.status).toBe(502)
+		expect(body.attempted).toBe(4)
+		expect(body.accepted).toBe(2)
 	})
 })
 

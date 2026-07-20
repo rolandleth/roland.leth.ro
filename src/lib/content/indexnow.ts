@@ -37,14 +37,29 @@ export interface IndexNowBatchResult {
 	ok: boolean
 	/** IndexNow's response text (or the thrown error's message), for surfacing. */
 	message: string
+	/**
+	 * Error class name (`TimeoutError`, `TypeError`, …) when the request never
+	 * completed, else `null`. `message` alone is runtime-dependent prose, so this
+	 * is what distinguishes "the timeout was too short" from "the network is down".
+	 */
+	errorName: string | null
 	/** How many URLs this batch carried, for the result summary. */
 	count: number
 }
 
-/** Aggregate result across every batch. `ok` is true only if all batches were. */
+/**
+ * Aggregate result across every batch. `ok` is true only if all batches were.
+ *
+ * `attempted` and `accepted` are deliberately separate: a run where every batch
+ * 403s still *attempted* every URL, and reporting that number as though the URLs
+ * landed is how an operator ends up believing a failed submission succeeded.
+ */
 export interface IndexNowResult {
 	ok: boolean
-	submitted: number
+	/** URLs sent, across all batches — including batches that were rejected. */
+	attempted: number
+	/** URLs carried by batches IndexNow accepted (200/202). */
+	accepted: number
 	batches: IndexNowBatchResult[]
 }
 
@@ -60,6 +75,12 @@ export interface SubmitOptions {
 	/** Injectable for tests; defaults to the global `fetch`. */
 	fetchImpl?: typeof fetch
 	timeoutMs?: number
+	/**
+	 * Overridable for tests; defaults to the protocol cap. Without this the
+	 * multi-batch loop is only reachable with a 10,001-element array, so the
+	 * batching this module exists to do would go untested.
+	 */
+	batchSize?: number
 }
 
 /**
@@ -85,16 +106,26 @@ export function isSubmittableOrigin(origin: string): boolean {
 
 	// Loopback and `*.localhost` never resolve to a crawlable public page.
 	const isLoopback =
-		host === "localhost" ||
-		host.endsWith(".localhost") ||
-		host === "127.0.0.1" ||
-		host === "::1" ||
-		host === "[::1]"
+		host === "localhost" || host.endsWith(".localhost") || host === "[::1]"
+
+	if (isLoopback) {
+		return false
+	}
+
+	// An IP literal is never a crawlable site host, and a dot check alone would
+	// wave through the whole 127/10/192.168 space. Reject every IPv4 literal and
+	// every bracketed IPv6 literal rather than enumerating private ranges.
+	const isIpLiteral =
+		/^\d{1,3}(\.\d{1,3}){3}$/.test(host) ||
+		(host.startsWith("[") && host.endsWith("]"))
+
+	if (isIpLiteral) {
+		return false
+	}
 
 	// A public host must have a dot (a registrable domain); a bare label is a
-	// local/intranet name. IPv6 in brackets is rejected by the loopback check
-	// above for `::1`; other literals are unusual for a site and excluded here.
-	return !isLoopback && host.includes(".")
+	// local/intranet name.
+	return host.includes(".")
 }
 
 /**
@@ -142,6 +173,9 @@ export function buildIndexNowPayload(
  * independently and its status recorded — a mid-run failure still reports the
  * batches that landed rather than discarding them. Callers should run
  * `findForeignHostUrls` first; this trusts that every URL is on `host`.
+ *
+ * An empty `urls` returns `ok: false`: there is nothing to succeed at, and a
+ * vacuous `true` (from `[].every()`) would read as a successful submission.
  */
 export async function submitToIndexNow(
 	options: SubmitOptions
@@ -154,11 +188,12 @@ export async function submitToIndexNow(
 		endpoint = INDEXNOW_ENDPOINT,
 		fetchImpl = fetch,
 		timeoutMs = DEFAULT_TIMEOUT_MS,
+		batchSize = INDEXNOW_MAX_URLS_PER_REQUEST,
 	} = options
 
 	const batches: IndexNowBatchResult[] = []
 
-	for (const batch of chunkUrls(urls)) {
+	for (const batch of chunkUrls(urls, batchSize)) {
 		batches.push(
 			await submitBatch(fetchImpl, endpoint, timeoutMs, {
 				payload: buildIndexNowPayload(host, key, keyLocation, batch),
@@ -167,9 +202,14 @@ export async function submitToIndexNow(
 		)
 	}
 
+	const accepted = batches
+		.filter((batch) => batch.ok)
+		.reduce((total, batch) => total + batch.count, 0)
+
 	return {
-		ok: batches.every((batch) => batch.ok),
-		submitted: urls.length,
+		ok: batches.length > 0 && batches.every((batch) => batch.ok),
+		attempted: urls.length,
+		accepted,
 		batches,
 	}
 }
@@ -197,6 +237,7 @@ async function submitBatch(
 			status: response.status,
 			ok: response.status === 200 || response.status === 202,
 			message,
+			errorName: null,
 			count: batch.count,
 		}
 	} catch (error) {
@@ -204,6 +245,7 @@ async function submitBatch(
 			status: 0,
 			ok: false,
 			message: error instanceof Error ? error.message : "request failed",
+			errorName: error instanceof Error ? error.name : "UnknownError",
 			count: batch.count,
 		}
 	}

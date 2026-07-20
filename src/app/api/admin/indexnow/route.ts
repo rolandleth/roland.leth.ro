@@ -3,6 +3,7 @@ import sitemap from "@/app/sitemap"
 import { EnvConfigError, getIndexNowKey, getSiteUrl } from "@/lib/auth/env"
 import {
 	INDEXNOW_ENDPOINT,
+	type IndexNowResult,
 	findForeignHostUrls,
 	isSubmittableOrigin,
 	submitToIndexNow,
@@ -75,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 		// eslint-disable-next-line no-console
 		console.info(`${TAG} dry-run`, {
-			submitted: onHost.length,
+			attempted: onHost.length,
 			skipped: foreign.length,
 			warnings: warnings.length,
 		})
@@ -85,7 +86,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			endpoint: INDEXNOW_ENDPOINT,
 			host,
 			keyLocation,
-			submitted: onHost.length,
+			attempted: onHost.length,
 			urls: onHost,
 			skipped: foreign,
 			warnings,
@@ -123,12 +124,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		urls: onHost,
 	})
 
-	// eslint-disable-next-line no-console
-	console.info(`${TAG} ${result.ok ? "success" : "upstream-error"}`, {
-		submitted: result.submitted,
-		skipped: foreign.length,
-		statuses: result.batches.map((batch) => batch.status),
-	})
+	logResult(result, foreign.length)
 
 	// 200 when every batch was accepted; 502 when IndexNow rejected one (bad key
 	// file, rate limit, …) so the panel can surface the upstream status. The
@@ -137,10 +133,35 @@ export async function POST(request: Request): Promise<NextResponse> {
 		{
 			ok: result.ok,
 			endpoint: INDEXNOW_ENDPOINT,
-			submitted: result.submitted,
+			attempted: result.attempted,
+			accepted: result.accepted,
 			skipped: foreign,
 			batches: result.batches,
 		},
 		{ status: result.ok ? 200 : 502 }
 	)
+}
+
+/**
+ * Failures log at `error` so they're visible to an error-level filter — a
+ * rejected submission logged at `info` alongside successes is invisible exactly
+ * when someone is looking for it. Matches `keepalive`'s split.
+ */
+function logResult(result: IndexNowResult, skipped: number): void {
+	const payload = {
+		attempted: result.attempted,
+		accepted: result.accepted,
+		skipped,
+		statuses: result.batches.map((batch) => batch.status),
+	}
+
+	if (result.ok) {
+		// eslint-disable-next-line no-console
+		console.info(`${TAG} success`, payload)
+
+		return
+	}
+
+	// eslint-disable-next-line no-console
+	console.error(`${TAG} upstream-error`, payload)
 }

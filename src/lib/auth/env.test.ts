@@ -4,6 +4,7 @@ import {
 	getAdminCredentials,
 	getCronSecret,
 	getDatabaseUrl,
+	getIndexNowKey,
 	getIpHashSecret,
 	getRedisConfig,
 	getSessionSecret,
@@ -131,6 +132,55 @@ describe("getIpHashSecret", () => {
 	it("returns null when missing", () => {
 		vi.stubEnv("IP_HASH_SECRET", "")
 		expect(getIpHashSecret()).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region optional — indexnow key
+
+describe("getIndexNowKey", () => {
+	it("returns the value when set", () => {
+		vi.stubEnv("INDEXNOW_KEY", "a".repeat(32))
+		expect(getIndexNowKey()).toBe("a".repeat(32))
+	})
+
+	it("returns null when missing", () => {
+		vi.stubEnv("INDEXNOW_KEY", "")
+		expect(getIndexNowKey()).toBeNull()
+	})
+
+	it("accepts the protocol's length bounds", () => {
+		vi.stubEnv("INDEXNOW_KEY", "a".repeat(8))
+		expect(getIndexNowKey()).toHaveLength(8)
+
+		vi.stubEnv("INDEXNOW_KEY", "b".repeat(128))
+		expect(getIndexNowKey()).toHaveLength(128)
+	})
+
+	it("accepts hyphens, which the protocol's charset allows", () => {
+		vi.stubEnv("INDEXNOW_KEY", "abcd-efgh-ijkl")
+		expect(getIndexNowKey()).toBe("abcd-efgh-ijkl")
+	})
+
+	it("rejects a key shorter than the protocol minimum", () => {
+		vi.stubEnv("INDEXNOW_KEY", "a".repeat(7))
+		expect(() => getIndexNowKey()).toThrow(/8–128/)
+	})
+
+	it("rejects a key longer than the protocol maximum", () => {
+		vi.stubEnv("INDEXNOW_KEY", "a".repeat(129))
+		expect(() => getIndexNowKey()).toThrow(/8–128/)
+	})
+
+	it("rejects characters outside the protocol's charset", () => {
+		// An underscore or a stray quote in the Vercel dashboard would otherwise
+		// surface as a 403 from the search engine, far from its cause.
+		vi.stubEnv("INDEXNOW_KEY", "abcd_efgh_ijkl")
+		expect(() => getIndexNowKey()).toThrow(/a-zA-Z0-9/)
+
+		vi.stubEnv("INDEXNOW_KEY", `"${"a".repeat(32)}"`)
+		expect(() => getIndexNowKey()).toThrow(/a-zA-Z0-9/)
 	})
 })
 
