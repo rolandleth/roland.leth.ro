@@ -4,7 +4,8 @@ import { useRef, useState } from "react"
 import { adminButtonClass } from "@/components/admin/controlStyles"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { isAbortError } from "@/lib/client/isAbortError"
-import { readErrorMessage } from "@/lib/client/readErrorMessage"
+
+const LOG_TAG = "[admin:IndexNowPanel]"
 
 type Action = "submit" | "dryrun"
 
@@ -46,19 +47,17 @@ function countLabel(count: number): string {
 	return `${count} URL${count === 1 ? "" : "s"}`
 }
 
-/** Distinct, actionable line per IndexNow failure status, so the fix is obvious. */
-function batchFailureReason(batches: BatchResult[]): string {
-	const failed = batches.find((batch) => !batch.ok)
-
-	if (!failed) {
-		return "IndexNow rejected the submission."
-	}
-
+/** Distinct, actionable line for one failed batch, so the fix is obvious. */
+function batchFailureReason(failed: BatchResult): string {
 	const detail = failed.message ? ` — ${failed.message}` : ""
 
 	switch (failed.status) {
 		case 0:
-			return `Could not reach IndexNow${detail}`
+			// `errorName` separates "the 10s timeout was too short" from "the
+			// network is down"; the message alone is runtime-dependent prose.
+			return failed.errorName === "TimeoutError"
+				? `IndexNow did not respond in time${detail}`
+				: `Could not reach IndexNow${detail}`
 		case 403:
 			return `IndexNow rejected the key (403). Check that /indexnow-key.txt is live and matches INDEXNOW_KEY${detail}`
 		case 422:
@@ -68,6 +67,22 @@ function batchFailureReason(batches: BatchResult[]): string {
 		default:
 			return `IndexNow returned ${failed.status}${detail}`
 	}
+}
+
+/**
+ * One line per *distinct* failure across all batches, not just the first.
+ * A partial failure (batch 1 accepted, batch 2 rejected) reported as a flat
+ * error hides that some URLs did land — and hides a second, different reason
+ * behind the first one.
+ */
+function batchFailureReasons(batches: BatchResult[]): string[] {
+	const failed = batches.filter((batch) => !batch.ok)
+
+	if (failed.length === 0) {
+		return ["IndexNow rejected the submission."]
+	}
+
+	return [...new Set(failed.map(batchFailureReason))]
 }
 
 /** A scrollable, truncating list of URLs — long lists stay contained. */
@@ -88,11 +103,43 @@ function UrlList({ label, urls }: { label: string; urls: string[] }) {
 	)
 }
 
-/** What to render for a completed request — one variant per response shape. */
+/**
+ * What to render for a completed request — one variant per response shape.
+ *
+ * The error variant carries `warnings` and `preview` too: failure bodies ship
+ * real diagnostics (the excluded-URL list on a 422, per-batch reasons on a 502)
+ * and collapsing them to a single string throws away exactly what the operator
+ * needs to act on.
+ */
 type Outcome =
-	| { kind: "error"; message: string }
+	| {
+			kind: "error"
+			message: string
+			warnings: string[]
+			preview: Preview | null
+	  }
 	| { kind: "dryrun"; result: string; preview: Preview; warnings: string[] }
 	| { kind: "submit"; result: string; warnings: string[] }
+
+/**
+ * The response body as JSON, or `null` when it's absent or not JSON at all
+ * (a proxy error page, an empty 502). Consumes the body — call it once.
+ */
+async function readBody(
+	response: Response
+): Promise<Partial<IndexNowResponse> | null> {
+	const raw = await response.text().catch(() => "")
+
+	if (raw === "") {
+		return null
+	}
+
+	try {
+		return JSON.parse(raw) as Partial<IndexNowResponse>
+	} catch {
+		return null
+	}
+}
 
 /**
  * Reads the response into an `Outcome`, keeping the action-specific branching
@@ -102,9 +149,10 @@ type Outcome =
  * (a 200 even when it carries warnings).
  */
 async function interpret(action: Action, response: Response): Promise<Outcome> {
-	const data = (await response
-		.json()
-		.catch(() => null)) as Partial<IndexNowResponse> | null
+	// Read the body ONCE. `readErrorMessage` would re-read it, and a spent body
+	// makes its own `response.json()` throw — so its fallback string could never
+	// win and every JSON failure degraded to a bare "Request failed (HTTP N)".
+	const data = await readBody(response)
 
 	const succeeded =
 		response.ok &&
@@ -112,11 +160,32 @@ async function interpret(action: Action, response: Response): Promise<Outcome> {
 		(action === "submit" ? data.ok === true : data.dryRun === true)
 
 	if (!succeeded) {
+		const reasons = data?.batches ? batchFailureReasons(data.batches) : []
 		const message =
-			(data?.batches ? batchFailureReason(data.batches) : data?.error) ??
-			(await readErrorMessage(response, "IndexNow request failed"))
+			reasons[0] ??
+			data?.error ??
+			`IndexNow request failed (HTTP ${response.status})`
 
-		return { kind: "error", message }
+		// A failure body still carries diagnostics: `skipped` on a 422, the
+		// remaining per-batch reasons on a 502. Surface them beside the headline
+		// instead of dropping them.
+		const skippedOnError = data?.skipped ?? []
+
+		return {
+			kind: "error",
+			message,
+			warnings: [
+				...reasons.slice(1),
+				...(data?.warnings ?? []),
+				...(skippedOnError.length > 0
+					? [`Excluded ${countLabel(skippedOnError.length)} not on this host.`]
+					: []),
+			],
+			preview:
+				skippedOnError.length > 0
+					? { urls: data?.urls ?? [], skipped: skippedOnError }
+					: null,
+		}
 	}
 
 	const skipped = data.skipped ?? []
@@ -200,7 +269,17 @@ export default function IndexNowPanel() {
 			}
 
 			if (outcome.kind === "error") {
+				// Only the network `catch` below used to log, so a contract change or
+				// an unexpected body shape rendered a string with no console trace.
+				// eslint-disable-next-line no-console
+				console.warn(`${LOG_TAG} ${action} failed`, {
+					status: response.status,
+					message: outcome.message,
+				})
+
 				setError(outcome.message)
+				setWarnings(outcome.warnings)
+				setPreview(outcome.preview)
 
 				return
 			}
@@ -217,7 +296,7 @@ export default function IndexNowPanel() {
 			}
 
 			// eslint-disable-next-line no-console
-			console.warn("[admin:IndexNowPanel] request failed", err)
+			console.warn(`${LOG_TAG} request failed`, err)
 			setError("IndexNow request failed (network error). Please retry.")
 		} finally {
 			if (abortRef.current === controller) {
