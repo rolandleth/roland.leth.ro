@@ -11,6 +11,21 @@ import {
 
 const TAG = "[api:admin:indexnow]"
 
+/**
+ * True when `?dryRun` asks for a preview. Presence alone enables it (`?dryRun`),
+ * but an explicit falsy value turns it off — `?dryRun=false` reading as "yes,
+ * preview" would hand back a 200 that looks like a completed submission.
+ */
+function isDryRunRequest(request: Request): boolean {
+	const value = new URL(request.url).searchParams.get("dryRun")
+
+	if (value === null) {
+		return false
+	}
+
+	return !["false", "0", "no", "off"].includes(value.trim().toLowerCase())
+}
+
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request needs a valid
 // JWT cookie). Submits every URL in the sitemap to IndexNow in one action.
 //
@@ -26,7 +41,7 @@ const TAG = "[api:admin:indexnow]"
 // so the list stays previewable before the setup is finished; the real POST
 // hard-fails on those instead.
 export async function POST(request: Request): Promise<NextResponse> {
-	const isDryRun = new URL(request.url).searchParams.has("dryRun")
+	const isDryRun = isDryRunRequest(request)
 	const key = getIndexNowKey()
 
 	let base: string
@@ -35,8 +50,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 		base = getSiteUrl()
 	} catch (error) {
 		if (error instanceof EnvConfigError) {
+			// eslint-disable-next-line no-console
+			console.error(`${TAG} site URL is not configured`, error)
+
 			return NextResponse.json({ error: error.message }, { status: 500 })
 		}
+
+		// eslint-disable-next-line no-console
+		console.error(`${TAG} unexpected error resolving the site URL`, error)
 
 		throw error
 	}
@@ -45,15 +66,31 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const host = new URL(base).host
 	const keyLocation = `${base}/indexnow-key.txt`
 
-	const urls = (await sitemap())
-		.map((entry) => entry.url)
-		.filter((url): url is string => typeof url === "string")
+	let urls: string[]
+
+	try {
+		urls = (await sitemap())
+			.map((entry) => entry.url)
+			.filter((url): url is string => typeof url === "string")
+	} catch (error) {
+		// `sitemap()` hits the DB. Without this the throw escapes as a framework
+		// 500 with no `{error}` body — a shape the panel can't parse — and nothing
+		// in the log to say the DB was the cause.
+		// eslint-disable-next-line no-console
+		console.error(`${TAG} could not build the URL list`, error)
+
+		return NextResponse.json(
+			{ error: "Could not read the sitemap. Please retry." },
+			{ status: 503 }
+		)
+	}
 
 	// Off-host URLs would sink the whole batch (IndexNow 422). The sitemap is
 	// same-origin by construction, so any here signal a misconfiguration — report
 	// them instead of silently submitting a doomed batch.
 	const foreign = findForeignHostUrls(host, urls)
-	const onHost = urls.filter((url) => !foreign.includes(url))
+	const foreignSet = new Set(foreign)
+	const onHost = urls.filter((url) => !foreignSet.has(url))
 
 	if (isDryRun) {
 		const warnings: string[] = []
@@ -94,26 +131,33 @@ export async function POST(request: Request): Promise<NextResponse> {
 	}
 
 	// Real submission: hard-fail on the same problems the dry run only warns about.
+	//
+	// 503, not 400: the request is well-formed and nothing the caller sends can
+	// fix it — it's a gap in this deploy's config. Matches `keepalive`'s 503 for
+	// "Redis is not configured on this deploy".
 	if (key === null) {
 		return NextResponse.json(
 			{ error: "INDEXNOW_KEY is not configured for this deployment." },
-			{ status: 400 }
+			{ status: 503 }
 		)
 	}
 
 	// A dev/preview origin (http, localhost) would submit URLs no crawler can
-	// reach; refuse rather than fire a batch IndexNow will 422.
+	// reach; refuse rather than fire a batch IndexNow will 422. Also a deploy
+	// property rather than a caller mistake, so 503 here too.
 	if (!isPublicOrigin) {
 		return NextResponse.json(
 			{ error: `Refusing to submit non-public origin: ${base}` },
-			{ status: 400 }
+			{ status: 503 }
 		)
 	}
 
+	// 422, not 503: the sitemap resolved fine, it just yielded nothing this host
+	// can claim — a content/config mismatch the `skipped` list explains.
 	if (onHost.length === 0) {
 		return NextResponse.json(
 			{ error: "No submittable URLs for this host.", skipped: foreign },
-			{ status: 400 }
+			{ status: 422 }
 		)
 	}
 

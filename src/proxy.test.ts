@@ -141,6 +141,11 @@ describe("proxy — admin API protection", () => {
 		"/api/admin/projects",
 		"/api/admin/projects/1",
 		"/api/admin/upload",
+		"/api/admin/revalidate",
+		// Gating matters more here than on its siblings: this one's side effect is
+		// outbound traffic to a third party under the site's own identity, plus
+		// disclosure of the full URL list.
+		"/api/admin/indexnow",
 	])("returns 401 for unauthenticated %s", async (path) => {
 		const response = await proxy(makeRequest(path))
 		expect(response.status).toBe(401)

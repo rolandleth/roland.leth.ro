@@ -38,6 +38,13 @@ function request(dryRun = false): Request {
 	return new Request(url, { method: "POST" })
 }
 
+/** POST request carrying an explicit `?dryRun=<value>`. */
+function requestWithDryRun(value: string): Request {
+	const url = `https://roland.leth.ro/api/admin/indexnow?dryRun=${value}`
+
+	return new Request(url, { method: "POST" })
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 	vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
@@ -71,22 +78,24 @@ describe("POST /api/admin/indexnow", () => {
 		})
 	})
 
-	it("400s when the key is not configured", async () => {
+	it("503s when the key is not configured", async () => {
+		// A deploy-config gap, not a bad request — same as `keepalive`'s 503 for a
+		// missing Redis.
 		vi.stubEnv("INDEXNOW_KEY", "")
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(503)
 		expect((await response.json()).error).toContain("INDEXNOW_KEY")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
-	it("400s and never submits for a non-public origin", async () => {
+	it("503s and never submits for a non-public origin", async () => {
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3000")
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(503)
 		expect((await response.json()).error).toContain("localhost:3000")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
@@ -108,12 +117,36 @@ describe("POST /api/admin/indexnow", () => {
 		)
 	})
 
-	it("400s when no URL is submittable", async () => {
+	it("422s when no URL is submittable, naming what was excluded", async () => {
 		vi.mocked(sitemap).mockResolvedValue([entry("https://evil.com/x")])
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(422)
+		expect((await response.json()).skipped).toEqual(["https://evil.com/x"])
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("503s with a parseable body when the sitemap lookup fails", async () => {
+		// Unguarded, this escapes as a framework 500 with no `{error}` field — a
+		// shape the panel can't read, so the admin gets a blank failure.
+		vi.mocked(sitemap).mockRejectedValue(new Error("db down"))
+
+		const response = await POST(request())
+
+		expect(response.status).toBe(503)
+		expect((await response.json()).error).toMatch(/sitemap/i)
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("500s with the config message when the site URL is unset", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "")
+		vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "")
+
+		const response = await POST(request())
+
+		expect(response.status).toBe(500)
+		expect((await response.json()).error).toBeTruthy()
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
@@ -173,6 +206,36 @@ describe("POST /api/admin/indexnow", () => {
 // #region dry run
 
 describe("POST /api/admin/indexnow?dryRun", () => {
+	it("treats a bare flag as a preview", async () => {
+		const body = await (await POST(requestWithDryRun(""))).json()
+
+		expect(body.dryRun).toBe(true)
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it.each(["false", "0", "no", "off", "FALSE", " false "])(
+		"submits for real when dryRun is explicitly %s",
+		async (value) => {
+			// Presence-only parsing would read these as "yes, preview" and hand back
+			// a 200 the operator reads as a completed submission.
+			const response = await POST(requestWithDryRun(value))
+			const body = await response.json()
+
+			expect(body.dryRun).toBeUndefined()
+			expect(submitToIndexNow).toHaveBeenCalled()
+		}
+	)
+
+	it.each(["true", "1", "yes"])(
+		"previews when dryRun is explicitly %s",
+		async (value) => {
+			const body = await (await POST(requestWithDryRun(value))).json()
+
+			expect(body.dryRun).toBe(true)
+			expect(submitToIndexNow).not.toHaveBeenCalled()
+		}
+	)
+
 	it("previews the on-host and excluded URLs without submitting", async () => {
 		vi.mocked(sitemap).mockResolvedValue([
 			entry("https://roland.leth.ro/ok"),
