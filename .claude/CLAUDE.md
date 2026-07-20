@@ -85,7 +85,15 @@ DATABASE_URL=           # PostgreSQL connection string
 SESSION_SECRET=         # JWT signing secret (any string)
 ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
+INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a-zA-Z0-9-]
 ```
+
+`INDEXNOW_KEY` is served verbatim at `/indexnow-key.txt` and sent as the `key`
+in submissions from the admin dashboard's IndexNow panel. Generate with
+`openssl rand -hex 32`. Unset is fine — the key route 404s and the submit route
+returns 503 — but set it and confirm `/indexnow-key.txt` is live **before** the
+first submit: IndexNow fetches `keyLocation` at submit time and 403s if it isn't
+serving the matching key.
 
 ## Commands
 
