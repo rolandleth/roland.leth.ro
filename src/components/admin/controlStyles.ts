@@ -26,3 +26,10 @@ export const adminResultClass = "text-secondary text-xs"
 
 /** Non-fatal advisory: the server did something other than what was asked. */
 export const adminWarningClass = "text-xs text-amber-600 dark:text-amber-400"
+
+/**
+ * The `role="status"` live region a panel writes its result + warnings into.
+ * `empty:hidden` collapses it while empty so it doesn't add a stray gap, but it
+ * stays mounted — a live region has to exist before its content arrives.
+ */
+export const adminOutcomeClass = "flex flex-col gap-1 empty:hidden"

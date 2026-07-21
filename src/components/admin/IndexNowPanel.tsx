@@ -3,6 +3,7 @@
 import { useState } from "react"
 import {
 	adminButtonClass,
+	adminOutcomeClass,
 	adminPanelClass,
 	adminPanelDescriptionClass,
 	adminPanelTitleClass,
@@ -14,8 +15,11 @@ import { useAdminAction } from "@/components/admin/useAdminAction"
 
 const LOG_TAG = "[admin:IndexNowPanel]"
 
-/** Live region the buttons announce into; referenced by their `aria-controls`. */
+// The buttons' `aria-controls` names both regions they write into: the polite
+// outcome region (result + warnings) and the assertive error region. Both must
+// exist in the DOM for the reference to resolve, so each stays mounted.
 const OUTCOME_ID = "indexnow-outcome"
+const ERROR_ID = "indexnow-error"
 
 type Action = "submit" | "dryrun"
 
@@ -337,7 +341,7 @@ export default function IndexNowPanel() {
 					onClick={() => start("dryrun")}
 					disabled={isBusy}
 					aria-busy={pending === "dryrun"}
-					aria-controls={OUTCOME_ID}
+					aria-controls={`${OUTCOME_ID} ${ERROR_ID}`}
 					className={adminButtonClass}
 				>
 					{pending === "dryrun" ? "Checking…" : "Dry run"}
@@ -347,7 +351,7 @@ export default function IndexNowPanel() {
 					onClick={() => start("submit")}
 					disabled={isBusy}
 					aria-busy={pending === "submit"}
-					aria-controls={OUTCOME_ID}
+					aria-controls={`${OUTCOME_ID} ${ERROR_ID}`}
 					className={adminButtonClass}
 				>
 					{pending === "submit" ? "Submitting…" : "Submit all URLs"}
@@ -364,7 +368,7 @@ export default function IndexNowPanel() {
 				id={OUTCOME_ID}
 				role="status"
 				aria-live="polite"
-				className="flex flex-col gap-1 empty:hidden"
+				className={adminOutcomeClass}
 			>
 				{result && <p className={adminResultClass}>{result}</p>}
 				{warnings.map((message) => (
@@ -389,7 +393,15 @@ export default function IndexNowPanel() {
 				/>
 			)}
 
-			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
+			{/*
+			 * Wrapper stays mounted so `aria-controls` always resolves; `empty:hidden`
+			 * keeps it out of the layout until an error fills it. `ErrorMessage`
+			 * carries the assertive `role="alert"`, so the failure headline is
+			 * announced here rather than in the polite outcome region above.
+			 */}
+			<div id={ERROR_ID} className="empty:hidden">
+				{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
+			</div>
 		</section>
 	)
 }

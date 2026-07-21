@@ -4,6 +4,7 @@ import { useState } from "react"
 import {
 	adminButtonClass,
 	adminInputClass,
+	adminOutcomeClass,
 	adminPanelClass,
 	adminPanelDescriptionClass,
 	adminPanelTitleClass,
@@ -14,8 +15,11 @@ import ErrorMessage from "@/components/admin/ErrorMessage"
 import { useAdminAction } from "@/components/admin/useAdminAction"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
-/** Live region the buttons announce into; referenced by their `aria-controls`. */
+// The buttons' `aria-controls` names both regions they write into: the polite
+// outcome region (result + warning) and the assertive error region. Both must
+// exist in the DOM for the reference to resolve, so each stays mounted.
 const OUTCOME_ID = "revalidate-outcome"
+const ERROR_ID = "revalidate-error"
 
 type ResourceKey = "posts" | "projects" | "guides"
 type Action = `${ResourceKey}-all` | `${ResourceKey}-list`
@@ -177,7 +181,7 @@ export default function RevalidatePanel() {
 							onClick={() => start(`${key}-all`, key, noun, { [key]: "all" })}
 							disabled={isBusy}
 							aria-busy={pending === `${key}-all`}
-							aria-controls={OUTCOME_ID}
+							aria-controls={`${OUTCOME_ID} ${ERROR_ID}`}
 							className={adminButtonClass}
 						>
 							{pending === `${key}-all` ? "Revalidating…" : `All ${key}`}
@@ -197,7 +201,7 @@ export default function RevalidatePanel() {
 							onClick={() => start(`${key}-list`, key, noun, { [key]: tokens })}
 							disabled={isBusy || tokens.length === 0}
 							aria-busy={pending === `${key}-list`}
-							aria-controls={OUTCOME_ID}
+							aria-controls={`${OUTCOME_ID} ${ERROR_ID}`}
 							className={adminButtonClass}
 						>
 							{pending === `${key}-list`
@@ -216,12 +220,20 @@ export default function RevalidatePanel() {
 				id={OUTCOME_ID}
 				role="status"
 				aria-live="polite"
-				className="flex flex-col gap-1 empty:hidden"
+				className={adminOutcomeClass}
 			>
 				{result && <p className={adminResultClass}>{result}</p>}
 				{warning && <p className={adminWarningClass}>{warning}</p>}
 			</div>
-			{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
+			{/*
+			 * Wrapper stays mounted so `aria-controls` always resolves; `empty:hidden`
+			 * keeps it out of the layout until an error fills it. `ErrorMessage`
+			 * carries the assertive `role="alert"`, so the failure headline is
+			 * announced here rather than in the polite outcome region above.
+			 */}
+			<div id={ERROR_ID} className="empty:hidden">
+				{error && <ErrorMessage size="sm">{error}</ErrorMessage>}
+			</div>
 		</section>
 	)
 }
