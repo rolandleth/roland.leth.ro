@@ -186,4 +186,67 @@ describe("RevalidatePanel", () => {
 
 		await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument())
 	})
+
+	it("shows the network-error message when the request never completes", async () => {
+		// The shared hook maps a rejected fetch to its configured message; this
+		// panel's copy went untested when it moved onto the hook.
+		vi.spyOn(console, "warn").mockImplementation(() => {})
+		global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+		render(<RevalidatePanel />)
+
+		await user.click(screen.getByRole("button", { name: /^all posts$/i }))
+
+		await waitFor(() =>
+			expect(screen.getByRole("alert")).toHaveTextContent(
+				/revalidate failed \(network error\)/i
+			)
+		)
+	})
+
+	it("disables the buttons and marks aria-busy while a request is in flight", async () => {
+		let release!: (value: unknown) => void
+		global.fetch = vi.fn().mockReturnValue(
+			new Promise((resolve) => {
+				release = resolve
+			})
+		)
+		render(<RevalidatePanel />)
+
+		await user.click(screen.getByRole("button", { name: /^all posts$/i }))
+
+		const busy = await screen.findByRole("button", { name: /^revalidating…$/i })
+		expect(busy).toBeDisabled()
+		expect(busy).toHaveAttribute("aria-busy", "true")
+
+		release({
+			ok: true,
+			status: 200,
+			json: () =>
+				Promise.resolve({ ok: true, applied: { posts: "all" }, skipped: {} }),
+		})
+
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: /^all posts$/i })).toBeEnabled()
+		)
+	})
+
+	it("exposes a live region before any request runs", () => {
+		render(<RevalidatePanel />)
+
+		expect(screen.getByRole("status")).toBeInTheDocument()
+	})
+
+	it("ties every button to both the outcome and error regions", () => {
+		render(<RevalidatePanel />)
+
+		for (const button of screen.getAllByRole("button")) {
+			expect(button).toHaveAttribute(
+				"aria-controls",
+				"revalidate-outcome revalidate-error"
+			)
+		}
+
+		expect(document.getElementById("revalidate-outcome")).not.toBeNull()
+		expect(document.getElementById("revalidate-error")).not.toBeNull()
+	})
 })

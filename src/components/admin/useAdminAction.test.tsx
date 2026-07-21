@@ -286,6 +286,44 @@ describe("useAdminAction errors", () => {
 			await inFlight
 		})
 	})
+
+	it("skips the commit when the request resolves after unmount", async () => {
+		// The success path must be as unmount-safe as the abort path: a request
+		// that settles into an unmounted tree must not run its state writes.
+		const gate = deferred()
+		const commit = vi.fn()
+		const { result, unmount } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		let inFlight!: Promise<void>
+		act(() => {
+			inFlight = result.current.run("go", async () => {
+				await gate.promise
+
+				return commit
+			})
+		})
+
+		await waitFor(() => expect(result.current.pending).toBe("go"))
+
+		unmount()
+
+		await act(async () => {
+			gate.release()
+			await inFlight
+		})
+
+		expect(commit).not.toHaveBeenCalled()
+	})
+
+	it("exposes setError so a panel can surface its own message", () => {
+		const { result } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		act(() => {
+			result.current.setError("custom failure")
+		})
+
+		expect(result.current.error).toBe("custom failure")
+	})
 })
 
 // #endregion
