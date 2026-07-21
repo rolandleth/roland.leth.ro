@@ -22,6 +22,7 @@ function deferred() {
 
 beforeEach(() => {
 	vi.spyOn(console, "warn").mockImplementation(() => {})
+	vi.spyOn(console, "debug").mockImplementation(() => {})
 })
 
 // #region pending lifecycle
@@ -207,6 +208,38 @@ describe("useAdminAction errors", () => {
 
 		expect(result.current.error).toBeNull()
 		expect(console.warn).not.toHaveBeenCalled()
+	})
+
+	it("traces a superseded request that fails without surfacing it", async () => {
+		// A stale request failing for a real (non-abort) reason must not overwrite
+		// the newer request's state — but it shouldn't vanish from the logs either,
+		// or an intermittent failure under rapid re-submits is undiagnosable.
+		const first = deferred()
+		const { result } = renderHook(() => useAdminAction<"a" | "b">(OPTIONS))
+
+		let firstRun!: Promise<void>
+		act(() => {
+			firstRun = result.current.run("a", async () => {
+				await first.promise
+
+				throw new Error("connection reset")
+			})
+		})
+
+		await waitFor(() => expect(result.current.pending).toBe("a"))
+
+		await act(async () => {
+			await result.current.run("b", async () => noCommit)
+		})
+
+		await act(async () => {
+			first.release()
+			await firstRun
+		})
+
+		expect(result.current.error).toBeNull()
+		expect(console.warn).not.toHaveBeenCalled()
+		expect(console.debug).toHaveBeenCalled()
 	})
 
 	it("aborts the in-flight request on unmount", async () => {

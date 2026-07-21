@@ -79,7 +79,18 @@ export function useAdminAction<A extends string>(options: {
 					commit()
 				}
 			} catch (err) {
-				if (isAbortError(err) || !isLatest()) {
+				if (isAbortError(err)) {
+					return
+				}
+
+				// A superseded request that failed for a real reason must not reach
+				// the UI — a newer request owns the state now — but dropping it
+				// silently hides intermittent failures under rapid re-submits. Trace
+				// it at debug level so it's diagnosable without surfacing to the user.
+				if (!isLatest()) {
+					// eslint-disable-next-line no-console
+					console.debug(`${logTag} superseded request failed`, err)
+
 					return
 				}
 

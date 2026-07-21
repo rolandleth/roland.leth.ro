@@ -222,20 +222,33 @@ export async function POST(request: Request): Promise<NextResponse> {
  * when someone is looking for it. Matches `keepalive`'s split.
  */
 function logResult(result: IndexNowResult, skipped: number): void {
-	const payload = {
+	const counts = {
 		attempted: result.attempted,
 		accepted: result.accepted,
 		skipped,
-		statuses: result.batches.map((batch) => batch.status),
 	}
 
 	if (result.ok) {
 		// eslint-disable-next-line no-console
-		console.info(`${TAG} success`, payload)
+		console.info(`${TAG} success`, {
+			...counts,
+			statuses: result.batches.map((batch) => batch.status),
+		})
 
 		return
 	}
 
+	// A rejected batch reports `status: 0` for any transport failure, so the
+	// status alone can't tell a timeout from a DNS error. Log each batch's
+	// `errorName`/`message` too — otherwise the one place someone looks after a
+	// failed submission says nothing about why it failed.
 	// eslint-disable-next-line no-console
-	console.error(`${TAG} upstream-error`, payload)
+	console.error(`${TAG} upstream-error`, {
+		...counts,
+		batches: result.batches.map((batch) => ({
+			status: batch.status,
+			errorName: batch.errorName,
+			message: batch.message,
+		})),
+	})
 }

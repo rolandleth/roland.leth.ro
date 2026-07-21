@@ -215,6 +215,43 @@ describe("POST /api/admin/indexnow", () => {
 		expect(body.attempted).toBe(4)
 		expect(body.accepted).toBe(2)
 	})
+
+	it("logs each failed batch's errorName and message so a transport failure is diagnosable", async () => {
+		// A transport failure reports `status: 0`; the status alone can't tell a
+		// timeout from a network drop, so the log must carry the batch detail.
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.mocked(submitToIndexNow).mockResolvedValue({
+			ok: false,
+			attempted: 1,
+			accepted: 0,
+			batches: [
+				{
+					status: 0,
+					ok: false,
+					message: "The operation timed out.",
+					errorName: "TimeoutError",
+					count: 1,
+				},
+			],
+		})
+
+		await POST(request())
+
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining("upstream-error"),
+			expect.objectContaining({
+				batches: [
+					expect.objectContaining({
+						status: 0,
+						errorName: "TimeoutError",
+						message: "The operation timed out.",
+					}),
+				],
+			})
+		)
+
+		errorSpy.mockRestore()
+	})
 })
 
 // #region dry run
