@@ -107,10 +107,7 @@ export default function RevalidatePanel() {
 		noun: string,
 		body: RevalidateBody
 	): Promise<void> {
-		setResult(null)
-		setWarning(null)
-
-		return run(action, async (signal) => {
+		const performRequest = async (signal: AbortSignal) => {
 			const response = await fetch("/api/admin/revalidate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -150,6 +147,11 @@ export default function RevalidatePanel() {
 					)
 				}
 			}
+		}
+
+		return run(action, performRequest, () => {
+			setResult(null)
+			setWarning(null)
 		})
 	}
 

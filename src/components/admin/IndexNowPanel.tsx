@@ -279,11 +279,7 @@ export default function IndexNowPanel() {
 	})
 
 	function start(action: Action): Promise<void> {
-		setResult(null)
-		setWarnings([])
-		setPreview(null)
-
-		return run(action, async (signal) => {
+		const performRequest = async (signal: AbortSignal) => {
 			const response = await fetch(
 				`/api/admin/indexnow${action === "dryrun" ? "?dryRun" : ""}`,
 				{ method: "POST", signal }
@@ -314,6 +310,12 @@ export default function IndexNowPanel() {
 					setPreview(outcome.preview)
 				}
 			}
+		}
+
+		return run(action, performRequest, () => {
+			setResult(null)
+			setWarnings([])
+			setPreview(null)
 		})
 	}
 

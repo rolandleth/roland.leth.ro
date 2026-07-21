@@ -72,6 +72,19 @@ describe("useAdminAction pending", () => {
 
 		expect(result.current.error).toBeNull()
 	})
+
+	it("runs the reset callback at the start of a request", async () => {
+		// The panels clear their own outcome state through this, so "a new run
+		// wipes the last result" can't be forgotten at a call site.
+		const reset = vi.fn()
+		const { result } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		await act(async () => {
+			await result.current.run("go", async () => noCommit, reset)
+		})
+
+		expect(reset).toHaveBeenCalledTimes(1)
+	})
 })
 
 // #endregion
