@@ -22,17 +22,25 @@ function entry(url: string): MetadataRoute.Sitemap[number] {
 	return { url }
 }
 
-function okResult(submitted: number): IndexNowResult {
+function okResult(count: number): IndexNowResult {
 	return {
 		ok: true,
-		submitted,
-		batches: [{ status: 200, ok: true, message: "", count: submitted }],
+		attempted: count,
+		accepted: count,
+		batches: [{ status: 200, ok: true, message: "", errorName: null, count }],
 	}
 }
 
 /** POST request to the route; `dryRun` adds the preview-only query flag. */
 function request(dryRun = false): Request {
 	const url = `https://roland.leth.ro/api/admin/indexnow${dryRun ? "?dryRun" : ""}`
+
+	return new Request(url, { method: "POST" })
+}
+
+/** POST request carrying an explicit `?dryRun=<value>`. */
+function requestWithDryRun(value: string): Request {
+	const url = `https://roland.leth.ro/api/admin/indexnow?dryRun=${value}`
 
 	return new Request(url, { method: "POST" })
 }
@@ -58,7 +66,8 @@ describe("POST /api/admin/indexnow", () => {
 
 		expect(response.status).toBe(200)
 		expect(body.ok).toBe(true)
-		expect(body.submitted).toBe(2)
+		expect(body.attempted).toBe(2)
+		expect(body.accepted).toBe(2)
 		expect(body.skipped).toEqual([])
 
 		expect(submitToIndexNow).toHaveBeenCalledWith({
@@ -69,22 +78,38 @@ describe("POST /api/admin/indexnow", () => {
 		})
 	})
 
-	it("400s when the key is not configured", async () => {
+	it("503s when the key is not configured", async () => {
+		// A deploy-config gap, not a bad request — same as `keepalive`'s 503 for a
+		// missing Redis.
 		vi.stubEnv("INDEXNOW_KEY", "")
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(503)
 		expect((await response.json()).error).toContain("INDEXNOW_KEY")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
-	it("400s and never submits for a non-public origin", async () => {
+	it("503s with the actual constraint when the key is malformed", async () => {
+		// Checked in the route, not the env schema: a bad value here must fail
+		// only this action. `openssl rand -base64 32` is the likely source.
+		vi.stubEnv("INDEXNOW_KEY", "Ab+c/dEf=")
+
+		const response = await POST(request())
+		const body = await response.json()
+
+		expect(response.status).toBe(503)
+		expect(body.error).toContain("malformed")
+		expect(body.error).toContain("a-zA-Z0-9-")
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("503s and never submits for a non-public origin", async () => {
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3000")
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(503)
 		expect((await response.json()).error).toContain("localhost:3000")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
@@ -106,20 +131,53 @@ describe("POST /api/admin/indexnow", () => {
 		)
 	})
 
-	it("400s when no URL is submittable", async () => {
+	it("422s when no URL is submittable, naming what was excluded", async () => {
 		vi.mocked(sitemap).mockResolvedValue([entry("https://evil.com/x")])
 
 		const response = await POST(request())
 
-		expect(response.status).toBe(400)
+		expect(response.status).toBe(422)
+		expect((await response.json()).skipped).toEqual(["https://evil.com/x"])
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("503s with a parseable body when the sitemap lookup fails", async () => {
+		// Unguarded, this escapes as a framework 500 with no `{error}` field — a
+		// shape the panel can't read, so the admin gets a blank failure.
+		vi.mocked(sitemap).mockRejectedValue(new Error("db down"))
+
+		const response = await POST(request())
+
+		expect(response.status).toBe(503)
+		expect((await response.json()).error).toMatch(/sitemap/i)
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("500s with the config message when the site URL is unset", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "")
+		vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "")
+
+		const response = await POST(request())
+
+		expect(response.status).toBe(500)
+		expect((await response.json()).error).toBeTruthy()
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
 	it("returns 502 when IndexNow rejects the submission", async () => {
 		vi.mocked(submitToIndexNow).mockResolvedValue({
 			ok: false,
-			submitted: 1,
-			batches: [{ status: 403, ok: false, message: "key not found", count: 1 }],
+			attempted: 1,
+			accepted: 0,
+			batches: [
+				{
+					status: 403,
+					ok: false,
+					message: "key not found",
+					errorName: null,
+					count: 1,
+				},
+			],
 		})
 
 		const response = await POST(request())
@@ -129,11 +187,69 @@ describe("POST /api/admin/indexnow", () => {
 		expect(body.ok).toBe(false)
 		expect(body.batches[0].status).toBe(403)
 	})
+
+	it("reports accepted separately from attempted on a partial acceptance", async () => {
+		// The operator must be able to tell "47 sent, 12 landed" from "47 landed";
+		// reporting the attempt count as the outcome is how the former reads as
+		// the latter.
+		vi.mocked(submitToIndexNow).mockResolvedValue({
+			ok: false,
+			attempted: 4,
+			accepted: 2,
+			batches: [
+				{ status: 200, ok: true, message: "", errorName: null, count: 2 },
+				{
+					status: 403,
+					ok: false,
+					message: "key not found",
+					errorName: null,
+					count: 2,
+				},
+			],
+		})
+
+		const response = await POST(request())
+		const body = await response.json()
+
+		expect(response.status).toBe(502)
+		expect(body.attempted).toBe(4)
+		expect(body.accepted).toBe(2)
+	})
 })
 
 // #region dry run
 
 describe("POST /api/admin/indexnow?dryRun", () => {
+	it("treats a bare flag as a preview", async () => {
+		const body = await (await POST(requestWithDryRun(""))).json()
+
+		expect(body.dryRun).toBe(true)
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it.each(["false", "0", "no", "off", "FALSE", " false "])(
+		"submits for real when dryRun is explicitly %s",
+		async (value) => {
+			// Presence-only parsing would read these as "yes, preview" and hand back
+			// a 200 the operator reads as a completed submission.
+			const response = await POST(requestWithDryRun(value))
+			const body = await response.json()
+
+			expect(body.dryRun).toBeUndefined()
+			expect(submitToIndexNow).toHaveBeenCalled()
+		}
+	)
+
+	it.each(["true", "1", "yes"])(
+		"previews when dryRun is explicitly %s",
+		async (value) => {
+			const body = await (await POST(requestWithDryRun(value))).json()
+
+			expect(body.dryRun).toBe(true)
+			expect(submitToIndexNow).not.toHaveBeenCalled()
+		}
+	)
+
 	it("previews the on-host and excluded URLs without submitting", async () => {
 		vi.mocked(sitemap).mockResolvedValue([
 			entry("https://roland.leth.ro/ok"),
@@ -160,6 +276,18 @@ describe("POST /api/admin/indexnow?dryRun", () => {
 		expect(response.status).toBe(200)
 		expect(body.urls).toEqual(["https://roland.leth.ro/"])
 		expect(body.warnings.join(" ")).toContain("INDEXNOW_KEY")
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+	})
+
+	it("warns that a set-but-malformed key will fail a real submission", async () => {
+		vi.stubEnv("INDEXNOW_KEY", "Ab+c/dEf=")
+
+		const response = await POST(request(true))
+		const body = await response.json()
+
+		expect(response.status).toBe(200)
+		expect(body.urls).toEqual(["https://roland.leth.ro/"])
+		expect(body.warnings.join(" ")).toContain("malformed")
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 

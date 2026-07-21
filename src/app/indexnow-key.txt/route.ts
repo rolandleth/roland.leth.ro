@@ -12,20 +12,21 @@ import { getIndexNowKey } from "@/lib/auth/env"
 // output, defeating the point of sourcing it from env.
 export const dynamic = "force-dynamic"
 
+// Rarely fetched (only on verification), and must reflect an env change on the
+// next crawl, so neither branch is cached. The 404 especially: a cached "no key
+// here" would keep verification failing after INDEXNOW_KEY is finally set,
+// which is exactly the order these get configured in.
+const HEADERS = {
+	"Content-Type": "text/plain; charset=utf-8",
+	"Cache-Control": "no-store",
+}
+
 export function GET(): Response {
 	const key = getIndexNowKey()
 
 	if (key === null) {
-		return new Response("Not found", { status: 404 })
+		return new Response("Not found", { status: 404, headers: HEADERS })
 	}
 
-	return new Response(key, {
-		status: 200,
-		headers: {
-			"Content-Type": "text/plain; charset=utf-8",
-			// Rarely fetched (only on verification), and must reflect an env change
-			// on the next crawl, so it's deliberately not cached.
-			"Cache-Control": "no-store",
-		},
-	})
+	return new Response(key, { status: 200, headers: HEADERS })
 }

@@ -4,10 +4,12 @@ import {
 	getAdminCredentials,
 	getCronSecret,
 	getDatabaseUrl,
+	getIndexNowKey,
 	getIpHashSecret,
 	getRedisConfig,
 	getSessionSecret,
 	getSiteUrl,
+	isValidIndexNowKey,
 } from "./env"
 
 beforeEach(() => {
@@ -131,6 +133,67 @@ describe("getIpHashSecret", () => {
 	it("returns null when missing", () => {
 		vi.stubEnv("IP_HASH_SECRET", "")
 		expect(getIpHashSecret()).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region optional — indexnow key
+
+describe("getIndexNowKey", () => {
+	it("returns the value when set", () => {
+		vi.stubEnv("INDEXNOW_KEY", "a".repeat(32))
+		expect(getIndexNowKey()).toBe("a".repeat(32))
+	})
+
+	it("returns null when missing", () => {
+		vi.stubEnv("INDEXNOW_KEY", "")
+		expect(getIndexNowKey()).toBeNull()
+	})
+
+	it("returns a malformed value rather than throwing", () => {
+		// The whole point of moving the format check out of the schema: a bad
+		// value here must not fail `readEnv()` for every other consumer.
+		vi.stubEnv("INDEXNOW_KEY", "abcd_efgh_ijkl")
+		expect(getIndexNowKey()).toBe("abcd_efgh_ijkl")
+	})
+
+	it("does not break unrelated accessors when malformed", () => {
+		// The regression this move exists to prevent: a junk IndexNow key used to
+		// fail the whole aggregate parse, taking login and site-URL down with it.
+		vi.stubEnv("SESSION_SECRET", "secret")
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
+		vi.stubEnv("INDEXNOW_KEY", "!!! not a key !!!")
+
+		expect(getSessionSecret()).toBe("secret")
+		expect(getSiteUrl()).toBe("https://roland.leth.ro")
+	})
+})
+
+describe("isValidIndexNowKey", () => {
+	it("accepts the protocol's length bounds", () => {
+		expect(isValidIndexNowKey("a".repeat(8))).toBe(true)
+		expect(isValidIndexNowKey("b".repeat(128))).toBe(true)
+	})
+
+	it("accepts hyphens, which the protocol's charset allows", () => {
+		expect(isValidIndexNowKey("abcd-efgh-ijkl")).toBe(true)
+	})
+
+	it("rejects keys outside the protocol's length bounds", () => {
+		expect(isValidIndexNowKey("a".repeat(7))).toBe(false)
+		expect(isValidIndexNowKey("a".repeat(129))).toBe(false)
+	})
+
+	it("rejects characters outside the protocol's charset", () => {
+		// An underscore or a stray quote pasted into the Vercel dashboard.
+		expect(isValidIndexNowKey("abcd_efgh_ijkl")).toBe(false)
+		expect(isValidIndexNowKey(`"${"a".repeat(32)}"`)).toBe(false)
+	})
+
+	it("rejects base64 output, the likeliest way to generate a bad key", () => {
+		// `openssl rand -base64 32` emits `+`, `/` and `=`.
+		expect(isValidIndexNowKey("Ab+c/dEf=")).toBe(false)
 	})
 })
 

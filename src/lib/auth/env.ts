@@ -15,7 +15,14 @@ import { z } from "zod"
  * is hex-decoded by `verifyCredentials`, so reject non-hex input early rather
  * than producing garbage bytes deep inside `Buffer.from(..., "hex")`. Empty
  * string is still allowed so the `nonEmpty`/required path can produce a useful
- * "not set" message instead of a Zod regex error.
+ * "not set" message instead of a Zod regex error. `INDEXNOW_KEY` follows the
+ * same shape.
+ *
+ * Note the blast radius before adding a format check to an *optional* var:
+ * `readEnv()` throws one aggregated `EnvConfigError` for the whole schema, so a
+ * malformed value takes down login and cron auth too, not just the feature that
+ * reads it. Worth it only when a bad value would otherwise fail silently or far
+ * from its cause.
  */
 const envSchema = z.object({
 	DATABASE_URL: z.string().optional(),
@@ -39,15 +46,12 @@ const envSchema = z.object({
 	// Vercel's platform-provided production domain (bare host, always https).
 	NEXT_PUBLIC_SITE_URL: z.string().optional(),
 	VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
-	// IndexNow verification key. The protocol allows 8–128 chars from
-	// `[a-zA-Z0-9-]`; reject anything else early so a mistyped value fails here
-	// with a clear message instead of a 403 from the search engine at submit time.
-	// Empty string is still allowed so the optional accessor can return `null`.
-	INDEXNOW_KEY: z
-		.string()
-		.regex(/^[a-zA-Z0-9-]{8,128}$/, "must be 8–128 chars of [a-zA-Z0-9-]")
-		.or(z.literal(""))
-		.optional(),
+	// IndexNow verification key. Deliberately NOT format-checked here: `readEnv()`
+	// aggregates every schema issue into one throw, so a regex on this optional,
+	// single-feature var would take down login, cron auth and site-URL resolution
+	// over a typo in the least load-bearing value on the site. The format check
+	// lives in `isValidIndexNowKey`, applied at the one call site that needs it.
+	INDEXNOW_KEY: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>
@@ -200,6 +204,17 @@ export function getIpHashSecret(): string | null {
  */
 export function getIndexNowKey(): string | null {
 	return nonEmpty(readEnv().INDEXNOW_KEY)
+}
+
+/**
+ * The IndexNow protocol accepts 8–128 chars of `[a-zA-Z0-9-]`. Checked here
+ * rather than in the schema so a malformed value fails only the IndexNow
+ * action, with a message naming the actual constraint, instead of failing
+ * `readEnv()` for every consumer. `openssl rand -base64 32` is the common way
+ * to get a rejected value (`+`, `/` and `=` are all outside the charset).
+ */
+export function isValidIndexNowKey(key: string): boolean {
+	return /^[a-zA-Z0-9-]{8,128}$/.test(key)
 }
 
 /**
