@@ -151,6 +151,23 @@ describe("getIndexNowKey", () => {
 		expect(getIndexNowKey()).toBeNull()
 	})
 
+	it("trims surrounding whitespace so a padded value stays valid", () => {
+		// A trailing newline from pasting the value into the env would fail the
+		// charset check and read as "malformed" for a key that looks correct.
+		const key = "a".repeat(32)
+		vi.stubEnv("INDEXNOW_KEY", ` ${key}\n`)
+
+		const trimmed = getIndexNowKey()
+
+		expect(trimmed).toBe(key)
+		expect(isValidIndexNowKey(trimmed as string)).toBe(true)
+	})
+
+	it("returns null for a whitespace-only value", () => {
+		vi.stubEnv("INDEXNOW_KEY", "   ")
+		expect(getIndexNowKey()).toBeNull()
+	})
+
 	it("returns a malformed value rather than throwing", () => {
 		// The whole point of moving the format check out of the schema: a bad
 		// value here must not fail `readEnv()` for every other consumer.
