@@ -87,6 +87,17 @@ describe("findForeignHostUrls", () => {
 			findForeignHostUrls("roland.leth.ro", ["https://Roland.Leth.RO/x"])
 		).toEqual([])
 	})
+
+	it("treats a differing port as off-host", () => {
+		// The comparison is on `.host`, which includes the port, so a URL on the
+		// same hostname but a different port is flagged rather than passed through.
+		expect(
+			findForeignHostUrls("localhost:3000", [
+				"http://localhost:3000/a",
+				"http://localhost:4000/b",
+			])
+		).toEqual(["http://localhost:4000/b"])
+	})
 })
 
 // #endregion
@@ -181,6 +192,19 @@ describe("submitToIndexNow", () => {
 			"Content-Type": "application/json; charset=utf-8",
 		})
 		expect(init?.signal).toBeInstanceOf(AbortSignal)
+	})
+
+	it("applies the default 10s timeout when none is given", async () => {
+		// The signal assertion above wouldn't catch a regression to a wrong
+		// default, which silently changes how long a hung endpoint stalls a submit.
+		const timeoutSpy = vi.spyOn(AbortSignal, "timeout")
+		const fetchImpl = fetchStub(200)
+
+		await submitToIndexNow({ ...base, fetchImpl })
+
+		expect(timeoutSpy).toHaveBeenCalledWith(10_000)
+
+		timeoutSpy.mockRestore()
 	})
 
 	it("honours an endpoint override", async () => {

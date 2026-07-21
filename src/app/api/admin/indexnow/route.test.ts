@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "@/app/api/admin/indexnow/route"
 import sitemap from "@/app/sitemap"
+import * as env from "@/lib/auth/env"
 import { submitToIndexNow } from "@/lib/content/indexnow"
 import type { IndexNowResult } from "@/lib/content/indexnow"
 import type { MetadataRoute } from "next"
@@ -164,6 +165,26 @@ describe("POST /api/admin/indexnow", () => {
 		expect(submitToIndexNow).not.toHaveBeenCalled()
 	})
 
+	it("rethrows an unexpected site-URL error after logging it", async () => {
+		// The catch handles `EnvConfigError` with a 500 body; anything else is
+		// logged and rethrown rather than swallowed into a shapeless response.
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		const boom = new Error("unexpected")
+		const siteUrlSpy = vi.spyOn(env, "getSiteUrl").mockImplementation(() => {
+			throw boom
+		})
+
+		await expect(POST(request())).rejects.toBe(boom)
+		expect(errorSpy).toHaveBeenCalledWith(
+			expect.stringContaining("unexpected error resolving the site URL"),
+			boom
+		)
+		expect(submitToIndexNow).not.toHaveBeenCalled()
+
+		siteUrlSpy.mockRestore()
+		errorSpy.mockRestore()
+	})
+
 	it("returns 502 when IndexNow rejects the submission", async () => {
 		vi.mocked(submitToIndexNow).mockResolvedValue({
 			ok: false,
@@ -251,6 +272,35 @@ describe("POST /api/admin/indexnow", () => {
 		)
 
 		errorSpy.mockRestore()
+	})
+
+	it("includes the skipped list on the 502 upstream-rejection body", async () => {
+		// The panel needs the off-host URLs even when the submission failed, so
+		// `skipped` must ride along on the 502 the same way it does on a 200.
+		vi.mocked(sitemap).mockResolvedValue([
+			entry("https://roland.leth.ro/"),
+			entry("https://example.com/off-host"),
+		])
+		vi.mocked(submitToIndexNow).mockResolvedValue({
+			ok: false,
+			attempted: 1,
+			accepted: 0,
+			batches: [
+				{
+					status: 403,
+					ok: false,
+					message: "key not found",
+					errorName: null,
+					count: 1,
+				},
+			],
+		})
+
+		const response = await POST(request())
+		const body = await response.json()
+
+		expect(response.status).toBe(502)
+		expect(body.skipped).toEqual(["https://example.com/off-host"])
 	})
 })
 
