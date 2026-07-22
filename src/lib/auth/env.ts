@@ -197,13 +197,16 @@ export function getIpHashSecret(): string | null {
 }
 
 /**
- * IndexNow verification key, or `null` when unset. Served verbatim at
- * `/indexnow-key.txt` and sent as the `key` in submissions. `null` lets the
- * key route return 404 and the admin submit route reject with a clear message,
- * rather than a deploy without the key 500-ing.
+ * IndexNow verification key, or `null` when unset. Surrounding whitespace is
+ * trimmed first: a trailing newline from how the value was pasted into the env
+ * would otherwise be served at `/indexnow-key.txt` yet rejected as malformed at
+ * submit (the charset check leaves no room for whitespace) — an invisible
+ * mismatch. The trimmed value is served verbatim and sent as the `key` in
+ * submissions. `null` lets the key route return 404 and the admin submit route
+ * reject with a clear message, rather than a deploy without the key 500-ing.
  */
 export function getIndexNowKey(): string | null {
-	return nonEmpty(readEnv().INDEXNOW_KEY)
+	return nonEmpty(readEnv().INDEXNOW_KEY?.trim())
 }
 
 /**

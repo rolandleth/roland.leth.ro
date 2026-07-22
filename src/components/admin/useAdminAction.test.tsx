@@ -22,6 +22,7 @@ function deferred() {
 
 beforeEach(() => {
 	vi.spyOn(console, "warn").mockImplementation(() => {})
+	vi.spyOn(console, "debug").mockImplementation(() => {})
 })
 
 // #region pending lifecycle
@@ -70,6 +71,19 @@ describe("useAdminAction pending", () => {
 		})
 
 		expect(result.current.error).toBeNull()
+	})
+
+	it("runs the reset callback at the start of a request", async () => {
+		// The panels clear their own outcome state through this, so "a new run
+		// wipes the last result" can't be forgotten at a call site.
+		const reset = vi.fn()
+		const { result } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		await act(async () => {
+			await result.current.run("go", async () => noCommit, reset)
+		})
+
+		expect(reset).toHaveBeenCalledTimes(1)
 	})
 })
 
@@ -209,6 +223,38 @@ describe("useAdminAction errors", () => {
 		expect(console.warn).not.toHaveBeenCalled()
 	})
 
+	it("traces a superseded request that fails without surfacing it", async () => {
+		// A stale request failing for a real (non-abort) reason must not overwrite
+		// the newer request's state — but it shouldn't vanish from the logs either,
+		// or an intermittent failure under rapid re-submits is undiagnosable.
+		const first = deferred()
+		const { result } = renderHook(() => useAdminAction<"a" | "b">(OPTIONS))
+
+		let firstRun!: Promise<void>
+		act(() => {
+			firstRun = result.current.run("a", async () => {
+				await first.promise
+
+				throw new Error("connection reset")
+			})
+		})
+
+		await waitFor(() => expect(result.current.pending).toBe("a"))
+
+		await act(async () => {
+			await result.current.run("b", async () => noCommit)
+		})
+
+		await act(async () => {
+			first.release()
+			await firstRun
+		})
+
+		expect(result.current.error).toBeNull()
+		expect(console.warn).not.toHaveBeenCalled()
+		expect(console.debug).toHaveBeenCalled()
+	})
+
 	it("aborts the in-flight request on unmount", async () => {
 		// Without this the abort path is unreachable — the buttons disable while
 		// busy, so nothing else can supersede a running request.
@@ -239,6 +285,44 @@ describe("useAdminAction errors", () => {
 			gate.release()
 			await inFlight
 		})
+	})
+
+	it("skips the commit when the request resolves after unmount", async () => {
+		// The success path must be as unmount-safe as the abort path: a request
+		// that settles into an unmounted tree must not run its state writes.
+		const gate = deferred()
+		const commit = vi.fn()
+		const { result, unmount } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		let inFlight!: Promise<void>
+		act(() => {
+			inFlight = result.current.run("go", async () => {
+				await gate.promise
+
+				return commit
+			})
+		})
+
+		await waitFor(() => expect(result.current.pending).toBe("go"))
+
+		unmount()
+
+		await act(async () => {
+			gate.release()
+			await inFlight
+		})
+
+		expect(commit).not.toHaveBeenCalled()
+	})
+
+	it("exposes setError so a panel can surface its own message", () => {
+		const { result } = renderHook(() => useAdminAction<"go">(OPTIONS))
+
+		act(() => {
+			result.current.setError("custom failure")
+		})
+
+		expect(result.current.error).toBe("custom failure")
 	})
 })
 

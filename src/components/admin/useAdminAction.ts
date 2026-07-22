@@ -19,7 +19,8 @@ export interface AdminAction<A extends string> {
 	setError: (message: string | null) => void
 	run: (
 		action: A,
-		perform: (signal: AbortSignal) => Promise<Commit | null>
+		perform: (signal: AbortSignal) => Promise<Commit | null>,
+		reset?: () => void
 	) => Promise<void>
 }
 
@@ -35,7 +36,10 @@ export interface AdminAction<A extends string> {
  * than resolving into an unmounted tree.
  *
  * `perform` runs the request and returns a `Commit` thunk holding its state
- * writes; the hook invokes it only if this request is still latest.
+ * writes; the hook invokes it only if this request is still latest. `run`'s
+ * optional `reset` clears the panel's own outcome state up front, so "a new
+ * request wipes the last outcome" runs as part of the request lifecycle rather
+ * than being re-implemented — and eventually forgotten — at each call site.
  */
 export function useAdminAction<A extends string>(options: {
 	/** Prefix for console diagnostics, e.g. `[admin:IndexNowPanel]`. */
@@ -61,8 +65,10 @@ export function useAdminAction<A extends string>(options: {
 	const run = useCallback(
 		async (
 			action: A,
-			perform: (signal: AbortSignal) => Promise<Commit | null>
+			perform: (signal: AbortSignal) => Promise<Commit | null>,
+			reset?: () => void
 		): Promise<void> => {
+			reset?.()
 			setError(null)
 			setPending(action)
 
@@ -79,7 +85,18 @@ export function useAdminAction<A extends string>(options: {
 					commit()
 				}
 			} catch (err) {
-				if (isAbortError(err) || !isLatest()) {
+				if (isAbortError(err)) {
+					return
+				}
+
+				// A superseded request that failed for a real reason must not reach
+				// the UI — a newer request owns the state now — but dropping it
+				// silently hides intermittent failures under rapid re-submits. Trace
+				// it at debug level so it's diagnosable without surfacing to the user.
+				if (!isLatest()) {
+					// eslint-disable-next-line no-console
+					console.debug(`${logTag} superseded request failed`, err)
+
 					return
 				}
 

@@ -322,6 +322,23 @@ describe("IndexNowPanel affordances", () => {
 		expect(screen.getByRole("status")).toBeInTheDocument()
 	})
 
+	it("ties each button to both the outcome and error regions", () => {
+		// The failure headline is announced from the assertive error region, so
+		// aria-controls names it alongside the polite outcome region — and both
+		// regions must exist up front or the reference dangles.
+		render(<IndexNowPanel />)
+
+		for (const button of [submitButton(), dryRunButton()]) {
+			expect(button).toHaveAttribute(
+				"aria-controls",
+				"indexnow-outcome indexnow-error"
+			)
+		}
+
+		expect(document.getElementById("indexnow-outcome")).not.toBeNull()
+		expect(document.getElementById("indexnow-error")).not.toBeNull()
+	})
+
 	it("announces the outcome through the live region", async () => {
 		mockFetch({
 			ok: true,
