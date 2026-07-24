@@ -19,6 +19,12 @@ const SECTION_ARCHIVE_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/archive$`)
 const SECTION_SEARCH_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/search$`)
 const SECTION_ROOT_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})$`)
 const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
+// Conventional feed URLs readers and people guess when there's no autodiscovery
+// link at hand. All are site-root guesses with no section, so they map to the
+// default section's feed — same target as `/feed` above, keeping every feed
+// alias uniform. `.xml` is deliberately absent from the bot-probe extension set,
+// so these reach the redirect instead of being 404'd as scanner noise.
+const FEED_ALIAS_REGEX = /^\/(?:rss|rss\.xml|feed\.xml|atom\.xml|index\.xml)$/
 // `/blog/:section/:slug.md` → the raw-markdown route handler. Slugs are
 // `[a-z0-9-]` only (see `createSlug`), so they never contain a dot — the single
 // `\.md$` anchor unambiguously splits slug from extension.
@@ -88,6 +94,11 @@ function matchLegacyRedirect(pathname: string): string | null {
 
 	if (feedMatch) {
 		return `/api/feed/${feedMatch[1] ?? DEFAULT_FEED_SECTION}`
+	}
+
+	// Conventional feed-URL guesses (`/rss`, `/feed.xml`, …) → the default feed.
+	if (FEED_ALIAS_REGEX.test(pathname)) {
+		return `/api/feed/${DEFAULT_FEED_SECTION}`
 	}
 
 	return null

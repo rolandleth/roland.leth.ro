@@ -277,6 +277,23 @@ describe("proxy — feed redirects", () => {
 		expect(response.status).toBe(301)
 		expect(response.headers.get("location")).toContain("/api/feed/life")
 	})
+
+	it.each(["/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"])(
+		"redirects the conventional feed guess %s to the default feed",
+		async (path) => {
+			const response = await proxy(makeRequest(path))
+			expect(response.status).toBe(301)
+			expect(response.headers.get("location")).toContain("/api/feed/tech")
+		}
+	)
+
+	it("does not treat a real slug ending in those words as a feed alias", async () => {
+		// The alias regex is fully anchored, so `/rss-reader` (a plausible legacy
+		// post slug) falls through to the catch-all, not the feed redirect.
+		const response = await proxy(makeRequest("/rss-reader"))
+		expect(response.headers.get("location")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
 })
 
 // #endregion
