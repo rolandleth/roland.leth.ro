@@ -1,25 +1,20 @@
 import { unstable_cache } from "next/cache"
 import { getSiteUrl } from "@/lib/auth/env"
+import {
+	FEED_AUTHOR_NAME,
+	feedPathForSection,
+	feedTitleForSection,
+} from "@/lib/content/feed"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { bySection } from "@/lib/db/posts"
-import {
-	capitalizeSection,
-	isValidSection,
-	type Section,
-} from "@/lib/db/sections"
+import { isValidSection, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/utils/format"
 
 // The most recent N posts are included in the feed. 20 matches common reader
 // defaults (e.g. Feedbin, NetNewsWire) — large enough for weekly readers to
 // catch up, small enough to keep the cached payload bounded.
 const FEED_ENTRY_LIMIT = 20
-
-// Feed author, surfaced both in the feed `<title>` and the required feed-level
-// `<author>` element. RFC 4287 §4.1.1: a feed must carry an author unless every
-// entry supplies its own — this feed's entries don't, so strict readers reject
-// a feed without this.
-const AUTHOR_NAME = "Roland Leth"
 
 // Per-section feed subtitle. Explicit rather than derived from the section name
 // so each reads as a real sentence in a subscriber's reader, preserving the
@@ -134,16 +129,16 @@ export async function GET(
 	// (`NEXT_PUBLIC_SITE_URL`), matching `sitemap.ts` and `layout.tsx`.
 	const SITE_URL = getSiteUrl()
 
-	const feedTitle = `${AUTHOR_NAME} — ${capitalizeSection(section)} blog`
+	const feedTitle = feedTitleForSection(section)
 	// `<id>` is a permanent identifier readers use to de-duplicate a feed, so it
 	// stays pinned to the original `/api/feed/:section` URL — changing it would
 	// orphan every existing subscription. `rel="self"` is the *current* retrieval
 	// location, so it points at the canonical pretty URL that autodiscovery and
 	// the middleware rewrite expose; readers converge onto it over time.
 	const feedId = `${SITE_URL}/api/feed/${section}`
-	const feedSelfUrl = `${SITE_URL}/blog/${section}/feed.xml`
+	const feedSelfUrl = `${SITE_URL}${feedPathForSection(section)}`
 	const blogUrl = `${SITE_URL}/blog/${section}`
-	const rights = `Copyright (c) 2013–${new Date().getFullYear()}, ${AUTHOR_NAME}`
+	const rights = `Copyright (c) 2013–${new Date().getFullYear()}, ${FEED_AUTHOR_NAME}`
 
 	// Derive each entry's timestamps once so the entry XML and the feed-level
 	// `<updated>` below draw from the same values.
@@ -203,7 +198,7 @@ export async function GET(
   <id>${feedId}</id>
   <updated>${feedUpdated}</updated>
   <author>
-    <name>${escapeXml(AUTHOR_NAME)}</name>
+    <name>${escapeXml(FEED_AUTHOR_NAME)}</name>
     <uri>${SITE_URL}</uri>
   </author>
   <icon>${SITE_URL}/images/favicons/192x192.png</icon>

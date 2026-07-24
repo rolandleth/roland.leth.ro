@@ -1,5 +1,6 @@
 import HomeHero from "@/components/home/HomeHero"
 import LandingBackground from "@/components/home/LandingBackground"
+import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -12,6 +13,19 @@ export const metadata: Metadata = {
 	},
 	description:
 		"iOS developer, full-stack engineer. Building things that matter since 2011.",
+	// Declared explicitly rather than left to inherit the layout default: the
+	// landing page is the most common autodiscovery entry point, so it advertises
+	// the tech feed (titled) directly instead of depending on metadata merge.
+	alternates: {
+		types: {
+			"application/atom+xml": [
+				{
+					url: feedPathForSection("tech"),
+					title: feedTitleForSection("tech"),
+				},
+			],
+		},
+	},
 }
 
 export default function Home() {

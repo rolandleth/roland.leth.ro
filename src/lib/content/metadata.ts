@@ -21,11 +21,12 @@ export interface PageMetadataInput {
 	markdownPath?: string
 	/**
 	 * When set, emits a `<link rel="alternate" type="application/atom+xml">` — the
-	 * feed-autodiscovery link browsers and readers look for. Point it at the
-	 * section's canonical feed URL (`/blog/:section/feed.xml`) so a reader on a
-	 * blog page subscribes to that section, not a site-wide default.
+	 * feed-autodiscovery link browsers and readers look for. The `title` is
+	 * required, not optional: without it, readers list the feed by its raw URL
+	 * instead of a name. Build it with `feedLinkForSection` so the title matches
+	 * the Atom document's own `<title>`.
 	 */
-	feedPath?: string
+	feed?: { path: string; title: string }
 	/**
 	 * When set, emits `<link rel="canonical">` at this path (resolved against the
 	 * layout's `metadataBase`). Opt-in rather than defaulted to `path`: it's only
@@ -59,7 +60,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		type,
 		keywords,
 		markdownPath,
-		feedPath,
+		feed,
 		canonicalPath,
 	} = input
 
@@ -97,8 +98,10 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		types["text/markdown"] = markdownPath
 	}
 
-	if (feedPath !== undefined) {
-		types["application/atom+xml"] = feedPath
+	if (feed !== undefined) {
+		// Array-of-descriptor form (not a bare string) so Next emits the `title`
+		// attribute — the string form drops it, and readers then show the URL.
+		types["application/atom+xml"] = [{ url: feed.path, title: feed.title }]
 	}
 
 	if (Object.keys(types).length > 0) {

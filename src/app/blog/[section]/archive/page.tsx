@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { getPostsGroupedByYear } from "@/lib/db/posts"
 import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/db/sections"
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `${label} archive`,
 		description: `All ${section} posts, grouped by year.`,
 		path: `/blog/${section}/archive`,
-		feedPath: `/blog/${section}/feed.xml`,
+		feed: feedLinkForSection(section),
 	})
 }
 

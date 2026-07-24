@@ -6,6 +6,7 @@ import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
+import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
@@ -42,10 +43,16 @@ export async function generateMetadata(): Promise<Metadata> {
 		// `alternates` (everything outside `/blog/:section/*`, which advertises
 		// its own section feed) surface the tech feed. Next replaces `alternates`
 		// wholesale from deeper segments, so the blog pages re-declare the feed
-		// rather than inheriting this.
+		// rather than inheriting this. The `title` is required — without it
+		// readers list the feed by its raw URL.
 		alternates: {
 			types: {
-				"application/atom+xml": "/blog/tech/feed.xml",
+				"application/atom+xml": [
+					{
+						url: feedPathForSection("tech"),
+						title: feedTitleForSection("tech"),
+					},
+				],
 			},
 		},
 		openGraph: {
