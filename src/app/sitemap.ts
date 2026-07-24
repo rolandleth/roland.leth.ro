@@ -5,6 +5,13 @@ import { getAllProjectSlugs } from "@/lib/db/projects"
 import { SECTIONS } from "@/lib/db/sections"
 import type { MetadataRoute } from "next"
 
+// The sitemap is prerendered, and `getAllPublishedPostSlugs` / the guide
+// helpers filter scheduled entries at read time — which only re-runs on
+// regeneration. Mutations bust the tags, but a scheduled post going live is
+// not a mutation — this time-based backstop bounds how long its URL stays out
+// of the sitemap.
+export const revalidate = 3600
+
 function url(base: string, path: string): string {
 	return `${base}${path}`
 }
