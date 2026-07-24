@@ -33,9 +33,10 @@ const BLOG_MD_REGEX = new RegExp(
 )
 // `/blog/:section/feed.xml` → the Atom feed handler. This content-shaped URL is
 // the one advertised for autodiscovery and set as the feed's `rel="self"`, so
-// the canonical feed lives under `/blog/` (fully crawlable) rather than `/api/`
-// (behind robots.txt `Disallow: /api/`). Rewritten, not redirected, so the
-// pretty URL stays in the address bar and stored subscriptions never 301-hop.
+// the canonical feed is decoupled from the internal `/api/` route shape and
+// doesn't lean on the `robots.ts` `Allow: /api/feed/` exception to stay
+// crawlable. Rewritten, not redirected, so the pretty URL stays in the address
+// bar and stored subscriptions never 301-hop.
 const BLOG_FEED_REGEX = new RegExp(
 	`^/blog/(${SECTION_ALTERNATION})/feed\\.xml$`
 )
