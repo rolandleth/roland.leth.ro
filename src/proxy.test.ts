@@ -277,6 +277,23 @@ describe("proxy — feed redirects", () => {
 		expect(response.status).toBe(301)
 		expect(response.headers.get("location")).toContain("/api/feed/life")
 	})
+
+	it.each(["/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"])(
+		"redirects the conventional feed guess %s to the default feed",
+		async (path) => {
+			const response = await proxy(makeRequest(path))
+			expect(response.status).toBe(301)
+			expect(response.headers.get("location")).toContain("/api/feed/tech")
+		}
+	)
+
+	it("does not treat a real slug ending in those words as a feed alias", async () => {
+		// The alias regex is fully anchored, so `/rss-reader` (a plausible legacy
+		// post slug) falls through to the catch-all, not the feed redirect.
+		const response = await proxy(makeRequest("/rss-reader"))
+		expect(response.headers.get("location")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
 })
 
 // #endregion
@@ -321,6 +338,41 @@ describe("proxy — blog markdown rewrite", () => {
 		const response = await proxy(makeRequest("/blog/garbage/my-post.md"))
 		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
 		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+})
+
+// #endregion
+
+// #region Blog feed rewrite
+
+describe("proxy — blog feed rewrite", () => {
+	it("rewrites /blog/tech/feed.xml to the feed route handler", async () => {
+		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/feed/tech"
+		)
+		// A rewrite, not a redirect — the pretty URL stays in the address bar.
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("rewrites /blog/life/feed.xml to the feed route handler", async () => {
+		const response = await proxy(makeRequest("/blog/life/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/feed/life"
+		)
+	})
+
+	it("does not rewrite feed.xml under an unknown section", async () => {
+		const response = await proxy(makeRequest("/blog/garbage/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("does not treat feed.xml as a post slug (no .md rewrite)", async () => {
+		// Guards the regex boundary: `feed.xml` must hit the feed rewrite, never
+		// the markdown rewrite that matches other dotted paths under /blog.
+		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).not.toContain("/md")
 	})
 })
 

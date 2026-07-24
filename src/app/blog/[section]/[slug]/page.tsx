@@ -4,6 +4,7 @@ import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
 import { getSiteUrl } from "@/lib/auth/env"
+import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
@@ -47,6 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		publishedTime: postDatetimeToISO(post.datetime),
 		type: "article",
 		markdownPath: `/blog/${post.section}/${post.slug}.md`,
+		feed: feedLinkForSection(section),
 	})
 }
 

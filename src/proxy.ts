@@ -19,11 +19,26 @@ const SECTION_ARCHIVE_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/archive$`)
 const SECTION_SEARCH_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})/search$`)
 const SECTION_ROOT_REGEX = new RegExp(`^/(${SECTION_ALTERNATION})$`)
 const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
+// Conventional feed URLs readers and people guess when there's no autodiscovery
+// link at hand. All are site-root guesses with no section, so they map to the
+// default section's feed — same target as `/feed` above, keeping every feed
+// alias uniform. `.xml` is deliberately absent from the bot-probe extension set,
+// so these reach the redirect instead of being 404'd as scanner noise.
+const FEED_ALIAS_REGEX = /^\/(?:rss|rss\.xml|feed\.xml|atom\.xml|index\.xml)$/
 // `/blog/:section/:slug.md` → the raw-markdown route handler. Slugs are
 // `[a-z0-9-]` only (see `createSlug`), so they never contain a dot — the single
 // `\.md$` anchor unambiguously splits slug from extension.
 const BLOG_MD_REGEX = new RegExp(
 	`^/blog/(${SECTION_ALTERNATION})/([^/]+?)\\.md$`
+)
+// `/blog/:section/feed.xml` → the Atom feed handler. This content-shaped URL is
+// the one advertised for autodiscovery and set as the feed's `rel="self"`, so
+// the canonical feed is decoupled from the internal `/api/` route shape and
+// doesn't lean on the `robots.ts` `Allow: /api/feed/` exception to stay
+// crawlable. Rewritten, not redirected, so the pretty URL stays in the address
+// bar and stored subscriptions never 301-hop.
+const BLOG_FEED_REGEX = new RegExp(
+	`^/blog/(${SECTION_ALTERNATION})/feed\\.xml$`
 )
 
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
@@ -80,6 +95,11 @@ function matchLegacyRedirect(pathname: string): string | null {
 
 	if (feedMatch) {
 		return `/api/feed/${feedMatch[1] ?? DEFAULT_FEED_SECTION}`
+	}
+
+	// Conventional feed-URL guesses (`/rss`, `/feed.xml`, …) → the default feed.
+	if (FEED_ALIAS_REGEX.test(pathname)) {
+		return `/api/feed/${DEFAULT_FEED_SECTION}`
 	}
 
 	return null
@@ -161,6 +181,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 				`/api/blog/${blogMarkdownMatch[1]}/${blogMarkdownMatch[2]}/md`,
 				request.url
 			)
+		)
+	}
+
+	// `/blog/:section/feed.xml` → the feed route handler at `/api/feed/:section`.
+	// A rewrite (not a redirect) keeps the pretty URL canonical; the handler
+	// can't live at this path because a `route.ts` can't coexist with the
+	// `/blog/:section/[slug]` page tree.
+	const blogFeedMatch = pathname.match(BLOG_FEED_REGEX)
+
+	if (blogFeedMatch) {
+		return NextResponse.rewrite(
+			new URL(`/api/feed/${blogFeedMatch[1]}`, request.url)
 		)
 	}
 

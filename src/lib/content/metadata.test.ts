@@ -135,6 +135,33 @@ describe("buildPageMetadata", () => {
 		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
 	})
 
+	it("emits a titled feed-autodiscovery alternate when feed is given", () => {
+		// The descriptor (array of `{ url, title }`) is what makes Next render the
+		// `title` attribute; a bare string would drop it and readers would show the
+		// raw URL. Asserting the title is present is the point of this test.
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			feed: { path: "/blog/tech/feed.xml", title: "Roland Leth — Tech blog" },
+		})
+		expect(meta.alternates?.types?.["application/atom+xml"]).toEqual([
+			{ url: "/blog/tech/feed.xml", title: "Roland Leth — Tech blog" },
+		])
+	})
+
+	it("carries markdown and feed alternates together in types", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			markdownPath: "/x.md",
+			feed: { path: "/blog/tech/feed.xml", title: "Roland Leth — Tech blog" },
+		})
+		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
+		expect(meta.alternates?.types?.["application/atom+xml"]).toEqual([
+			{ url: "/blog/tech/feed.xml", title: "Roland Leth — Tech blog" },
+		])
+	})
+
 	// Dev-only guard: the layout applies a `"%s | Roland Leth"` template to
 	// `metadata.title`, so a caller routing a pre-branded title through this
 	// helper would silently produce `"Roland Leth — Foo | Roland Leth"`. The

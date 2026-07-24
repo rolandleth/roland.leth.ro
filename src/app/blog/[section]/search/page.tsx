@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import SearchForm from "@/components/blog/SearchForm"
 import EmptyState from "@/components/ui/EmptyState"
+import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { searchPosts } from "@/lib/db/posts"
 import { capitalizeSection, isValidSection } from "@/lib/db/sections"
@@ -26,6 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `Search ${label}`,
 		description: `Search ${section} posts.`,
 		path: `/blog/${section}/search`,
+		feed: feedLinkForSection(section),
 	})
 }
 

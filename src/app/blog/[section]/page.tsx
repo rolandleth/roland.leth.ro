@@ -4,6 +4,7 @@ import BlogSectionHeader from "@/components/blog/BlogSectionHeader"
 import Pagination from "@/components/blog/Pagination"
 import PostCard from "@/components/blog/PostCard"
 import PageGlow from "@/components/PageGlow"
+import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { getPostsBySection } from "@/lib/db/posts"
 import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/db/sections"
@@ -32,6 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `${label} blog`,
 		description: `Thoughts on ${section}.`,
 		path: `/blog/${section}`,
+		feed: feedLinkForSection(section),
 	})
 }
 
