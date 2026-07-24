@@ -8,8 +8,26 @@ import {
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { bySection } from "@/lib/db/posts"
-import { isValidSection, type Section } from "@/lib/db/sections"
+import { isValidSection, SECTIONS, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/utils/format"
+
+// Prerender the per-section feeds and serve them from the route cache. The
+// `feed-{section}` tag on the data cache below rides up onto the route-cache
+// entry, so the same `revalidatePostSection` bust that refreshes the blog
+// pages regenerates the feed XML — unlike the previous dynamic + CDN-header
+// setup, where a tag bust couldn't purge the edge copy and an edit could stay
+// stale for up to an hour. Route handlers are dynamic by default, hence the
+// explicit opt-in.
+export const dynamic = "force-static"
+// Time-based backstop for scheduled posts: nothing busts `feed-{section}`
+// when a post's `datetime` passes, so the `datetime <= now` filter in the
+// handler re-runs at most an hour late. Regenerations only re-template the
+// cached payload — the data cache itself stays tag-busted, not time-busted.
+export const revalidate = 3600
+
+export function generateStaticParams() {
+	return SECTIONS.map((section) => ({ section }))
+}
 
 // The most recent N posts are included in the feed. 20 matches common reader
 // defaults (e.g. Feedbin, NetNewsWire) — large enough for weekly readers to
@@ -52,8 +70,9 @@ function escapeCdata(html: string): string {
  * The cached payload is padded by the current scheduled-post count: we take
  * `FEED_ENTRY_LIMIT + futureCount` rows so that the handler can filter
  * `datetime <= now` and still emit a full feed. Scheduled posts therefore
- * live inside the cache and auto-surface the first request after their
- * `datetime` passes, without waiting for a cache bust. Markdown rendering is
+ * live inside the cache and auto-surface at the first route regeneration
+ * after their `datetime` passes (bounded by the route-level `revalidate`
+ * backstop), without waiting for a cache bust. Markdown rendering is
  * done for the future rows too — small wasted compute traded for a simpler
  * cache shape.
  */
@@ -206,11 +225,12 @@ export async function GET(
 ${entriesXml}
 </feed>`
 
+	// No hand-set `Cache-Control`: the route is statically cached, so the
+	// platform manages edge caching and `revalidate` above governs freshness.
 	return new Response(feed, {
 		status: 200,
 		headers: {
 			"Content-Type": "application/atom+xml; charset=utf-8",
-			"Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
 		},
 	})
 }

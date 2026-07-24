@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
-import { GET } from "./route"
+import { dynamic, generateStaticParams, GET, revalidate } from "./route"
 
 // Spy variant so we can assert on the cache keys and tags wired to each
 // section. The identity-passthrough factory used elsewhere doesn't capture
@@ -199,6 +199,20 @@ describe("GET /api/feed/:section", () => {
 		expect(tagSets).toEqual(
 			expect.arrayContaining([["feed-tech"], ["feed-life"]])
 		)
+	})
+
+	it("prerenders statically per section with a scheduled-post revalidate backstop", () => {
+		// `force-static` + the tag wiring above is what lets a publish-flow tag
+		// bust regenerate the served XML; `revalidate` is the only thing that
+		// surfaces a scheduled post crossing its `datetime`, since that event
+		// busts no tag. A silent removal of either would go unnoticed until a
+		// stale feed is reported.
+		expect(dynamic).toBe("force-static")
+		expect(revalidate).toBe(3600)
+		expect(generateStaticParams()).toEqual([
+			{ section: "tech" },
+			{ section: "life" },
+		])
 	})
 
 	it("uses getSiteUrl() rather than request.url for the canonical origin", async () => {

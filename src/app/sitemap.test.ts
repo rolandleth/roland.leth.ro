@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import sitemap from "@/app/sitemap"
+import sitemap, { revalidate } from "@/app/sitemap"
 import { prisma } from "@/lib/db/db"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -472,6 +472,20 @@ describe("sitemap — guide routes", () => {
 		expect(result).toContainEqual(
 			expect.objectContaining({ url: `${BASE}/guides/orphaned` })
 		)
+	})
+})
+
+// #endregion
+
+// #region Route config
+
+describe("sitemap — route config", () => {
+	it("regenerates on a timer so scheduled posts surface without a tag bust", () => {
+		// The sitemap is prerendered and its scheduled-entry filtering happens at
+		// read time, i.e. at regeneration. A scheduled post crossing its
+		// `datetime` busts no tag, so this backstop is the only thing that gets
+		// its URL indexed before the next content edit or deploy.
+		expect(revalidate).toBe(3600)
 	})
 })
 
