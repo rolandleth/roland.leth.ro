@@ -79,6 +79,29 @@ describe("GET /api/feed/:section", () => {
 		expect(text).toContain('href="http://localhost/blog/tech"')
 	})
 
+	it("carries the feed-level author, subtitle, icon and rights", async () => {
+		// RFC 4287 §4.1.1 requires a feed-level `<author>` when entries omit their
+		// own; without it the whole document is invalid and strict readers reject
+		// it. Subtitle/icon/rights restore parity with the pre-Next feed.
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(text).toContain("<name>Roland Leth</name>")
+		expect(text).toContain(
+			"<subtitle>Software development thoughts by Roland Leth</subtitle>"
+		)
+		expect(text).toContain(
+			"<icon>http://localhost/images/favicons/192x192.png</icon>"
+		)
+		expect(text).toContain("<rights>Copyright (c) 2013–")
+	})
+
+	it("uses a section-specific subtitle for the life feed", async () => {
+		const text = await GET(...makeRequest("life")).then((r) => r.text())
+		expect(text).toContain(
+			"<subtitle>Personal development thoughts by Roland Leth</subtitle>"
+		)
+	})
+
 	it("includes all required Atom entry elements", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
@@ -86,7 +109,13 @@ describe("GET /api/feed/:section", () => {
 		expect(text).toContain("<title>Test Post</title>")
 		expect(text).toContain('href="http://localhost/blog/tech/test-post"')
 		expect(text).toContain("<published>")
-		expect(text).toContain("<updated>2024-01-01T09:00:00.000Z</updated>")
+		// Shape-only: entry `<updated>` is `max(published, updatedAt)` and
+		// `published` is derived from a local-time `Date`, so the exact instant is
+		// zone-dependent. Asserting the ISO shape keeps this TZ-robust (the
+		// scheduled-post test below pins the max semantics with unambiguous dates).
+		expect(text).toMatch(
+			/<updated>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z<\/updated>/
+		)
 		expect(text).toContain("<summary>")
 		expect(text).toContain('<content type="html">')
 	})
@@ -121,6 +150,28 @@ describe("GET /api/feed/:section", () => {
 		])
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<updated>2024-06-01T00:00:00.000Z</updated>")
+	})
+
+	it("advances feed <updated> to a scheduled post's publish time, not its older edit time", async () => {
+		// A scheduled post is authored days before it publishes, so its `updatedAt`
+		// (the edit) predates publication. Keying the feed's `<updated>` off
+		// `updatedAt` alone froze it in the reader's past the moment the post went
+		// live, so readers polling conditionally never refetched and never saw the
+		// new post. `<updated>` must track the later publish time instead.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{
+				...basePost,
+				datetime: "2024-07-15-1200",
+				updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+			},
+		])
+
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		// Publication (July) wins over the January edit. Midday keeps the calendar
+		// day within July across every real zone; the exact instant isn't asserted.
+		expect(text).toMatch(/<updated>2024-07-1[456]T/)
+		expect(text).not.toContain("2024-01-01T00:00:00.000Z")
 	})
 
 	it("returns a valid feed with no entries when there are no posts", async () => {
