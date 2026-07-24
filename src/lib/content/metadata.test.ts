@@ -135,6 +135,30 @@ describe("buildPageMetadata", () => {
 		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
 	})
 
+	it("emits a feed-autodiscovery alternate when feedPath is given", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			feedPath: "/blog/tech/feed.xml",
+		})
+		expect(meta.alternates?.types?.["application/atom+xml"]).toBe(
+			"/blog/tech/feed.xml"
+		)
+	})
+
+	it("carries markdown and feed alternates together in types", () => {
+		const meta = buildPageMetadata({
+			title: "x",
+			path: "/x",
+			markdownPath: "/x.md",
+			feedPath: "/blog/tech/feed.xml",
+		})
+		expect(meta.alternates?.types?.["text/markdown"]).toBe("/x.md")
+		expect(meta.alternates?.types?.["application/atom+xml"]).toBe(
+			"/blog/tech/feed.xml"
+		)
+	})
+
 	// Dev-only guard: the layout applies a `"%s | Roland Leth"` template to
 	// `metadata.title`, so a caller routing a pre-branded title through this
 	// helper would silently produce `"Roland Leth — Foo | Roland Leth"`. The

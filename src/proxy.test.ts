@@ -326,6 +326,41 @@ describe("proxy — blog markdown rewrite", () => {
 
 // #endregion
 
+// #region Blog feed rewrite
+
+describe("proxy — blog feed rewrite", () => {
+	it("rewrites /blog/tech/feed.xml to the feed route handler", async () => {
+		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/feed/tech"
+		)
+		// A rewrite, not a redirect — the pretty URL stays in the address bar.
+		expect(response.headers.get("location")).toBeNull()
+	})
+
+	it("rewrites /blog/life/feed.xml to the feed route handler", async () => {
+		const response = await proxy(makeRequest("/blog/life/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toContain(
+			"/api/feed/life"
+		)
+	})
+
+	it("does not rewrite feed.xml under an unknown section", async () => {
+		const response = await proxy(makeRequest("/blog/garbage/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
+		expect(response.headers.get("x-middleware-next")).toBe("1")
+	})
+
+	it("does not treat feed.xml as a post slug (no .md rewrite)", async () => {
+		// Guards the regex boundary: `feed.xml` must hit the feed rewrite, never
+		// the markdown rewrite that matches other dotted paths under /blog.
+		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
+		expect(response.headers.get("x-middleware-rewrite")).not.toContain("/md")
+	})
+})
+
+// #endregion
+
 // #region Legacy redirects — privacy policy
 
 describe("proxy — privacy policy redirect", () => {

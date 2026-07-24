@@ -32,6 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `${label} blog`,
 		description: `Thoughts on ${section}.`,
 		path: `/blog/${section}`,
+		feedPath: `/blog/${section}/feed.xml`,
 	})
 }
 

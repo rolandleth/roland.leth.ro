@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `${label} archive`,
 		description: `All ${section} posts, grouped by year.`,
 		path: `/blog/${section}/archive`,
+		feedPath: `/blog/${section}/feed.xml`,
 	})
 }
 

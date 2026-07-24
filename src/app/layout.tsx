@@ -38,6 +38,16 @@ export async function generateMetadata(): Promise<Metadata> {
 			default: "Roland Leth",
 		},
 		description: "iOS developer & full-stack engineer",
+		// Site-wide feed-autodiscovery default: pages that don't set their own
+		// `alternates` (everything outside `/blog/:section/*`, which advertises
+		// its own section feed) surface the tech feed. Next replaces `alternates`
+		// wholesale from deeper segments, so the blog pages re-declare the feed
+		// rather than inheriting this.
+		alternates: {
+			types: {
+				"application/atom+xml": "/blog/tech/feed.xml",
+			},
+		},
 		openGraph: {
 			siteName: "Roland Leth",
 			locale: "en_US",

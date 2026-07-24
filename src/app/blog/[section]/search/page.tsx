@@ -26,6 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		title: `Search ${label}`,
 		description: `Search ${section} posts.`,
 		path: `/blog/${section}/search`,
+		feedPath: `/blog/${section}/feed.xml`,
 	})
 }
 

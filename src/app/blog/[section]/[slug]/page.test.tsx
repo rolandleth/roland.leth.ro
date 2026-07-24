@@ -149,4 +149,12 @@ describe("generateMetadata", () => {
 			"/blog/tech/hello.md"
 		)
 	})
+
+	it("advertises the section's feed for autodiscovery from a post page", async () => {
+		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+		expect(result.alternates?.types?.["application/atom+xml"]).toBe(
+			"/blog/tech/feed.xml"
+		)
+	})
 })

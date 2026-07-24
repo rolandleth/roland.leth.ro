@@ -20,6 +20,13 @@ export interface PageMetadataInput {
 	 */
 	markdownPath?: string
 	/**
+	 * When set, emits a `<link rel="alternate" type="application/atom+xml">` — the
+	 * feed-autodiscovery link browsers and readers look for. Point it at the
+	 * section's canonical feed URL (`/blog/:section/feed.xml`) so a reader on a
+	 * blog page subscribes to that section, not a site-wide default.
+	 */
+	feedPath?: string
+	/**
 	 * When set, emits `<link rel="canonical">` at this path (resolved against the
 	 * layout's `metadataBase`). Opt-in rather than defaulted to `path`: it's only
 	 * wired up for surfaces that get shared with tracking params attached, and
@@ -52,6 +59,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		type,
 		keywords,
 		markdownPath,
+		feedPath,
 		canonicalPath,
 	} = input
 
@@ -74,16 +82,27 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	const images = image ? [image] : undefined
 
 	// `canonical` and `types` are independent opt-ins, so the object is built up
-	// rather than ternary'd on one of them — and stays `undefined` when neither
-	// applies, so callers that want neither emit no `alternates` at all.
+	// rather than ternary'd on one of them — and stays `undefined` when none
+	// apply, so callers that want none emit no `alternates` at all. `types`
+	// itself holds two independent alternates (markdown export, feed
+	// autodiscovery), so it's assembled the same way.
 	const alternates: NonNullable<Metadata["alternates"]> = {}
+	const types: NonNullable<NonNullable<Metadata["alternates"]>["types"]> = {}
 
 	if (canonicalPath !== undefined) {
 		alternates.canonical = canonicalPath
 	}
 
 	if (markdownPath !== undefined) {
-		alternates.types = { "text/markdown": markdownPath }
+		types["text/markdown"] = markdownPath
+	}
+
+	if (feedPath !== undefined) {
+		types["application/atom+xml"] = feedPath
+	}
+
+	if (Object.keys(types).length > 0) {
+		alternates.types = types
 	}
 
 	return {

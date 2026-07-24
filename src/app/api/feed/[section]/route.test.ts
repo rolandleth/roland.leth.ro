@@ -75,7 +75,11 @@ describe("GET /api/feed/:section", () => {
 	it("includes the feed title, self link, and blog link", async () => {
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<title>Roland Leth — Tech blog</title>")
-		expect(text).toContain('href="http://localhost/api/feed/tech" rel="self"')
+		// `rel="self"` points at the canonical pretty URL, not the internal
+		// `/api/feed/*` path the handler physically lives at.
+		expect(text).toContain(
+			'href="http://localhost/blog/tech/feed.xml" rel="self"'
+		)
 		expect(text).toContain('href="http://localhost/blog/tech"')
 	})
 
@@ -206,8 +210,12 @@ describe("GET /api/feed/:section", () => {
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 
 		expect(text).toContain(
-			'href="https://roland.leth.ro/api/feed/tech" rel="self"'
+			'href="https://roland.leth.ro/blog/tech/feed.xml" rel="self"'
 		)
+		// The feed's own `<id>` stays pinned to `/api/feed/:section` — a permanent
+		// identifier readers de-dup on, deliberately NOT migrated to the pretty
+		// URL so existing subscriptions aren't orphaned.
+		expect(text).toContain("<id>https://roland.leth.ro/api/feed/tech</id>")
 		expect(text).toContain(
 			"<id>https://roland.leth.ro/blog/tech/test-post</id>"
 		)

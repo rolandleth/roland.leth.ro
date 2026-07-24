@@ -135,7 +135,13 @@ export async function GET(
 	const SITE_URL = getSiteUrl()
 
 	const feedTitle = `${AUTHOR_NAME} — ${capitalizeSection(section)} blog`
-	const feedUrl = `${SITE_URL}/api/feed/${section}`
+	// `<id>` is a permanent identifier readers use to de-duplicate a feed, so it
+	// stays pinned to the original `/api/feed/:section` URL — changing it would
+	// orphan every existing subscription. `rel="self"` is the *current* retrieval
+	// location, so it points at the canonical pretty URL that autodiscovery and
+	// the middleware rewrite expose; readers converge onto it over time.
+	const feedId = `${SITE_URL}/api/feed/${section}`
+	const feedSelfUrl = `${SITE_URL}/blog/${section}/feed.xml`
 	const blogUrl = `${SITE_URL}/blog/${section}`
 	const rights = `Copyright (c) 2013–${new Date().getFullYear()}, ${AUTHOR_NAME}`
 
@@ -192,9 +198,9 @@ export async function GET(
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(feedTitle)}</title>
   <subtitle>${escapeXml(FEED_SUBTITLES[section])}</subtitle>
-  <link href="${feedUrl}" rel="self" type="application/atom+xml" />
+  <link href="${feedSelfUrl}" rel="self" type="application/atom+xml" />
   <link href="${blogUrl}" />
-  <id>${feedUrl}</id>
+  <id>${feedId}</id>
   <updated>${feedUpdated}</updated>
   <author>
     <name>${escapeXml(AUTHOR_NAME)}</name>

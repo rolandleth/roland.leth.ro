@@ -25,6 +25,14 @@ const FEED_REGEX = new RegExp(`^(?:/(${SECTION_ALTERNATION}))?/feed$`)
 const BLOG_MD_REGEX = new RegExp(
 	`^/blog/(${SECTION_ALTERNATION})/([^/]+?)\\.md$`
 )
+// `/blog/:section/feed.xml` → the Atom feed handler. This content-shaped URL is
+// the one advertised for autodiscovery and set as the feed's `rel="self"`, so
+// the canonical feed lives under `/blog/` (fully crawlable) rather than `/api/`
+// (behind robots.txt `Disallow: /api/`). Rewritten, not redirected, so the
+// pretty URL stays in the address bar and stored subscriptions never 301-hop.
+const BLOG_FEED_REGEX = new RegExp(
+	`^/blog/(${SECTION_ALTERNATION})/feed\\.xml$`
+)
 
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
 	const token = request.cookies.get(SESSION_COOKIE)?.value
@@ -161,6 +169,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 				`/api/blog/${blogMarkdownMatch[1]}/${blogMarkdownMatch[2]}/md`,
 				request.url
 			)
+		)
+	}
+
+	// `/blog/:section/feed.xml` → the feed route handler at `/api/feed/:section`.
+	// A rewrite (not a redirect) keeps the pretty URL canonical; the handler
+	// can't live at this path because a `route.ts` can't coexist with the
+	// `/blog/:section/[slug]` page tree.
+	const blogFeedMatch = pathname.match(BLOG_FEED_REGEX)
+
+	if (blogFeedMatch) {
+		return NextResponse.rewrite(
+			new URL(`/api/feed/${blogFeedMatch[1]}`, request.url)
 		)
 	}
 
