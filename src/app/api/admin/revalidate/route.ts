@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { parseJsonBody } from "@/lib/api/apiErrors"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { revalidateGuideSlugs } from "@/lib/db/guideRevalidation"
 import { revalidateAllGuides } from "@/lib/db/guides"
 import { revalidateAllPosts, revalidatePost } from "@/lib/db/posts"
@@ -142,6 +143,12 @@ function summariseSkipped(
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(TAG)
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const parsed = await parseJsonBody(request, bodySchema, TAG)
 
 	if (parsed instanceof NextResponse) {

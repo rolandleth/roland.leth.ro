@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { KEEPALIVE_KEY } from "@/lib/api/keepalive"
 import { POST } from "./route"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 // `redis` in the route is evaluated at module-load from
 // `process.env.KV_REST_API_TOKEN`/`_URL`. `.env.test` leaves them unset, so
 // `redis` is null here and these tests exercise the no-Redis 503 path. The

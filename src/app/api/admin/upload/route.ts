@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
 import { NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	detectImageMime,
@@ -19,6 +20,12 @@ const ALLOWED_UPLOAD_MIMES = new Set([
 ])
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:upload:POST]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	// Explicit env flag rather than gating on `NODE_ENV !== "production"`, which
 	// collapses dev/test/preview into one bucket and produces a misleading 403
 	// message on Vercel preview deploys (where Vercel sets NODE_ENV=production

@@ -11,6 +11,12 @@ import {
 } from "@/lib/db/guideValidation"
 import { DELETE, GET, PUT } from "./route"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 // The PUT runs inside `$transaction`; the mock hands the callback a `tx` with
 // the same shape so the cascade path is exercised rather than stubbed out.
 const tx = {

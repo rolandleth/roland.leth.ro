@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { projectCreateSchema } from "@/lib/api/schemas"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import {
@@ -14,6 +15,12 @@ import {
 import { createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:projects:POST]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const parsed = await parseJsonBody(
 		request,
 		projectCreateSchema,

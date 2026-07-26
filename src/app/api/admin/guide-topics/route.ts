@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { guideTopicCreateSchema } from "@/lib/api/schemas"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { revalidateGuideTopic } from "@/lib/db/guides"
@@ -12,6 +13,12 @@ import {
 const TAG = "[api:admin:guide-topics:POST]"
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(TAG)
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const parsed = await parseJsonBody(request, guideTopicCreateSchema, TAG)
 
 	if (parsed instanceof NextResponse) {

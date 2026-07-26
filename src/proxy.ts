@@ -217,7 +217,20 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
 	matcher: [
-		// Run on all paths except static files and Next.js internals.
-		"/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)).*)",
+		// Run on all paths except static files and Next.js internals. The
+		// extension group is anchored with `$` so it excludes only real asset
+		// URLs. Unanchored, the alternative matched an extension ANYWHERE in the
+		// path, so `/api/admin/posts/1.json` (`.json` contains `.js`) skipped the
+		// middleware — and with it the admin auth gate — entirely.
+		"/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
+		// The gated namespaces are also matched explicitly, so no future edit to
+		// the exclusion pattern above can silently drop them. The auth gate lives
+		// only in this middleware — no admin handler re-checks the session — so a
+		// path that misses the matcher is an unauthenticated request reaching a
+		// privileged handler, with nothing in the diff to show it.
+		"/admin",
+		"/admin/:path*",
+		"/api/admin",
+		"/api/admin/:path*",
 	],
 }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postBulkImportSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
@@ -109,6 +110,12 @@ function emitSkipSummary(
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:posts:BULK]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const parsed = await parseJsonBody(
 		request,
 		postBulkImportSchema,

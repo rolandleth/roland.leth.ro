@@ -1,7 +1,7 @@
 import { jwtVerify } from "jose"
 import { NextRequest } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { proxy } from "@/proxy"
+import { config, proxy } from "@/proxy"
 import { TEST_SECRET } from "@/test/fixtures"
 
 vi.mock("jose", () => ({
@@ -629,6 +629,56 @@ describe("proxy — short-circuit paths", () => {
 		expect(response.headers.get("x-middleware-next")).toBe("1")
 		expect(response.status).not.toBe(401)
 	})
+})
+
+// #endregion
+
+// #region Matcher coverage
+
+/**
+ * The exclusion entry of `config.matcher`, compiled the way Next.js applies it:
+ * anchored against the whole pathname.
+ *
+ * Every other test in this file calls `proxy()` directly, which assumes the
+ * request reached the middleware at all. That assumption is exactly what the
+ * matcher decides, so a path the matcher excludes bypasses the auth gate while
+ * every `proxy()` test still passes. These tests cover that blind spot.
+ */
+const exclusionMatcher = new RegExp(`^${config.matcher[0]}$`)
+
+describe("config.matcher — asset exclusion", () => {
+	it.each([
+		// `.json` contains `.js`; before the `$` anchor this skipped middleware.
+		"/api/admin/posts/1.json",
+		"/api/admin/projects/2.json",
+		"/blog/tech/some-post.json",
+		// An extension mid-path, not at the end.
+		"/api/admin/posts/1.css/edit",
+		"/v1.2.3",
+	])("runs the middleware for %s", (path) => {
+		expect(exclusionMatcher.test(path)).toBe(true)
+	})
+
+	it.each([
+		"/logo.svg",
+		"/styles/main.css",
+		"/scripts/app.js",
+		"/images/hero.png",
+	])("skips the middleware for the real asset %s", (path) => {
+		expect(exclusionMatcher.test(path)).toBe(false)
+	})
+})
+
+describe("config.matcher — gated namespaces", () => {
+	// The exclusion pattern is a denylist, so it can only ever be as correct as
+	// its extension list. The gated namespaces are therefore matched explicitly
+	// too: whatever the denylist does, these entries keep the auth gate running.
+	it.each(["/admin", "/admin/:path*", "/api/admin", "/api/admin/:path*"])(
+		"matches %s explicitly",
+		(entry) => {
+			expect(config.matcher).toContain(entry)
+		}
+	)
 })
 
 // #endregion

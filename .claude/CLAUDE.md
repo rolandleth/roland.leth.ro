@@ -82,7 +82,7 @@ public/
 
 ```
 DATABASE_URL=           # PostgreSQL connection string
-SESSION_SECRET=         # JWT signing secret (any string)
+SESSION_SECRET=         # JWT signing secret; 32+ chars, `openssl rand -hex 32`
 ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
 INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a-zA-Z0-9-]
