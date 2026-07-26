@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import sitemap from "@/app/sitemap"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import {
 	EnvConfigError,
 	getIndexNowKey,
@@ -66,15 +67,15 @@ function describeKeyProblem(key: string | null): string | null {
 // (missing key, non-public origin, empty list) as `warnings` rather than 4xx-ing
 // so the list stays previewable before the setup is finished; the real POST
 // hard-fails on those instead.
-export async function POST(request: Request): Promise<NextResponse> {
-	const isDryRun = isDryRunRequest(request)
-	const key = getIndexNowKey()
-	const keyProblem = describeKeyProblem(key)
-
-	let base: string
-
+/**
+ * The site's base URL, or the 500 response to return when it isn't configured.
+ * Extracted from `POST` so the handler reads as a flat sequence of guards.
+ * An unexpected (non-config) failure still escapes after being logged — that
+ * is a bug, not a misconfiguration, and shouldn't be reported as one.
+ */
+function resolveBaseUrl(): string | NextResponse {
 	try {
-		base = getSiteUrl()
+		return getSiteUrl()
 	} catch (error) {
 		if (error instanceof EnvConfigError) {
 			// eslint-disable-next-line no-console
@@ -87,6 +88,23 @@ export async function POST(request: Request): Promise<NextResponse> {
 		console.error(`${TAG} unexpected error resolving the site URL`, error)
 
 		throw error
+	}
+}
+
+export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(TAG)
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
+	const isDryRun = isDryRunRequest(request)
+	const key = getIndexNowKey()
+	const keyProblem = describeKeyProblem(key)
+	const base = resolveBaseUrl()
+
+	if (base instanceof NextResponse) {
+		return base
 	}
 
 	const isPublicOrigin = isSubmittableOrigin(base)

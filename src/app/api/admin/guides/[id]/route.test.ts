@@ -8,6 +8,12 @@ import {
 } from "@/lib/db/guideValidation"
 import { DELETE, PUT } from "./route"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		guide: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },

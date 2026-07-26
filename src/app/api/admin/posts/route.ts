@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postCreateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
@@ -8,6 +9,12 @@ import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime, createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:posts:POST]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const parsed = await parseJsonBody(
 		request,
 		postCreateSchema,

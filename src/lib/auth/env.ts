@@ -111,9 +111,34 @@ export function getDatabaseUrl(): string {
 	return readRequired("DATABASE_URL")
 }
 
-/** JWT signing secret. Required by every protected request. */
+/**
+ * Minimum accepted length for `SESSION_SECRET`, in characters. The value is
+ * used directly as the HS256 HMAC key, so a short one is brute-forceable
+ * offline from any captured token — and a forged `{ admin: true }` token is
+ * full admin access. 32 chars matches the digest size of SHA-256.
+ */
+const MIN_SESSION_SECRET_LENGTH = 32
+
+/**
+ * JWT signing secret. Required by every protected request.
+ *
+ * The length floor is checked here rather than in the schema, for the same
+ * reason as `isValidIndexNowKey`: a too-short secret then fails only the
+ * session path, with a message naming the actual constraint, instead of
+ * failing `readEnv()` for every consumer and taking the public site down with
+ * it.
+ */
 export function getSessionSecret(): string {
-	return readRequired("SESSION_SECRET")
+	const secret = readRequired("SESSION_SECRET")
+
+	if (secret.length < MIN_SESSION_SECRET_LENGTH) {
+		throw new EnvConfigError(
+			"SESSION_SECRET",
+			`SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters (got ${secret.length}); generate one with \`openssl rand -hex 32\``
+		)
+	}
+
+	return secret
 }
 
 /**

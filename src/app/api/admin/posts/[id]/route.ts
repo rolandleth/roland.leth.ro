@@ -7,6 +7,7 @@ import {
 	respondInternalError,
 } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postUpdateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
@@ -17,6 +18,12 @@ export async function GET(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:posts:GET]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {
@@ -42,6 +49,12 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:posts:PUT]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {
@@ -186,6 +199,12 @@ export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:posts:DELETE]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {

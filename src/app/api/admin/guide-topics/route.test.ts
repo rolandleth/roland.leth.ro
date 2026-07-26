@@ -7,6 +7,12 @@ import {
 } from "@/lib/db/guideValidation"
 import { POST } from "./route"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 vi.mock("@/lib/db/db", () => ({
 	prisma: { guideTopic: { create: vi.fn() } },
 	isPrismaUniqueConstraint: vi.fn().mockReturnValue(false),

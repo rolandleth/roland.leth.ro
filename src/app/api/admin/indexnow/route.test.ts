@@ -6,6 +6,12 @@ import { submitToIndexNow } from "@/lib/content/indexnow"
 import type { IndexNowResult } from "@/lib/content/indexnow"
 import type { MetadataRoute } from "next"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 vi.mock("@/app/sitemap", () => ({ default: vi.fn() }))
 
 // Keep the real guards (`findForeignHostUrls`, `isSubmittableOrigin`) and

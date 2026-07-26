@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request requires a
 // valid JWT cookie). Mirrors the cron route's write so an admin can confirm
@@ -8,6 +9,12 @@ import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
 const redis = getKeepaliveRedis()
 
 export async function POST(): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:keepalive]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	if (!redis) {
 		// Hard config gap: the admin clicked the button but the server has no
 		// Redis to talk to. Surface as 503 (service unavailable) rather than

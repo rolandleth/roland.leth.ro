@@ -4,6 +4,12 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import { POST } from "./route"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 vi.mock("next/cache", async () => {
 	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
 

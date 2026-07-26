@@ -6,6 +6,7 @@ import {
 	respondInternalError,
 } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { requireAdmin } from "@/lib/api/requireAdmin"
 import { guideTopicUpdateSchema } from "@/lib/api/schemas"
 import {
 	isPrismaForeignKeyConstraint,
@@ -23,6 +24,12 @@ export async function GET(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin("[api:admin:guide-topics:GET]")
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {
@@ -94,6 +101,12 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(PUT_TAG)
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {
@@ -220,6 +233,12 @@ export async function DELETE(
 	_request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(DELETE_TAG)
+
+	if (unauthorized) {
+		return unauthorized
+	}
+
 	const idResult = await parseIdParam(params)
 
 	if (idResult instanceof NextResponse) {

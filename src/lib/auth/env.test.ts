@@ -40,14 +40,40 @@ describe("getDatabaseUrl", () => {
 })
 
 describe("getSessionSecret", () => {
+	const validSecret = "a".repeat(32)
+
 	it("returns the value when set", () => {
-		vi.stubEnv("SESSION_SECRET", "abc")
-		expect(getSessionSecret()).toBe("abc")
+		vi.stubEnv("SESSION_SECRET", validSecret)
+		expect(getSessionSecret()).toBe(validSecret)
 	})
 
 	it("throws when missing", () => {
 		vi.stubEnv("SESSION_SECRET", "")
 		expect(() => getSessionSecret()).toThrow(/SESSION_SECRET/)
+	})
+
+	it("accepts exactly the minimum length", () => {
+		vi.stubEnv("SESSION_SECRET", "a".repeat(32))
+		expect(getSessionSecret()).toHaveLength(32)
+	})
+
+	it("throws below the minimum length, naming the actual length", () => {
+		// The value is the raw HS256 key, so a short one is brute-forceable
+		// offline from any captured token.
+		vi.stubEnv("SESSION_SECRET", "a".repeat(31))
+		expect(() => getSessionSecret()).toThrow(
+			/at least 32 characters \(got 31\)/
+		)
+	})
+
+	it("keeps the failure scoped to the session path", () => {
+		// Checked in the accessor rather than the schema so a short secret can't
+		// fail `readEnv()` for every consumer and take the public site down.
+		vi.stubEnv("SESSION_SECRET", "short")
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
+
+		expect(() => getSessionSecret()).toThrow(/SESSION_SECRET/)
+		expect(getSiteUrl()).toBe("https://roland.leth.ro")
 	})
 })
 
@@ -178,11 +204,12 @@ describe("getIndexNowKey", () => {
 	it("does not break unrelated accessors when malformed", () => {
 		// The regression this move exists to prevent: a junk IndexNow key used to
 		// fail the whole aggregate parse, taking login and site-URL down with it.
-		vi.stubEnv("SESSION_SECRET", "secret")
+		const secret = "a".repeat(32)
+		vi.stubEnv("SESSION_SECRET", secret)
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
 		vi.stubEnv("INDEXNOW_KEY", "!!! not a key !!!")
 
-		expect(getSessionSecret()).toBe("secret")
+		expect(getSessionSecret()).toBe(secret)
 		expect(getSiteUrl()).toBe("https://roland.leth.ro")
 	})
 })

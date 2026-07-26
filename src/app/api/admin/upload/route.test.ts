@@ -7,6 +7,12 @@ import {
 	sanitizeLogString,
 } from "./uploadHelpers"
 
+vi.mock("@/lib/api/requireAdmin", async () => {
+	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
+
+	return requireAdminMockFactory()
+})
+
 // Real PNG signature so files built by `pngFile()` pass the magic-byte sniff.
 // Tests for mismatched bytes use `pngFile({ headerBytes: ... })` to override.
 const PNG_HEADER = new Uint8Array([
