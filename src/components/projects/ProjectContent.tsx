@@ -23,6 +23,10 @@ interface Props {
 	guides: readonly GuideLinkItem[]
 }
 
+/** Shared pill styling for the hero links grid and the standalone store CTA below the content. */
+const ctaPillClass =
+	"rounded-full border px-4 py-1.5 text-center text-sm font-medium transition-opacity duration-300 hover:opacity-80"
+
 export default function ProjectContent({
 	project,
 	renderedDescriptions,
@@ -43,6 +47,9 @@ export default function ProjectContent({
 		faqs,
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
+	// The primary storefront link, repeated as a standalone CTA below the content
+	// — by then the hero pill has long scrolled off-screen.
+	const storeLink = links.find((link) => isStoreUrl(link.url))
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
 	// and lightbox both slide across this whole strip; each slide carries its
@@ -245,13 +252,13 @@ export default function ProjectContent({
 									href={link.url}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="rounded-full border px-4 py-1.5 text-center text-sm font-medium transition-opacity duration-300 hover:opacity-80"
+									className={ctaPillClass}
 									style={{
 										color: accent,
 										borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
 									}}
 								>
-									{link.label}
+									{ctaLabel(link)}
 								</a>
 							))}
 						</div>
@@ -401,6 +408,24 @@ export default function ProjectContent({
 					</motion.div>
 				)}
 
+				{/* Store CTA repeated above the guides, mirroring the hero pill. */}
+				{storeLink && (
+					<motion.div className="mt-12 flex justify-center" {...fadeUp(0.2)}>
+						<a
+							href={storeLink.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							className={ctaPillClass}
+							style={{
+								color: accent,
+								borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
+							}}
+						>
+							{ctaLabel(storeLink)}
+						</a>
+					</motion.div>
+				)}
+
 				{/* Guides — below the content, above the FAQ. */}
 				{guides.length > 0 && <ProjectGuides items={guides} accent={accent} />}
 
@@ -415,4 +440,22 @@ export default function ProjectContent({
 			</div>
 		</>
 	)
+}
+
+/**
+ * Storefront links render as a call to action ("Get on Mac App Store"); other
+ * links (GitHub, a project site) keep their bare label. Keyed off the URL, not
+ * the label, so copy edits can't change which links get the prefix.
+ */
+function ctaLabel(link: { label: string; url: string }): string {
+	return isStoreUrl(link.url) ? `Get on ${link.label}` : link.label
+}
+
+/** True for Apple storefront URLs; a malformed URL is treated as a non-store link. */
+function isStoreUrl(url: string): boolean {
+	try {
+		return new URL(url).hostname === "apps.apple.com"
+	} catch {
+		return false
+	}
 }

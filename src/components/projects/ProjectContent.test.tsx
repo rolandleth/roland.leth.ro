@@ -412,3 +412,85 @@ describe("ProjectContent — guides", () => {
 		expect(headings.indexOf("Guides")).toBeLessThan(headings.indexOf("FAQ"))
 	})
 })
+
+describe("ProjectContent — store CTA", () => {
+	function makeLink(
+		id: number,
+		label: string,
+		url: string
+	): ProjectDetail["links"][number] {
+		return { id, projectId: 1, label, url, sortOrder: id }
+	}
+
+	const storeLink = makeLink(
+		1,
+		"Mac App Store",
+		"https://apps.apple.com/app/id123"
+	)
+	const guideItems = [
+		{
+			slug: "a-guide",
+			title: "A guide",
+			description: "A guide description.",
+			meta: "2 min read",
+		},
+	]
+
+	function renderWithLinks(
+		links: ProjectDetail["links"],
+		guides: typeof guideItems = []
+	) {
+		return render(
+			<ProjectContent
+				project={makeProject({ links })}
+				renderedDescriptions={[]}
+				renderedFaqAnswers={[]}
+				guides={guides}
+			/>
+		)
+	}
+
+	it("prefixes storefront links with 'Get on' and leaves other links bare", () => {
+		renderWithLinks([
+			storeLink,
+			makeLink(2, "GitHub", "https://github.com/rolandleth/test"),
+		])
+
+		expect(
+			screen.getAllByRole("link", { name: "Get on Mac App Store" }).length
+		).toBeGreaterThanOrEqual(1)
+		expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: "Get on GitHub" })
+		).not.toBeInTheDocument()
+	})
+
+	it("repeats the store CTA below the content, above the guides", () => {
+		renderWithLinks([storeLink], guideItems)
+
+		const ctas = screen.getAllByRole("link", { name: "Get on Mac App Store" })
+		expect(ctas).toHaveLength(2)
+		expect(ctas[1]).toHaveAttribute("href", storeLink.url)
+
+		// The repeated CTA must sit before the guides section in DOM order.
+		const guidesHeading = screen.getByRole("heading", {
+			name: "Guides",
+			level: 2,
+		})
+		expect(
+			ctas[1].compareDocumentPosition(guidesHeading) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+	})
+
+	it("omits the repeated CTA when no link points at a storefront", () => {
+		renderWithLinks([
+			makeLink(1, "GitHub", "https://github.com/rolandleth/test"),
+		])
+
+		expect(screen.getAllByRole("link", { name: "GitHub" })).toHaveLength(1)
+		expect(
+			screen.queryByRole("link", { name: /Get on/ })
+		).not.toBeInTheDocument()
+	})
+})
