@@ -2,11 +2,11 @@ import { redirect } from "next/navigation"
 import AdminNav from "@/components/admin/AdminNav"
 import { verifySession } from "@/lib/auth/auth"
 
-// The real gate is `src/proxy.ts` (middleware) — `generateMetadata` functions
-// inside nested admin pages run independently of this layout and already touch
-// the DB before any check here, so this layout is not a complete backstop.
-// Re-checking here still protects the rendered page body (not metadata) in the
-// narrow case where a future middleware matcher typo lets a request through.
+// The real gate is `src/proxy.ts` (middleware); re-checking here protects the
+// rendered page body in the narrow case where a future matcher typo lets a
+// request through. This layout covers the body only — `generateMetadata` in a
+// nested page runs independently of it, so a page that loads data there has to
+// carry its own check (`adminEditMetadata` does this for the edit pages).
 export default async function ProtectedLayout({
 	children,
 }: {

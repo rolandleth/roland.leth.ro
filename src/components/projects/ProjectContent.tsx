@@ -48,8 +48,14 @@ export default function ProjectContent({
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
 	// The primary storefront link, repeated as a standalone CTA below the content
-	// — by then the hero pill has long scrolled off-screen.
-	const storeLink = links.find((link) => isStoreUrl(link.url))
+	// — by then the hero pill has long scrolled off-screen. `find` takes the
+	// lowest-`sortOrder` storefront when a project lists several (an iOS and a
+	// Mac listing are both `apps.apple.com`), so the author picks the primary one
+	// by ordering the links. Discontinued projects are excluded: a prominent
+	// "Get on …" asserts availability the Discontinued badge contradicts.
+	const storeLink = isDiscontinued
+		? undefined
+		: links.find((link) => isStoreUrl(link.url))
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
 	// and lightbox both slide across this whole strip; each slide carries its
@@ -184,9 +190,12 @@ export default function ProjectContent({
 			/>
 
 			<div className="mx-auto w-full max-w-3xl px-4 py-20">
-				{/* Identity row + links */}
+				{/* Identity row + links. Stacked below `sm`: the links grid is
+				    `shrink-0` and a single `Get on …` pill is ~148px, which together
+				    with the icon and the title's min-content width overflows a 375px
+				    viewport and gives the whole page a horizontal scrollbar. */}
 				<motion.div
-					className="mb-8 flex items-center justify-between gap-6"
+					className="mb-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
 					{...fadeUp(0.1)}
 				>
 					{/* Left: icon + name + platform/role */}
@@ -258,7 +267,7 @@ export default function ProjectContent({
 										borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
 									}}
 								>
-									{ctaLabel(link)}
+									{ctaLabel(link, isDiscontinued)}
 								</a>
 							))}
 						</div>
@@ -421,7 +430,7 @@ export default function ProjectContent({
 								borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
 							}}
 						>
-							{ctaLabel(storeLink)}
+							{ctaLabel(storeLink, isDiscontinued)}
 						</a>
 					</motion.div>
 				)}
@@ -446,15 +455,30 @@ export default function ProjectContent({
  * Storefront links render as a call to action ("Get on Mac App Store"); other
  * links (GitHub, a project site) keep their bare label. Keyed off the URL, not
  * the label, so copy edits can't change which links get the prefix.
+ *
+ * A discontinued project keeps the bare label on its storefront link too — the
+ * listing stays reachable, it just stops being sold.
  */
-function ctaLabel(link: { label: string; url: string }): string {
-	return isStoreUrl(link.url) ? `Get on ${link.label}` : link.label
+function ctaLabel(
+	link: { label: string; url: string },
+	isDiscontinued: boolean
+): string {
+	return isStoreUrl(link.url) && !isDiscontinued
+		? `Get on ${link.label}`
+		: link.label
 }
 
-/** True for Apple storefront URLs; a malformed URL is treated as a non-store link. */
+/**
+ * Hostnames that count as a storefront. Apple-only because that's every
+ * storefront the projects carry today; another store (Play, Setapp, a direct
+ * download) renders as a plain link until its host is added here.
+ */
+const STORE_HOSTNAMES: ReadonlySet<string> = new Set(["apps.apple.com"])
+
+/** True for storefront URLs; a malformed URL is treated as a non-store link. */
 function isStoreUrl(url: string): boolean {
 	try {
-		return new URL(url).hostname === "apps.apple.com"
+		return STORE_HOSTNAMES.has(new URL(url).hostname)
 	} catch {
 		return false
 	}

@@ -224,12 +224,16 @@ export const config = {
 		// middleware — and with it the admin auth gate — entirely.
 		"/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
 		// The gated namespaces are also matched explicitly, so no future edit to
-		// the exclusion pattern above can silently drop them. This middleware is
-		// the first gate but not the only one: every admin handler independently
-		// re-checks the session via `requireAdmin`, so a path that misses the
-		// matcher now 401s at the handler (logged as a security event) instead of
-		// reaching it unauthenticated. These entries keep that handler check a
-		// backstop rather than the sole defense.
+		// the exclusion pattern above can silently drop them. What sits behind
+		// this middleware differs by namespace, so don't trim either entry:
+		//
+		// - `/api/admin/*`: every route handler re-checks the session via
+		//   `requireAdmin`, so a path that misses the matcher 401s at the handler
+		//   (logged as a security event) instead of running unauthenticated.
+		// - `/admin/*`: pages have no `requireAdmin`. `(protected)/layout.tsx`
+		//   covers the rendered body, and `adminEditMetadata` covers the edit
+		//   pages' `generateMetadata` (which runs outside the layout) — but any
+		//   new page that reads data outside both is gated by this matcher alone.
 		"/admin",
 		"/admin/:path*",
 		"/api/admin",

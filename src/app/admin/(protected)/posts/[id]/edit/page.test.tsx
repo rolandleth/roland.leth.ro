@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
 import { generateMetadata, default as EditPostPage } from "./page"
 
@@ -6,6 +7,13 @@ vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		post: { findUnique: vi.fn() },
 	},
+}))
+
+// `generateMetadata` guards its own DB read via `adminEditMetadata` — it runs
+// outside `(protected)/layout.tsx`, so the real `verifySession` would reach for
+// request-scoped cookies that don't exist here.
+vi.mock("@/lib/auth/auth", () => ({
+	verifySession: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -41,6 +49,7 @@ const existingPost = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	vi.mocked(verifySession).mockResolvedValue(true)
 })
 
 // ---------------------------------------------------------------------------
@@ -73,6 +82,15 @@ describe("generateMetadata", () => {
 
 	it("does not query the db for a non-numeric id", async () => {
 		await generateMetadata(makeParams("abc"))
+		expect(vi.mocked(prisma.post.findUnique)).not.toHaveBeenCalled()
+	})
+
+	it("does not query the db without a valid session", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		const result = await generateMetadata(makeParams("1"))
+
+		expect(result).toEqual({ title: "Edit post" })
 		expect(vi.mocked(prisma.post.findUnique)).not.toHaveBeenCalled()
 	})
 })

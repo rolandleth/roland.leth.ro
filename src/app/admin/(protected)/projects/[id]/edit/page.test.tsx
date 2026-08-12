@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
 import { projectInclude } from "@/lib/db/projects"
 import { generateMetadata, default as EditProjectPage } from "./page"
@@ -8,6 +9,13 @@ vi.mock("@/lib/db/db", () => ({
 	prisma: {
 		project: { findUnique: vi.fn() },
 	},
+}))
+
+// `generateMetadata` guards its own DB read via `adminEditMetadata` — it runs
+// outside `(protected)/layout.tsx`, so the real `verifySession` would reach for
+// request-scoped cookies that don't exist here.
+vi.mock("@/lib/auth/auth", () => ({
+	verifySession: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -72,6 +80,7 @@ const existingProject = {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	vi.mocked(verifySession).mockResolvedValue(true)
 })
 
 // ---------------------------------------------------------------------------
@@ -105,6 +114,15 @@ describe("generateMetadata", () => {
 
 	it("does not query the db for a non-numeric id", async () => {
 		await generateMetadata(makeParams("abc"))
+		expect(vi.mocked(prisma.project.findUnique)).not.toHaveBeenCalled()
+	})
+
+	it("does not query the db without a valid session", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		const result = await generateMetadata(makeParams("1"))
+
+		expect(result).toEqual({ title: "Edit project" })
 		expect(vi.mocked(prisma.project.findUnique)).not.toHaveBeenCalled()
 	})
 })

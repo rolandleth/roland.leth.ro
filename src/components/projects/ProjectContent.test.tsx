@@ -438,11 +438,12 @@ describe("ProjectContent — store CTA", () => {
 
 	function renderWithLinks(
 		links: ProjectDetail["links"],
-		guides: typeof guideItems = []
+		guides: typeof guideItems = [],
+		overrides: Partial<ProjectDetail> = {}
 	) {
 		return render(
 			<ProjectContent
-				project={makeProject({ links })}
+				project={makeProject({ links, ...overrides })}
 				renderedDescriptions={[]}
 				renderedFaqAnswers={[]}
 				guides={guides}
@@ -492,5 +493,72 @@ describe("ProjectContent — store CTA", () => {
 		expect(
 			screen.queryByRole("link", { name: /Get on/ })
 		).not.toBeInTheDocument()
+	})
+
+	// With no guides, the repeated CTA has to land above the FAQ instead — the
+	// placement assertion above only pins it against the Guides heading.
+	it("places the repeated CTA above the FAQ when the project has no guides", () => {
+		renderWithLinks([storeLink], [], {
+			faqs: [
+				{
+					id: 1,
+					projectId: 1,
+					question: "Is it free?",
+					answer: "Yes",
+					sortOrder: 0,
+				},
+			],
+		})
+
+		const ctas = screen.getAllByRole("link", { name: "Get on Mac App Store" })
+		expect(ctas).toHaveLength(2)
+
+		const faqHeading = screen.getByRole("heading", { name: "FAQ", level: 2 })
+		expect(
+			ctas[1].compareDocumentPosition(faqHeading) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+	})
+
+	// A discontinued project keeps its storefront link reachable but stops
+	// selling: bare label in the hero, no repeated CTA below the content.
+	it("drops the 'Get on' prefix and the repeated CTA for a discontinued project", () => {
+		renderWithLinks([storeLink], guideItems, { isDiscontinued: true })
+
+		const links = screen.getAllByRole("link", { name: "Mac App Store" })
+		expect(links).toHaveLength(1)
+		expect(links[0]).toHaveAttribute("href", storeLink.url)
+		expect(
+			screen.queryByRole("link", { name: /Get on/ })
+		).not.toBeInTheDocument()
+	})
+
+	// `projectLinkSchema` validates `url` on write, so a malformed URL only
+	// reaches here from a legacy or hand-edited row — exactly the case the
+	// helper's catch branch exists for.
+	it("treats a malformed URL as a non-store link", () => {
+		renderWithLinks([makeLink(1, "Broken", "not-a-url")])
+
+		expect(screen.getAllByRole("link", { name: "Broken" })).toHaveLength(1)
+		expect(
+			screen.queryByRole("link", { name: /Get on/ })
+		).not.toBeInTheDocument()
+	})
+
+	// A project can list an iOS and a Mac listing, both on `apps.apple.com`. The
+	// query returns links `sortOrder`-ascending, so the repeated CTA takes the
+	// lowest one — the author picks the primary storefront by ordering the links.
+	it("repeats the lowest-sortOrder storefront when a project has several", () => {
+		renderWithLinks([
+			makeLink(1, "App Store", "https://apps.apple.com/app/id111"),
+			makeLink(2, "Mac App Store", "https://apps.apple.com/app/id222"),
+		])
+
+		expect(
+			screen.getAllByRole("link", { name: "Get on App Store" })
+		).toHaveLength(2)
+		expect(
+			screen.getAllByRole("link", { name: "Get on Mac App Store" })
+		).toHaveLength(1)
 	})
 })
