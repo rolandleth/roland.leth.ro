@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import ProjectForm from "@/components/admin/ProjectForm"
+import { adminEditMetadata } from "@/lib/auth/adminMetadata"
 import {
 	loadProjectForAdmin,
 	toProjectFormInitialData,
@@ -15,15 +16,12 @@ export async function generateMetadata({
 	params,
 }: PageProps): Promise<Metadata> {
 	const { id } = await params
-	const projectId = parseIntId(id)
 
-	if (projectId === null) {
-		return { title: "Edit project" }
-	}
+	return adminEditMetadata(id, "Edit project", async (projectId) => {
+		const project = await loadProjectForAdmin(projectId)
 
-	const project = await loadProjectForAdmin(projectId)
-
-	return { title: project ? `Edit: ${project.name}` : "Edit project" }
+		return project?.name ?? null
+	})
 }
 
 export default async function EditProjectPage({ params }: PageProps) {
