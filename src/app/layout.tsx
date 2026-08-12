@@ -7,6 +7,7 @@ import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
 import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
+import { siteOpenGraph, siteTwitter } from "@/lib/content/metadata"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
@@ -55,14 +56,15 @@ export async function generateMetadata(): Promise<Metadata> {
 				],
 			},
 		},
+		// Spread from the shared constants, not literals: these reach only pages
+		// that define no `openGraph`/`twitter` of their own, and everything else
+		// picks them up via `buildPageMetadata`. Two copies would drift.
 		openGraph: {
-			siteName: "Roland Leth",
-			locale: "en_US",
+			...siteOpenGraph,
 			type: "website",
 		},
 		twitter: {
-			card: "summary_large_image",
-			creator: "@rolandleth",
+			...siteTwitter,
 		},
 	}
 }

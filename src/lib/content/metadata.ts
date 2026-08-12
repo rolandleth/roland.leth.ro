@@ -1,5 +1,28 @@
 import type { Metadata } from "next"
 
+/**
+ * Site-wide `openGraph` fields, spread by both the root layout and every page
+ * built here.
+ *
+ * They can't live in the layout alone. Next merges metadata one top-level key
+ * at a time: a page that defines `openGraph` gets `resolveOpenGraph` called on
+ * *its* object and the result assigned over the parent's, with the parent's
+ * never passed in. (`other` is the lone key Next deep-merges.) So a layout
+ * default reaches only the pages that define no `openGraph` at all — here, the
+ * landing page, `not-found`, and admin. Every content page dropped these
+ * silently until 2026-08-12.
+ */
+export const siteOpenGraph = {
+	siteName: "Roland Leth",
+	locale: "en_US",
+} as const
+
+/** The `twitter` half of the same story — see `siteOpenGraph`. */
+export const siteTwitter = {
+	card: "summary_large_image",
+	creator: "@rolandleth",
+} as const
+
 export interface PageMetadataInput {
 	title: string
 	description?: string
@@ -114,6 +137,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 		keywords,
 		alternates: Object.keys(alternates).length > 0 ? alternates : undefined,
 		openGraph: {
+			...siteOpenGraph,
 			type: type ?? "website",
 			title: ogTitle,
 			description,
@@ -123,6 +147,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 			images,
 		},
 		twitter: {
+			...siteTwitter,
 			title: ogTitle,
 			description,
 			images,

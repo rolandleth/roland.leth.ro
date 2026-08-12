@@ -1,7 +1,34 @@
 import { describe, expect, it } from "vitest"
-import { buildPageMetadata } from "@/lib/content/metadata"
+import {
+	buildPageMetadata,
+	siteOpenGraph,
+	siteTwitter,
+} from "@/lib/content/metadata"
 
 describe("buildPageMetadata", () => {
+	// Next resolves `openGraph`/`twitter` from the page's own object and assigns
+	// the result over the layout's, so a page defining either drops every field
+	// it doesn't restate. That failure is invisible in review and in the rendered
+	// page — it only shows up in a share debugger, which is how it was found.
+	it("restates the site-wide OG fields the layout can't pass down", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+		expect(meta.openGraph).toMatchObject(siteOpenGraph)
+	})
+
+	it("restates the site-wide Twitter fields the layout can't pass down", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+		expect(meta.twitter).toMatchObject(siteTwitter)
+	})
+
+	// `card` survives by luck when images are present (Next infers
+	// `summary_large_image` from a non-empty `images`), so an imageless page is
+	// the case that would silently degrade to `summary` if the spread went away.
+	it("carries the card type even with no image to infer it from", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x", image: null })
+		expect(meta.twitter).toMatchObject({ card: "summary_large_image" })
+		expect(meta.twitter?.images).toBeUndefined()
+	})
+
 	it("returns the plain title and description at the top level", () => {
 		const meta = buildPageMetadata({
 			title: "Hello",
