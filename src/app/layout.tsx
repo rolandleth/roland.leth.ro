@@ -7,7 +7,11 @@ import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
 import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
-import { siteOpenGraph, siteTwitter } from "@/lib/content/metadata"
+import {
+	defaultOgImage,
+	siteOpenGraph,
+	siteTwitter,
+} from "@/lib/content/metadata"
 import type { Metadata, Viewport } from "next"
 // eslint-disable-next-line import/no-unassigned-import
 import "./globals.css"
@@ -62,9 +66,11 @@ export async function generateMetadata(): Promise<Metadata> {
 		openGraph: {
 			...siteOpenGraph,
 			type: "website",
+			images: [defaultOgImage],
 		},
 		twitter: {
 			...siteTwitter,
+			images: [defaultOgImage],
 		},
 	}
 }

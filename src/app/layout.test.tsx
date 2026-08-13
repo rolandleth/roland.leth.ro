@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { siteOpenGraph, siteTwitter } from "@/lib/content/metadata"
+import {
+	defaultOgImage,
+	siteOpenGraph,
+	siteTwitter,
+} from "@/lib/content/metadata"
 import { generateMetadata } from "./layout"
 
 // `next/font/google` runs the font loader at module load, which needs the Next
@@ -59,8 +63,27 @@ describe("root layout metadata", () => {
 
 		const meta = await generateMetadata()
 
-		expect(meta.openGraph).toEqual({ ...siteOpenGraph, type: "website" })
-		expect(meta.twitter).toEqual({ ...siteTwitter })
+		expect(meta.openGraph).toEqual({
+			...siteOpenGraph,
+			type: "website",
+			images: [defaultOgImage],
+		})
+		expect(meta.twitter).toEqual({
+			...siteTwitter,
+			images: [defaultOgImage],
+		})
+	})
+
+	// The landing page and `not-found` define no `openGraph`, so this object is
+	// the only thing standing between the site's most-shared URL and a
+	// large-image card with no image in it.
+	it("carries the default card for the pages that inherit this object", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
+
+		const meta = await generateMetadata()
+
+		expect(meta.openGraph?.images).toEqual([defaultOgImage])
+		expect(meta.twitter?.images).toEqual([defaultOgImage])
 	})
 
 	// #endregion

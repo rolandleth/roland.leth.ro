@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
 	buildPageMetadata,
+	defaultOgImage,
 	siteOpenGraph,
 	siteTwitter,
 } from "@/lib/content/metadata"
@@ -21,12 +22,11 @@ describe("buildPageMetadata", () => {
 	})
 
 	// `card` survives by luck when images are present (Next infers
-	// `summary_large_image` from a non-empty `images`), so an imageless page is
-	// the case that would silently degrade to `summary` if the spread went away.
-	it("carries the card type even with no image to infer it from", () => {
+	// `summary_large_image` from a non-empty `images`), so this pins the spread
+	// itself rather than the inference that happens to agree with it.
+	it("carries the card type explicitly, not by inference from images", () => {
 		const meta = buildPageMetadata({ title: "x", path: "/x", image: null })
 		expect(meta.twitter).toMatchObject({ card: "summary_large_image" })
-		expect(meta.twitter?.images).toBeUndefined()
 	})
 
 	it("returns the plain title and description at the top level", () => {
@@ -63,22 +63,40 @@ describe("buildPageMetadata", () => {
 		expect(og.type).toBe("article")
 	})
 
-	it("leaves images undefined when no image is provided", () => {
-		// A previous regression produced `images: [null]` when image was null;
-		// assert both the undefined image and null image cases produce undefined.
+	// These two guard an old regression that produced `images: [null]`. The
+	// fallback now fills the same slot, so the assertion moves from "undefined"
+	// to "the default" — a null element would still fail both.
+	it("falls back to the default card when no image is provided", () => {
 		const metaMissing = buildPageMetadata({ title: "x", path: "/x" })
-		expect(metaMissing.openGraph?.images).toBeUndefined()
-		expect(metaMissing.twitter?.images).toBeUndefined()
+		expect(metaMissing.openGraph?.images).toEqual([defaultOgImage])
+		expect(metaMissing.twitter?.images).toEqual([defaultOgImage])
 	})
 
-	it("leaves images undefined when image is null", () => {
+	it("falls back to the default card when image is null", () => {
 		const meta = buildPageMetadata({
 			title: "x",
 			path: "/x",
 			image: null,
 		})
-		expect(meta.openGraph?.images).toBeUndefined()
-		expect(meta.twitter?.images).toBeUndefined()
+		expect(meta.openGraph?.images).toEqual([defaultOgImage])
+		expect(meta.twitter?.images).toEqual([defaultOgImage])
+	})
+
+	// The promise `card: "summary_large_image"` makes. An imageless large-image
+	// card is a degraded card, so no page may resolve to an empty `images`.
+	it("never emits an imageless large-image card", () => {
+		const cases = [
+			buildPageMetadata({ title: "x", path: "/x" }),
+			buildPageMetadata({ title: "x", path: "/x", image: null }),
+			buildPageMetadata({ title: "x", path: "/x", image: "/images/a.png" }),
+		]
+
+		for (const meta of cases) {
+			expect(meta.openGraph?.images).toHaveLength(1)
+			expect(meta.twitter?.images).toHaveLength(1)
+			expect(meta.openGraph?.images).not.toContain(null)
+			expect(meta.twitter?.images).not.toContain(null)
+		}
 	})
 
 	it("wraps a provided image in a single-element array", () => {

@@ -23,6 +23,21 @@ export const siteTwitter = {
 	creator: "@rolandleth",
 } as const
 
+/**
+ * The social card used by every page that carries no image of its own.
+ *
+ * `card: "summary_large_image"` above promises a 1200×630 image. Without a
+ * fallback the promise went unkept on every imageless surface — the landing
+ * page, `not-found`, `/about`, `/guides`, `/projects`, the section indexes, the
+ * privacy pages, the loan calculator, and any post or project with no asset —
+ * which renders as a degraded card rather than a small one.
+ *
+ * A committed file, not a render: `src/app/og/route.tsx` generates the artwork
+ * but is a dev-only design tool, so the bytes shipped here depend on no font CDN
+ * and no Satori version. Regenerate by opening `/og` in dev and saving over it.
+ */
+export const defaultOgImage = "/images/og-card.png"
+
 export interface PageMetadataInput {
 	title: string
 	description?: string
@@ -103,7 +118,12 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	}
 
 	const ogTitle = `${title} | Roland Leth`
-	const images = image ? [image] : undefined
+	// `image: null` means "this page has no asset", not "this page opts out of a
+	// card", so both null and absent fall through to the site-wide default. A
+	// page that genuinely wants no image would need an explicit opt-out; none
+	// does today, and shipping a large-image card with nothing in it is the
+	// failure mode this replaces.
+	const images = [image ?? defaultOgImage]
 
 	// `canonical` and `types` are independent opt-ins, so the object is built up
 	// rather than ternary'd on one of them — and stays `undefined` when none
