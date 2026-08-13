@@ -17,11 +17,16 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
 	const { id } = await params
 
-	return adminEditMetadata(id, "Edit project", async (projectId) => {
-		const project = await loadProjectForAdmin(projectId)
+	return adminEditMetadata(
+		"[admin:projects:edit]",
+		id,
+		"Edit project",
+		async (projectId) => {
+			const project = await loadProjectForAdmin(projectId)
 
-		return project?.name ?? null
-	})
+			return project?.name ?? null
+		}
+	)
 }
 
 export default async function EditProjectPage({ params }: PageProps) {

@@ -13,11 +13,16 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { id } = await params
 
-	return adminEditMetadata(id, "Edit guide", async (guideId) => {
-		const guide = await loadGuideForAdmin(guideId)
+	return adminEditMetadata(
+		"[admin:guides:edit]",
+		id,
+		"Edit guide",
+		async (guideId) => {
+			const guide = await loadGuideForAdmin(guideId)
 
-		return guide?.title ?? null
-	})
+			return guide?.title ?? null
+		}
+	)
 }
 
 export default async function EditGuidePage({ params }: Props) {

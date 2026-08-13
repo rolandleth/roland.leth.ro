@@ -14,8 +14,13 @@ import type { Metadata } from "next"
  * edit pages so a fifth one can't ship without the guard.
  *
  * `loadName` runs only for an authenticated request carrying a parseable id.
+ *
+ * @param tag Page-identifying log tag, e.g. `[admin:posts:edit]`. Passed
+ * explicitly rather than derived from `fallback` so editing a browser title
+ * can't rename a log line.
  */
 export async function adminEditMetadata(
+	tag: string,
 	id: string,
 	fallback: string,
 	loadName: (recordId: number) => Promise<string | null>
@@ -31,6 +36,17 @@ export async function adminEditMetadata(
 	const isAuthenticated = await verifySession()
 
 	if (!isAuthenticated) {
+		// Same reasoning as `requireAdmin`, which logs the equivalent condition on
+		// `/api/admin/*`: the middleware redirects unauthenticated page requests to
+		// the login screen, so this branch should be unreachable. A line here means
+		// a request got past the `src/proxy.ts` matcher — a security event, and the
+		// only signal that the matcher has a hole. Without it the page namespace
+		// fails silently while the API namespace reports.
+		// eslint-disable-next-line no-console
+		console.error(
+			`${tag} unauthenticated request reached generateMetadata — the middleware gate did not run for this path`
+		)
+
 		return { title: fallback }
 	}
 

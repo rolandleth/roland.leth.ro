@@ -12,11 +12,16 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { id } = await params
 
-	return adminEditMetadata(id, "Edit post", async (postId) => {
-		const post = await loadPostForAdmin(postId)
+	return adminEditMetadata(
+		"[admin:posts:edit]",
+		id,
+		"Edit post",
+		async (postId) => {
+			const post = await loadPostForAdmin(postId)
 
-		return post?.title ?? null
-	})
+			return post?.title ?? null
+		}
+	)
 }
 
 export default async function EditPostPage({ params }: Props) {

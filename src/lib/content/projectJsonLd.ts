@@ -75,7 +75,7 @@ export function buildSoftwareApplicationJsonLd(
 		jsonLd.image = absoluteImageUrl(image, base)
 	}
 
-	const offerNode = buildOfferNode(offers)
+	const offerNode = buildOfferNode(offers, project.isDiscontinued)
 
 	if (offerNode !== null) {
 		jsonLd.offers = offerNode
@@ -92,16 +92,21 @@ export function buildSoftwareApplicationJsonLd(
  * `Offer` nodes when currencies differ (AggregateOffer asserts one currency for
  * the whole range, so multi-currency would mislabel a bound). Price strings are
  * preserved verbatim so "12.00" stays "12.00".
+ *
+ * `isDiscontinued` marks every emitted node `schema:Discontinued`. The prices
+ * stay: they're what the app sold for, and dropping `offers` outright would lose
+ * that while saying nothing about availability. See `availabilityFor`.
  */
 function buildOfferNode(
-	offers: ProjectOffer[] | null
+	offers: ProjectOffer[] | null,
+	isDiscontinued: boolean
 ): Record<string, unknown> | Record<string, unknown>[] | null {
 	if (offers === null || offers.length === 0) {
 		return null
 	}
 
 	if (offers.length === 1) {
-		return toOfferNode(offers[0])
+		return toOfferNode(offers[0], isDiscontinued)
 	}
 
 	// Multi-offer fallback: when currencies differ, schema.org accepts `offers`
@@ -110,7 +115,7 @@ function buildOfferNode(
 	const currencies = new Set(offers.map((offer) => offer.priceCurrency))
 
 	if (currencies.size > 1) {
-		return offers.map(toOfferNode)
+		return offers.map((offer) => toOfferNode(offer, isDiscontinued))
 	}
 
 	// AggregateOffer asserts numeric lowPrice/highPrice bounds. If any price isn't
@@ -126,7 +131,7 @@ function buildOfferNode(
 	})
 
 	if (hasNonNumericPrice) {
-		return offers.map(toOfferNode)
+		return offers.map((offer) => toOfferNode(offer, isDiscontinued))
 	}
 
 	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
@@ -147,14 +152,35 @@ function buildOfferNode(
 		lowPrice: sorted[0].price,
 		highPrice: sorted[sorted.length - 1].price,
 		offerCount,
+		...availabilityFor(isDiscontinued),
 	}
 }
 
 /** Maps a single price point to a schema.org `Offer` node. */
-function toOfferNode(offer: ProjectOffer): Record<string, unknown> {
+function toOfferNode(
+	offer: ProjectOffer,
+	isDiscontinued: boolean
+): Record<string, unknown> {
 	return {
 		"@type": "Offer",
 		price: offer.price,
 		priceCurrency: offer.priceCurrency,
+		...availabilityFor(isDiscontinued),
 	}
+}
+
+/**
+ * `availability` for an offer node, spread in so the key is absent rather than
+ * `undefined` when it doesn't apply.
+ *
+ * Only the discontinued case is asserted. A live project gets no `availability`
+ * at all rather than `InStock`, because nothing in the data backs that claim —
+ * `isDiscontinued === false` means "not marked discontinued", not "confirmed on
+ * sale", and an app can be pulled from the store without the row being updated.
+ * Same reasoning as `applicationCategory` above: omit rather than assert wrong.
+ */
+function availabilityFor(isDiscontinued: boolean): Record<string, string> {
+	return isDiscontinued
+		? { availability: "https://schema.org/Discontinued" }
+		: {}
 }

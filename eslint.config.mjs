@@ -10,6 +10,23 @@ const sonarRecommended = /** @type {import("eslint").Linter.Config} */ (
 	sonarjs.configs.recommended
 )
 
+// Shared `no-restricted-syntax` entries. Extracted because flat config *replaces*
+// a rule's options rather than merging them: any later block that sets
+// `no-restricted-syntax` for a narrower file set would silently drop these unless
+// it spreads them back in. See the page-metadata block near the bottom.
+const restrictedSyntax = [
+	{
+		selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
+		message:
+			"Don't use dangerouslySetInnerHTML directly — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
+	},
+	{
+		selector: 'Property[key.name="dangerouslySetInnerHTML"]',
+		message:
+			"Don't build a dangerouslySetInnerHTML prop — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
+	},
+]
+
 const eslintConfig = defineConfig([
 	// Filter out next/typescript which registers @typescript-eslint plugin;
 	// tseslint.configs.strict below owns that registration.
@@ -71,19 +88,7 @@ const eslintConfig = defineConfig([
 			// carrying `dangerouslySetInnerHTML` that's built in another module and
 			// spread in (`<script {...props} />`) is invisible to a static selector.
 			// That path is caught in review, not here.
-			"no-restricted-syntax": [
-				"error",
-				{
-					selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
-					message:
-						"Don't use dangerouslySetInnerHTML directly — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
-				},
-				{
-					selector: 'Property[key.name="dangerouslySetInnerHTML"]',
-					message:
-						"Don't build a dangerouslySetInnerHTML prop — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
-				},
-			],
+			"no-restricted-syntax": ["error", ...restrictedSyntax],
 			"no-unused-vars": "off",
 			"no-empty": ["error", { allowEmptyCatch: true }],
 			"@typescript-eslint/no-non-null-assertion": "error",
@@ -129,6 +134,39 @@ const eslintConfig = defineConfig([
 		],
 		rules: {
 			"no-restricted-syntax": "off",
+		},
+	},
+	{
+		// Next resolves `openGraph`/`twitter` one top-level key at a time: a page
+		// that defines either gets its own object resolved and assigned *over* the
+		// root layout's, with the parent's never passed in. So a page writing a raw
+		// `openGraph` silently drops `siteName`, `locale`, `card`, and `creator` —
+		// invisible in review and in the rendered page, visible only in a share
+		// debugger. Every content page did exactly this until 2026-08-12.
+		//
+		// `buildPageMetadata` (src/lib/content/metadata.ts) is the chokepoint that
+		// restates the site-wide fields. This keeps it the only way in.
+		//
+		// Scoped to pages: `src/app/layout.tsx` legitimately owns the root object,
+		// and `src/lib` is where the builder lives. A nested `layout.tsx` could
+		// reintroduce the same bug and isn't covered — there are none today, and a
+		// glob that excludes only the root layout costs more than it buys.
+		files: ["src/app/**/page.tsx"],
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				...restrictedSyntax,
+				{
+					selector: 'Property[key.name="openGraph"]',
+					message:
+						"Don't define openGraph on a page — Next assigns it over the root layout's object instead of merging, so the site-wide fields vanish. Build metadata with buildPageMetadata (src/lib/content/metadata.ts).",
+				},
+				{
+					selector: 'Property[key.name="twitter"]',
+					message:
+						"Don't define twitter on a page — Next assigns it over the root layout's object instead of merging, so the site-wide fields vanish. Build metadata with buildPageMetadata (src/lib/content/metadata.ts).",
+				},
+			],
 		},
 	},
 	{

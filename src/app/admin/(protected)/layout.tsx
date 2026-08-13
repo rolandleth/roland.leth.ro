@@ -15,6 +15,15 @@ export default async function ProtectedLayout({
 	const isAuthenticated = await verifySession()
 
 	if (!isAuthenticated) {
+		// Logged for the same reason as `requireAdmin` and `adminEditMetadata`: the
+		// middleware redirects unauthenticated page requests before they get here,
+		// so reaching this branch means the `src/proxy.ts` matcher missed the path.
+		// The redirect alone is indistinguishable from a normal login bounce.
+		// eslint-disable-next-line no-console
+		console.error(
+			"[admin:layout] unauthenticated request reached the protected layout — the middleware gate did not run for this path"
+		)
+
 		redirect("/admin/login")
 	}
 
