@@ -59,8 +59,10 @@ const resolveSlug = cache(async (slug: string): Promise<Resolved> => {
 /**
  * A guide carries no image of its own — its social card comes from the project
  * it supports, via the same precedence the project's own pages use. Null for a
- * guide with no project, which then ships no OG image at all rather than a
- * misleading one.
+ * guide with no project, which then falls back to the site-wide card
+ * (`defaultOgImage`). The guarantee is that a guide never borrows the image of a
+ * product it isn't about; a neutral site card doesn't misattribute anything, and
+ * beats the imageless `summary_large_image` this used to emit.
  *
  * The image is the ONLY thing the project is fetched for. The product link and
  * the disclosure that carries it are authored prose in the body: they're

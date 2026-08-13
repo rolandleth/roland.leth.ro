@@ -292,3 +292,103 @@ describe("buildSoftwareApplicationJsonLd", () => {
 })
 
 // #endregion
+
+// #region discontinued availability
+
+// `ProjectContent` drops the "Get on …" CTA for a discontinued project because
+// it asserts availability the Discontinued badge contradicts. `offers` is the
+// same assertion in machine-readable form, aimed at search and answer engines,
+// so it carries `schema:Discontinued` rather than an unqualified price.
+describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
+	const DISCONTINUED = "https://schema.org/Discontinued"
+
+	it("marks a single Offer discontinued while keeping the price it sold at", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: true,
+				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual({
+			"@type": "Offer",
+			price: "4.99",
+			priceCurrency: "USD",
+			availability: DISCONTINUED,
+		})
+	})
+
+	it("marks an AggregateOffer discontinued", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: true,
+				offers: [
+					{ name: "Free", price: "0", priceCurrency: "USD" },
+					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toMatchObject({
+			"@type": "AggregateOffer",
+			lowPrice: "0",
+			highPrice: "9.99",
+			availability: DISCONTINUED,
+		})
+	})
+
+	// The multi-currency shape is a plain array, so every node needs the marker —
+	// a per-node property can't be set once on a wrapper that doesn't exist.
+	it("marks every node discontinued in the mixed-currency array shape", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: true,
+				offers: [
+					{ name: "US", price: "9.99", priceCurrency: "USD" },
+					{ name: "EU", price: "10.99", priceCurrency: "EUR" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual([
+			{
+				"@type": "Offer",
+				price: "9.99",
+				priceCurrency: "USD",
+				availability: DISCONTINUED,
+			},
+			{
+				"@type": "Offer",
+				price: "10.99",
+				priceCurrency: "EUR",
+				availability: DISCONTINUED,
+			},
+		])
+	})
+
+	// Deliberately absent rather than `InStock`: `isDiscontinued === false` means
+	// "not marked discontinued", not "confirmed on sale". Asserting availability
+	// the data can't back is the failure mode this whole change exists to fix.
+	it("asserts no availability at all for a live project", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: false,
+				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
+			}),
+			null
+		)
+
+		expect(result?.offers).not.toHaveProperty("availability")
+	})
+
+	it("emits no offers for a discontinued project that never had any", () => {
+		expect(
+			buildApp(makeProject({ isDiscontinued: true, offers: null }), null)
+		).not.toHaveProperty("offers")
+	})
+})
+
+// #endregion

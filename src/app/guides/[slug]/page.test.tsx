@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { defaultOgImage } from "@/lib/content/metadata"
 import { loadGuide, loadGuideTopic } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
 import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
@@ -338,13 +339,17 @@ describe("generateMetadata", () => {
 		expect(og.images).toEqual(["https://blob.example/og.png"])
 	})
 
-	it("ships no OG image for a guide with no project rather than a misleading one", async () => {
+	// The guarantee is no misattribution, not no image: a guide that names no
+	// project must never borrow a product's card. It falls back to the neutral
+	// site-wide one, which claims nothing about a product.
+	it("falls back to the site card for a guide with no project, never a product's", async () => {
 		vi.mocked(loadGuide).mockResolvedValue(guide)
 
 		const result = await generateMetadata(paramsFor(guide.slug))
 		const og = result.openGraph as { images?: string[] }
 
-		expect(og.images).toBeUndefined()
+		expect(og.images).toEqual([defaultOgImage])
+		expect(og.images).not.toContain("https://blob.example/og.png")
 	})
 })
 
