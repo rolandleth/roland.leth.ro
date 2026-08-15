@@ -1,10 +1,7 @@
 import bcrypt from "bcryptjs"
 import { jwtVerify, SignJWT, type JWTPayload } from "jose"
 import { cookies } from "next/headers"
-import {
-	getAdminCredentials,
-	getSessionSecret as getRawSessionSecret,
-} from "@/lib/auth/env"
+import { getAdminCredentials, getSessionSecret } from "@/lib/auth/env"
 
 const COOKIE_NAME = "session"
 const SESSION_DURATION = 60 * 60 * 24 * 7 // 7 days in seconds
@@ -14,12 +11,18 @@ export interface SessionPayload extends JWTPayload {
 }
 
 /**
- * Returns the JWT signing secret as a `Uint8Array` ready for `jose`. Reads via
- * `getRawSessionSecret` (lazy `process.env` read) so tests can stub the value
- * via `vi.stubEnv`.
+ * The JWT signing secret as a `Uint8Array` key, ready for `jose`.
+ *
+ * Named for the key rather than the secret because `@/lib/auth/env` exports a
+ * `getSessionSecret` too, returning the validated `string`. Two same-named
+ * exports across one auth surface, differing only in return type, is an
+ * import-the-wrong-one hazard in the module least forgiving of one.
+ *
+ * Reads through the env accessor (a lazy `process.env` read) rather than
+ * capturing at module load, so tests can stub the value with `vi.stubEnv`.
  */
-export function getSessionSecret(): Uint8Array {
-	return new TextEncoder().encode(getRawSessionSecret())
+export function getSessionSecretKey(): Uint8Array {
+	return new TextEncoder().encode(getSessionSecret())
 }
 
 export async function createSession(): Promise<void> {
@@ -27,7 +30,7 @@ export async function createSession(): Promise<void> {
 		.setProtectedHeader({ alg: "HS256" })
 		.setIssuedAt()
 		.setExpirationTime(`${SESSION_DURATION}s`)
-		.sign(getSessionSecret())
+		.sign(getSessionSecretKey())
 
 	const cookieStore = await cookies()
 	cookieStore.set(COOKIE_NAME, token, {
@@ -107,7 +110,7 @@ export async function verifySession(): Promise<boolean> {
 		return false
 	}
 
-	const payload = await verifyToken(token, getSessionSecret())
+	const payload = await verifyToken(token, getSessionSecretKey())
 
 	return payload !== null
 }

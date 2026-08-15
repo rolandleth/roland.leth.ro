@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { defaultOgImage } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { postDatetimeToISO } from "@/lib/utils/format"
 import type { PostDetail } from "@/lib/db/posts"
@@ -87,8 +88,11 @@ describe("buildBlogPostingJsonLd", () => {
 		expect(result.dateModified).toBe("2025-03-04T05:06:07.000Z")
 	})
 
-	it("omits image when the post has none", () => {
-		expect(buildBlogPostingJsonLd(makePost(), BASE)).not.toHaveProperty("image")
+	// Matches the page's `og:image` fallback, so both surfaces name one asset.
+	it("falls back to the site card when the post has no image", () => {
+		expect(buildBlogPostingJsonLd(makePost(), BASE).image).toBe(
+			`${BASE}${defaultOgImage}`
+		)
 	})
 
 	it("keeps an absolute (Blob) image url unchanged", () => {

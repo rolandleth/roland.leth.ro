@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { buildGuideArticleJsonLd } from "@/lib/content/guideJsonLd"
+import { defaultOgImage } from "@/lib/content/metadata"
 import type { GuideDetail } from "@/lib/db/guides"
 
 const BASE = "https://roland.leth.ro"
@@ -112,16 +113,18 @@ describe("buildGuideArticleJsonLd — dates", () => {
 // #region image
 
 describe("buildGuideArticleJsonLd — image", () => {
-	it("omits image when the guide has no project to borrow one from", () => {
-		const jsonLd = buildGuideArticleJsonLd(makeGuide(), BASE)
+	// The page's `og:image` falls back to the site card, so the Article says the
+	// same thing rather than claiming the guide has no image at all. Before this,
+	// one page described itself two different ways depending on which surface a
+	// consumer read.
+	it.each([
+		["no project to borrow one from", undefined],
+		["a project that resolves to none", null],
+		["a blank image string", ""],
+	])("falls back to the site card for a guide with %s", (_label, image) => {
+		const jsonLd = buildGuideArticleJsonLd(makeGuide(), BASE, image)
 
-		expect(jsonLd).not.toHaveProperty("image")
-	})
-
-	it("omits image when the project resolves to none", () => {
-		const jsonLd = buildGuideArticleJsonLd(makeGuide(), BASE, null)
-
-		expect(jsonLd).not.toHaveProperty("image")
+		expect(jsonLd.image).toBe(`${BASE}${defaultOgImage}`)
 	})
 
 	it("passes an absolute image URL through untouched", () => {

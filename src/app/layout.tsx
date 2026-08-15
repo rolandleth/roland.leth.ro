@@ -9,6 +9,7 @@ import { getSiteUrl } from "@/lib/auth/env"
 import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
 import {
 	defaultOgImage,
+	ogImageEntry,
 	siteOpenGraph,
 	siteTwitter,
 } from "@/lib/content/metadata"
@@ -66,11 +67,11 @@ export async function generateMetadata(): Promise<Metadata> {
 		openGraph: {
 			...siteOpenGraph,
 			type: "website",
-			images: [defaultOgImage],
+			images: [ogImageEntry(defaultOgImage)],
 		},
 		twitter: {
 			...siteTwitter,
-			images: [defaultOgImage],
+			images: [ogImageEntry(defaultOgImage)],
 		},
 	}
 }

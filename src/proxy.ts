@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSessionSecret, verifyToken } from "@/lib/auth/auth"
+import { getSessionSecretKey, verifyToken } from "@/lib/auth/auth"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
@@ -11,7 +11,7 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 		return false
 	}
 
-	const payload = await verifyToken(token, getSessionSecret())
+	const payload = await verifyToken(token, getSessionSecretKey())
 
 	return payload !== null
 }

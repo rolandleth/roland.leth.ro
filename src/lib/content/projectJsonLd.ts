@@ -2,7 +2,7 @@
 // and separate from the page so the shapes are unit-testable and the page stays
 // a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
 
-import { absoluteImageUrl, personFor } from "@/lib/content/jsonLd"
+import { jsonLdImageUrl, personFor } from "@/lib/content/jsonLd"
 import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
 // Buckets that represent installable apps (vs. Web/OpenSource projects). Only
@@ -41,8 +41,9 @@ export function buildFaqJsonLd(
  * `null` for Web/OpenSource so non-apps don't emit app markup. When the project
  * carries `offers`, an `AggregateOffer` advertises the price range. `image` is
  * the resolved OG asset, absolutized against `base` (a legacy `/images/…` path
- * would otherwise emit an invalid relative URL); omitted when null. `base` is
- * the site origin from `getSiteUrl()`, passed in so the builder stays pure.
+ * would otherwise emit an invalid relative URL); falls back to the site card
+ * when the project has none, matching its `og:image`. `base` is the site origin
+ * from `getSiteUrl()`, passed in so the builder stays pure.
  */
 export function buildSoftwareApplicationJsonLd(
 	project: ProjectDetail,
@@ -71,9 +72,9 @@ export function buildSoftwareApplicationJsonLd(
 		jsonLd.applicationCategory = applicationCategory
 	}
 
-	if (image !== null) {
-		jsonLd.image = absoluteImageUrl(image, base)
-	}
+	// Always present: a project with no asset of its own names the site card, the
+	// same one its `og:image` advertises. See `jsonLdImageUrl`.
+	jsonLd.image = jsonLdImageUrl(image, base)
 
 	const offerNode = buildOfferNode(offers, project.isDiscontinued)
 

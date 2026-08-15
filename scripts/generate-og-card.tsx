@@ -20,14 +20,18 @@ import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { ImageResponse } from "next/og"
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "@/lib/content/metadata"
 
 const BACKGROUND = "#030712"
 const PRIMARY = "#f5f5f5"
 const SECONDARY = "#9ca3af"
 const ACCENT = "#12a8da"
 
-const WIDTH = 1200
-const HEIGHT = 630
+// Imported rather than restated: `buildPageMetadata` advertises these as
+// `og:image:width`/`height`, and a card rendered at a different size would
+// contradict its own markup on every page.
+const WIDTH = OG_IMAGE_WIDTH
+const HEIGHT = OG_IMAGE_HEIGHT
 
 const NAME = "Roland Leth"
 const TAGLINE = "iOS developer & full-stack engineer"

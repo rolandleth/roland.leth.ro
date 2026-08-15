@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { defaultOgImage } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
@@ -112,8 +113,11 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		expect(result).toMatchObject({ operatingSystem: "iOS" })
 	})
 
-	it("omits image when null and includes it when provided", () => {
-		expect(buildApp(makeProject(), null)).not.toHaveProperty("image")
+	// Matches the page's `og:image` fallback, so both surfaces name one asset.
+	it("falls back to the site card when null and uses the asset when provided", () => {
+		expect(buildApp(makeProject(), null)).toMatchObject({
+			image: `${BASE}${defaultOgImage}`,
+		})
 		expect(buildApp(makeProject(), "https://blob/og.png")).toMatchObject({
 			image: "https://blob/og.png",
 		})

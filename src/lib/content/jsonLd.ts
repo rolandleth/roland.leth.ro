@@ -2,6 +2,9 @@
 // (`postJsonLd.ts`, `projectJsonLd.ts`). Kept I/O-free so the shapes stay
 // unit-testable and the page components stay thin.
 
+import { defaultOgImage } from "@/lib/content/metadata"
+import { blankToNull } from "@/lib/utils/format"
+
 // Built from a string so the U+2028/U+2029 line separators never appear as
 // literals in source — they would terminate a JS regex literal otherwise.
 const LINE_SEPARATORS_PATTERN = new RegExp("[\\u2028\\u2029]", "g")
@@ -54,6 +57,28 @@ export function absoluteImageUrl(image: string, base: string): string {
 		image.startsWith("data:")
 
 	return isAlreadyAbsolute ? image : `${base}${image}`
+}
+
+/**
+ * The `image` value for a content entity, absolutized, falling back to the site
+ * card when the page carries no asset of its own.
+ *
+ * Same fallback `buildPageMetadata` applies to `og:image`, and single-sourced
+ * with it on purpose. The two surfaces describe one page: a guide that
+ * advertised the site card to a share debugger while telling Google it had no
+ * image was stating two different things about itself, and neither builder knew
+ * about the other. Whatever is worth advertising as the share image is worth
+ * naming as the entity's image.
+ *
+ * Blank strings collapse to the fallback for the same reason they do there: the
+ * columns are typed `string | null`, so `""` type-checks and `??` would carry it
+ * straight through into an `image` pointing at the site root.
+ */
+export function jsonLdImageUrl(
+	image: string | null | undefined,
+	base: string
+): string {
+	return absoluteImageUrl(blankToNull(image) ?? defaultOgImage, base)
 }
 
 /**

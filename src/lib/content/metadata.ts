@@ -40,6 +40,49 @@ export const siteTwitter = {
  */
 export const defaultOgImage = "/images/og-card.png"
 
+/**
+ * The card's dimensions, single-sourced. `scripts/generate-og-card.tsx` renders
+ * at this size, `metadata.test.ts` reads the committed PNG's IHDR header and
+ * asserts it, and the descriptor below advertises it — three places that would
+ * otherwise drift silently, since a wrong-size card degrades every preview on
+ * the site while leaving the markup perfectly well-formed.
+ */
+export const OG_IMAGE_WIDTH = 1200
+export const OG_IMAGE_HEIGHT = 630
+
+/**
+ * `defaultOgImage` in descriptor form, so the card advertises its own size and
+ * carries alt text.
+ *
+ * The dimensions let a scraper pick the large-card layout without fetching the
+ * bytes first; the alt is what a screen reader announces for a shared link, and
+ * without it every page on the site shares an unlabelled image.
+ *
+ * Only the default gets this treatment. A page-supplied image is an arbitrary
+ * Blob upload of unknown size with no stored description — stamping 1200×630 on
+ * it would assert a dimension that isn't true, and reusing the page title as
+ * `alt` would describe the page rather than the picture. Omitting both is the
+ * honest option there.
+ */
+const defaultOgImageDescriptor = {
+	url: defaultOgImage,
+	width: OG_IMAGE_WIDTH,
+	height: OG_IMAGE_HEIGHT,
+	// Matches what the card actually draws — see `scripts/generate-og-card.tsx`.
+	alt: "Roland Leth — iOS developer & full-stack engineer",
+} as const
+
+/**
+ * The `images` entry for a resolved image: the full descriptor when it's the
+ * site default, a bare URL otherwise. Built fresh per call rather than shared,
+ * so `openGraph` and `twitter` never alias one object.
+ */
+export function ogImageEntry(image: string) {
+	return image === defaultOgImage
+		? { ...defaultOgImageDescriptor }
+		: { url: image }
+}
+
 export interface PageMetadataInput {
 	title: string
 	description?: string
@@ -175,13 +218,13 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 			// Built twice rather than sharing one array instance between the two
 			// keys: the aliasing is invisible at both call sites, and any future
 			// per-surface normalization would silently apply to both.
-			images: [resolvedImage],
+			images: [ogImageEntry(resolvedImage)],
 		},
 		twitter: {
 			...siteTwitter,
 			title: ogTitle,
 			description,
-			images: [resolvedImage],
+			images: [ogImageEntry(resolvedImage)],
 		},
 	}
 }

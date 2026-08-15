@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	createSession,
 	destroySession,
-	getSessionSecret,
+	getSessionSecretKey,
 	verifyCredentials,
 	verifySession,
 	verifyToken,
@@ -335,11 +335,11 @@ describe("verifyToken", () => {
 
 // #endregion
 
-// #region getSessionSecret
+// #region getSessionSecretKey
 
-describe("getSessionSecret", () => {
+describe("getSessionSecretKey", () => {
 	it("returns a Uint8Array derived from SESSION_SECRET", () => {
-		const secret = getSessionSecret()
+		const secret = getSessionSecretKey()
 		expect(secret).toBeInstanceOf(Uint8Array)
 		expect(new TextDecoder().decode(secret)).toBe(TEST_SECRET)
 	})

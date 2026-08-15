@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
 	defaultOgImage,
+	ogImageEntry,
 	siteOpenGraph,
 	siteTwitter,
 } from "@/lib/content/metadata"
@@ -66,11 +67,11 @@ describe("root layout metadata", () => {
 		expect(meta.openGraph).toEqual({
 			...siteOpenGraph,
 			type: "website",
-			images: [defaultOgImage],
+			images: [ogImageEntry(defaultOgImage)],
 		})
 		expect(meta.twitter).toEqual({
 			...siteTwitter,
-			images: [defaultOgImage],
+			images: [ogImageEntry(defaultOgImage)],
 		})
 	})
 
@@ -82,8 +83,8 @@ describe("root layout metadata", () => {
 
 		const meta = await generateMetadata()
 
-		expect(meta.openGraph?.images).toEqual([defaultOgImage])
-		expect(meta.twitter?.images).toEqual([defaultOgImage])
+		expect(meta.openGraph?.images).toEqual([ogImageEntry(defaultOgImage)])
+		expect(meta.twitter?.images).toEqual([ogImageEntry(defaultOgImage)])
 	})
 
 	// #endregion
