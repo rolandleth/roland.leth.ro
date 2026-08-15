@@ -178,48 +178,28 @@ describe("proxy — admin API protection", () => {
 
 // #endregion
 
-// #region Bot probe short-circuit
+// #region Probe-shaped admin paths
 
-// Only admin-shaped probes are covered here. The matcher now admits nothing but
-// the two admin namespaces, so a probe like `/wp-login.php` never reaches this
-// function — it resolves to the static 404 with no compute. The extension and
-// path-prefix lists themselves are covered in `lib/proxy/botProbes.test.ts`.
-describe("proxy — bot probe short-circuit", () => {
-	// The probe filter runs BEFORE the auth gate, so a probe aimed at the admin
-	// namespace 404s (cheap, no auth work) rather than triggering an auth check
-	// and a login redirect / 401. Pins that ordering explicitly.
-	it.each([
-		"/admin/wp-login.php",
-		"/admin/config.php",
-		"/api/admin/shell.php",
-		"/api/admin/backup.sql",
-	])(
-		"404s the admin-shaped probe %s before the auth gate runs",
+// The bot-probe filter that used to run ahead of the auth gate is gone: it
+// existed to keep scanner traffic off the `/:slug` catch-all, and both that
+// route and the catch-all matcher are gone with it. A probe now either misses
+// the matcher entirely (static 404, no compute) or lands in the admin namespace
+// and gets the same treatment as any other unauthenticated request.
+describe("proxy — probe-shaped admin paths", () => {
+	it.each(["/admin/wp-login.php", "/admin/config.php", "/admin/.env"])(
+		"redirects the unauthenticated admin-shaped path %s to login",
 		async (path) => {
 			const response = await proxy(makeRequest(path))
-			expect(response.status).toBe(404)
-			expect(response.headers.get("x-middleware-next")).toBeNull()
+			expect(response.status).toBe(307)
+			expect(response.headers.get("location")).toContain("/admin/login")
 		}
 	)
 
-	it("sends a nested dotfile probe to the auth gate, not the 404", async () => {
-		// `BOT_PROBE_PATH_PREFIXES` is anchored at the path root, so `/admin/.env`
-		// isn't a prefix match, and the extension check deliberately skips
-		// leading-dot segments. It reaches the gate and redirects to login, which
-		// exposes nothing — documented here so the difference from `/.env` reads
-		// as intended rather than as a hole.
-		const response = await proxy(makeRequest("/admin/.env"))
-		expect(response.status).toBe(307)
-		expect(response.headers.get("location")).toContain("/admin/login")
-	})
-
-	it.each(["/admin", "/admin/posts/new", "/api/admin/posts/1"])(
-		"does not 404 the real admin path %s",
+	it.each(["/api/admin/shell.php", "/api/admin/backup.sql"])(
+		"401s the unauthenticated admin-API-shaped path %s",
 		async (path) => {
-			// A false positive here would lock the admin out of its own dashboard,
-			// so the filter must stay narrow enough to leave real paths alone.
 			const response = await proxy(makeRequest(path))
-			expect(response.status).not.toBe(404)
+			expect(response.status).toBe(401)
 		}
 	)
 })

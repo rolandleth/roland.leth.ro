@@ -13,7 +13,7 @@ Log paths: Use your scratchpad to store and read logs, if you need.
 
 ## Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
 - **Database**: PostgreSQL via Prisma ORM (Vercel Postgres / Neon)

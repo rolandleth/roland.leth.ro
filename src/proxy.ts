@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { getSessionSecret, verifyToken } from "@/lib/auth/auth"
-import { isBotProbe } from "@/lib/proxy/botProbes"
 import type { NextRequest } from "next/server"
 
 const SESSION_COOKIE = "session"
@@ -20,24 +19,10 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
 	const { pathname } = request.nextUrl
 
-	// Kill obvious scanner/bot probes with a bare 404 before the auth gate runs,
-	// so an admin-shaped probe (`/admin/config.php`) 404s instead of paying for
-	// an `isAuthenticated` check and a redirect to `/admin/login`.
-	//
-	// This filter used to carry far more weight: it also kept junk off the
-	// `/:slug` catch-all, which invoked a function and rendered a full 404 page.
-	// That route is gone, so every non-admin probe now resolves to the static
-	// 404 without reaching compute at all, and the matcher below no longer needs
-	// to see them.
-	if (isBotProbe(pathname)) {
-		return new NextResponse(null, { status: 404 })
-	}
-
 	// Lower-cased so a case variant (`/ADMIN/…`) can't slip past the gate. Next.js
 	// routing is case-sensitive, so an uppercase variant 404s rather than reaching
 	// a real admin route — but matching case-insensitively here can only ever ADD
-	// protection, never remove it, and closes the asymmetry with the (already
-	// lower-cased) bot-probe filter above.
+	// protection, never remove it.
 	//
 	// Token-minting endpoints deliberately live OUTSIDE this namespace, under
 	// `/api/auth/*` (e.g. `/api/auth/login`), so they aren't gated behind the JWT
@@ -69,11 +54,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 		}
 	}
 
-	// Everything else falls through to Next.js routing. Legacy redirects and the
-	// two content-shaped rewrites (`:slug.md`, `feed.xml`) used to be handled
-	// here; they now live in `next.config.ts` via `src/lib/routing/legacyRoutes.ts`,
-	// where Vercel's routing layer resolves them without a function invocation.
-	// The redirects run ahead of this middleware, the rewrites just after it.
+	// An authenticated admin request, or `/admin/login`. Everything else the
+	// matcher admits has already returned above.
 	return NextResponse.next()
 }
 
