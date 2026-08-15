@@ -140,8 +140,18 @@ route renders per request:
 
 Every public content route is now static, so they all take the same path: the
 `datetime <= now` / `publishedAt` filter runs when the page is generated and then
-freezes. `/api/cron/revalidate-scheduled` runs hourly, counts posts and guides
-that came due in a 2h lookback window, and busts the tags only when one did.
+freezes. `/api/cron/revalidate-scheduled` runs daily, counts posts and guides
+that came due in a 49h lookback window, and busts the tags only when one did.
+
+Daily is the ceiling on Hobby: those accounts reject any cron expression that
+would fire more than once a day, and `0 * * * *` or `0 */3 * * *` fails at deploy
+time. A sub-daily cadence is still reachable — Hobby allows 100 cron entries per
+project, so N entries at fixed hours (`0 0 * * *`, `0 3 * * *`, …) buy back an
+every-N-hours schedule. Doing that means narrowing `WINDOW_HOURS` to match.
+
+The cost of daily is latency: a post dated 09:00 stays invisible until the
+midnight run, so up to ~25h. To surface one sooner, bust the tags by hand —
+see below.
 
 A dynamic route would not need this — a per-request filter re-evaluates on its
 own. The blog list used to work that way, caching a padded superset and
@@ -155,7 +165,30 @@ tests on the feed and sitemap assert its absence.
 
 The lookback window is deliberately wider than the cron interval. Overlap costs
 one redundant revalidation; a gap strands content until the next real mutation.
-Change the schedule in `vercel.json` and you must widen `WINDOW_HOURS` to match.
+It is 49h rather than 24h because two effects stack: Hobby cron timing is only
+accurate to ±59 minutes, so consecutive runs can land 24h59m apart with nothing
+wrong, and Vercel documents cron delivery as best effort with no retry, so a run
+can simply not happen. Double the interval for a missed run, add an hour for the
+jitter. Change the schedule in `vercel.json` and `WINDOW_HOURS` must follow.
+
+## Forcing scheduled content live
+
+The cron publishes nothing. Its only effect is `revalidatePostSection()` per
+section plus `revalidateGuides()` — three tags and one tag. The `datetime <= now`
+filter runs when the page regenerates, so **anything that forces those routes to
+regenerate has the same effect as the cron run**. Three ways, narrowest first:
+
+1. `GET /api/cron/revalidate-scheduled` with `Authorization: Bearer $CRON_SECRET`
+   — the same code path, same tags, and it logs the same lines.
+2. Save any post in the admin. `revalidatePost` busts `feed-{section}`,
+   `blog-{section}`, and `posts`. Covers posts only: `guides` is a separate tag,
+   so a scheduled **guide** needs a guide mutation or option 1.
+3. Purge the cache or redeploy from the Vercel dashboard. Works, but drops every
+   unrelated cached page too, so the whole site cold-renders on next hit.
+
+None of them publishes early. Before a post's `datetime` passes, the filter still
+excludes it, and the regeneration is wasted work. Forcing is "publish it now",
+never "publish it ahead of schedule".
 
 ## Design direction
 

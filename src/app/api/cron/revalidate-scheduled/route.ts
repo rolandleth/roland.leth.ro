@@ -10,14 +10,27 @@ const LOG_TAG = "api:cron:revalidate-scheduled"
 
 /**
  * How far back to look for posts that came due, in hours. Deliberately WIDER
- * than the cron interval in `vercel.json` (hourly): a skipped or delayed run
- * would otherwise leave a post outside both windows, stranding it until the
- * next real mutation. Overlap costs one redundant revalidation; a gap loses a
- * post silently, so the asymmetry favours overlapping.
+ * than the cron interval in `vercel.json` (daily): a skipped or delayed run
+ * would otherwise leave a post outside both windows, stranding it until the next
+ * real mutation. Overlap costs one redundant revalidation; a gap loses a post
+ * silently, so the asymmetry favours overlapping.
  *
- * Raising the cron interval means raising this too — keep it at roughly double.
+ * Forty-nine hours, not twenty-four, because two effects stack. Hobby cron
+ * scheduling is only accurate to ±59 minutes — `0 0 * * *` fires anywhere inside
+ * the midnight hour — so consecutive runs can already land 24h59m apart with
+ * nothing wrong. And Vercel documents cron delivery as best effort, with no
+ * retry on failure: a run can simply not happen. Double the interval to absorb
+ * one missed run, add an hour for the jitter.
+ *
+ * The overlap is cheap here. Both queries are counts, so a wider window costs
+ * the same to run, and on the common path (nothing came due) it changes nothing
+ * — the count is 0 either way. It only means a post that came due yesterday is
+ * counted again today, busting three tags a second time.
+ *
+ * Changing the cron interval means changing this too — keep it above the widest
+ * gap two consecutive runs can produce, including a missed one.
  */
-const WINDOW_HOURS = 2
+const WINDOW_HOURS = 49
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
 
@@ -33,7 +46,7 @@ const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
  * backstop regenerated all three every hour whether or not anything had changed
  * — and with crawlers and feed readers polling continuously, "whether or not"
  * was always "yes". Checking first turns ~72 daily regenerations into two count
- * queries per hour plus a bust on the rare hour that needs one.
+ * queries per day plus a bust on the rare day that needs one.
  *
  * Posts and guides are both checked because the sitemap spans both, and their
  * publication times are stored differently: a post's `datetime` is a
