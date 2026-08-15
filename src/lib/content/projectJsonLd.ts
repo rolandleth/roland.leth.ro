@@ -96,6 +96,15 @@ export function buildSoftwareApplicationJsonLd(
  * `isDiscontinued` marks every emitted node `schema:Discontinued`. The prices
  * stay: they're what the app sold for, and dropping `offers` outright would lose
  * that while saying nothing about availability. See `availabilityFor`.
+ *
+ * A discontinued project takes the array-of-`Offer`s shape even when an
+ * `AggregateOffer` would otherwise apply. `AggregateOffer` subclasses `Offer`,
+ * so schema.org permits `availability` on it — but consumers that read only the
+ * documented aggregate fields (`lowPrice`, `highPrice`, `priceCurrency`,
+ * `offerCount`) drop it, and that branch emits no per-`Offer` node to carry it
+ * instead. A multi-tier app that's been pulled would put its only Discontinued
+ * signal on the node least likely to be read. The price range is the thing worth
+ * losing here: it's a presentational nicety, and availability is the claim.
  */
 function buildOfferNode(
 	offers: ProjectOffer[] | null,
@@ -109,12 +118,16 @@ function buildOfferNode(
 		return toOfferNode(offers[0], isDiscontinued)
 	}
 
-	// Multi-offer fallback: when currencies differ, schema.org accepts `offers`
-	// as an array of `Offer` nodes. Use that shape rather than asserting one
-	// currency across the AggregateOffer's lowPrice/highPrice bounds.
+	// Two reasons to skip the aggregate, both ending in the same shape — an array
+	// of `Offer` nodes, which asserts no range:
+	//
+	//   - Mixed currencies: AggregateOffer asserts one `priceCurrency` across its
+	//     lowPrice/highPrice bounds, so a mixed set would mislabel a bound.
+	//   - Discontinued: the aggregate is where `availability` goes to be ignored
+	//     (see the doc comment above).
 	const currencies = new Set(offers.map((offer) => offer.priceCurrency))
 
-	if (currencies.size > 1) {
+	if (currencies.size > 1 || isDiscontinued) {
 		return offers.map((offer) => toOfferNode(offer, isDiscontinued))
 	}
 
@@ -138,13 +151,15 @@ function buildOfferNode(
 		)
 	).size
 
+	// No `availability`: the guard above sends every discontinued project down
+	// the array path, so this branch is the live-project case, and a live project
+	// asserts nothing about availability (see `availabilityFor`).
 	return {
 		"@type": "AggregateOffer",
 		priceCurrency: sorted[0].priceCurrency,
 		lowPrice: sorted[0].price,
 		highPrice: sorted[sorted.length - 1].price,
 		offerCount,
-		...availabilityFor(isDiscontinued),
 	}
 }
 

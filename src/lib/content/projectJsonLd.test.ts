@@ -288,7 +288,14 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 		})
 	})
 
-	it("marks an AggregateOffer discontinued", () => {
+	// A same-currency multi-tier set would otherwise take the AggregateOffer
+	// shape. It doesn't when discontinued: `AggregateOffer` accepts
+	// `availability` (it subclasses `Offer`), but consumers reading only the
+	// documented aggregate fields drop it, and that shape emits no per-`Offer`
+	// node to carry the marker instead — so the one project that most needs the
+	// Discontinued signal would hang it on the node least likely to be read.
+	// Losing the price range is the deliberate trade.
+	it("drops the aggregate shape so the discontinued marker survives", () => {
 		const result = buildApp(
 			makeProject({
 				isDiscontinued: true,
@@ -300,11 +307,45 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 			null
 		)
 
-		expect(result?.offers).toMatchObject({
+		expect(result?.offers).toEqual([
+			{
+				"@type": "Offer",
+				price: "0",
+				priceCurrency: "USD",
+				availability: DISCONTINUED,
+			},
+			{
+				"@type": "Offer",
+				price: "9.99",
+				priceCurrency: "USD",
+				availability: DISCONTINUED,
+			},
+		])
+	})
+
+	// The same input with the flag off still aggregates, so the branch above is
+	// the discontinued case specifically and not a silent loss of the range.
+	// `toEqual`, not `toMatchObject`: the aggregate's own fields are the subject
+	// here, and a partial match would pass with `priceCurrency` or `offerCount`
+	// missing.
+	it("still aggregates the same offers when the project is live", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: false,
+				offers: [
+					{ name: "Free", price: "0", priceCurrency: "USD" },
+					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual({
 			"@type": "AggregateOffer",
+			priceCurrency: "USD",
 			lowPrice: "0",
 			highPrice: "9.99",
-			availability: DISCONTINUED,
+			offerCount: 2,
 		})
 	})
 
@@ -341,6 +382,11 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	// Deliberately absent rather than `InStock`: `isDiscontinued === false` means
 	// "not marked discontinued", not "confirmed on sale". Asserting availability
 	// the data can't back is the failure mode this whole change exists to fix.
+	//
+	// `toEqual` on the whole node rather than `not.toHaveProperty`: the negative
+	// idiom is meaningful here because the subject is a single object, but it
+	// passes vacuously against an array return, so it would quietly assert
+	// nothing if this case were ever copied to a multi-offer shape.
 	it("asserts no availability at all for a live project", () => {
 		const result = buildApp(
 			makeProject({
@@ -350,12 +396,22 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 			null
 		)
 
-		expect(result?.offers).not.toHaveProperty("availability")
+		expect(result?.offers).toEqual({
+			"@type": "Offer",
+			price: "4.99",
+			priceCurrency: "USD",
+		})
 	})
 
-	it("emits no offers for a discontinued project that never had any", () => {
+	// Both halves of the `offers === null || offers.length === 0` guard. An empty
+	// array is what a manifest with an `offers: []` key produces, and it reached
+	// the same branch as `null` only by luck of ordering.
+	it.each([
+		["null offers", null],
+		["an empty offers array", []],
+	])("emits no offers for a discontinued project with %s", (_label, offers) => {
 		expect(
-			buildApp(makeProject({ isDiscontinued: true, offers: null }), null)
+			buildApp(makeProject({ isDiscontinued: true, offers }), null)
 		).not.toHaveProperty("offers")
 	})
 })

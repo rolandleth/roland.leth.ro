@@ -27,6 +27,35 @@ const restrictedSyntax = [
 	},
 ]
 
+// What `restrictedSyntax` still has to say to the two files that are allowed to
+// use `dangerouslySetInnerHTML`. Empty today, because that is all the constant
+// bans so far.
+const restrictedSyntaxBeyondInnerHtml = restrictedSyntax.filter(
+	(entry) => !entry.selector.includes("dangerouslySetInnerHTML")
+)
+
+// Where page metadata is actually declared. The keys below are banned only
+// inside these, not anywhere a property happens to share the name: a plain
+// `Property[key.name="twitter"]` also matched a social-links map, and the likely
+// response to that false positive — a blanket `eslint-disable-next-line
+// no-restricted-syntax` — would switch off the `dangerouslySetInnerHTML` bans on
+// the same line. One rule id carries both a security guard and a style guard, so
+// every escape hatch has to be narrow.
+const metadataScopes = [
+	'VariableDeclarator[id.name="metadata"]',
+	'VariableDeclarator[id.name="generateMetadata"]',
+	'FunctionDeclaration[id.name="generateMetadata"]',
+]
+
+const metadataKeys = ["openGraph", "twitter"]
+
+const pageMetadataRestrictions = metadataScopes.flatMap((scope) =>
+	metadataKeys.map((key) => ({
+		selector: `${scope} Property[key.name="${key}"]`,
+		message: `Don't define ${key} on a page or nested layout — Next assigns it over the root layout's object instead of merging, so the site-wide fields vanish. Build metadata with buildPageMetadata (src/lib/content/metadata.ts).`,
+	}))
+)
+
 const eslintConfig = defineConfig([
 	// Filter out next/typescript which registers @typescript-eslint plugin;
 	// tseslint.configs.strict below owns that registration.
@@ -128,12 +157,31 @@ const eslintConfig = defineConfig([
 		//   - JsonLdScript: structured data, gated by `safeJsonLdString`.
 		//   - ThemeScript: a raw pre-paint inline script that sets the theme class
 		//     before first paint (a static, self-authored string, no injected data).
+		//
+		// Only the `dangerouslySetInnerHTML` entries are dropped; anything else
+		// `restrictedSyntax` grows is respread and still applies here. A flat
+		// `"no-restricted-syntax": "off"` would exempt these two files from every
+		// future entry — the same silent-drop hazard the comment on that constant
+		// describes, mirrored.
+		//
+		// The ternary is load-bearing, not defensive: ESLint retains a rule's
+		// previous options when a later config gives severity only, so `["error"]`
+		// with an empty spread keeps both bans rather than clearing them. `off` is
+		// the only way to say "nothing" — and the moment a non-innerHTML entry is
+		// added, this switches itself back on for these files.
+		//
+		// An inline `eslint-disable-next-line` would be narrower still, but
+		// Prettier strips `//` comments from JSX attribute position, so the
+		// directive doesn't survive a format.
 		files: [
 			"src/components/JsonLdScript.tsx",
 			"src/components/ThemeScript.tsx",
 		],
 		rules: {
-			"no-restricted-syntax": "off",
+			"no-restricted-syntax":
+				restrictedSyntaxBeyondInnerHtml.length > 0
+					? ["error", ...restrictedSyntaxBeyondInnerHtml]
+					: "off",
 		},
 	},
 	{
@@ -147,25 +195,19 @@ const eslintConfig = defineConfig([
 		// `buildPageMetadata` (src/lib/content/metadata.ts) is the chokepoint that
 		// restates the site-wide fields. This keeps it the only way in.
 		//
-		// Scoped to pages: `src/app/layout.tsx` legitimately owns the root object,
-		// and `src/lib` is where the builder lives. A nested `layout.tsx` could
-		// reintroduce the same bug and isn't covered — there are none today, and a
-		// glob that excludes only the root layout costs more than it buys.
-		files: ["src/app/**/page.tsx"],
+		// Nested layouts are in scope too: a `layout.tsx` below the root has the
+		// same relationship to the root object that a page does, so it can
+		// reintroduce the identical bug. `src/app/layout.tsx` is the one file that
+		// legitimately owns the root object, and flat config takes `ignores`
+		// alongside `files`, so excluding exactly it is one line in this block.
+		// (`src/lib` is where the builder lives, and is outside `files` already.)
+		files: ["src/app/**/page.tsx", "src/app/**/layout.tsx"],
+		ignores: ["src/app/layout.tsx"],
 		rules: {
 			"no-restricted-syntax": [
 				"error",
 				...restrictedSyntax,
-				{
-					selector: 'Property[key.name="openGraph"]',
-					message:
-						"Don't define openGraph on a page — Next assigns it over the root layout's object instead of merging, so the site-wide fields vanish. Build metadata with buildPageMetadata (src/lib/content/metadata.ts).",
-				},
-				{
-					selector: 'Property[key.name="twitter"]',
-					message:
-						"Don't define twitter on a page — Next assigns it over the root layout's object instead of merging, so the site-wide fields vanish. Build metadata with buildPageMetadata (src/lib/content/metadata.ts).",
-				},
+				...pageMetadataRestrictions,
 			],
 		},
 	},
