@@ -41,8 +41,7 @@ src/
     about/                      # About page (/about)
     admin/                      # Post/project creation/editing (protected)
     api/                        # API routes (posts CRUD, feed, upload)
-    [slug]/                     # Catch-all for legacy root-level URLs (DB lookup → permanentRedirect or notFound)
-  proxy.ts                      # Middleware: auth protection + legacy URL redirects
+  proxy.ts                      # Middleware: admin auth gate only (matcher is /admin* + /api/admin*)
   components/                   # Shared UI components
     blog/                       # Blog-specific components
     projects/                   # Project-specific components
@@ -55,6 +54,7 @@ src/
     posts.ts                    # Post query helpers
     projects.ts                 # Project query helpers
     sections.ts                 # Blog section helpers
+    routing/legacyRoutes.ts     # Legacy redirect + rewrite rules, consumed by next.config.ts
     markdown.ts                 # Markdown processing
     schemas.ts                  # Zod validation schemas
     format.ts                   # Formatting utilities
@@ -75,7 +75,7 @@ public/
 - Blog posts stored in PostgreSQL (markdown body, rendered on read).
 - Projects stored in PostgreSQL (like posts), managed via admin UI.
 - Blog URLs: `/blog/:section/:slug` (e.g., `/blog/tech/my-post`).
-- Legacy URLs redirect via middleware: pattern-based for `/tech/blog/*` and `/life/blog/*`; database lookup for root-level `/:slug`.
+- Legacy URLs redirect via `next.config.ts`, not middleware — see "Legacy URL handling" below.
 - Uses `yarn`.
 
 ## Environment variables
@@ -114,12 +114,21 @@ Post fields: title, body (markdown), summary, imageUrl, section, slug (derived f
 
 ## Legacy URL handling
 
-Pattern-based redirects live in `src/proxy.ts` (Next.js middleware); single-segment root-level slug lookups live in `src/app/[slug]/page.tsx` (catch-all page, reached only when no static top-level route matches):
+All rules live in `src/lib/routing/legacyRoutes.ts` and are wired into `next.config.ts` via `redirects()` and `rewrites()`. Vercel compiles both into its routing layer, so they resolve **without a function invocation** — and `redirects()` runs ahead of middleware, so a legacy hit never reaches one. Keep them there; moving any of this back into `src/proxy.ts` puts it back on billed compute.
 
-- `/tech/blog/:slug` → 301 to `/blog/tech/:slug` (middleware, pattern match)
-- `/life/blog/:slug` → 301 to `/blog/life/:slug` (middleware, pattern match)
-- `/tech/archive` → 301 to `/blog/tech/archive` (middleware, pattern match)
-- `/:slug` (catch-all) → DB lookup via `lookupLegacySlug`, `permanentRedirect` (308) to `/blog/{section}/{slug}` or `/projects/{slug}` on hit, `notFound()` (renders `app/not-found.tsx`) on miss
+Redirects (308, query string preserved automatically):
+
+- `/tech/blog/:slug` → `/blog/tech/:slug` (and `/life`)
+- `/tech/archive`, `/tech/search`, `/tech` → the `/blog/tech/*` equivalents
+- `/tech/feed`, `/feed`, `/rss`, `/rss.xml`, `/feed.xml`, `/atom.xml`, `/index.xml` → `/api/feed/:section`, defaulting to `tech`
+- `/privacy-policy` → `/privacy`
+
+Rewrites (`beforeFiles`, so they win over the filesystem route that would otherwise capture the URL):
+
+- `/blog/:section/feed.xml` → `/api/feed/:section`
+- `/blog/:section/:slug.md` → `/api/blog/:section/:slug/md`
+
+Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **removed** — the route invoked a function on every unmatched path, including scanner probes, and carried no measurable traffic. Unmatched paths now resolve to the static 404 at zero compute. `LEGACY_POST_SLUG_ALIASES` still exists and is unrelated: `src/app/blog/[section]/[slug]/page.tsx` uses it to fix the old slugifier's dirty slugs on a blog-route miss.
 
 ## Design direction
 

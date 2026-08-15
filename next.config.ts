@@ -1,3 +1,7 @@
+import {
+	LEGACY_REDIRECTS,
+	LEGACY_REWRITES,
+} from "./src/lib/routing/legacyRoutes"
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
@@ -17,6 +21,18 @@ const nextConfig: NextConfig = {
 					]
 				: []),
 		],
+	},
+	// Legacy URL handling. Both lists live in `src/lib/routing/legacyRoutes.ts`
+	// and used to run in `src/proxy.ts`; Vercel compiles them into its routing
+	// layer, so they resolve without a function invocation. `redirects()` also
+	// runs ahead of middleware, so a legacy hit never reaches one.
+	async redirects() {
+		return LEGACY_REDIRECTS
+	},
+	// `beforeFiles`, so the rewrite wins over the filesystem route that would
+	// otherwise capture the URL — see the note in `legacyRoutes.ts`.
+	async rewrites() {
+		return { beforeFiles: LEGACY_REWRITES, afterFiles: [], fallback: [] }
 	},
 	async headers() {
 		const isProd = process.env.NODE_ENV === "production"
