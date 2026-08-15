@@ -1,10 +1,27 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
 	buildPageMetadata,
 	defaultOgImage,
+	OG_IMAGE_HEIGHT,
+	OG_IMAGE_WIDTH,
+	ogImageEntry,
 	siteOpenGraph,
 	siteTwitter,
 } from "@/lib/content/metadata"
+
+// The descriptor `buildPageMetadata` is expected to emit for the site card,
+// written out rather than built with `ogImageEntry`: this file is where that
+// shape is pinned, and calling the helper to check the helper would pass no
+// matter what it returned. The page-level suites use `ogImageEntry` instead,
+// since their subject is *which* image, not what shape it takes.
+const defaultCard = {
+	url: defaultOgImage,
+	width: OG_IMAGE_WIDTH,
+	height: OG_IMAGE_HEIGHT,
+	alt: "Roland Leth — iOS developer & full-stack engineer",
+}
 
 describe("buildPageMetadata", () => {
 	// Next resolves `openGraph`/`twitter` from the page's own object and assigns
@@ -68,8 +85,8 @@ describe("buildPageMetadata", () => {
 	// to "the default" — a null element would still fail both.
 	it("falls back to the default card when no image is provided", () => {
 		const metaMissing = buildPageMetadata({ title: "x", path: "/x" })
-		expect(metaMissing.openGraph?.images).toEqual([defaultOgImage])
-		expect(metaMissing.twitter?.images).toEqual([defaultOgImage])
+		expect(metaMissing.openGraph?.images).toEqual([defaultCard])
+		expect(metaMissing.twitter?.images).toEqual([defaultCard])
 	})
 
 	it("falls back to the default card when image is null", () => {
@@ -78,25 +95,51 @@ describe("buildPageMetadata", () => {
 			path: "/x",
 			image: null,
 		})
-		expect(meta.openGraph?.images).toEqual([defaultOgImage])
-		expect(meta.twitter?.images).toEqual([defaultOgImage])
+		expect(meta.openGraph?.images).toEqual([defaultCard])
+		expect(meta.twitter?.images).toEqual([defaultCard])
+	})
+
+	// `""` resolves against `metadataBase` to the site root, so it doesn't just
+	// skip the card — it advertises an HTML document as the image. Worse than
+	// the imageless card the default exists to fix, and invisible without a
+	// share debugger. `??` alone doesn't catch it: `"" ?? default` is `""`.
+	it.each([
+		["empty", ""],
+		["whitespace-only", "   "],
+	])("falls back to the default card when image is %s", (_label, image) => {
+		const meta = buildPageMetadata({ title: "x", path: "/x", image })
+		expect(meta.openGraph?.images).toEqual([defaultCard])
+		expect(meta.twitter?.images).toEqual([defaultCard])
 	})
 
 	// The promise `card: "summary_large_image"` makes. An imageless large-image
 	// card is a degraded card, so no page may resolve to an empty `images`.
+	// Asserted as exact arrays, not lengths: `toHaveLength(1)` passes for
+	// `[""]`, `[undefined]`, and any wrong entry.
 	it("never emits an imageless large-image card", () => {
-		const cases = [
-			buildPageMetadata({ title: "x", path: "/x" }),
-			buildPageMetadata({ title: "x", path: "/x", image: null }),
-			buildPageMetadata({ title: "x", path: "/x", image: "/images/a.png" }),
+		const cases: [string | null | undefined, object][] = [
+			[undefined, defaultCard],
+			[null, defaultCard],
+			["", defaultCard],
+			["   ", defaultCard],
+			["/images/a.png", { url: "/images/a.png" }],
 		]
 
-		for (const meta of cases) {
-			expect(meta.openGraph?.images).toHaveLength(1)
-			expect(meta.twitter?.images).toHaveLength(1)
-			expect(meta.openGraph?.images).not.toContain(null)
-			expect(meta.twitter?.images).not.toContain(null)
+		for (const [image, expected] of cases) {
+			const meta = buildPageMetadata({ title: "x", path: "/x", image })
+
+			expect(meta.openGraph?.images).toEqual([expected])
+			expect(meta.twitter?.images).toEqual([expected])
 		}
+	})
+
+	// Two `images` keys built from one string, not one array instance shared
+	// between them: aliasing is invisible at both call sites, and a future
+	// per-surface normalization would silently reach both.
+	it("does not share one array instance between openGraph and twitter", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+
+		expect(meta.openGraph?.images).not.toBe(meta.twitter?.images)
 	})
 
 	it("wraps a provided image in a single-element array", () => {
@@ -105,8 +148,12 @@ describe("buildPageMetadata", () => {
 			path: "/x",
 			image: "https://example.com/hero.png",
 		})
-		expect(meta.openGraph?.images).toEqual(["https://example.com/hero.png"])
-		expect(meta.twitter?.images).toEqual(["https://example.com/hero.png"])
+		expect(meta.openGraph?.images).toEqual([
+			{ url: "https://example.com/hero.png" },
+		])
+		expect(meta.twitter?.images).toEqual([
+			{ url: "https://example.com/hero.png" },
+		])
 	})
 
 	it("passes through keywords when provided", () => {
@@ -226,3 +273,78 @@ describe("buildPageMetadata", () => {
 		})
 	})
 })
+
+// #region committed asset
+
+describe("defaultOgImage", () => {
+	it("is a root-relative path, so it resolves against metadataBase", () => {
+		expect(defaultOgImage.startsWith("/")).toBe(true)
+	})
+
+	// `card: "summary_large_image"` promises a 1200×630 image on every page, and
+	// nothing else on the site checks the bytes: a missing or wrong-size file
+	// leaves the metadata perfectly well-formed while every social preview
+	// degrades. Read the header rather than just `existsSync` — "some file is
+	// there" is the assertion that passes right up until it matters.
+	//
+	// PNG layout: 8-byte signature, then the IHDR chunk — 4-byte length, the
+	// "IHDR" tag, then width and height as big-endian uint32 at offsets 16 and 20.
+	it("points at a PNG in public/ matching the advertised dimensions", () => {
+		const filePath = path.join(process.cwd(), "public", defaultOgImage)
+		const bytes = readFileSync(filePath)
+
+		expect(
+			bytes.subarray(0, 8).toString("hex"),
+			`${defaultOgImage} is not a PNG`
+		).toBe("89504e470d0a1a0a")
+		expect(bytes.subarray(12, 16).toString("ascii")).toBe("IHDR")
+		expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([
+			OG_IMAGE_WIDTH,
+			OG_IMAGE_HEIGHT,
+		])
+	})
+})
+
+// #endregion
+
+// #region image descriptors
+
+describe("ogImageEntry", () => {
+	// The dimensions let a scraper choose the large-card layout without fetching
+	// the bytes; the alt is what a screen reader announces for a shared link.
+	it("describes the default card fully", () => {
+		expect(ogImageEntry(defaultOgImage)).toEqual({
+			url: defaultOgImage,
+			width: OG_IMAGE_WIDTH,
+			height: OG_IMAGE_HEIGHT,
+			alt: expect.any(String),
+		})
+	})
+
+	// A Blob upload of unknown size with no stored description. Stamping the
+	// default's dimensions on it would advertise a size that isn't true.
+	it("claims nothing but the URL for a page-supplied image", () => {
+		expect(ogImageEntry("https://blob.example/shot.png")).toEqual({
+			url: "https://blob.example/shot.png",
+		})
+	})
+
+	it("returns a fresh object per call, so the two metadata keys can't alias", () => {
+		expect(ogImageEntry(defaultOgImage)).not.toBe(ogImageEntry(defaultOgImage))
+	})
+
+	it("carries the descriptor through buildPageMetadata's fallback", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+
+		expect(meta.openGraph?.images).toEqual([
+			{
+				url: defaultOgImage,
+				width: OG_IMAGE_WIDTH,
+				height: OG_IMAGE_HEIGHT,
+				alt: expect.any(String),
+			},
+		])
+	})
+})
+
+// #endregion

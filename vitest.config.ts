@@ -33,10 +33,23 @@ export default defineConfig({
 			provider: "v8",
 			reporter: ["text"],
 			include: ["src/**"],
+			// `src/components/**/*.tsx` rather than `src/**/*.tsx`. The broad glob
+			// hid logic, not just markup: any `.tsx` under `src/app` — a page's
+			// `generateMetadata`, a layout's auth guard — was invisible to the
+			// report no matter how much of it went untested, so a gap there could
+			// never be noticed by looking.
+			//
+			// The trade is a set of rows that sit at 0% on purpose: the static page
+			// bodies (`/about`, `/privacy/*`, the section indexes) are markup with
+			// no branches, and nobody intends to render-test them. They drag the
+			// headline number down about five points. That's tolerable because
+			// nothing gates on it — `reporter: ["text"]` is informational, there is
+			// no threshold — and a noisy report that shows real gaps beats a tidy
+			// one that can't.
 			exclude: [
 				"src/**/*.test.*",
 				"src/generated/**",
-				"src/**/*.tsx",
+				"src/components/**/*.tsx",
 				"src/**/*.css",
 				"src/**/*.d.ts",
 				"src/app/api/**",

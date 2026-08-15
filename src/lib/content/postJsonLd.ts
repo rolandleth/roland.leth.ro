@@ -3,7 +3,7 @@
 // stays a thin server component. Consumed by
 // `src/app/blog/[section]/[slug]/page.tsx`.
 
-import { absoluteImageUrl, personFor } from "@/lib/content/jsonLd"
+import { jsonLdImageUrl, personFor } from "@/lib/content/jsonLd"
 import { postDatetimeToISO } from "@/lib/utils/format"
 import type { PostDetail } from "@/lib/db/posts"
 
@@ -40,9 +40,9 @@ export function buildBlogPostingJsonLd(
 		jsonLd.datePublished = datePublished
 	}
 
-	if (post.imageUrl !== null) {
-		jsonLd.image = absoluteImageUrl(post.imageUrl, base)
-	}
+	// Always present: a post with no image of its own names the site card, the
+	// same asset its `og:image` advertises. See `jsonLdImageUrl`.
+	jsonLd.image = jsonLdImageUrl(post.imageUrl, base)
 
 	return jsonLd
 }

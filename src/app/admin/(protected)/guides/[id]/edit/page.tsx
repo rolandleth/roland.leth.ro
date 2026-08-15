@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import GuideForm from "@/components/admin/GuideForm"
-import { adminEditMetadata } from "@/lib/auth/adminMetadata"
+import { ADMIN_EDIT_TAGS, adminEditMetadata } from "@/lib/auth/adminMetadata"
 import { listGuideTopicOptions, loadGuideForAdmin } from "@/lib/db/guides"
 import { getProjectsForAdmin } from "@/lib/db/projects"
 import { parseIntId } from "@/lib/utils/format"
@@ -13,16 +13,16 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { id } = await params
 
-	return adminEditMetadata(
-		"[admin:guides:edit]",
+	return adminEditMetadata({
+		tag: ADMIN_EDIT_TAGS.guides,
 		id,
-		"Edit guide",
-		async (guideId) => {
+		fallback: "Edit guide",
+		loadName: async (guideId) => {
 			const guide = await loadGuideForAdmin(guideId)
 
 			return guide?.title ?? null
-		}
-	)
+		},
+	})
 }
 
 export default async function EditGuidePage({ params }: Props) {

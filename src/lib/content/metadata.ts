@@ -1,3 +1,4 @@
+import { blankToNull } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 /**
@@ -32,11 +33,55 @@ export const siteTwitter = {
  * privacy pages, the loan calculator, and any post or project with no asset —
  * which renders as a degraded card rather than a small one.
  *
- * A committed file, not a render: `src/app/og/route.tsx` generates the artwork
- * but is a dev-only design tool, so the bytes shipped here depend on no font CDN
- * and no Satori version. Regenerate by opening `/og` in dev and saving over it.
+ * A committed file, not a render: `scripts/generate-og-card.tsx` draws the
+ * artwork, so the bytes shipped here depend on no font CDN and no Satori
+ * version at request time. Regenerate with `yarn og:card` and commit the
+ * result; `yarn og:card --check` compares without writing.
  */
 export const defaultOgImage = "/images/og-card.png"
+
+/**
+ * The card's dimensions, single-sourced. `scripts/generate-og-card.tsx` renders
+ * at this size, `metadata.test.ts` reads the committed PNG's IHDR header and
+ * asserts it, and the descriptor below advertises it — three places that would
+ * otherwise drift silently, since a wrong-size card degrades every preview on
+ * the site while leaving the markup perfectly well-formed.
+ */
+export const OG_IMAGE_WIDTH = 1200
+export const OG_IMAGE_HEIGHT = 630
+
+/**
+ * `defaultOgImage` in descriptor form, so the card advertises its own size and
+ * carries alt text.
+ *
+ * The dimensions let a scraper pick the large-card layout without fetching the
+ * bytes first; the alt is what a screen reader announces for a shared link, and
+ * without it every page on the site shares an unlabelled image.
+ *
+ * Only the default gets this treatment. A page-supplied image is an arbitrary
+ * Blob upload of unknown size with no stored description — stamping 1200×630 on
+ * it would assert a dimension that isn't true, and reusing the page title as
+ * `alt` would describe the page rather than the picture. Omitting both is the
+ * honest option there.
+ */
+const defaultOgImageDescriptor = {
+	url: defaultOgImage,
+	width: OG_IMAGE_WIDTH,
+	height: OG_IMAGE_HEIGHT,
+	// Matches what the card actually draws — see `scripts/generate-og-card.tsx`.
+	alt: "Roland Leth — iOS developer & full-stack engineer",
+} as const
+
+/**
+ * The `images` entry for a resolved image: the full descriptor when it's the
+ * site default, a bare URL otherwise. Built fresh per call rather than shared,
+ * so `openGraph` and `twitter` never alias one object.
+ */
+export function ogImageEntry(image: string) {
+	return image === defaultOgImage
+		? { ...defaultOgImageDescriptor }
+		: { url: image }
+}
 
 export interface PageMetadataInput {
 	title: string
@@ -123,7 +168,13 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	// page that genuinely wants no image would need an explicit opt-out; none
 	// does today, and shipping a large-image card with nothing in it is the
 	// failure mode this replaces.
-	const images = [image ?? defaultOgImage]
+	//
+	// `blankToNull` first, not a bare `??`: the parameter is typed `string |
+	// null`, so `""` type-checks, and `"" ?? defaultOgImage` is `""` — which
+	// `metadataBase` resolves to the site root, making the card an HTML
+	// document. Strictly worse than the imageless card the default exists to
+	// fix, and silent.
+	const resolvedImage = blankToNull(image) ?? defaultOgImage
 
 	// `canonical` and `types` are independent opt-ins, so the object is built up
 	// rather than ternary'd on one of them — and stays `undefined` when none
@@ -164,13 +215,16 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 			url: path,
 			publishedTime,
 			modifiedTime,
-			images,
+			// Built twice rather than sharing one array instance between the two
+			// keys: the aliasing is invisible at both call sites, and any future
+			// per-surface normalization would silently apply to both.
+			images: [ogImageEntry(resolvedImage)],
 		},
 		twitter: {
 			...siteTwitter,
 			title: ogTitle,
 			description,
-			images,
+			images: [ogImageEntry(resolvedImage)],
 		},
 	}
 }

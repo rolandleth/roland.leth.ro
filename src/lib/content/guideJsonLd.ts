@@ -6,7 +6,7 @@
 // conditionals over two nearly-disjoint field sets. Kept I/O-free so the shape
 // is unit-testable and the page stays a thin server component.
 
-import { absoluteImageUrl, personFor } from "@/lib/content/jsonLd"
+import { jsonLdImageUrl, personFor } from "@/lib/content/jsonLd"
 import type { GuideDetail } from "@/lib/db/guides"
 
 /**
@@ -24,7 +24,9 @@ import type { GuideDetail } from "@/lib/db/guides"
  *
  * `base` is the site origin from `getSiteUrl()`, passed in so the builder stays
  * pure. `image` is the project's resolved OG image (guides carry no image of
- * their own); absent for a guide with no project.
+ * their own); a guide with no project falls back to the site card, matching what
+ * `buildPageMetadata` puts in `og:image` for the same page. The guarantee is
+ * no misattribution, not no image: a guide never borrows another product's card.
  */
 export function buildGuideArticleJsonLd(
 	guide: GuideDetail,
@@ -50,9 +52,9 @@ export function buildGuideArticleJsonLd(
 		jsonLd.datePublished = new Date(guide.publishedAt).toISOString()
 	}
 
-	if (image != null) {
-		jsonLd.image = absoluteImageUrl(image, base)
-	}
+	// Always present: a guide with no project names the site card, the same asset
+	// its `og:image` advertises. See `jsonLdImageUrl`.
+	jsonLd.image = jsonLdImageUrl(image, base)
 
 	return jsonLd
 }

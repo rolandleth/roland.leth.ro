@@ -5,6 +5,7 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
+import { blankToNull } from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 export interface ProjectListItem {
@@ -146,6 +147,28 @@ function firstSectionImage(
 }
 
 /**
+ * First non-blank candidate in precedence order, or `null` when every column is
+ * empty.
+ *
+ * A plain `??` chain can't do this: the columns are typed `string | null`, and
+ * `"" ?? next` is `""`, so one blank column would short-circuit past every
+ * weaker stand-in and hand back an empty URL as though it were an image. The
+ * write-path schemas reject `""`, but nothing between the column and the
+ * `<img>`/`og:image` re-checks it.
+ */
+function firstImage(candidates: (string | null | undefined)[]): string | null {
+	for (const candidate of candidates) {
+		const image = blankToNull(candidate)
+
+		if (image !== null) {
+			return image
+		}
+	}
+
+	return null
+}
+
+/**
  * The list/gallery card image: `cardImage ?? ogImage ?? heroImage ?? first
  * section image`. The dedicated card image wins; the OG image and hero are
  * progressively weaker stand-ins before the first screenshot.
@@ -156,13 +179,12 @@ export function resolveCardImage(project: {
 	heroImage: string | null
 	sections: { images: { url: string }[] }[]
 }): string | null {
-	return (
-		project.cardImage ??
-		project.ogImage ??
-		project.heroImage ??
-		firstSectionImage(project.sections) ??
-		null
-	)
+	return firstImage([
+		project.cardImage,
+		project.ogImage,
+		project.heroImage,
+		firstSectionImage(project.sections),
+	])
 }
 
 /**
@@ -176,13 +198,12 @@ export function resolveOgImage(project: {
 	heroImage: string | null
 	sections: { images: { url: string }[] }[]
 }): string | null {
-	return (
-		project.ogImage ??
-		project.cardImage ??
-		project.heroImage ??
-		firstSectionImage(project.sections) ??
-		null
-	)
+	return firstImage([
+		project.ogImage,
+		project.cardImage,
+		project.heroImage,
+		firstSectionImage(project.sections),
+	])
 }
 
 /**
@@ -352,8 +373,15 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 
 			// Narrow the untyped `offers` Json column to `ProjectOffer[] | null`
 			// once, inside the cache, so every consumer gets the typed shape.
-			// The write path validates offers against `projectOfferSchema`, so
-			// the cast is safe.
+			//
+			// The cast is load-bearing, not cosmetic: it is the single point where
+			// `projectOfferSchema` stops being enforced and starts being assumed.
+			// Both write paths parse through it (`POST/PUT /api/admin/projects`
+			// and `scripts/import-projects.ts` via `projectCreateSchema`), and
+			// consumers — `buildOfferNode` above all — read `price` as a schema-
+			// shaped decimal string with no re-check. A row written around the
+			// schema (raw SQL, a future importer that skips the parse) breaks that
+			// assumption here, not at the consumer.
 			return {
 				...row,
 				offers: row.offers as unknown as ProjectOffer[] | null,

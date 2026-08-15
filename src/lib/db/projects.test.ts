@@ -10,6 +10,8 @@ import {
 	listProjectsForAdmin,
 	loadProject,
 	loadProjectForAdmin,
+	resolveCardImage,
+	resolveOgImage,
 	revalidateProject,
 	toProjectFormInitialData,
 	type AdminProjectDetail,
@@ -233,6 +235,36 @@ describe("getProjectsForAdmin", () => {
 		])
 	})
 
+	it("resolves a blank column past, not as, an image", async () => {
+		// The columns are typed `string | null`, so `""` type-checks even though
+		// the write-path schemas reject it. A `??` chain would short-circuit on
+		// it (`"" ?? next` is `""`) and hand a blank URL to `<img>`/`og:image`
+		// instead of falling through to the next rung.
+		const rows = [
+			makeGalleryRow({
+				id: 1,
+				cardImage: "",
+				ogImage: "   ",
+				heroImage: "/hero.png",
+				sections: [{ images: [{ url: "/first.png" }] }],
+			}),
+			makeGalleryRow({
+				id: 2,
+				cardImage: "",
+				ogImage: "",
+				heroImage: "",
+				sections: [{ images: [{ url: "  " }] }],
+			}),
+		]
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			rows as unknown as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+
+		const result = await getProjectsForAdmin()
+
+		expect(result.map((p) => p.featuredImage)).toEqual(["/hero.png", null])
+	})
+
 	it("is not wrapped in unstable_cache (admin reads must bypass the cache)", () => {
 		// Pin the set of `unstable_cache(...)` wraps registered at module load
 		// in projects.ts. The `getProjectBySlug` wrappers are created lazily
@@ -243,6 +275,62 @@ describe("getProjectsForAdmin", () => {
 			{ keys: ["projects-gallery"], tags: ["projects"] },
 			{ keys: ["all-project-slugs"], tags: ["projects"] },
 		])
+	})
+})
+
+// #endregion
+
+// #region resolveCardImage / resolveOgImage
+
+describe("resolveCardImage / resolveOgImage", () => {
+	const sections = [{ images: [{ url: "/first.png" }] }]
+
+	it("differ only in whether cardImage or ogImage wins", () => {
+		// The two chains are deliberate mirrors: the gallery tile prefers the
+		// dedicated card, the social tag prefers the purpose-built 1200×630 OG
+		// asset. Pinned together so one can't be reordered without the other.
+		const project = {
+			cardImage: "/card.png",
+			ogImage: "/og.png",
+			heroImage: "/hero.png",
+			sections,
+		}
+
+		expect(resolveCardImage(project)).toBe("/card.png")
+		expect(resolveOgImage(project)).toBe("/og.png")
+	})
+
+	it.each([
+		["hero", { cardImage: null, ogImage: null }, "/hero.png"],
+		["blank card and og", { cardImage: "", ogImage: "  " }, "/hero.png"],
+	])("falls through to %s", (_label, images, expected) => {
+		const project = { heroImage: "/hero.png", sections, ...images }
+
+		expect(resolveCardImage(project)).toBe(expected)
+		expect(resolveOgImage(project)).toBe(expected)
+	})
+
+	it("returns null when every rung is absent or blank", () => {
+		const project = {
+			cardImage: "",
+			ogImage: null,
+			heroImage: "   ",
+			sections: [{ images: [{ url: "" }] }],
+		}
+
+		expect(resolveCardImage(project)).toBeNull()
+		expect(resolveOgImage(project)).toBeNull()
+	})
+
+	it("trims a padded URL rather than passing it through", () => {
+		const project = {
+			cardImage: "  /card.png  ",
+			ogImage: null,
+			heroImage: null,
+			sections: [],
+		}
+
+		expect(resolveCardImage(project)).toBe("/card.png")
 	})
 })
 

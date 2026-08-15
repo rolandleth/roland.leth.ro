@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { defaultOgImage } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
@@ -112,8 +113,11 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		expect(result).toMatchObject({ operatingSystem: "iOS" })
 	})
 
-	it("omits image when null and includes it when provided", () => {
-		expect(buildApp(makeProject(), null)).not.toHaveProperty("image")
+	// Matches the page's `og:image` fallback, so both surfaces name one asset.
+	it("falls back to the site card when null and uses the asset when provided", () => {
+		expect(buildApp(makeProject(), null)).toMatchObject({
+			image: `${BASE}${defaultOgImage}`,
+		})
 		expect(buildApp(makeProject(), "https://blob/og.png")).toMatchObject({
 			image: "https://blob/og.png",
 		})
@@ -226,43 +230,12 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		})
 	})
 
-	it("falls back to an Offer array when a same-currency price isn't numeric", () => {
-		// A `"free"` sentinel would make the AggregateOffer's Number()-based sort
-		// compare NaN and emit undefined-order bounds. The Offer-array shape asserts
-		// no range, so it's the safe fallback — no AggregateOffer, no corrupt bounds.
-		const result = buildApp(
-			makeProject({
-				offers: [
-					{ name: "Free", price: "free", priceCurrency: "USD" },
-					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
-				],
-			}),
-			null
-		)
-
-		expect(result?.offers).toEqual([
-			{ "@type": "Offer", price: "free", priceCurrency: "USD" },
-			{ "@type": "Offer", price: "9.99", priceCurrency: "USD" },
-		])
-	})
-
-	it("treats an empty/whitespace price as non-numeric (Number('') is 0, not NaN)", () => {
-		// Guards the subtle case: an empty string parses to 0, so a naive
-		// Number.isFinite check would wrongly emit an AggregateOffer with an empty
-		// `lowPrice`. It must fall back to the Offer array instead.
-		const result = buildApp(
-			makeProject({
-				offers: [
-					{ name: "Blank", price: "  ", priceCurrency: "USD" },
-					{ name: "Paid", price: "5.00", priceCurrency: "USD" },
-				],
-			}),
-			null
-		)
-
-		expect(Array.isArray(result?.offers)).toBe(true)
-		expect(result?.offers).not.toMatchObject({ "@type": "AggregateOffer" })
-	})
+	// No non-numeric-price cases here: `Number(price)` in the AggregateOffer sort
+	// relies on `projectOfferSchema`'s `/^\d+(\.\d{1,2})?$/`, which both write
+	// paths enforce, and that regex is tested directly against `"free"`,
+	// `"12.345"`, `"$5"`, `"12,00"` and `""` in `src/lib/api/schemas.test.ts`.
+	// Re-testing a read-side fallback here would pin behaviour no sanctioned
+	// write can produce.
 
 	it("de-dupes offerCount by (price, currency, billing period)", () => {
 		// Two identical rows (e.g. a manifest listing the same tier twice) must not
@@ -319,7 +292,14 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 		})
 	})
 
-	it("marks an AggregateOffer discontinued", () => {
+	// A same-currency multi-tier set would otherwise take the AggregateOffer
+	// shape. It doesn't when discontinued: `AggregateOffer` accepts
+	// `availability` (it subclasses `Offer`), but consumers reading only the
+	// documented aggregate fields drop it, and that shape emits no per-`Offer`
+	// node to carry the marker instead — so the one project that most needs the
+	// Discontinued signal would hang it on the node least likely to be read.
+	// Losing the price range is the deliberate trade.
+	it("drops the aggregate shape so the discontinued marker survives", () => {
 		const result = buildApp(
 			makeProject({
 				isDiscontinued: true,
@@ -331,11 +311,45 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 			null
 		)
 
-		expect(result?.offers).toMatchObject({
+		expect(result?.offers).toEqual([
+			{
+				"@type": "Offer",
+				price: "0",
+				priceCurrency: "USD",
+				availability: DISCONTINUED,
+			},
+			{
+				"@type": "Offer",
+				price: "9.99",
+				priceCurrency: "USD",
+				availability: DISCONTINUED,
+			},
+		])
+	})
+
+	// The same input with the flag off still aggregates, so the branch above is
+	// the discontinued case specifically and not a silent loss of the range.
+	// `toEqual`, not `toMatchObject`: the aggregate's own fields are the subject
+	// here, and a partial match would pass with `priceCurrency` or `offerCount`
+	// missing.
+	it("still aggregates the same offers when the project is live", () => {
+		const result = buildApp(
+			makeProject({
+				isDiscontinued: false,
+				offers: [
+					{ name: "Free", price: "0", priceCurrency: "USD" },
+					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
+				],
+			}),
+			null
+		)
+
+		expect(result?.offers).toEqual({
 			"@type": "AggregateOffer",
+			priceCurrency: "USD",
 			lowPrice: "0",
 			highPrice: "9.99",
-			availability: DISCONTINUED,
+			offerCount: 2,
 		})
 	})
 
@@ -372,6 +386,11 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	// Deliberately absent rather than `InStock`: `isDiscontinued === false` means
 	// "not marked discontinued", not "confirmed on sale". Asserting availability
 	// the data can't back is the failure mode this whole change exists to fix.
+	//
+	// `toEqual` on the whole node rather than `not.toHaveProperty`: the negative
+	// idiom is meaningful here because the subject is a single object, but it
+	// passes vacuously against an array return, so it would quietly assert
+	// nothing if this case were ever copied to a multi-offer shape.
 	it("asserts no availability at all for a live project", () => {
 		const result = buildApp(
 			makeProject({
@@ -381,12 +400,22 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 			null
 		)
 
-		expect(result?.offers).not.toHaveProperty("availability")
+		expect(result?.offers).toEqual({
+			"@type": "Offer",
+			price: "4.99",
+			priceCurrency: "USD",
+		})
 	})
 
-	it("emits no offers for a discontinued project that never had any", () => {
+	// Both halves of the `offers === null || offers.length === 0` guard. An empty
+	// array is what a manifest with an `offers: []` key produces, and it reached
+	// the same branch as `null` only by luck of ordering.
+	it.each([
+		["null offers", null],
+		["an empty offers array", []],
+	])("emits no offers for a discontinued project with %s", (_label, offers) => {
 		expect(
-			buildApp(makeProject({ isDiscontinued: true, offers: null }), null)
+			buildApp(makeProject({ isDiscontinued: true, offers }), null)
 		).not.toHaveProperty("offers")
 	})
 })

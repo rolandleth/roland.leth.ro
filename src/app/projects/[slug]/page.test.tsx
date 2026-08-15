@@ -2,6 +2,7 @@ import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { markdownToReact } from "@/lib/content/markdown"
+import { ogImageEntry } from "@/lib/content/metadata"
 import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
 import ProjectPage, { generateMetadata } from "./page"
@@ -271,7 +272,7 @@ describe("generateMetadata", () => {
 			heroImage: "/hero.png",
 		})
 		const result = await generateMetadata(paramsFor("my-app"))
-		expect(result.openGraph?.images).toEqual(["/og.png"])
+		expect(result.openGraph?.images).toEqual([ogImageEntry("/og.png")])
 	})
 
 	it("falls back to the cardImage for OG when no ogImage is set", async () => {
@@ -282,6 +283,6 @@ describe("generateMetadata", () => {
 			heroImage: "/hero.png",
 		})
 		const result = await generateMetadata(paramsFor("my-app"))
-		expect(result.openGraph?.images).toEqual(["/card.png"])
+		expect(result.openGraph?.images).toEqual([ogImageEntry("/card.png")])
 	})
 })

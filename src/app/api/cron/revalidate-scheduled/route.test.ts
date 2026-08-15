@@ -162,11 +162,13 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 // #region Window
 
 describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
-	it("looks back further than the hourly cron interval", async () => {
+	it("looks back further than the widest gap between two runs", async () => {
 		// A window equal to the interval strands a post whenever a run is
 		// skipped or delayed. Overlap costs one redundant revalidation; a gap
 		// loses the post until the next real mutation, so the window must be
-		// strictly wider than the schedule in `vercel.json`.
+		// strictly wider than the schedule in `vercel.json` — and that schedule
+		// is daily, fired with ±59 minutes of Hobby jitter, so two consecutive
+		// runs can land 24h59m apart with nothing wrong.
 		await GET(authorized())
 
 		const [windowStart, now] = vi.mocked(countPostsBecameLive).mock.calls[0]
@@ -174,7 +176,7 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 
 		expect(windowStart < now).toBe(true)
 		expect(Date.now() - guideWindowStart.getTime()).toBeGreaterThan(
-			60 * 60 * 1000
+			25 * 60 * 60 * 1000
 		)
 	})
 

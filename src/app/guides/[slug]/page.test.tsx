@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { defaultOgImage } from "@/lib/content/metadata"
+import { buildGuideArticleJsonLd } from "@/lib/content/guideJsonLd"
+import { defaultOgImage, ogImageEntry } from "@/lib/content/metadata"
 import { loadGuide, loadGuideTopic } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
 import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
@@ -334,9 +335,9 @@ describe("generateMetadata", () => {
 		vi.mocked(loadProject).mockResolvedValue(project)
 
 		const result = await generateMetadata(paramsFor(guide.slug))
-		const og = result.openGraph as { images?: string[] }
+		const og = result.openGraph as { images?: object[] }
 
-		expect(og.images).toEqual(["https://blob.example/og.png"])
+		expect(og.images).toEqual([ogImageEntry("https://blob.example/og.png")])
 	})
 
 	// The guarantee is no misattribution, not no image: a guide that names no
@@ -346,10 +347,27 @@ describe("generateMetadata", () => {
 		vi.mocked(loadGuide).mockResolvedValue(guide)
 
 		const result = await generateMetadata(paramsFor(guide.slug))
-		const og = result.openGraph as { images?: string[] }
+		const og = result.openGraph as { images?: { url?: string }[] }
 
-		expect(og.images).toEqual([defaultOgImage])
-		expect(og.images).not.toContain("https://blob.example/og.png")
+		expect(og.images).toEqual([ogImageEntry(defaultOgImage)])
+		expect(og.images?.map((image) => image.url)).not.toContain(
+			"https://blob.example/og.png"
+		)
+	})
+
+	// The other half of the same path. These two surfaces described one page
+	// differently — `og:image` named the site card while the Article JSON-LD
+	// claimed no image at all — and only the OG side was asserted, so the split
+	// was pinned in neither direction.
+	it("names the same site card in the Article JSON-LD", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(guide)
+
+		const result = await generateMetadata(paramsFor(guide.slug))
+		const og = result.openGraph as { images?: { url?: string }[] }
+		const base = "https://roland.leth.ro"
+		const jsonLd = buildGuideArticleJsonLd(guide, base, null)
+
+		expect(jsonLd.image).toBe(`${base}${og.images?.[0]?.url}`)
 	})
 })
 

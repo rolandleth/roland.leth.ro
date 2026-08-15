@@ -1,0 +1,60 @@
+import { cache } from "react"
+import { randomShortId } from "@/lib/utils/randomShortId"
+
+/**
+ * The guards that sit behind the `src/proxy.ts` matcher. Each names where the
+ * request surfaced, so one alert rule can distinguish "an API handler ran
+ * unauthenticated" from "a page body rendered unauthenticated".
+ */
+export type BypassSurface =
+	"the handler" | "the protected layout" | "generateMetadata"
+
+/**
+ * One id per request, shared by every guard that fires for it.
+ *
+ * A bypassed *page* request trips two guards independently — `generateMetadata`
+ * (via `adminEditMetadata`) and the protected layout — because Next runs the
+ * two outside each other. Without a shared field they are two `console.error`
+ * lines with different tags and nothing linking them, so a count-based alert
+ * double-counts and no operator can tell one bypass from two.
+ *
+ * `cache` is React's per-request memo, which Next scopes across
+ * `generateMetadata`, layouts, and pages of the same request — exactly the two
+ * call sites that need to agree. The id is minted lazily, so a request that
+ * trips no guard pays nothing.
+ *
+ * API handlers trip exactly one guard, so their line needs no correlation; the
+ * id is still emitted for a uniform shape, and is simply unique per line there.
+ */
+const bypassIdForRequest = cache(randomShortId)
+
+/**
+ * Reports an unauthenticated request that reached a guard behind the middleware
+ * matcher.
+ *
+ * Logged at error level precisely because it should be unreachable: the
+ * middleware 401s or redirects these before they get here, so a line means the
+ * `src/proxy.ts` matcher missed the path. That is a security event, not a
+ * routine 401 — and it is the only signal that the matcher has a hole.
+ *
+ * The message text is single-sourced here rather than hand-copied into each
+ * guard: it is the one greppable invariant across all three, so rewording it in
+ * one place would silently drop that guard out of any alert rule built on the
+ * string.
+ *
+ * @param tag Route- or page-identifying tag, e.g. `[api:admin:posts:POST]`.
+ * @param context Structured payload. `id` is the record id where the guard has
+ * one in hand — for a matcher hole, the value that got through is what narrows
+ * the search for which path did.
+ */
+export function logMiddlewareBypass(
+	tag: string,
+	surface: BypassSurface,
+	context: { id?: string } = {}
+): void {
+	// eslint-disable-next-line no-console
+	console.error(
+		`${tag} unauthenticated request reached ${surface} — the middleware gate did not run for this path`,
+		{ bypassId: bypassIdForRequest(), surface, ...context }
+	)
+}
