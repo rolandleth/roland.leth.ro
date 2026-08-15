@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
 	buildPageMetadata,
@@ -252,3 +254,35 @@ describe("buildPageMetadata", () => {
 		})
 	})
 })
+
+// #region committed asset
+
+describe("defaultOgImage", () => {
+	it("is a root-relative path, so it resolves against metadataBase", () => {
+		expect(defaultOgImage.startsWith("/")).toBe(true)
+	})
+
+	// `card: "summary_large_image"` promises a 1200×630 image on every page, and
+	// nothing else on the site checks the bytes: a missing or wrong-size file
+	// leaves the metadata perfectly well-formed while every social preview
+	// degrades. Read the header rather than just `existsSync` — "some file is
+	// there" is the assertion that passes right up until it matters.
+	//
+	// PNG layout: 8-byte signature, then the IHDR chunk — 4-byte length, the
+	// "IHDR" tag, then width and height as big-endian uint32 at offsets 16 and 20.
+	it("points at a 1200×630 PNG in public/", () => {
+		const filePath = path.join(process.cwd(), "public", defaultOgImage)
+		const bytes = readFileSync(filePath)
+
+		expect(
+			bytes.subarray(0, 8).toString("hex"),
+			`${defaultOgImage} is not a PNG`
+		).toBe("89504e470d0a1a0a")
+		expect(bytes.subarray(12, 16).toString("ascii")).toBe("IHDR")
+		expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([
+			1200, 630,
+		])
+	})
+})
+
+// #endregion

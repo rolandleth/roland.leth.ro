@@ -33,9 +33,10 @@ export const siteTwitter = {
  * privacy pages, the loan calculator, and any post or project with no asset —
  * which renders as a degraded card rather than a small one.
  *
- * A committed file, not a render: `src/app/og/route.tsx` generates the artwork
- * but is a dev-only design tool, so the bytes shipped here depend on no font CDN
- * and no Satori version. Regenerate by opening `/og` in dev and saving over it.
+ * A committed file, not a render: `scripts/generate-og-card.tsx` draws the
+ * artwork, so the bytes shipped here depend on no font CDN and no Satori
+ * version at request time. Regenerate with `yarn og:card` and commit the
+ * result; `yarn og:card --check` compares without writing.
  */
 export const defaultOgImage = "/images/og-card.png"
 

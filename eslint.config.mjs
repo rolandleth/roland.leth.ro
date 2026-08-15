@@ -174,7 +174,9 @@ const eslintConfig = defineConfig([
 			"**/*.test.ts",
 			"**/*.test.tsx",
 			"**/test/setup*.ts",
-			"scripts/*.ts",
+			// `.tsx` too: `generate-og-card.tsx` renders JSX through Satori, so a
+			// build script can legitimately be a `.tsx` file.
+			"scripts/*.{ts,tsx}",
 		],
 		rules: {
 			"sonarjs/prefer-specific-assertions": "off",

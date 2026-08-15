@@ -12,7 +12,8 @@
 		"db:migrate": "prisma migrate dev",
 		"db:import-projects": "tsx scripts/import-projects.ts",
 		"db:import-posts": "tsx scripts/import-posts.ts",
-		"db:import-guides": "tsx scripts/import-guides.ts"
+		"db:import-guides": "tsx scripts/import-guides.ts",
+		"og:card": "tsx scripts/generate-og-card.tsx"
 	},
 	"dependencies": {
 		"@prisma/adapter-pg": "^7.6.0",
