@@ -75,6 +75,7 @@ public/
 - Blog posts stored in PostgreSQL (markdown body, rendered on read).
 - Projects stored in PostgreSQL (like posts), managed via admin UI.
 - Blog URLs: `/blog/:section/:slug` (e.g., `/blog/tech/my-post`).
+- Blog pagination is path-based: `/blog/:section` is page 1, `/blog/:section/p/:page` is page 2 onward. Always build these with `blogPagePath` rather than by hand. Do NOT read `searchParams` in a list route — that alone makes it render per request.
 - Legacy URLs redirect via `next.config.ts`, not middleware — see "Legacy URL handling" below.
 - Uses `yarn`.
 
@@ -137,14 +138,15 @@ database but held out of every public surface by a **read-time** filter. Two
 different mechanisms surface it, and which one applies depends on whether the
 route renders per request:
 
-- **Dynamic routes** (the blog list) need nothing. `blogPage1Cache` caches a
-  padded superset that *includes* scheduled posts, and the `datetime <= now`
-  filter re-runs on every request, so a post surfaces on the first request after
-  its time passes. Do not prerender these routes without replacing this.
-- **Static routes** (feed, archive, sitemap) have no read-time code — the filter
-  runs when the file is generated and then freezes. They rely on
-  `/api/cron/revalidate-scheduled`, which runs hourly, counts posts and guides
-  that came due in a 2h lookback window, and busts the tags only when one did.
+Every public content route is now static, so they all take the same path: the
+`datetime <= now` / `publishedAt` filter runs when the page is generated and then
+freezes. `/api/cron/revalidate-scheduled` runs hourly, counts posts and guides
+that came due in a 2h lookback window, and busts the tags only when one did.
+
+A dynamic route would not need this — a per-request filter re-evaluates on its
+own. The blog list used to work that way, caching a padded superset and
+filtering at read time. That mechanism was removed when the list was prerendered,
+because a static page has no read time for the filter to run in.
 
 The cron replaced a `revalidate = 3600` on all three routes. That regenerated
 each of them every hour whether or not anything had changed — and with crawlers

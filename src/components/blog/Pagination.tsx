@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { blogPagePath } from "@/lib/utils/pagination"
 
 interface Props {
 	page: number
@@ -8,7 +9,6 @@ interface Props {
 }
 
 export default function Pagination({ page, totalPages, section }: Props) {
-	const base = `/blog/${section}`
 	const hasPrev = page > 1
 	const hasNext = page < totalPages
 
@@ -19,7 +19,7 @@ export default function Pagination({ page, totalPages, section }: Props) {
 		>
 			{hasPrev ? (
 				<Link
-					href={page === 2 ? base : `${base}?page=${page - 1}`}
+					href={blogPagePath(section, page - 1)}
 					className="text-secondary flex items-center gap-1 text-sm transition-colors hover:text-(--color-accent)"
 				>
 					<ChevronLeft size={16} />
@@ -35,7 +35,7 @@ export default function Pagination({ page, totalPages, section }: Props) {
 
 			{hasNext ? (
 				<Link
-					href={`${base}?page=${page + 1}`}
+					href={blogPagePath(section, page + 1)}
 					className="text-secondary flex items-center gap-1 text-sm transition-colors hover:text-(--color-accent)"
 				>
 					Older

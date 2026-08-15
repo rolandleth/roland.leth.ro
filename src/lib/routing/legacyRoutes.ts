@@ -42,6 +42,27 @@ const DEFAULT_FEED_SECTION = "tech"
 export const LEGACY_REDIRECTS: Redirects = [
 	{ source: "/privacy-policy", destination: "/privacy", permanent: true },
 
+	// Blog pagination moved from `?page=N` to a path segment so page 1 stops
+	// reading `searchParams` — the dynamic API that kept the whole list route on
+	// a per-request render. Indexed `?page=` URLs redirect to the path form.
+	//
+	// `has` captures the query value into `:page` for the destination. Next
+	// re-appends unmatched query params to the destination, so a link carrying
+	// both `?page=2&ref=x` keeps `ref`.
+	{
+		source: "/blog/:section",
+		has: [{ type: "query", key: "page", value: "(?<page>\\d+)" }],
+		destination: "/blog/:section/p/:page",
+		permanent: true,
+	},
+	// `/p/1` and `/blog/:section` would otherwise be two URLs for one page.
+	// The bare path wins; `blogPagePath` keeps internal links off `/p/1`.
+	{
+		source: "/blog/:section/p/1",
+		destination: "/blog/:section",
+		permanent: true,
+	},
+
 	// `/tech/blog/:slug` → `/blog/tech/:slug` (and the same for every other
 	// section). `:slug+` requires at least one segment, so `/tech/blog/` still
 	// falls through to a 404 rather than redirecting to a slugless URL.

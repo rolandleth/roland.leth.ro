@@ -70,6 +70,65 @@ describe("LEGACY_REDIRECTS", () => {
 		expect(rule?.source).toContain(":slug+")
 	})
 
+	it("redirects legacy ?page=N to the path form", () => {
+		// Page 1 stopped reading `searchParams` so the route could prerender;
+		// without this, every indexed or bookmarked `?page=` URL renders page 1
+		// silently instead of the page that was linked.
+		const rule = findRedirect("/blog/:section")
+
+		expect(rule).toMatchObject({
+			destination: "/blog/:section/p/:page",
+			permanent: true,
+		})
+		expect(rule?.has).toEqual([
+			{ type: "query", key: "page", value: "(?<page>\\d+)" },
+		])
+	})
+
+	it("captures the page number as a named group", () => {
+		// The destination interpolates `:page`, which only resolves if `has`
+		// exposes it as a named capture. A bare `.*` value would match but
+		// leave `:page` undefined in the destination.
+		const rule = findRedirect("/blog/:section")
+
+		expect(rule?.has?.[0]).toHaveProperty("value", "(?<page>\\d+)")
+		expect(rule?.destination).toContain(":page")
+	})
+
+	it("only captures numeric page values", () => {
+		// `?page=abc` must not redirect to `/p/abc`, which would 404 rather
+		// than falling through to page 1 as it does today.
+		const rule = findRedirect("/blog/:section")
+		const pattern = new RegExp(`^${rule?.has?.[0]?.value}$`)
+
+		expect(pattern.test("2")).toBe(true)
+		expect(pattern.test("abc")).toBe(false)
+		expect(pattern.test("2abc")).toBe(false)
+	})
+
+	it("collapses /p/1 onto the bare section path", () => {
+		// One page, one URL. `blogPagePath` keeps internal links off `/p/1`;
+		// this catches anything hand-typed or previously indexed.
+		expect(findRedirect("/blog/:section/p/1")).toMatchObject({
+			destination: "/blog/:section",
+			permanent: true,
+		})
+	})
+
+	it("orders the ?page= rule before the /p/1 collapse", () => {
+		// `/blog/tech?page=1` must reach the query rule first and land on
+		// `/p/1`, which the next rule then collapses to `/blog/tech`. Reversed,
+		// the query rule would still fire but the ordering intent is lost.
+		const queryRuleIndex = LEGACY_REDIRECTS.findIndex(
+			(rule) => rule.source === "/blog/:section"
+		)
+		const collapseIndex = LEGACY_REDIRECTS.findIndex(
+			(rule) => rule.source === "/blog/:section/p/1"
+		)
+
+		expect(queryRuleIndex).toBeLessThan(collapseIndex)
+	})
+
 	it("marks every legacy redirect permanent", () => {
 		// These carry the SEO signal of the pre-restructure URLs. A temporary
 		// redirect would leave the old URL as the indexed one.
