@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import sitemap, { revalidate } from "@/app/sitemap"
+import sitemap from "@/app/sitemap"
+import * as sitemapRoute from "@/app/sitemap"
 import { prisma } from "@/lib/db/db"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -480,12 +481,16 @@ describe("sitemap — guide routes", () => {
 // #region Route config
 
 describe("sitemap — route config", () => {
-	it("regenerates on a timer so scheduled posts surface without a tag bust", () => {
+	it("has no time-based revalidate", () => {
 		// The sitemap is prerendered and its scheduled-entry filtering happens at
-		// read time, i.e. at regeneration. A scheduled post crossing its
-		// `datetime` busts no tag, so this backstop is the only thing that gets
-		// its URL indexed before the next content edit or deploy.
-		expect(revalidate).toBe(3600)
+		// read time, i.e. at regeneration. A scheduled post or guide crossing its
+		// publication time busts no tag, and that gap is now closed by
+		// `/api/cron/revalidate-scheduled` rather than by a `revalidate` window.
+		//
+		// This is the most expensive of the three routes that carried the old
+		// hourly backstop — it queries posts, projects, guides, and topics — so a
+		// `revalidate` reappearing here is the costliest regression of the set.
+		expect(sitemapRoute).not.toHaveProperty("revalidate")
 	})
 })
 

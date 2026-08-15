@@ -16,7 +16,7 @@ Log paths: Use your scratchpad to store and read logs, if you need.
 - **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS v4
-- **Database**: PostgreSQL via Prisma ORM (Vercel Postgres / Neon)
+- **Database**: PostgreSQL via Prisma (Prisma Postgres)
 - **Auth**: Custom JWT via `jose` + `bcryptjs` (single-user, session cookie)
 - **Images**: Vercel Blob (free tier: 1GB storage)
 - **Deployment**: Vercel
@@ -129,6 +129,31 @@ Rewrites (`beforeFiles`, so they win over the filesystem route that would otherw
 - `/blog/:section/:slug.md` → `/api/blog/:section/:slug/md`
 
 Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **removed** — the route invoked a function on every unmatched path, including scanner probes, and carried no measurable traffic. Unmatched paths now resolve to the static 404 at zero compute. `LEGACY_POST_SLUG_ALIASES` still exists and is unrelated: `src/app/blog/[section]/[slug]/page.tsx` uses it to fix the old slugifier's dirty slugs on a blog-route miss.
+
+## Scheduled content and revalidation
+
+A post (`datetime`) or guide (`publishedAt`) with a future date is written to the
+database but held out of every public surface by a **read-time** filter. Two
+different mechanisms surface it, and which one applies depends on whether the
+route renders per request:
+
+- **Dynamic routes** (the blog list) need nothing. `blogPage1Cache` caches a
+  padded superset that *includes* scheduled posts, and the `datetime <= now`
+  filter re-runs on every request, so a post surfaces on the first request after
+  its time passes. Do not prerender these routes without replacing this.
+- **Static routes** (feed, archive, sitemap) have no read-time code — the filter
+  runs when the file is generated and then freezes. They rely on
+  `/api/cron/revalidate-scheduled`, which runs hourly, counts posts and guides
+  that came due in a 2h lookback window, and busts the tags only when one did.
+
+The cron replaced a `revalidate = 3600` on all three routes. That regenerated
+each of them every hour whether or not anything had changed — and with crawlers
+and feed readers polling continuously, it always did. Don't reintroduce it; the
+tests on the feed and sitemap assert its absence.
+
+The lookback window is deliberately wider than the cron interval. Overlap costs
+one redundant revalidation; a gap strands content until the next real mutation.
+Change the schedule in `vercel.json` and you must widen `WINDOW_HOURS` to match.
 
 ## Design direction
 

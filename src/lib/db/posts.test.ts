@@ -4,6 +4,7 @@ import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import {
 	bySection,
+	countPostsBecameLive,
 	getAllPublishedPostSlugs,
 	getPostBySlug,
 	getPostsBySection,
@@ -684,6 +685,57 @@ describe("revalidatePostSection", () => {
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("posts", "max")
 		expect(revalidateTag).toHaveBeenCalledTimes(3)
+	})
+})
+
+// #endregion
+
+// #region countPostsBecameLive
+
+describe("countPostsBecameLive", () => {
+	it("counts only published posts inside the window", async () => {
+		vi.mocked(prisma.post.count).mockResolvedValue(2)
+
+		const result = await countPostsBecameLive(
+			"2026-08-15-0800",
+			"2026-08-15-1000"
+		)
+
+		expect(result).toBe(2)
+		expect(prisma.post.count).toHaveBeenCalledWith({
+			where: {
+				published: true,
+				datetime: { gt: "2026-08-15-0800", lte: "2026-08-15-1000" },
+			},
+		})
+	})
+
+	it("excludes the lower bound and includes the upper", async () => {
+		// Half-open on purpose: consecutive cron runs share a boundary instant,
+		// and an inclusive lower bound would re-count the same post every run,
+		// busting the caches this route exists to stop busting.
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+
+		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+
+		expect(where?.datetime).toEqual({
+			gt: "2026-08-15-0800",
+			lte: "2026-08-15-1000",
+		})
+	})
+
+	it("does not filter by section", async () => {
+		// The sitemap and the `posts` aggregate span sections, so the caller
+		// busts all sections on any hit — narrowing here would be misleading.
+		vi.mocked(prisma.post.count).mockResolvedValue(1)
+
+		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+
+		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+
+		expect(where).not.toHaveProperty("section")
 	})
 })
 

@@ -2,7 +2,8 @@ import { unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
-import { dynamic, generateStaticParams, GET, revalidate } from "./route"
+import { dynamic, generateStaticParams, GET } from "./route"
+import * as feedRoute from "./route"
 
 // Spy variant so we can assert on the cache keys and tags wired to each
 // section. The identity-passthrough factory used elsewhere doesn't capture
@@ -201,14 +202,19 @@ describe("GET /api/feed/:section", () => {
 		)
 	})
 
-	it("prerenders statically per section with a scheduled-post revalidate backstop", () => {
+	it("prerenders statically per section with no time-based revalidate", () => {
 		// `force-static` + the tag wiring above is what lets a publish-flow tag
-		// bust regenerate the served XML; `revalidate` is the only thing that
-		// surfaces a scheduled post crossing its `datetime`, since that event
-		// busts no tag. A silent removal of either would go unnoticed until a
-		// stale feed is reported.
+		// bust regenerate the served XML. A scheduled post crossing its
+		// `datetime` busts no tag, and that gap is closed by
+		// `/api/cron/revalidate-scheduled`, NOT by a `revalidate` window — the
+		// window regenerated the feed hourly whether or not anything had
+		// changed, and feed readers poll often enough that it always did.
+		//
+		// If `revalidate` reappears here, that cost is back; if the cron route
+		// disappears, scheduled posts stop surfacing. Pinned so neither change
+		// happens quietly.
 		expect(dynamic).toBe("force-static")
-		expect(revalidate).toBe(3600)
+		expect(feedRoute).not.toHaveProperty("revalidate")
 		expect(generateStaticParams()).toEqual([
 			{ section: "tech" },
 			{ section: "life" },

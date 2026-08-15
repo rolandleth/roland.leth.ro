@@ -159,16 +159,21 @@ export function yearFromDatetime(datetime: string): string {
 }
 
 /**
- * Returns the current time as a `yyyy-MM-dd-HHmm` string, for
- * comparing against the `datetime` field to filter out future posts.
+ * Returns a time as a `yyyy-MM-dd-HHmm` string, for comparing against the
+ * `datetime` field to filter out future posts.
+ *
+ * `at` defaults to now. Pass an explicit `Date` to express an offset from now
+ * in the same local-time frame — the scheduled-post cron builds its lower
+ * window bound this way. Local, not UTC, because `datetime` values are authored
+ * and compared locally throughout (see `datetimeToUtcDate` for the one place
+ * that deliberately differs, and why).
  */
-export function currentDatetimeString(): string {
-	const now = new Date()
-	const year = now.getFullYear()
-	const month = String(now.getMonth() + 1).padStart(2, "0")
-	const day = String(now.getDate()).padStart(2, "0")
-	const hours = String(now.getHours()).padStart(2, "0")
-	const minutes = String(now.getMinutes()).padStart(2, "0")
+export function currentDatetimeString(at: Date = new Date()): string {
+	const year = at.getFullYear()
+	const month = String(at.getMonth() + 1).padStart(2, "0")
+	const day = String(at.getDate()).padStart(2, "0")
+	const hours = String(at.getHours()).padStart(2, "0")
+	const minutes = String(at.getMinutes()).padStart(2, "0")
 
 	return `${year}-${month}-${day}-${hours}${minutes}`
 }

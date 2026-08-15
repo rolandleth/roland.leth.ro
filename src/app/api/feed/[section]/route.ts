@@ -19,11 +19,12 @@ import { currentDatetimeString, postDatetimeToISO } from "@/lib/utils/format"
 // stale for up to an hour. Route handlers are dynamic by default, hence the
 // explicit opt-in.
 export const dynamic = "force-static"
-// Time-based backstop for scheduled posts: nothing busts `feed-{section}`
-// when a post's `datetime` passes, so the `datetime <= now` filter in the
-// handler re-runs at most an hour late. Regenerations only re-template the
-// cached payload — the data cache itself stays tag-busted, not time-busted.
-export const revalidate = 3600
+// Nothing busts `feed-{section}` when a post's `datetime` passes, so the
+// `datetime <= now` filter in the handler needs an external trigger to re-run.
+// That used to be `revalidate = 3600`, which regenerated the feed every hour
+// whether or not a post had come due — and feed readers poll continuously, so
+// it always did. `/api/cron/revalidate-scheduled` now checks first and busts
+// `feed-{section}` only when something actually became live.
 
 export function generateStaticParams() {
 	return SECTIONS.map((section) => ({ section }))

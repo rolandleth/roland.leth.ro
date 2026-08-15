@@ -1,48 +1,14 @@
-import { timingSafeEqual } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
+import { requireCronAuth } from "@/lib/api/cronAuth"
 import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
-import { getCronSecret } from "@/lib/auth/env"
 
 const redis = getKeepaliveRedis()
 
-function isAuthorized(auth: string | null, expected: string): boolean {
-	const expectedBuf = Buffer.from(`Bearer ${expected}`)
-	const authBuf = Buffer.from(auth ?? "")
-
-	// `timingSafeEqual` requires equal-length buffers; the length check leaks
-	// the expected length but that's unavoidable and acceptable for a server-
-	// configured secret. Always run the compare against a same-length dummy
-	// when lengths differ so the byte-level work is constant-time.
-	if (authBuf.length !== expectedBuf.length) {
-		timingSafeEqual(expectedBuf, expectedBuf)
-
-		return false
-	}
-
-	return timingSafeEqual(authBuf, expectedBuf)
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
-	const expected = getCronSecret()
+	const unauthorized = requireCronAuth(request, "api:cron:ping")
 
-	if (expected === null) {
-		// Server config error: cron can't function. Log at error level so a
-		// Vercel-side env regression is visible, but surface as 401 (not 500
-		// naming the env var) to the unauthenticated caller — otherwise a
-		// pre-auth probe learns the server is missing CRON_SECRET.
-		// eslint-disable-next-line no-console
-		console.error("[api:cron:ping] CRON_SECRET not configured")
-
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-	}
-
-	if (!isAuthorized(request.headers.get("authorization"), expected)) {
-		// Routine adversarial signal (port scanners, stale cron config); warn
-		// rather than error so a scan doesn't dominate the error log.
-		// eslint-disable-next-line no-console
-		console.warn("[api:cron:ping] unauthorized")
-
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+	if (unauthorized) {
+		return unauthorized
 	}
 
 	if (!redis) {

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
 import {
 	allGuides,
+	countGuidesBecameLive,
 	getGuideBySlug,
 	getGuideTopicBySlug,
 	getGuidesForProject,
@@ -727,6 +728,55 @@ describe("module-load cache registrations", () => {
 		expect(cacheWrapsAtLoad).toEqual([
 			{ keys: ["guides-overview"], tags: ["guides"] },
 		])
+	})
+})
+
+// #endregion
+
+// #region countGuidesBecameLive
+
+describe("countGuidesBecameLive", () => {
+	const windowStart = new Date("2026-08-15T08:00:00Z")
+	const now = new Date("2026-08-15T10:00:00Z")
+
+	it("counts only published guides inside the window", async () => {
+		vi.mocked(prisma.guide.count).mockResolvedValue(1)
+
+		const result = await countGuidesBecameLive(windowStart, now)
+
+		expect(result).toBe(1)
+		expect(prisma.guide.count).toHaveBeenCalledWith({
+			where: {
+				published: true,
+				publishedAt: { gt: windowStart, lte: now },
+			},
+		})
+	})
+
+	it("excludes the lower bound and includes the upper", async () => {
+		// Half-open, matching `countPostsBecameLive`: consecutive cron runs
+		// share a boundary instant, and an inclusive lower bound would re-count
+		// the same guide every run and bust the caches on every pass.
+		vi.mocked(prisma.guide.count).mockResolvedValue(0)
+
+		await countGuidesBecameLive(windowStart, now)
+
+		const where = vi.mocked(prisma.guide.count).mock.calls[0][0]?.where
+
+		expect(where?.publishedAt).toEqual({ gt: windowStart, lte: now })
+	})
+
+	it("cannot match a guide with a null publishedAt", async () => {
+		// A null `publishedAt` means never scheduled, so it must never come
+		// due. Prisma's range filter excludes nulls, which this pins.
+		vi.mocked(prisma.guide.count).mockResolvedValue(0)
+
+		await countGuidesBecameLive(windowStart, now)
+
+		const where = vi.mocked(prisma.guide.count).mock.calls[0][0]?.where
+
+		expect(where?.publishedAt).not.toBeNull()
+		expect(where?.publishedAt).toHaveProperty("gt")
 	})
 })
 

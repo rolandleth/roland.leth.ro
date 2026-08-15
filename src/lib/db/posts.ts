@@ -437,6 +437,34 @@ export async function searchPosts(
 }
 
 /**
+ * Counts published posts whose `datetime` fell inside `(windowStart, now]` —
+ * that is, posts that became live during the window without any mutation
+ * happening. This is the signal the scheduled-post cron acts on: a post
+ * crossing its `datetime` is the one way the live set changes with nothing to
+ * hang a `revalidateTag` off.
+ *
+ * The comparison is a lexicographic string compare, which matches chronological
+ * order for the fixed-width zero-padded `yyyy-MM-dd-HHmm` format (the invariant
+ * `isScheduled` documents). Both bounds come from `currentDatetimeString`, so
+ * they share its local-time frame.
+ *
+ * Callers should pass a window WIDER than the cron interval. Overlap costs one
+ * redundant revalidation; a gap silently strands a post until the next real
+ * mutation.
+ */
+export async function countPostsBecameLive(
+	windowStart: string,
+	now: string
+): Promise<number> {
+	return prisma.post.count({
+		where: {
+			published: true,
+			datetime: { gt: windowStart, lte: now },
+		},
+	})
+}
+
+/**
  * Invalidates every cache tag tied to a blog section so updated posts
  * surface immediately on list, archive, and feed endpoints.
  */
