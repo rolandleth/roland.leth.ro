@@ -522,6 +522,31 @@ export async function listGuideTopicOptions(): Promise<
  * every project page's guides section. Every guide/topic mutation goes through
  * this, directly or via the helpers below.
  */
+/**
+ * Counts published guides whose `publishedAt` fell inside `(windowStart, now]`
+ * — guides that became live during the window with no mutation to hang a
+ * revalidation off. The guide-side counterpart to `countPostsBecameLive`;
+ * `/api/cron/revalidate-scheduled` checks both, since the sitemap spans them.
+ *
+ * `publishedAt` is a real `DateTime` column here, not a post's `yyyy-MM-dd-HHmm`
+ * string, so this compares `Date`s directly. Guides with a null `publishedAt`
+ * are never scheduled and so can never come due.
+ *
+ * Callers should pass a window WIDER than the cron interval: overlap costs one
+ * redundant revalidation, a gap strands a guide until the next real mutation.
+ */
+export async function countGuidesBecameLive(
+	windowStart: Date,
+	now: Date
+): Promise<number> {
+	return prisma.guide.count({
+		where: {
+			published: true,
+			publishedAt: { gt: windowStart, lte: now },
+		},
+	})
+}
+
 export function revalidateGuides(): void {
 	revalidateTag(GUIDES_TAG, "max")
 }

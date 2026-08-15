@@ -1,23 +1,22 @@
 import { notFound } from "next/navigation"
-import AnimatedCard from "@/components/AnimatedCard"
-import BlogSectionHeader from "@/components/blog/BlogSectionHeader"
-import Pagination from "@/components/blog/Pagination"
-import PostCard from "@/components/blog/PostCard"
-import PageGlow from "@/components/PageGlow"
+import BlogPostList from "@/components/blog/BlogPostList"
 import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
-import { getPostsBySection } from "@/lib/db/posts"
 import { capitalizeSection, isValidSection, SECTIONS } from "@/lib/db/sections"
-import { parsePageParam } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
+// Page 1 of the blog list. Deliberately does NOT read `searchParams` — touching
+// that API is what opts a route into dynamic rendering, and it's decided at
+// build time from whether the code references it, not per request from whether
+// a param is present. Reading it here would put every visit to `/blog/tech` on
+// a billed invocation for the sake of a param that lives on `/blog/:section/p/:page`
+// instead. Legacy `?page=N` URLs are redirected to that route in `next.config.ts`.
 export function generateStaticParams() {
 	return SECTIONS.map((section) => ({ section }))
 }
 
 interface Props {
 	params: Promise<{ section: string }>
-	searchParams: Promise<{ page?: string }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -37,34 +36,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	})
 }
 
-export default async function BlogListPage({ params, searchParams }: Props) {
+export default async function BlogListPage({ params }: Props) {
 	const { section } = await params
-	const { page: pageParam } = await searchParams
 
 	if (!isValidSection(section)) {
 		notFound()
 	}
 
-	const page = parsePageParam(pageParam)
-	const { posts, totalPages } = await getPostsBySection(section, page)
-	const label = capitalizeSection(section)
-
-	return (
-		<div className="relative mx-auto w-full max-w-3xl px-4 py-12">
-			<PageGlow />
-			<BlogSectionHeader section={section} label={label} />
-
-			<div className="divide-border divide-y">
-				{posts.map((post, i) => (
-					<AnimatedCard key={post.id} index={i}>
-						<PostCard post={post} />
-					</AnimatedCard>
-				))}
-			</div>
-
-			{totalPages > 1 && (
-				<Pagination page={page} totalPages={totalPages} section={section} />
-			)}
-		</div>
-	)
+	return <BlogPostList section={section} page={1} />
 }

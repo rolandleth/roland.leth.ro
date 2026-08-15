@@ -9,10 +9,13 @@ import type { Metadata } from "next"
 
 // The archive is prerendered, so `getPostsGroupedByYear`'s `datetime <= now`
 // filter only re-runs on regeneration. Post mutations bust `blog-{section}`,
-// but a scheduled post crossing its `datetime` is not a mutation — without
-// this time-based backstop it would stay out of the archive until the next
-// edit or deploy.
-export const revalidate = 3600
+// but a scheduled post crossing its `datetime` is not a mutation, so it needs
+// something else to trigger the regeneration.
+//
+// That used to be `revalidate = 3600`, which regenerated this page every hour
+// whether or not anything had changed — and with crawlers polling continuously,
+// that was every hour, always. `/api/cron/revalidate-scheduled` now checks
+// first and busts `blog-{section}` only when a post actually came due.
 
 export function generateStaticParams() {
 	return SECTIONS.map((section) => ({ section }))

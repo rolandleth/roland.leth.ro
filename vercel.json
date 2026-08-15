@@ -3,6 +3,10 @@
 		{
 			"path": "/api/cron/ping",
 			"schedule": "0 0 * * *"
+		},
+		{
+			"path": "/api/cron/revalidate-scheduled",
+			"schedule": "0 * * * *"
 		}
 	]
 }

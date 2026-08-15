@@ -7,10 +7,14 @@ import type { MetadataRoute } from "next"
 
 // The sitemap is prerendered, and `getAllPublishedPostSlugs` / the guide
 // helpers filter scheduled entries at read time — which only re-runs on
-// regeneration. Mutations bust the tags, but a scheduled post going live is
-// not a mutation — this time-based backstop bounds how long its URL stays out
-// of the sitemap.
-export const revalidate = 3600
+// regeneration. Mutations bust the tags, but a scheduled post or guide going
+// live is not a mutation, so it needs an external trigger.
+//
+// That used to be `revalidate = 3600`, which regenerated this on the hour every
+// hour — the most expensive of the three routes that carried the backstop,
+// since it queries posts, projects, guides, and topics.
+// `/api/cron/revalidate-scheduled` now checks both posts and guides first and
+// busts only when something actually came due.
 
 function url(base: string, path: string): string {
 	return `${base}${path}`

@@ -1,9 +1,10 @@
-import { revalidateTag } from "next/cache"
+import { revalidateTag, unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import {
 	bySection,
+	countPostsBecameLive,
 	getAllPublishedPostSlugs,
 	getPostBySlug,
 	getPostsBySection,
@@ -17,10 +18,13 @@ import {
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 import { makePost } from "@/test/fixtures"
 
+// Spy variant so the `keys` / `tags` wired into each per-(section, page) cache
+// wrapper can be asserted. Behaves identically to the passthrough factory for
+// the wrapped function itself.
 vi.mock("next/cache", async () => {
-	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+	const { nextCacheSpyFactory } = await import("@/test/mocks/nextCache")
 
-	return nextCacheMockFactory()
+	return nextCacheSpyFactory()
 })
 
 vi.mock("react", async (importOriginal) => {
@@ -85,54 +89,118 @@ describe("getPostsBySection", () => {
 		expect(totalPages).toBe(0)
 	})
 
-	it("uses the page 1 cache with `take: PAGE_SIZE` when no scheduled posts exist", async () => {
+	it("takes exactly PAGE_SIZE with no skip on page 1", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		vi.mocked(prisma.post.count).mockResolvedValue(0)
 
 		await getPostsBySection("tech", 1)
 
-		// `prisma.post.count` is mocked to 0 → futureCount = 0, so `take`
-		// collapses to PAGE_SIZE. The page 1 path also doesn't pass `skip`,
-		// because the cache holds the head of the list.
 		expect(prisma.post.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({ take: PAGE_SIZE })
+			expect.objectContaining({ skip: 0, take: PAGE_SIZE })
 		)
 	})
 
-	it("pads the page 1 cache by the future-post count", async () => {
-		// Two scheduled posts → cache takes `PAGE_SIZE + 2` rows so the
-		// read-time filter can strip them and still slice a full PAGE_SIZE.
-		// Both `prisma.post.count` calls (futureCount + totalPages) return 2
-		// via the same mock; the assertion targets the `findMany` `take`.
+	it("does not pad the page size by the scheduled-post count", async () => {
+		// The previous design over-fetched `PAGE_SIZE + futureCount` rows so a
+		// read-time filter could strip scheduled posts and still slice a full
+		// page. That only worked while the route rendered per request; it's
+		// prerendered now, so the filter happens in SQL and the window is exact.
+		// Padding here would silently drop the last N posts of every page.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		vi.mocked(prisma.post.count).mockResolvedValue(2)
 
 		await getPostsBySection("tech", 1)
 
 		expect(prisma.post.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({ take: PAGE_SIZE + 2 })
+			expect.objectContaining({ take: PAGE_SIZE })
 		)
 	})
 
-	it("filters future-dated rows out of page 1 at read time", async () => {
-		// Cache stores scheduled rows so they auto-surface as their datetime
-		// passes; until then the read-time filter keeps them off page 1.
+	it("excludes scheduled posts in SQL rather than after the query", async () => {
+		// Filtering in SQL is what keeps page boundaries at exact multiples of
+		// PAGE_SIZE. Future-dated posts sort to the head of a `datetime desc`
+		// list, so filtering after `skip` would shift every boundary by the
+		// scheduled-post count and duplicate or drop posts across pages.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
 		vi.mocked(prisma.post.count).mockResolvedValue(0)
-		const livePost = makePost({
-			slug: "live",
-			datetime: "2024-06-01-1200",
-		})
-		const futurePost = makePost({
-			slug: "scheduled",
-			datetime: "9999-12-31-2359",
-		})
-		vi.mocked(prisma.post.findMany).mockResolvedValue([
-			futurePost,
-			livePost,
-		] as unknown as Post[])
 
-		const { posts } = await getPostsBySection("tech", 1)
-		expect(posts.map((p) => p.slug)).toEqual(["live"])
+		await getPostsBySection("tech", 2)
+
+		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
+
+		expect(where).toMatchObject({
+			section: "tech",
+			published: true,
+			datetime: { lte: expect.stringMatching(/^\d{4}-\d{2}-\d{2}-\d{4}$/) },
+		})
+	})
+
+	it("returns whatever the query returned, without post-filtering", async () => {
+		// The route renders exactly the rows SQL selected. A stray read-time
+		// filter would re-introduce the page-boundary shift above.
+		vi.mocked(prisma.post.count).mockResolvedValue(2)
+		const posts = [
+			makePost({ slug: "one", datetime: "2024-06-01-1200" }),
+			makePost({ slug: "two", datetime: "2024-05-01-1200" }),
+		]
+		vi.mocked(prisma.post.findMany).mockResolvedValue(
+			posts as unknown as Post[]
+		)
+
+		const result = await getPostsBySection("tech", 1)
+
+		expect(result.posts.map((p) => p.slug)).toEqual(["one", "two"])
+	})
+
+	it("counts total pages from live posts only", async () => {
+		// `totalPages` and the page window must agree on which posts are live,
+		// or the last page renders empty and 404s.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(25)
+
+		const { totalPages } = await getPostsBySection("tech", 1)
+
+		const countWhere = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+
+		expect(totalPages).toBe(3)
+		expect(countWhere).toMatchObject({
+			published: true,
+			datetime: { lte: expect.any(String) },
+		})
+	})
+
+	// Wrappers are memoized per (section, page) for the lifetime of the module,
+	// so these use page numbers no other test touches — otherwise the wrapper
+	// already exists and `unstable_cache` is never called again.
+	it("scopes the cache tag to the section", async () => {
+		// Busting `blog-tech` must not clear life's pages, and the cron busts
+		// per section. A shared tag would make every publish regenerate both.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("life", 91)
+
+		expect(unstable_cache).toHaveBeenCalledWith(
+			expect.any(Function),
+			expect.any(Array),
+			{ tags: ["blog-life"] }
+		)
+	})
+
+	it("gives each page its own cache key", async () => {
+		// One entry per (section, page). A shared key would make page 2 serve
+		// page 1's rows, or thrash a single entry between them.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 92)
+		await getPostsBySection("tech", 93)
+
+		const keys = vi
+			.mocked(unstable_cache)
+			.mock.calls.map((call) => (call[1] ?? []).join())
+
+		expect(new Set(keys).size).toBe(keys.length)
 	})
 
 	it("queries with the correct skip offset for page 2", async () => {
@@ -684,6 +752,57 @@ describe("revalidatePostSection", () => {
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("posts", "max")
 		expect(revalidateTag).toHaveBeenCalledTimes(3)
+	})
+})
+
+// #endregion
+
+// #region countPostsBecameLive
+
+describe("countPostsBecameLive", () => {
+	it("counts only published posts inside the window", async () => {
+		vi.mocked(prisma.post.count).mockResolvedValue(2)
+
+		const result = await countPostsBecameLive(
+			"2026-08-15-0800",
+			"2026-08-15-1000"
+		)
+
+		expect(result).toBe(2)
+		expect(prisma.post.count).toHaveBeenCalledWith({
+			where: {
+				published: true,
+				datetime: { gt: "2026-08-15-0800", lte: "2026-08-15-1000" },
+			},
+		})
+	})
+
+	it("excludes the lower bound and includes the upper", async () => {
+		// Half-open on purpose: consecutive cron runs share a boundary instant,
+		// and an inclusive lower bound would re-count the same post every run,
+		// busting the caches this route exists to stop busting.
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+
+		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+
+		expect(where?.datetime).toEqual({
+			gt: "2026-08-15-0800",
+			lte: "2026-08-15-1000",
+		})
+	})
+
+	it("does not filter by section", async () => {
+		// The sitemap and the `posts` aggregate span sections, so the caller
+		// busts all sections on any hit — narrowing here would be misleading.
+		vi.mocked(prisma.post.count).mockResolvedValue(1)
+
+		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+
+		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+
+		expect(where).not.toHaveProperty("section")
 	})
 })
 

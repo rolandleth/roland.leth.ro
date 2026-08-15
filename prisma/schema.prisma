@@ -33,13 +33,12 @@ model Post {
   // this composite index lets Postgres hit the right shard and return rows
   // in order without a sort step.
   @@index([section, published, datetime])
-  // `legacySlug.lookupLegacySlug` queries by `slug` alone (no section). The
-  // composite unique on (section, slug) can't be used efficiently for a
-  // slug-only lookup (Postgres needs the leftmost prefix), so without this
-  // index the query degraded to a seq scan that grew linearly with post
-  // count. `getPostBySlug` is unaffected — it includes `section` and uses
-  // the composite unique.
-  @@index([slug])
+  // There is deliberately NO slug-only index. One existed for
+  // `legacySlug.lookupLegacySlug`, which queried by `slug` alone to resolve
+  // root-level legacy URLs; that lookup and its route are gone, leaving the
+  // index as write amplification on every insert and update. Every remaining
+  // post query includes `section` and so uses the composite unique above.
+  // Re-add it only if a genuine slug-only query reappears.
 }
 
 // Kept in sync with `SECTIONS` in src/lib/sections.ts. Adding a new value

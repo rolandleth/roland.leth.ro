@@ -178,407 +178,37 @@ describe("proxy — admin API protection", () => {
 
 // #endregion
 
-// #region Legacy redirects — section blog
+// #region Probe-shaped admin paths
 
-describe("proxy — section blog redirects", () => {
-	it("redirects /tech/blog/:slug to /blog/tech/:slug", async () => {
-		const response = await proxy(makeRequest("/tech/blog/my-post"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/tech/my-post")
-	})
-
-	it("redirects /life/blog/:slug to /blog/life/:slug", async () => {
-		const response = await proxy(makeRequest("/life/blog/some-post"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/life/some-post")
-	})
-
-	it("preserves the full slug when it contains hyphens", async () => {
-		const response = await proxy(makeRequest("/tech/blog/my-long-post-title"))
-		expect(response.headers.get("location")).toContain(
-			"/blog/tech/my-long-post-title"
-		)
-	})
-})
-
-// #endregion
-
-// #region Legacy redirects — archive
-
-describe("proxy — archive redirects", () => {
-	it("redirects /tech/archive to /blog/tech/archive", async () => {
-		const response = await proxy(makeRequest("/tech/archive"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/tech/archive")
-	})
-
-	it("redirects /life/archive to /blog/life/archive", async () => {
-		const response = await proxy(makeRequest("/life/archive"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/life/archive")
-	})
-})
-
-// #endregion
-
-// #region Legacy redirects — search
-
-describe("proxy — search redirects", () => {
-	it("redirects /tech/search to /blog/tech/search", async () => {
-		const response = await proxy(makeRequest("/tech/search"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/tech/search")
-	})
-
-	it("redirects /life/search to /blog/life/search", async () => {
-		const response = await proxy(makeRequest("/life/search"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/life/search")
-	})
-})
-
-// #endregion
-
-// #region Legacy redirects — section root
-
-describe("proxy — section root redirects", () => {
-	it("redirects /tech to /blog/tech", async () => {
-		const response = await proxy(makeRequest("/tech"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/tech")
-	})
-
-	it("redirects /life to /blog/life", async () => {
-		const response = await proxy(makeRequest("/life"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/life")
-	})
-})
-
-// #endregion
-
-// #region Legacy redirects — feeds
-
-describe("proxy — feed redirects", () => {
-	it("redirects /tech/feed to /api/feed/tech", async () => {
-		const response = await proxy(makeRequest("/tech/feed"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/api/feed/tech")
-	})
-
-	it("redirects /feed to /api/feed/tech", async () => {
-		const response = await proxy(makeRequest("/feed"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/api/feed/tech")
-	})
-
-	it("redirects /life/feed to /api/feed/life", async () => {
-		const response = await proxy(makeRequest("/life/feed"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/api/feed/life")
-	})
-
-	it.each(["/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"])(
-		"redirects the conventional feed guess %s to the default feed",
+// The bot-probe filter that used to run ahead of the auth gate is gone: it
+// existed to keep scanner traffic off the `/:slug` catch-all, and both that
+// route and the catch-all matcher are gone with it. A probe now either misses
+// the matcher entirely (static 404, no compute) or lands in the admin namespace
+// and gets the same treatment as any other unauthenticated request.
+describe("proxy — probe-shaped admin paths", () => {
+	it.each(["/admin/wp-login.php", "/admin/config.php", "/admin/.env"])(
+		"redirects the unauthenticated admin-shaped path %s to login",
 		async (path) => {
 			const response = await proxy(makeRequest(path))
-			expect(response.status).toBe(301)
-			expect(response.headers.get("location")).toContain("/api/feed/tech")
+			expect(response.status).toBe(307)
+			expect(response.headers.get("location")).toContain("/admin/login")
 		}
 	)
 
-	it("does not treat a real slug ending in those words as a feed alias", async () => {
-		// The alias regex is fully anchored, so `/rss-reader` (a plausible legacy
-		// post slug) falls through to the catch-all, not the feed redirect.
-		const response = await proxy(makeRequest("/rss-reader"))
-		expect(response.headers.get("location")).toBeNull()
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-})
-
-// #endregion
-
-// #region Blog markdown rewrite
-
-describe("proxy — blog markdown rewrite", () => {
-	it("rewrites /blog/tech/:slug.md to the markdown route handler", async () => {
-		const response = await proxy(makeRequest("/blog/tech/my-post.md"))
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/blog/tech/my-post/md"
-		)
-		// A rewrite, not a redirect — the browser URL stays `.md`.
-		expect(response.headers.get("location")).toBeNull()
-	})
-
-	it("rewrites /blog/life/:slug.md to the markdown route handler", async () => {
-		const response = await proxy(makeRequest("/blog/life/some-post.md"))
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/blog/life/some-post/md"
-		)
-	})
-
-	it("preserves a hyphenated slug in the rewrite target", async () => {
-		const response = await proxy(
-			makeRequest("/blog/tech/my-long-post-title.md")
-		)
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/blog/tech/my-long-post-title/md"
-		)
-	})
-
-	it("does not rewrite the HTML post URL (no .md suffix)", async () => {
-		const response = await proxy(makeRequest("/blog/tech/my-post"))
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("does not rewrite a .md URL under an unknown section", async () => {
-		// The section alternation gates the regex; an unknown section falls through
-		// to Next.js routing, where the post page 404s.
-		const response = await proxy(makeRequest("/blog/garbage/my-post.md"))
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-})
-
-// #endregion
-
-// #region Blog feed rewrite
-
-describe("proxy — blog feed rewrite", () => {
-	it("rewrites /blog/tech/feed.xml to the feed route handler", async () => {
-		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/feed/tech"
-		)
-		// A rewrite, not a redirect — the pretty URL stays in the address bar.
-		expect(response.headers.get("location")).toBeNull()
-	})
-
-	it("rewrites /blog/life/feed.xml to the feed route handler", async () => {
-		const response = await proxy(makeRequest("/blog/life/feed.xml"))
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/feed/life"
-		)
-	})
-
-	it("does not rewrite feed.xml under an unknown section", async () => {
-		const response = await proxy(makeRequest("/blog/garbage/feed.xml"))
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("does not treat feed.xml as a post slug (no .md rewrite)", async () => {
-		// Guards the regex boundary: `feed.xml` must hit the feed rewrite, never
-		// the markdown rewrite that matches other dotted paths under /blog.
-		const response = await proxy(makeRequest("/blog/tech/feed.xml"))
-		expect(response.headers.get("x-middleware-rewrite")).not.toContain("/md")
-	})
-})
-
-// #endregion
-
-// #region Legacy redirects — privacy policy
-
-describe("proxy — privacy policy redirect", () => {
-	it("redirects /privacy-policy to /privacy", async () => {
-		const response = await proxy(makeRequest("/privacy-policy"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/privacy")
-	})
-})
-
-// #endregion
-
-// #region Bot probe short-circuit
-
-describe("proxy — bot probe short-circuit", () => {
-	it.each([
-		"/wp-login.php",
-		"/xmlrpc.php",
-		"/wp-admin/setup-config.php",
-		"/index.php",
-		"/admin.aspx",
-		"/shell.jsp",
-		"/backup.sql",
-		"/site.zip",
-		"/db.tar.gz",
-		"/config.yml",
-	])("404s the script/archive probe %s", async (path) => {
-		const response = await proxy(makeRequest(path))
-		expect(response.status).toBe(404)
-		expect(response.headers.get("x-middleware-next")).toBeNull()
-	})
-
-	it.each([
-		"/.env",
-		"/.env.local",
-		"/.env.production",
-		"/.git",
-		"/.git/config",
-		"/.ssh/id_rsa",
-		"/wp-admin",
-		"/wp-includes/wlwmanifest.xml",
-		"/phpmyadmin",
-		"/administrator",
-		"/vendor/phpunit/phpunit/phpunit.xml",
-		"/actuator/health",
-	])("404s the known-bad path %s", async (path) => {
-		const response = await proxy(makeRequest(path))
-		expect(response.status).toBe(404)
-		expect(response.headers.get("x-middleware-next")).toBeNull()
-	})
-
-	it("matches path prefixes case-insensitively", async () => {
-		const response = await proxy(makeRequest("/WP-Admin"))
-		expect(response.status).toBe(404)
-	})
-
-	it.each(["/shell.php/anything", "/wp.php/index"])(
-		"404s a script extension on an inner segment %s",
-		async (path) => {
-			// A last-segment-only check let these through to a billed function; the
-			// extension resolves to the same handler downstream regardless of trailing
-			// segments.
-			const response = await proxy(makeRequest(path))
-			expect(response.status).toBe(404)
-		}
-	)
-
-	// The probe filter runs BEFORE the admin gate, so a probe aimed at the admin
-	// namespace 404s (cheap, no auth work) rather than triggering an auth check and
-	// a login redirect / 401. Pins that ordering explicitly.
-	it("404s an admin-shaped probe before the auth gate runs", async () => {
-		const pageProbe = await proxy(makeRequest("/admin/wp-login.php"))
-		expect(pageProbe.status).toBe(404)
-
-		const apiProbe = await proxy(makeRequest("/api/admin/shell.php"))
-		expect(apiProbe.status).toBe(404)
-	})
-
-	it.each([
-		// Dotted legacy slugs predate `createSlug`'s `[a-z0-9-]` whitelist, so the
-		// catch-all must still see them — the extension list is scoped to server
-		// tech this site never used, never a bare version/name dot.
-		"/v1.2.3",
-		"/node.js",
-		// Segment-boundary matching: a real slug that merely starts with a bad
-		// prefix must survive. (`/administrator-guide` also starts with `/admin`,
-		// which the admin gate over-matches independently — kept out here so this
-		// case tests only the probe filter.)
-		"/vendored-thoughts",
-		"/wp-my-thoughts",
-		// Real, load-bearing paths that superficially look probe-shaped.
-		"/.well-known/security.txt",
-		"/llms.txt",
-		"/sitemap.xml",
-		"/robots.txt",
-	])("does not 404 the legitimate path %s", async (path) => {
-		const response = await proxy(makeRequest(path))
-		expect(response.status).not.toBe(404)
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("still routes the .md export past the probe filter", async () => {
-		const response = await proxy(makeRequest("/blog/tech/my-post.md"))
-		expect(response.status).not.toBe(404)
-		expect(response.headers.get("x-middleware-rewrite")).toContain(
-			"/api/blog/tech/my-post/md"
-		)
-	})
-})
-
-// #endregion
-
-// #region Root slug fall-through
-
-describe("proxy — root slug fall-through", () => {
-	it("passes unknown single-segment paths through to Next.js routing", async () => {
-		// Legacy slugs are handled by `src/app/[slug]/page.tsx`, not by
-		// middleware rewrite — so middleware just falls through.
-		const response = await proxy(makeRequest("/some-old-post"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-	})
-
-	it.each(["/about", "/projects", "/blog", "/api", "/privacy", "/tools"])(
-		"passes known top-level route %s through",
+	it.each(["/api/admin/shell.php", "/api/admin/backup.sql"])(
+		"401s the unauthenticated admin-API-shaped path %s",
 		async (path) => {
 			const response = await proxy(makeRequest(path))
-			expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-			expect(response.headers.get("x-middleware-next")).toBe("1")
+			expect(response.status).toBe(401)
 		}
 	)
 })
 
 // #endregion
 
-// #region Pass-through
+// #region Empty cookie edge cases
 
-describe("proxy — pass-through", () => {
-	it("passes through the home page", async () => {
-		const response = await proxy(makeRequest("/"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through /about", async () => {
-		const response = await proxy(makeRequest("/about"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through /blog/:section/:slug routes", async () => {
-		const response = await proxy(makeRequest("/blog/tech/my-post"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through /projects", async () => {
-		const response = await proxy(makeRequest("/projects"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through /api routes that are not admin-protected", async () => {
-		const response = await proxy(makeRequest("/api/feed/tech"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through multi-segment paths that are not legacy patterns", async () => {
-		const response = await proxy(makeRequest("/blog/tech/archive"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("gates /api/admin (bare path, boundary)", async () => {
-		// Defense in depth: the previous behavior let `/api/admin` (no trailing
-		// slash) fall through to the generic /api pass-through, leaving any
-		// future controller mounted at the bare path unauthenticated. Now it
-		// 401s like the trailing-slash variants when no session cookie is set.
-		const response = await proxy(makeRequest("/api/admin"))
-		expect(response.status).toBe(401)
-	})
-})
-
-// #endregion
-
-// #region Trailing slash + empty cookie edge cases
-
-describe("proxy — trailing slash variants and empty cookie", () => {
-	it("passes /tech/ (trailing slash) through to Next.js", async () => {
-		// SECTION_ROOT_REGEX is anchored with `$` after the section name, so
-		// `/tech/` misses it. With KNOWN_ROUTES gone, middleware no longer
-		// rewrites to an API handler; Next.js normalizes the trailing slash
-		// and dispatches to `src/app/[slug]/page.tsx` if nothing static matches.
-		const response = await proxy(makeRequest("/tech/"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-	})
-
-	it("passes /life/blog/ (empty slug) through", async () => {
-		// SECTION_BLOG_REGEX requires `(.+)` after `/blog/`, so `/life/blog/` misses it
-		// and falls through to pass-through as a multi-segment non-legacy path.
-		const response = await proxy(makeRequest("/life/blog/"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.headers.get("x-middleware-rewrite")).toBeNull()
-	})
-
+describe("proxy — empty session cookie", () => {
 	it("redirects an /admin request with an empty session cookie to /admin/login", async () => {
 		// An empty-string cookie value is falsy, so isAuthenticated short-circuits
 		// the same way as a missing cookie.
@@ -595,143 +225,36 @@ describe("proxy — trailing slash variants and empty cookie", () => {
 
 // #endregion
 
-// #region Middleware short-circuits
-
-describe("proxy — short-circuit paths", () => {
-	it("passes through /_next/ paths without running auth or redirect logic", async () => {
-		// `_next/` is excluded by `config.matcher` in production, but the defensive
-		// early return inside `proxy()` keeps the function safe if that matcher
-		// changes.
-		const response = await proxy(makeRequest("/_next/data/build/foo.json"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("passes through paths containing a dot (static-asset-shaped URLs)", async () => {
-		// The `config.matcher` is the primary asset filter; the proxy no longer
-		// short-circuits on dots because that also dropped legacy dotted slugs
-		// (e.g. `v1.2.3`, `node.js`) out of the redirect path. Anything with a
-		// dot that actually reaches the proxy falls through unchanged.
-		const response = await proxy(makeRequest("/favicon.ico"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("redirects a legacy dotted slug like /tech/blog/node.js", async () => {
-		const response = await proxy(makeRequest("/tech/blog/node.js"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain("/blog/tech/node.js")
-	})
-
-	it("passes through /api/cron/ping without admin auth", async () => {
-		// Cron endpoints authenticate via Bearer token in the handler, not via
-		// the proxy's admin gate. A regression that rolled them into the admin
-		// gate would break the cron workflow.
-		const response = await proxy(makeRequest("/api/cron/ping"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.status).not.toBe(401)
-	})
-})
-
-// #endregion
-
 // #region Matcher coverage
 
 /**
- * The exclusion entry of `config.matcher`, compiled the way Next.js applies it:
- * anchored against the whole pathname.
- *
  * Every other test in this file calls `proxy()` directly, which assumes the
  * request reached the middleware at all. That assumption is exactly what the
- * matcher decides, so a path the matcher excludes bypasses the auth gate while
- * every `proxy()` test still passes. These tests cover that blind spot.
+ * matcher decides, so these tests cover that blind spot from the other side.
  */
-const exclusionMatcher = new RegExp(`^${config.matcher[0]}$`)
-
-describe("config.matcher — asset exclusion", () => {
-	it.each([
-		// `.json` contains `.js`; before the `$` anchor this skipped middleware.
-		"/api/admin/posts/1.json",
-		"/api/admin/projects/2.json",
-		"/blog/tech/some-post.json",
-		// An extension mid-path, not at the end.
-		"/api/admin/posts/1.css/edit",
-		"/v1.2.3",
-	])("runs the middleware for %s", (path) => {
-		expect(exclusionMatcher.test(path)).toBe(true)
-	})
-
-	it.each([
-		"/logo.svg",
-		"/styles/main.css",
-		"/scripts/app.js",
-		"/images/hero.png",
-	])("skips the middleware for the real asset %s", (path) => {
-		expect(exclusionMatcher.test(path)).toBe(false)
-	})
-})
-
-describe("config.matcher — gated namespaces", () => {
-	// The exclusion pattern is a denylist, so it can only ever be as correct as
-	// its extension list. The gated namespaces are therefore matched explicitly
-	// too: whatever the denylist does, these entries keep the auth gate running.
+describe("config.matcher", () => {
 	it.each(["/admin", "/admin/:path*", "/api/admin", "/api/admin/:path*"])(
 		"matches %s explicitly",
 		(entry) => {
 			expect(config.matcher).toContain(entry)
 		}
 	)
-})
 
-// #endregion
-
-// #region Case sensitivity
-
-describe("proxy — case sensitivity", () => {
-	it("does not redirect /Tech/blog/:slug (section regex is lowercase)", async () => {
-		// Section regexes use `SECTIONS` values verbatim. Uppercase variants fall
-		// through so backlinks that were originally lowercase stay canonical;
-		// anything else would produce two different canonical URLs for the same
-		// post.
-		const response = await proxy(makeRequest("/Tech/blog/my-post"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.headers.get("location")).toBeNull()
+	it("admits nothing outside the two admin namespaces", () => {
+		// The 2026-07-26 bypass came from a broad negative-lookahead pattern whose
+		// unanchored extension group let `/api/admin/posts/1.json` skip the gate.
+		// An explicit namespace list can't fail that way — this pins that no
+		// catch-all entry creeps back in, which would also put every public page
+		// view back on a billed invocation.
+		for (const entry of config.matcher) {
+			expect(entry.startsWith("/admin") || entry.startsWith("/api/admin")).toBe(
+				true
+			)
+		}
 	})
 
-	it("does not redirect /TECH/archive", async () => {
-		const response = await proxy(makeRequest("/TECH/archive"))
-		expect(response.headers.get("x-middleware-next")).toBe("1")
-		expect(response.headers.get("location")).toBeNull()
-	})
-})
-
-// #endregion
-
-// #region Query-string preservation
-
-describe("proxy — query-string preservation on redirects", () => {
-	it("preserves query strings on /tech/blog/:slug redirects", async () => {
-		// Analytics links (e.g. `?ref=twitter`) should survive the legacy
-		// redirect so the landing analytics stay attributed.
-		const response = await proxy(makeRequest("/tech/blog/my-post?ref=twitter"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain(
-			"/blog/tech/my-post?ref=twitter"
-		)
-	})
-
-	it("preserves query strings on /tech/archive redirects", async () => {
-		const response = await proxy(makeRequest("/tech/archive?page=2"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain(
-			"/blog/tech/archive?page=2"
-		)
-	})
-
-	it("preserves query strings on /tech/search redirects", async () => {
-		const response = await proxy(makeRequest("/tech/search?q=react"))
-		expect(response.status).toBe(301)
-		expect(response.headers.get("location")).toContain(
-			"/blog/tech/search?q=react"
-		)
+	it("has no more entries than the four gated namespaces", () => {
+		expect(config.matcher).toHaveLength(4)
 	})
 })
 

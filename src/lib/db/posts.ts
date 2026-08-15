@@ -68,88 +68,77 @@ export function bySection<T>(fn: (section: Section) => T): Record<Section, T> {
 	return Object.fromEntries(entries) as Record<Section, T>
 }
 
+// One `unstable_cache` wrapper per (section, page), built lazily and reused.
+// Bounded because `page` reaches this from a URL segment: without a cap, a
+// crawler walking `/blog/tech/p/999999` would mint a wrapper per probe.
+const blogPageWrappers =
+	createBoundedWrapperCache<
+		() => Promise<{ posts: PostListItem[]; totalPages: number }>
+	>()
+
 /**
- * Creates a cached fetcher for the first page of blog posts scoped to a single section.
- * Each section gets its own cache entry and tag so revalidation is precise:
- * invalidating `blog-tech` only busts the tech section, not life, and vice versa.
+ * Creates a cached fetcher for one page of one section. Each (section, page)
+ * gets its own cache entry, all tagged `blog-{section}` so revalidation stays
+ * precise: busting `blog-tech` clears every tech page and leaves life alone.
  *
- * The cached payload is padded by the current scheduled-post count: we take
- * `PAGE_SIZE + futureCount` rows so that the read path can filter `datetime
- * <= now` and still slice a full `PAGE_SIZE`. Scheduled posts therefore live
- * inside the cache and auto-surface the first request after their `datetime`
- * passes — no cron, no manual revalidate. Adding/editing a post still busts
- * the cache via `revalidatePostSection`, which is how new future posts get
- * picked up into the padding window.
+ * `now` is captured INSIDE the cached function, so it freezes at generation
+ * time along with the rest of the payload. That's deliberate. The blog list is
+ * prerendered, so there is no per-request code left to re-evaluate a filter —
+ * the previous design cached a `PAGE_SIZE + futureCount` superset and filtered
+ * `datetime <= now` at read time, which only worked while the route rendered
+ * per request. `/api/cron/revalidate-scheduled` now busts `blog-{section}` when
+ * a post comes due, which is what moves a scheduled post onto the list.
+ *
+ * Filtering in SQL rather than after the fact also removes the offset
+ * arithmetic the superset needed: future-dated posts sort to the head of a
+ * `datetime desc` list, so a read-time filter shifts every page boundary by the
+ * scheduled-post count. `publishedWhere` excludes them before `skip` applies,
+ * and the page boundaries are then just multiples of `PAGE_SIZE`.
  */
-function makeBlogPage1Cache(section: Section) {
+function makeBlogPageCache(section: Section, page: number) {
 	return unstable_cache(
 		async () => {
-			const futureCount = await prisma.post.count({
-				where: {
-					section,
-					published: true,
-					datetime: { gt: currentDatetimeString() },
-				},
-			})
+			const now = currentDatetimeString()
+			const where = publishedWhere(section, now)
 
-			return prisma.post.findMany({
-				where: { section, published: true },
-				select: postListItemSelect,
-				orderBy: { datetime: "desc" },
-				take: PAGE_SIZE + futureCount,
-			})
+			const [posts, total] = await Promise.all([
+				prisma.post.findMany({
+					where,
+					select: postListItemSelect,
+					orderBy: { datetime: "desc" },
+					skip: (page - 1) * PAGE_SIZE,
+					take: PAGE_SIZE,
+				}),
+				prisma.post.count({ where }),
+			])
+
+			return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
 		},
-		[`blog-page1-${section}`],
+		[`blog-page-${section}-${page}`],
 		{ tags: [`blog-${section}`] }
 	)
 }
-
-const blogPage1Cache = bySection(makeBlogPage1Cache)
 
 /**
  * Fetches a page of posts for a section. Callers are responsible for passing
  * a sane `page` (>= 1, integer) — always route through `parsePageParam` at the
  * route boundary. This function does not clamp, to surface misuse early.
  *
- * `totalPages` is computed from a request-time count of live posts so it
- * stays accurate as scheduled posts cross their `datetime` boundary; a stale
- * cached count would leave the last page inaccessible until the next bust.
+ * `totalPages` reflects the live post count as of the last cache generation.
+ * A page past the end returns an empty `posts` array rather than throwing;
+ * the route is responsible for turning that into a 404 (see the blog list
+ * pages), which matters now that these pages are prerendered and a deletion
+ * can strand a page that used to exist.
  */
 export async function getPostsBySection(
 	section: Section,
 	page: number = 1
 ): Promise<{ posts: PostListItem[]; totalPages: number }> {
-	const now = currentDatetimeString()
-	const where = publishedWhere(section, now)
+	const fetchPage = blogPageWrappers.get(`${section}-${page}`, () =>
+		makeBlogPageCache(section, page)
+	)
 
-	if (page === 1) {
-		const [cached, total] = await Promise.all([
-			blogPage1Cache[section](),
-			prisma.post.count({ where }),
-		])
-
-		const posts = cached
-			.filter((post) => post.datetime <= now)
-			.slice(0, PAGE_SIZE)
-
-		return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
-	}
-
-	const [posts, total] = await Promise.all([
-		prisma.post.findMany({
-			where,
-			select: postListItemSelect,
-			orderBy: { datetime: "desc" },
-			skip: (page - 1) * PAGE_SIZE,
-			take: PAGE_SIZE,
-		}),
-		prisma.post.count({ where }),
-	])
-
-	return {
-		posts,
-		totalPages: Math.ceil(total / PAGE_SIZE),
-	}
+	return fetchPage()
 }
 
 /**
@@ -433,6 +422,34 @@ export async function searchPosts(
 			body: true,
 		},
 		orderBy: { datetime: "desc" },
+	})
+}
+
+/**
+ * Counts published posts whose `datetime` fell inside `(windowStart, now]` —
+ * that is, posts that became live during the window without any mutation
+ * happening. This is the signal the scheduled-post cron acts on: a post
+ * crossing its `datetime` is the one way the live set changes with nothing to
+ * hang a `revalidateTag` off.
+ *
+ * The comparison is a lexicographic string compare, which matches chronological
+ * order for the fixed-width zero-padded `yyyy-MM-dd-HHmm` format (the invariant
+ * `isScheduled` documents). Both bounds come from `currentDatetimeString`, so
+ * they share its local-time frame.
+ *
+ * Callers should pass a window WIDER than the cron interval. Overlap costs one
+ * redundant revalidation; a gap silently strands a post until the next real
+ * mutation.
+ */
+export async function countPostsBecameLive(
+	windowStart: string,
+	now: string
+): Promise<number> {
+	return prisma.post.count({
+		where: {
+			published: true,
+			datetime: { gt: windowStart, lte: now },
+		},
 	})
 }
 
