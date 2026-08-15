@@ -1,3 +1,4 @@
+import { blankToNull } from "@/lib/utils/format"
 import type { Metadata } from "next"
 
 /**
@@ -123,7 +124,13 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 	// page that genuinely wants no image would need an explicit opt-out; none
 	// does today, and shipping a large-image card with nothing in it is the
 	// failure mode this replaces.
-	const images = [image ?? defaultOgImage]
+	//
+	// `blankToNull` first, not a bare `??`: the parameter is typed `string |
+	// null`, so `""` type-checks, and `"" ?? defaultOgImage` is `""` — which
+	// `metadataBase` resolves to the site root, making the card an HTML
+	// document. Strictly worse than the imageless card the default exists to
+	// fix, and silent.
+	const resolvedImage = blankToNull(image) ?? defaultOgImage
 
 	// `canonical` and `types` are independent opt-ins, so the object is built up
 	// rather than ternary'd on one of them — and stays `undefined` when none
@@ -164,13 +171,16 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
 			url: path,
 			publishedTime,
 			modifiedTime,
-			images,
+			// Built twice rather than sharing one array instance between the two
+			// keys: the aliasing is invisible at both call sites, and any future
+			// per-surface normalization would silently apply to both.
+			images: [resolvedImage],
 		},
 		twitter: {
 			...siteTwitter,
 			title: ogTitle,
 			description,
-			images,
+			images: [resolvedImage],
 		},
 	}
 }

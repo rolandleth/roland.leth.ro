@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	blankToNull,
 	calculateReadingTime,
 	createSlug,
 	currentDatetimeString,
@@ -12,6 +13,36 @@ import {
 	truncateBody,
 	yearFromDatetime,
 } from "@/lib/utils/format"
+
+// #region blankToNull
+
+describe("blankToNull", () => {
+	it.each([
+		["empty", ""],
+		["single space", " "],
+		["whitespace run", "   "],
+		["tab and newline", "\t\n"],
+	])("collapses a %s string to null", (_label, value) => {
+		expect(blankToNull(value)).toBeNull()
+	})
+
+	it.each([
+		["null", null],
+		["undefined", undefined],
+	])("passes %s through as null", (_label, value) => {
+		expect(blankToNull(value)).toBeNull()
+	})
+
+	it("trims a padded value rather than rejecting it", () => {
+		expect(blankToNull("  /images/a.png  ")).toBe("/images/a.png")
+	})
+
+	it("returns a non-blank value unchanged", () => {
+		expect(blankToNull("/images/a.png")).toBe("/images/a.png")
+	})
+})
+
+// #endregion
 
 // #region parseIntId
 

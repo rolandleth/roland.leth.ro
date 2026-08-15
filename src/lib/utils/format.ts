@@ -23,6 +23,25 @@ export function parseIntId(raw: string): number | null {
 	return Number.isNaN(n) ? null : n
 }
 
+/**
+ * Collapses a blank string (empty or whitespace-only) to `null`, so `??` chains
+ * and `!= null` checks treat "absent" and "present but empty" the same way.
+ *
+ * The image columns and `imageUrl` are typed `string | null` and the write-path
+ * Zod schemas reject `""`, but the types alone admit it and the difference is
+ * invisible at a `??` call site: `"" ?? fallback` is `""`. Normalizing at the
+ * boundary keeps a blank from being carried forward as if it were a real value.
+ */
+export function blankToNull(value: string | null | undefined): string | null {
+	if (value == null) {
+		return null
+	}
+
+	const trimmed = value.trim()
+
+	return trimmed === "" ? null : trimmed
+}
+
 // Upper bound is generous (10k pages × PAGE_SIZE=12 = 120k posts) so legitimate
 // pagination is never clipped, while still rejecting `?page=999999999` which
 // would translate to a wasted Postgres `OFFSET` scan.

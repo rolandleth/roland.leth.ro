@@ -226,43 +226,12 @@ describe("buildSoftwareApplicationJsonLd", () => {
 		})
 	})
 
-	it("falls back to an Offer array when a same-currency price isn't numeric", () => {
-		// A `"free"` sentinel would make the AggregateOffer's Number()-based sort
-		// compare NaN and emit undefined-order bounds. The Offer-array shape asserts
-		// no range, so it's the safe fallback — no AggregateOffer, no corrupt bounds.
-		const result = buildApp(
-			makeProject({
-				offers: [
-					{ name: "Free", price: "free", priceCurrency: "USD" },
-					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
-				],
-			}),
-			null
-		)
-
-		expect(result?.offers).toEqual([
-			{ "@type": "Offer", price: "free", priceCurrency: "USD" },
-			{ "@type": "Offer", price: "9.99", priceCurrency: "USD" },
-		])
-	})
-
-	it("treats an empty/whitespace price as non-numeric (Number('') is 0, not NaN)", () => {
-		// Guards the subtle case: an empty string parses to 0, so a naive
-		// Number.isFinite check would wrongly emit an AggregateOffer with an empty
-		// `lowPrice`. It must fall back to the Offer array instead.
-		const result = buildApp(
-			makeProject({
-				offers: [
-					{ name: "Blank", price: "  ", priceCurrency: "USD" },
-					{ name: "Paid", price: "5.00", priceCurrency: "USD" },
-				],
-			}),
-			null
-		)
-
-		expect(Array.isArray(result?.offers)).toBe(true)
-		expect(result?.offers).not.toMatchObject({ "@type": "AggregateOffer" })
-	})
+	// No non-numeric-price cases here: `Number(price)` in the AggregateOffer sort
+	// relies on `projectOfferSchema`'s `/^\d+(\.\d{1,2})?$/`, which both write
+	// paths enforce, and that regex is tested directly against `"free"`,
+	// `"12.345"`, `"$5"`, `"12,00"` and `""` in `src/lib/api/schemas.test.ts`.
+	// Re-testing a read-side fallback here would pin behaviour no sanctioned
+	// write can produce.
 
 	it("de-dupes offerCount by (price, currency, billing period)", () => {
 		// Two identical rows (e.g. a manifest listing the same tier twice) must not

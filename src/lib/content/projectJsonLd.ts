@@ -118,22 +118,14 @@ function buildOfferNode(
 		return offers.map((offer) => toOfferNode(offer, isDiscontinued))
 	}
 
-	// AggregateOffer asserts numeric lowPrice/highPrice bounds. If any price isn't
-	// a finite, non-empty number — a future `"free"` sentinel, a locale-formatted
-	// `"1,99"` (`NaN`), or an empty/whitespace string (`Number("")` is `0`, not
-	// `NaN`, and would emit an empty `lowPrice`) — the sort and the preserved
-	// string bounds come out silently wrong. Fall back to the array-of-Offers
-	// shape, which makes no range claim, rather than emit a corrupt range.
-	const hasNonNumericPrice = offers.some((offer) => {
-		const trimmed = offer.price.trim()
-
-		return trimmed === "" || !Number.isFinite(Number(trimmed))
-	})
-
-	if (hasNonNumericPrice) {
-		return offers.map((offer) => toOfferNode(offer, isDiscontinued))
-	}
-
+	// `Number(price)` is safe without a guard because `projectOfferSchema`'s
+	// `/^\d+(\.\d{1,2})?$/` is the contract for this column, and both write paths
+	// enforce it: `POST/PUT /api/admin/projects` and `scripts/import-projects.ts`,
+	// which parses the manifest through the same `projectCreateSchema`. A
+	// read-side re-check here would be unreachable through any sanctioned write —
+	// untestable in production, and a second, weaker statement of a rule the
+	// schema already owns. Loosen the regex (a `"free"` sentinel, locale decimals)
+	// and the AggregateOffer bounds below are what must change with it.
 	const sorted = [...offers].sort((a, b) => Number(a.price) - Number(b.price))
 
 	// De-dupe by (price, currency, billing period) so two identical rows (e.g. a

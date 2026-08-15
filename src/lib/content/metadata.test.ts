@@ -82,21 +82,47 @@ describe("buildPageMetadata", () => {
 		expect(meta.twitter?.images).toEqual([defaultOgImage])
 	})
 
+	// `""` resolves against `metadataBase` to the site root, so it doesn't just
+	// skip the card — it advertises an HTML document as the image. Worse than
+	// the imageless card the default exists to fix, and invisible without a
+	// share debugger. `??` alone doesn't catch it: `"" ?? default` is `""`.
+	it.each([
+		["empty", ""],
+		["whitespace-only", "   "],
+	])("falls back to the default card when image is %s", (_label, image) => {
+		const meta = buildPageMetadata({ title: "x", path: "/x", image })
+		expect(meta.openGraph?.images).toEqual([defaultOgImage])
+		expect(meta.twitter?.images).toEqual([defaultOgImage])
+	})
+
 	// The promise `card: "summary_large_image"` makes. An imageless large-image
 	// card is a degraded card, so no page may resolve to an empty `images`.
+	// Asserted as exact arrays, not lengths: `toHaveLength(1)` passes for
+	// `[""]`, `[undefined]`, and any wrong string.
 	it("never emits an imageless large-image card", () => {
-		const cases = [
-			buildPageMetadata({ title: "x", path: "/x" }),
-			buildPageMetadata({ title: "x", path: "/x", image: null }),
-			buildPageMetadata({ title: "x", path: "/x", image: "/images/a.png" }),
+		const cases: [string | null | undefined, string][] = [
+			[undefined, defaultOgImage],
+			[null, defaultOgImage],
+			["", defaultOgImage],
+			["   ", defaultOgImage],
+			["/images/a.png", "/images/a.png"],
 		]
 
-		for (const meta of cases) {
-			expect(meta.openGraph?.images).toHaveLength(1)
-			expect(meta.twitter?.images).toHaveLength(1)
-			expect(meta.openGraph?.images).not.toContain(null)
-			expect(meta.twitter?.images).not.toContain(null)
+		for (const [image, expected] of cases) {
+			const meta = buildPageMetadata({ title: "x", path: "/x", image })
+
+			expect(meta.openGraph?.images).toEqual([expected])
+			expect(meta.twitter?.images).toEqual([expected])
 		}
+	})
+
+	// Two `images` keys built from one string, not one array instance shared
+	// between them: aliasing is invisible at both call sites, and a future
+	// per-surface normalization would silently reach both.
+	it("does not share one array instance between openGraph and twitter", () => {
+		const meta = buildPageMetadata({ title: "x", path: "/x" })
+
+		expect(meta.openGraph?.images).not.toBe(meta.twitter?.images)
 	})
 
 	it("wraps a provided image in a single-element array", () => {
