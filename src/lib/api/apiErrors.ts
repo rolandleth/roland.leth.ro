@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isPrismaNotFound } from "@/lib/db/db"
 import { parseIntId } from "@/lib/utils/format"
+import { randomShortId } from "@/lib/utils/randomShortId"
 import type { z } from "zod"
 
 /**
@@ -67,12 +68,6 @@ export function respondInternalError(
 		{ error: "Internal server error", requestId },
 		{ status: 500 }
 	)
-}
-
-function randomShortId(): string {
-	// 12-char URL-safe id is plenty for log correlation. Crypto-strong (no
-	// guessability needed but free enough not to bother with Math.random).
-	return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
 }
 
 /**

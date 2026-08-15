@@ -8,6 +8,10 @@ vi.mock("@/lib/auth/auth", () => ({
 
 const mockVerifySession = vi.mocked(verifySession)
 
+// `src/test/setup.ts` already replaces `console.error` with a `vi.fn()` before
+// every test, so read that mock rather than layering a `vi.spyOn` on top of it.
+const consoleError = () => vi.mocked(console.error)
+
 describe("requireAdmin", () => {
 	it("returns null so the handler proceeds when the session is valid", async () => {
 		mockVerifySession.mockResolvedValue(true)
@@ -29,32 +33,40 @@ describe("requireAdmin", () => {
 		// before they reach a handler, so a line here means a request got past
 		// the matcher. That is a security event and has to be greppable.
 		mockVerifySession.mockResolvedValue(false)
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => undefined)
 
 		await requireAdmin("[api:admin:posts:DELETE]")
 
-		expect(consoleError).toHaveBeenCalledWith(
-			expect.stringContaining("[api:admin:posts:DELETE]")
+		expect(consoleError()).toHaveBeenCalledWith(
+			expect.stringContaining("[api:admin:posts:DELETE]"),
+			expect.anything()
 		)
-		expect(consoleError).toHaveBeenCalledWith(
-			expect.stringContaining("middleware gate did not run")
+		expect(consoleError()).toHaveBeenCalledWith(
+			expect.stringContaining("middleware gate did not run"),
+			expect.anything()
 		)
+	})
 
-		consoleError.mockRestore()
+	// The shared shape: one alert rule reads `surface` to tell an API handler
+	// running unauthenticated from a page body doing the same.
+	it("tags the line with the handler surface", async () => {
+		mockVerifySession.mockResolvedValue(false)
+
+		await requireAdmin("[api:admin:posts:DELETE]")
+
+		expect(consoleError()).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.objectContaining({
+				surface: "the handler",
+				bypassId: expect.any(String),
+			})
+		)
 	})
 
 	it("does not log when the session is valid", async () => {
 		mockVerifySession.mockResolvedValue(true)
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => undefined)
 
 		await requireAdmin("[test]")
 
-		expect(consoleError).not.toHaveBeenCalled()
-
-		consoleError.mockRestore()
+		expect(consoleError()).not.toHaveBeenCalled()
 	})
 })

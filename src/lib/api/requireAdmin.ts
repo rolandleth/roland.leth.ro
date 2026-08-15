@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { verifySession } from "@/lib/auth/auth"
+import { logMiddlewareBypass } from "@/lib/auth/middlewareBypass"
 
 /**
  * Guards an admin API handler. Returns a 401 response when the request carries
@@ -12,9 +13,9 @@ import { verifySession } from "@/lib/auth/auth"
  * between the public internet and these handlers, which made any gap in its
  * path matching a silent, complete auth bypass. This is the second lock.
  *
- * It logs at error level precisely because it should be unreachable — a line
- * here means a request got past the matcher, which is a security event, not a
- * routine 401 (those come from the middleware and never reach this code).
+ * The bypass is reported through `logMiddlewareBypass`, which owns the message
+ * text shared with the two page-side guards — see that module for why a line
+ * here is an error and not a routine 401.
  *
  * @param tag Route-identifying log tag, e.g. `[api:admin:posts:POST]`.
  */
@@ -23,10 +24,7 @@ export async function requireAdmin(tag: string): Promise<NextResponse | null> {
 		return null
 	}
 
-	// eslint-disable-next-line no-console
-	console.error(
-		`${tag} unauthenticated request reached the handler — the middleware gate did not run for this path`
-	)
+	logMiddlewareBypass(tag, "the handler")
 
 	return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 }

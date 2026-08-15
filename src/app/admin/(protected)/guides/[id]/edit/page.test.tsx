@@ -105,19 +105,17 @@ describe("generateMetadata", () => {
 		expect(vi.mocked(prisma.guide.findUnique)).not.toHaveBeenCalled()
 	})
 
+	// `src/test/setup.ts` already swaps `console.error` for a `vi.fn()` per test,
+	// so read that mock rather than layering a `vi.spyOn` on top of it.
 	it("logs the bypass with this page's tag", async () => {
 		vi.mocked(verifySession).mockResolvedValue(false)
-		const consoleError = vi
-			.spyOn(console, "error")
-			.mockImplementation(() => undefined)
 
 		await generateMetadata(makeParams("1"))
 
-		expect(consoleError).toHaveBeenCalledWith(
-			expect.stringContaining("[admin:guides:edit]")
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			expect.stringContaining("[admin:guides:edit]"),
+			expect.objectContaining({ surface: "generateMetadata", id: "1" })
 		)
-
-		consoleError.mockRestore()
 	})
 })
 

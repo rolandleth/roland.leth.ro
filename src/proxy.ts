@@ -76,11 +76,19 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 //
 // - `/api/admin/*`: every route handler re-checks the session via
 //   `requireAdmin`, so a path that misses the matcher 401s at the handler
-//   (logged as a security event) instead of running unauthenticated.
+//   (logged as a security event) instead of running unauthenticated. Enforced
+//   by `src/app/api/admin/adminAuthContract.test.ts`.
 // - `/admin/*`: pages have no `requireAdmin`. `(protected)/layout.tsx` covers
 //   the rendered body, and `adminEditMetadata` covers the edit pages'
-//   `generateMetadata` (which runs outside the layout) — but any new page that
-//   reads data outside both is gated by this matcher alone.
+//   `generateMetadata` (which runs outside the layout). Enforced by
+//   `src/app/admin/adminPageContract.test.ts`, which walks the page tree: a
+//   page outside `(protected)/`, or an edit page that skips the metadata
+//   guard, fails there rather than relying on the next author reading this.
+//
+// A bypass at any of the three guards is reported through
+// `logMiddlewareBypass`, which owns the shared message text and stamps a
+// per-request `bypassId` — a bypassed edit page trips two of them, and that
+// field is what joins the lines into one event.
 export const config = {
 	matcher: ["/admin", "/admin/:path*", "/api/admin", "/api/admin/:path*"],
 }

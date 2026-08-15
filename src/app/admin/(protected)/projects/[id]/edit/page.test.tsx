@@ -125,6 +125,20 @@ describe("generateMetadata", () => {
 		expect(result).toEqual({ title: "Edit project" })
 		expect(vi.mocked(prisma.project.findUnique)).not.toHaveBeenCalled()
 	})
+
+	// Asserted here, not just in `adminMetadata.test.ts`: that suite passes the
+	// tag in by hand, so it proves nothing about what this page supplies. This is
+	// the only test that fails if the projects page ships the posts tag.
+	it("logs the bypass with this page's tag", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		await generateMetadata(makeParams("1"))
+
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			expect.stringContaining("[admin:projects:edit]"),
+			expect.objectContaining({ surface: "generateMetadata", id: "1" })
+		)
+	})
 })
 
 // ---------------------------------------------------------------------------

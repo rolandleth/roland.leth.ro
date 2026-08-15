@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import PostForm from "@/components/admin/PostForm"
-import { adminEditMetadata } from "@/lib/auth/adminMetadata"
+import { ADMIN_EDIT_TAGS, adminEditMetadata } from "@/lib/auth/adminMetadata"
 import { loadPostForAdmin } from "@/lib/db/posts"
 import { parseIntId } from "@/lib/utils/format"
 import type { Metadata } from "next"
@@ -12,16 +12,16 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const { id } = await params
 
-	return adminEditMetadata(
-		"[admin:posts:edit]",
+	return adminEditMetadata({
+		tag: ADMIN_EDIT_TAGS.posts,
 		id,
-		"Edit post",
-		async (postId) => {
+		fallback: "Edit post",
+		loadName: async (postId) => {
 			const post = await loadPostForAdmin(postId)
 
 			return post?.title ?? null
-		}
-	)
+		},
+	})
 }
 
 export default async function EditPostPage({ params }: Props) {
