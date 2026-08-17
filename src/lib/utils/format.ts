@@ -208,9 +208,11 @@ export function currentDatetimeString(at: Date = new Date()): string {
  * capture one `now` rather than re-reading the clock per item, and so tests
  * can pin "now" without having to mock around the intra-module call.
  *
- * Callers (bulk import, PostsTab scheduled marker, getPostsBySection filter)
- * all depend on this invariant; centralized here so a future format change
- * can't quietly desync them.
+ * Callers (bulk import, the admin PostsTab scheduled marker) all depend on this
+ * invariant; centralized here so a future format change can't quietly desync
+ * them. The blog list's own scheduled-post filter is NOT a caller — it moved
+ * into SQL as `publishedWhere`, where Postgres does the same compare on the
+ * same fixed-width column.
  */
 export function isFutureDatetime(datetime: string, now: string): boolean {
 	return datetime > now

@@ -25,16 +25,17 @@ const LOG_TAG = "api:cron:revalidate-scheduled"
  * silently, so the asymmetry favours overlapping.
  *
  * Forty-nine hours, not twenty-four, because two effects stack. Hobby cron
- * scheduling is only accurate to ±59 minutes — `0 0 * * *` fires anywhere inside
- * the midnight hour — so consecutive runs can already land 24h59m apart with
+ * scheduling is only accurate to ±59 minutes — `0 1 * * *` fires anywhere inside
+ * the 01:00 hour — so consecutive runs can already land 24h59m apart with
  * nothing wrong. And Vercel documents cron delivery as best effort, with no
  * retry on failure: a run can simply not happen. Double the interval to absorb
  * one missed run, add an hour for the jitter.
  *
- * The overlap is cheap here. Both queries are counts, so a wider window costs
- * the same to run, and on the common path (nothing came due) it changes nothing
- * — the count is 0 either way. It only means a post that came due yesterday is
- * counted again today, busting three tags a second time.
+ * The overlap is bounded rather than free. Both queries return the rows that
+ * came due, not a count, so a wider window returns more of them and each extra
+ * row costs one `revalidateTag` on a detail entry that is already current. On
+ * the common path (nothing came due) it costs nothing — an empty result either
+ * way — and the ceiling is one extra day of scheduled content, re-busted once.
  *
  * Changing the cron interval means changing this too — keep it above the widest
  * gap two consecutive runs can produce, including a missed one.
@@ -54,8 +55,8 @@ const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
  * It replaces the `revalidate = 3600` those three routes used to carry. That
  * backstop regenerated all three every hour whether or not anything had changed
  * — and with crawlers and feed readers polling continuously, "whether or not"
- * was always "yes". Checking first turns ~72 daily regenerations into two count
- * queries per day plus a bust on the rare day that needs one.
+ * was always "yes". Checking first turns ~72 daily regenerations into two
+ * due-content queries per day plus a bust on the rare day that needs one.
  *
  * Posts and guides are both checked because the sitemap spans both, and their
  * publication times are stored differently: a post's `datetime` is a
@@ -124,6 +125,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		// Targeted, unlike the section sweep above: only the posts that came due
 		// get their detail entries regenerated. Without this the aggregates would
 		// list a post whose own page and `.md` still served a pinned 404.
+		//
+		// A gap wider than `WINDOW_HOURS` strands a post outside every window, and
+		// the two halves then recover unevenly: the next admin save busts the
+		// section aggregates for ALL posts, but `revalidatePost` busts only the
+		// saved post's own detail tag. The stranded post ends up listed everywhere
+		// and 404ing on its own URL — the exact state this call exists to prevent.
+		// `revalidateAllPosts` (the `post-pages` tag) is the only thing that heals
+		// it; reach for that if a run is ever confirmed missed.
 		revalidatePostDetails(duePosts)
 	}
 

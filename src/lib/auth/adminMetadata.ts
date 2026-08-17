@@ -8,9 +8,10 @@ import type { Metadata } from "next"
  *
  * A const map rather than four bare string literals at the call sites: the tag
  * is what attributes a security line to a page, and a hand-typed literal can be
- * copy-pasted between pages with nothing failing. `adminAuthContract.test.ts`
+ * copy-pasted between pages with nothing failing. `adminPageContract.test.ts`
  * walks the edit-page directory against this map, so a fifth page can't ship
- * without an entry.
+ * without an entry. (Not `adminAuthContract.test.ts` — that file exists and
+ * does the same job one namespace over, for `/api/admin`.)
  */
 export const ADMIN_EDIT_TAGS = {
 	posts: "[admin:posts:edit]",

@@ -7,7 +7,9 @@
 // runs BEFORE middleware, so a legacy hit never reaches a function at all.
 //
 // The middleware keeps only what genuinely needs request state: the admin auth
-// gate and the bot-probe short-circuit.
+// gate. That is now the whole of `src/proxy.ts` — the bot-probe short-circuit
+// that used to sit beside it was deleted in `4c00c73`, once the root-level
+// legacy slug route it protected went away.
 //
 // `../db/sections` is imported relatively, not via the `@/` alias, because
 // `next.config.ts` is loaded outside the app's module resolution and doesn't

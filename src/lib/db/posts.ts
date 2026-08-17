@@ -7,6 +7,18 @@ import { SECTIONS, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, yearFromDatetime } from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
+// "Is this post live yet?" is answered in two places in this file, and the split
+// is deliberate but easy to misread. The list and search paths ask Postgres, via
+// this `where`. The archive, sitemap, and feed cache a superset of published
+// rows and drop the future-dated ones in JS after the cache returns; the guide
+// side does the same in `guides.ts`.
+//
+// Neither form re-runs per request — every one of those surfaces is prerendered,
+// so both freeze at generation time. That is what makes
+// `/api/cron/revalidate-scheduled` mandatory rather than a nicety: it is the
+// only thing that regenerates them when a post crosses its `datetime`. The SQL
+// form is the stricter of the two, because it also fixes the page boundaries
+// (see `makeBlogPageCache`), so a read-time filter is not a drop-in there.
 function publishedWhere(section: Section, now: string) {
 	return { section, published: true, datetime: { lte: now } }
 }
@@ -71,6 +83,10 @@ export function bySection<T>(fn: (section: Section) => T): Record<Section, T> {
 // One `unstable_cache` wrapper per (section, page), built lazily and reused.
 // Bounded because `page` reaches this from a URL segment: without a cap, a
 // crawler walking `/blog/tech/p/999999` would mint a wrapper per probe.
+//
+// The cap bounds THIS map and nothing else. Each distinct page still runs its
+// own `findMany` + `count` and mints its own on-disk cache entry, so what
+// limits probe damage is the page bound enforced at the route, not this map.
 const blogPageWrappers =
 	createBoundedWrapperCache<
 		() => Promise<{ posts: PostListItem[]; totalPages: number }>
@@ -179,8 +195,10 @@ export async function getPostBySlug(
 		// `findFirst` (not `findUnique`) so `published: true` can be enforced at
 		// the query boundary; otherwise the canonical post URL would serve drafts.
 		// The `datetime <= now` check is intentionally NOT here — it's applied to
-		// the cached row at read time (below) so a scheduled post auto-surfaces
-		// the first request after its `datetime` passes, without a cache bust.
+		// the cached row below, so the row stays cached while the post is still
+		// scheduled and only the visibility verdict is recomputed. That verdict is
+		// recomputed on regeneration, not per request: the detail route is
+		// prerendered, which is the whole reason `revalidatePostDetails` exists.
 		() =>
 			prisma.post.findFirst({
 				where: { section, slug, published: true },
@@ -288,10 +306,14 @@ export async function listPostsForAdmin({
  * Cached list of every published post's slug/section/datetime/updatedAt,
  * including scheduled (future-dated) rows. The public-facing
  * `getAllPublishedPostSlugs` filters by `datetime <= now` at read time so
- * scheduled posts stay out of the sitemap / `generateStaticParams` until
- * their `datetime` passes, then auto-surface without waiting for a cache
- * bust. Tagged `posts` so post mutations bust this alongside section-scoped
- * caches.
+ * scheduled posts stay out of the sitemap / `generateStaticParams` until their
+ * `datetime` passes. Tagged `posts` so post mutations bust this alongside the
+ * section-scoped caches.
+ *
+ * "Read time" means generation time, not request time: every consumer here is
+ * prerendered, so the filter runs once when the page is built and freezes with
+ * it. A post coming due surfaces when something busts the tag — the daily
+ * `/api/cron/revalidate-scheduled` run, or any post mutation — never on its own.
  */
 const allPublishedPostSlugsCache = unstable_cache(
 	async () =>
@@ -329,8 +351,10 @@ export interface PostArchiveItem {
  * post mutation (which revalidates `blog-{section}`) also busts the archive.
  *
  * Caches the raw published list including scheduled posts; year-grouping and
- * `datetime <= now` filtering happen at read time in `getPostsGroupedByYear`
- * so scheduled posts auto-surface in the archive as their `datetime` passes.
+ * `datetime <= now` filtering happen in `getPostsGroupedByYear` when the entry
+ * is generated. The archive page is prerendered, so that filter does not re-run
+ * per request — a post coming due reaches the archive when the daily cron busts
+ * `blog-{section}`, not by itself.
  */
 function makeArchiveCache(section: Section) {
 	return unstable_cache(
@@ -496,8 +520,10 @@ export function revalidatePost(section: Section, slug: string): void {
  * result and pins it, tagged `post-{section}-{slug}` + `post-pages`. Nothing in
  * `revalidatePostSection` touches either tag, so once the post came due the URL
  * kept serving that stale 404 until the post was next saved in admin. The
- * section aggregates (list, archive, feed, sitemap) never had this problem —
- * they cache a padded superset and filter at read time.
+ * section aggregates (list, archive, feed, sitemap) never had this problem, but
+ * not because they self-heal — they freeze at generation time too. They hold a
+ * *listing*, so a missed bust omits a post rather than denying it, and the
+ * section sweep in the same cron run covers them either way.
  *
  * Per-post rather than a blanket `post-pages` bust so a single due post
  * regenerates two entries instead of every post's page and `.md`, matching the
