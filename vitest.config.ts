@@ -46,13 +46,18 @@ export default defineConfig({
 			// nothing gates on it — `reporter: ["text"]` is informational, there is
 			// no threshold — and a noisy report that shows real gaps beats a tidy
 			// one that can't.
+			// `src/app/api/**` is deliberately NOT excluded. It was, for the same
+			// reason the broad `.tsx` glob was: it looked like plumbing. It is not —
+			// the cron routes, the feed, and the `.md` route are among the densest
+			// logic in the tree, and hiding them meant the commit whose stated
+			// purpose was to stop hiding logic from this report left the largest new
+			// logic in the range outside it.
 			exclude: [
 				"src/**/*.test.*",
 				"src/generated/**",
 				"src/components/**/*.tsx",
 				"src/**/*.css",
 				"src/**/*.d.ts",
-				"src/app/api/**",
 			],
 		},
 	},

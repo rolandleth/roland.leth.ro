@@ -51,6 +51,19 @@ export const OG_IMAGE_WIDTH = 1200
 export const OG_IMAGE_HEIGHT = 630
 
 /**
+ * The two lines the card actually draws, and the source of its alt text.
+ *
+ * Owned here rather than in `scripts/generate-og-card.tsx` so the script imports
+ * them the same way it imports the dimensions. They were literals in the script
+ * with the alt string hand-composed from them over here, which is a drift the
+ * tooling could not see: `yarn og:card --check` compares rendered PNG bytes
+ * against the committed PNG, so it catches a changed tagline in the picture and
+ * is blind to the alt text still describing the old one.
+ */
+export const OG_CARD_NAME = "Roland Leth"
+export const OG_CARD_TAGLINE = "iOS developer & full-stack engineer"
+
+/**
  * `defaultOgImage` in descriptor form, so the card advertises its own size and
  * carries alt text.
  *
@@ -68,8 +81,9 @@ const defaultOgImageDescriptor = {
 	url: defaultOgImage,
 	width: OG_IMAGE_WIDTH,
 	height: OG_IMAGE_HEIGHT,
-	// Matches what the card actually draws — see `scripts/generate-og-card.tsx`.
-	alt: "Roland Leth — iOS developer & full-stack engineer",
+	// Composed from the same two constants the card draws, so a copy change moves
+	// the picture and its description together.
+	alt: `${OG_CARD_NAME} — ${OG_CARD_TAGLINE}`,
 } as const
 
 /**

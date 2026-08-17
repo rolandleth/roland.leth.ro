@@ -7,12 +7,14 @@ import {
 	datetimeToUtcDate,
 	formatDate,
 	formatDateValue,
+	MAX_PAGE,
 	parseIntId,
 	parsePageParam,
 	postDatetimeToISO,
 	truncateBody,
 	yearFromDatetime,
 } from "@/lib/utils/format"
+import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // #region blankToNull
 
@@ -125,8 +127,21 @@ describe("parsePageParam", () => {
 	})
 
 	it("clamps overly large input to MAX_PAGE", () => {
-		// `?page=999999999` would translate to a wasted Postgres OFFSET scan.
-		expect(parsePageParam("999999999")).toBe(10_000)
+		// The clamp is what lets a route reject out-of-range in the same
+		// round-trip comparison it uses for junk: the clamped value no longer
+		// stringifies back to the raw segment, so `/p/999999999` 404s before any
+		// query runs.
+		expect(parsePageParam("999999999")).toBe(MAX_PAGE)
+	})
+
+	it("bounds the probe surface to a few hundred posts", () => {
+		// `page` comes from a URL segment, so every value below the bound is a
+		// billed on-demand render with its own `skip`, `count`, and cache entry.
+		// At the previous 10_000 that was a 10k-step walk for a crawler. This
+		// pins the order of magnitude, not the exact number — raising it as the
+		// corpus grows is expected, jumping it back to 10k is not.
+		expect(MAX_PAGE).toBeLessThanOrEqual(100)
+		expect(MAX_PAGE * PAGE_SIZE).toBeGreaterThan(100)
 	})
 })
 

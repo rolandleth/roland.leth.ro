@@ -5,7 +5,7 @@ import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
 const redis = getKeepaliveRedis()
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-	const unauthorized = requireCronAuth(request, "api:cron:ping")
+	const unauthorized = requireCronAuth(request, "[api:cron:ping]")
 
 	if (unauthorized) {
 		return unauthorized

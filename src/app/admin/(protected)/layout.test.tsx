@@ -71,15 +71,10 @@ describe("ProtectedLayout", () => {
 		)
 	})
 
-	it("logs before redirecting, so the signal survives the control-flow throw", async () => {
-		vi.mocked(verifySession).mockResolvedValue(false)
-
-		await expect(ProtectedLayout({ children: "body" })).rejects.toThrow(
-			"REDIRECT"
-		)
-
-		expect(vi.mocked(console.error)).toHaveBeenCalled()
-	})
+	// Deliberately no "logs before redirecting" test here. `redirect` is mocked
+	// to throw, so the preceding test already proves the log happened before it —
+	// a bare `toHaveBeenCalled()` would add no constraint the assertions above
+	// don't already carry, while reading like independent coverage.
 
 	it("does not log when the session is valid", async () => {
 		vi.mocked(verifySession).mockResolvedValue(true)

@@ -1,6 +1,6 @@
 import { parseIntId } from "@/lib/utils/format"
 import { verifySession } from "./auth"
-import { logMiddlewareBypass } from "./middlewareBypass"
+import { bypassIdForRequest, logMiddlewareBypass } from "./middlewareBypass"
 import type { Metadata } from "next"
 
 /**
@@ -8,9 +8,10 @@ import type { Metadata } from "next"
  *
  * A const map rather than four bare string literals at the call sites: the tag
  * is what attributes a security line to a page, and a hand-typed literal can be
- * copy-pasted between pages with nothing failing. `adminAuthContract.test.ts`
+ * copy-pasted between pages with nothing failing. `adminPageContract.test.ts`
  * walks the edit-page directory against this map, so a fifth page can't ship
- * without an entry.
+ * without an entry. (Not `adminAuthContract.test.ts` — that file exists and
+ * does the same job one namespace over, for `/api/admin`.)
  */
 export const ADMIN_EDIT_TAGS = {
 	posts: "[admin:posts:edit]",
@@ -90,8 +91,16 @@ export async function adminEditMetadata({
 	try {
 		name = await loadName(recordId)
 	} catch (error) {
+		// Two arguments, not three, and carrying `bypassId` — the shape every
+		// other line in this defence layer uses. A three-argument line with no
+		// correlation id matched none of the alert greps built on the group, so a
+		// database outage on an edit page produced a line nobody was watching.
 		// eslint-disable-next-line no-console
-		console.error(`${tag} loadName failed`, { id }, error)
+		console.error(`${tag} loadName failed`, {
+			bypassId: bypassIdForRequest(),
+			id,
+			error,
+		})
 
 		return { title: fallback }
 	}

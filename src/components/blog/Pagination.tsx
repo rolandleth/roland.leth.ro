@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { blogPagePath } from "@/lib/utils/pagination"
+import type { Section } from "@/lib/db/sections"
 
 interface Props {
 	page: number
 	totalPages: number
-	section: string
+	section: Section
 }
 
 export default function Pagination({ page, totalPages, section }: Props) {

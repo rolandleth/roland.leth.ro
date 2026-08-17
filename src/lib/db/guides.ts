@@ -355,6 +355,13 @@ export async function getGuideTopicBySlug(
 
 	// The hub itself has no date to schedule against; its list still hides
 	// guides whose date hasn't arrived. Read-time, same as everywhere else.
+	//
+	// KNOWN GAP, latent: this entry is tagged `guide-topic-{slug}` + `guide-pages`,
+	// and `/api/cron/revalidate-scheduled` busts neither — it busts `GUIDES_TAG`
+	// and `guide-detail-{slug}`. So a guide coming due would reach `/guides` and
+	// its own page but not its hub. Harmless today only because no `/guides/topics`
+	// route exists: this and `revalidateGuideTopic` are exported and tested but
+	// unrouted. Routing the hub means adding a topic bust to the cron.
 	const now = new Date()
 
 	return {
@@ -533,10 +540,20 @@ export async function listGuideTopicOptions(): Promise<
  *
  * Callers should pass a window WIDER than the cron interval: overlap costs one
  * redundant revalidation, a gap strands a guide until the next real mutation.
+ *
+ * `limit` bounds the result, same contract as `findPostsBecameLive`: the caller
+ * asks for one row more than it will process individually and falls back to a
+ * blanket bust when it gets it, so the bound never silently drops a guide.
+ *
+ * Selects `slug` only, where the post side selects `section` + `slug`. Not an
+ * oversight: a post's detail tag is keyed by both, a guide's by slug alone
+ * (`guideTag`), so each side selects exactly the identity its bust needs. If a
+ * due guide ever has to bust its topic hub too, this select grows to match.
  */
 export async function findGuidesBecameLive(
 	windowStart: Date,
-	now: Date
+	now: Date,
+	limit: number
 ): Promise<string[]> {
 	const guides = await prisma.guide.findMany({
 		where: {
@@ -544,6 +561,7 @@ export async function findGuidesBecameLive(
 			publishedAt: { gt: windowStart, lte: now },
 		},
 		select: { slug: true },
+		take: limit,
 	})
 
 	return guides.map((guide) => guide.slug)

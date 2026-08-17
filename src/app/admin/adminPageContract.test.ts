@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ADMIN_EDIT_TAGS } from "@/lib/auth/adminMetadata"
 
 /**
@@ -15,18 +15,41 @@ import { ADMIN_EDIT_TAGS } from "@/lib/auth/adminMetadata"
  *   1. Every admin page sits under `(protected)/`, whose layout re-checks the
  *      session. `/admin/login` is the deliberate exception — it is the page an
  *      unauthenticated request is redirected *to*.
- *   2. Every edit page routes `generateMetadata` through `adminEditMetadata`
- *      with its own tag. `generateMetadata` runs outside the layout, so it is
- *      the one place on an admin page that can read a row with the layout's
- *      check never having run.
  *
- * Asserted against the page sources rather than by importing the modules: the
- * per-page tests (`posts/[id]/edit/page.test.tsx` and its three siblings)
- * already exercise the runtime behaviour with a mocked session. What was
- * missing is *exhaustiveness* — proof that a fifth edit page can't ship without
- * the guard — and that is a question about the set of files, not about any one
- * page's behaviour.
+ *      Placement is NOT the same as "guarded", and this file asserts the former
+ *      only. Next does not re-execute a layout on a client-side navigation
+ *      within the same segment, so a page under `(protected)/` can still run its
+ *      body on a request where the layout check did not — `guides/new/page.tsx`
+ *      and `guide-topics/new/page.tsx` both call `getProjectsForAdmin()` that
+ *      way. The `/admin/:path*` matcher in `src/proxy.ts` bounds it, so this is
+ *      an accuracy caveat on invariant 1 rather than an open hole.
+ *   2. Every page that reads a row in `generateMetadata` routes it through
+ *      `adminEditMetadata` with its own tag. `generateMetadata` runs outside the
+ *      layout, so it is the one place on an admin page that can read a row with
+ *      the layout's check never having run.
+ *
+ * Asserted by IMPORTING each page and CALLING `generateMetadata`, not by
+ * matching its source text. The source-text form claimed to prove "a fifth edit
+ * page can't ship without the guard" and did not: an import line plus the
+ * literal `tag: ADMIN_EDIT_TAGS.x` anywhere in the file passed it, with no
+ * `generateMetadata` export at all and no call to anything. The API-side sibling
+ * has always called its handlers; this now matches.
  */
+
+vi.mock("@/lib/auth/auth", () => ({
+	verifySession: vi.fn().mockResolvedValue(false),
+}))
+
+vi.mock("next/cache", async () => {
+	const { nextCacheMockFactory } = await import("@/test/mocks/nextCache")
+
+	return nextCacheMockFactory()
+})
+
+vi.mock("@/lib/db/db", () => ({
+	prisma: {},
+	isPrismaUniqueConstraint: vi.fn().mockReturnValue(false),
+}))
 
 const ADMIN_DIR = __dirname
 const PROTECTED_SEGMENT = "(protected)"
@@ -37,6 +60,18 @@ function adminPages(): string[] {
 		.filter((entry) => entry.endsWith("page.tsx"))
 		.map((entry) => entry.replaceAll("\\", "/"))
 		.sort()
+}
+
+/**
+ * The URL a discovered `page.tsx` serves. Route groups add no URL segment, so
+ * `(protected)/posts/[id]/edit/page.tsx` serves `/admin/posts/[id]/edit`.
+ */
+function routeFor(page: string): string {
+	const segments = dirname(page)
+		.split("/")
+		.filter((segment) => !segment.startsWith("("))
+
+	return `/admin/${segments.join("/")}`
 }
 
 // #region page placement
@@ -57,7 +92,7 @@ describe("admin page placement", () => {
 	})
 
 	it("has a layout guarding the protected segment", () => {
-		const layouts = readdirSync(join(ADMIN_DIR, PROTECTED_SEGMENT), {
+		const layouts = readdirSync(`${ADMIN_DIR}/${PROTECTED_SEGMENT}`, {
 			encoding: "utf8",
 		})
 
@@ -67,60 +102,151 @@ describe("admin page placement", () => {
 
 // #endregion
 
-// #region edit-page tags
+// #region metadata guard
 
-/** Edit pages discovered in the tree, keyed by their route-ish directory. */
-function editPages(): { route: string; source: string }[] {
-	return adminPages()
-		.filter((page) => page.endsWith("/edit/page.tsx"))
-		.map((page) => ({
-			route: dirname(page),
-			source: readFileSync(join(ADMIN_DIR, page), "utf8"),
-		}))
+interface MetadataPage {
+	/** Route the page serves, used as the test label. */
+	route: string
+	/** The tag this page's log lines must carry — NOT looked up from the module. */
+	tag: string
+	/** Human-readable title the guard must fall back to. */
+	fallback: string
+	load: () => Promise<{
+		generateMetadata?: (args: {
+			params: Promise<{ id: string }>
+		}) => Promise<{ title?: unknown }>
+	}>
 }
 
-describe("admin edit pages", () => {
-	it("finds edit pages at all, so a broken filter can't pass vacuously", () => {
-		expect(editPages().length).toBeGreaterThan(0)
+/**
+ * Every admin page whose `generateMetadata` reads a row, with the tag it is
+ * required to use, written out here rather than read from the module.
+ *
+ * That is the whole point of the list: the old test extracted the tag from the
+ * page's own source and then checked it against itself, so two pages could swap
+ * tags and every assertion still passed. Stating the expected pairing
+ * independently is what makes a transposition fail.
+ */
+const metadataPages: MetadataPage[] = [
+	{
+		route: "/admin/posts/[id]/edit",
+		tag: ADMIN_EDIT_TAGS.posts,
+		fallback: "Edit post",
+		load: () => import("./(protected)/posts/[id]/edit/page"),
+	},
+	{
+		route: "/admin/projects/[id]/edit",
+		tag: ADMIN_EDIT_TAGS.projects,
+		fallback: "Edit project",
+		load: () => import("./(protected)/projects/[id]/edit/page"),
+	},
+	{
+		route: "/admin/guides/[id]/edit",
+		tag: ADMIN_EDIT_TAGS.guides,
+		fallback: "Edit guide",
+		load: () => import("./(protected)/guides/[id]/edit/page"),
+	},
+	{
+		route: "/admin/guide-topics/[id]/edit",
+		tag: ADMIN_EDIT_TAGS.guideTopics,
+		fallback: "Edit topic",
+		load: () => import("./(protected)/guide-topics/[id]/edit/page"),
+	},
+]
+
+beforeEach(() => {
+	// Each rejection logs at error level; all of them are expected here.
+	vi.spyOn(console, "error").mockImplementation(() => undefined)
+})
+
+describe.each(metadataPages)("$route", ({ tag, fallback, load }) => {
+	it("exports generateMetadata", async () => {
+		// The gap the source-text form left open: a page could import
+		// `adminEditMetadata`, mention the tag, and export nothing.
+		const pageModule = await load()
+
+		expect(typeof pageModule.generateMetadata).toBe("function")
 	})
 
-	it("has one tag per edit page, and no spares", () => {
+	it("falls back rather than reading the row without a session", async () => {
+		// The guard's actual product. A request that slipped past the
+		// `src/proxy.ts` matcher would otherwise reach the loader and render an
+		// unpublished record's name into the `<title>` of a page it was never
+		// allowed to see.
+		const pageModule = await load()
+		const metadata = await pageModule.generateMetadata?.({
+			params: Promise.resolve({ id: "1" }),
+		})
+
+		expect(metadata?.title).toBe(fallback)
+	})
+
+	it("attributes its bypass line to its own tag", async () => {
+		// The tag is what attributes a security line to a page, and it is checked
+		// against the expected value declared above — not against whatever the
+		// page's source happens to contain.
+		const pageModule = await load()
+
+		await pageModule.generateMetadata?.({
+			params: Promise.resolve({ id: "1" }),
+		})
+
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			expect.stringContaining(tag),
+			expect.objectContaining({ surface: "generateMetadata" })
+		)
+	})
+})
+
+describe("routeFor", () => {
+	// The walker's one piece of real logic, tested on synthetic input so a
+	// predicate that silently narrowed the discovered set can't pass. The old
+	// non-vacuity guards only checked `length > 0`, which a typo survives.
+	it.each([
+		["(protected)/posts/[id]/edit/page.tsx", "/admin/posts/[id]/edit"],
+		["login/page.tsx", "/admin/login"],
+		// The shapes the previous `/edit/page.tsx` predicate missed entirely.
+		["(protected)/posts/[id]/page.tsx", "/admin/posts/[id]"],
+		["(protected)/posts/[id]/preview/page.tsx", "/admin/posts/[id]/preview"],
+		// Route groups add no URL segment, however many are nested.
+		["(protected)/(inner)/guides/page.tsx", "/admin/guides"],
+	])("maps %s to %s", (page, expected) => {
+		expect(routeFor(page)).toBe(expected)
+	})
+})
+
+describe("the metadata-page list", () => {
+	it("covers every admin page that reads a row in generateMetadata", () => {
+		// Guards the "listed explicitly" decision above. The previous walker keyed
+		// on `/edit/page.tsx`, but the invariant is about any admin page reading a
+		// row in `generateMetadata` — a `[id]/page.tsx` or `[id]/preview/page.tsx`
+		// got no assertion and did not perturb the count, which made the gap look
+		// closed. This keys on the guard's own name instead, so a new page shape
+		// still has to be listed.
+		const discovered = adminPages()
+			.filter((page) =>
+				readFileSync(join(ADMIN_DIR, page), "utf8").includes(
+					"export async function generateMetadata"
+				)
+			)
+			.map(routeFor)
+			.sort()
+		const listed = metadataPages.map(({ route }) => route).sort()
+
+		expect(discovered).toEqual(listed)
+	})
+
+	it("gives every listed page a distinct tag", () => {
+		const tags = metadataPages.map(({ tag }) => tag)
+
+		expect(new Set(tags).size).toBe(tags.length)
+	})
+
+	it("has one tag per listed page, and no spares", () => {
 		// Drift in either direction is a bug: an unused tag means a page was
 		// deleted or renamed without cleaning up, and a missing one means a new
 		// page has nowhere correct to point.
-		expect(editPages()).toHaveLength(Object.keys(ADMIN_EDIT_TAGS).length)
-	})
-
-	describe.each(editPages())("$route", ({ source }) => {
-		it("routes generateMetadata through adminEditMetadata", () => {
-			expect(source).toContain("adminEditMetadata")
-		})
-
-		// The tag is what attributes a security line to a page. A bare string
-		// literal here would be copy-pasteable between pages with nothing failing,
-		// which is why `ADMIN_EDIT_TAGS` exists and why the source has to use it.
-		it("takes its tag from ADMIN_EDIT_TAGS rather than a bare literal", () => {
-			expect(source).toMatch(/tag:\s*ADMIN_EDIT_TAGS\.\w+/)
-		})
-	})
-
-	it("gives every edit page a distinct tag", () => {
-		const used = editPages().map(
-			({ source }) => /tag:\s*ADMIN_EDIT_TAGS\.(\w+)/.exec(source)?.[1]
-		)
-
-		expect(used).not.toContain(undefined)
-		expect(new Set(used).size).toBe(used.length)
-	})
-
-	it("uses only keys that exist on ADMIN_EDIT_TAGS", () => {
-		const used = editPages().flatMap(
-			({ source }) => /tag:\s*ADMIN_EDIT_TAGS\.(\w+)/.exec(source)?.[1] ?? []
-		)
-
-		for (const key of used) {
-			expect(Object.keys(ADMIN_EDIT_TAGS)).toContain(key)
-		}
+		expect(metadataPages).toHaveLength(Object.keys(ADMIN_EDIT_TAGS).length)
 	})
 })
 

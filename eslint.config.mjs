@@ -14,25 +14,39 @@ const sonarRecommended = /** @type {import("eslint").Linter.Config} */ (
 // a rule's options rather than merging them: any later block that sets
 // `no-restricted-syntax` for a narrower file set would silently drop these unless
 // it spreads them back in. See the page-metadata block near the bottom.
-const restrictedSyntax = [
+// `exemptForInnerHtmlFiles` marks the entries that JsonLdScript and ThemeScript
+// are allowed to break. Tagged explicitly rather than detected: the filter below
+// used to test whether the SELECTOR STRING contained
+// "dangerouslySetInnerHTML", which keys on spelling instead of intent. A future
+// raw-HTML ban worded without that literal stayed enforced in the two files that
+// need the exemption, and one that merely mentioned the string in its message
+// was silently dropped there. Neither failure announces itself.
+const restrictedSyntaxRules = [
 	{
 		selector: 'JSXAttribute[name.name="dangerouslySetInnerHTML"]',
 		message:
 			"Don't use dangerouslySetInnerHTML directly — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
+		exemptForInnerHtmlFiles: true,
 	},
 	{
 		selector: 'Property[key.name="dangerouslySetInnerHTML"]',
 		message:
 			"Don't build a dangerouslySetInnerHTML prop — render structured data through <JsonLdScript> (src/components/JsonLdScript.tsx), the single sanctioned chokepoint.",
+		exemptForInnerHtmlFiles: true,
 	},
 ]
+
+/** ESLint rejects unknown option keys, so the marker never reaches it. */
+const asRule = ({ selector, message }) => ({ selector, message })
+
+const restrictedSyntax = restrictedSyntaxRules.map(asRule)
 
 // What `restrictedSyntax` still has to say to the two files that are allowed to
 // use `dangerouslySetInnerHTML`. Empty today, because that is all the constant
 // bans so far.
-const restrictedSyntaxBeyondInnerHtml = restrictedSyntax.filter(
-	(entry) => !entry.selector.includes("dangerouslySetInnerHTML")
-)
+const restrictedSyntaxBeyondInnerHtml = restrictedSyntaxRules
+	.filter((entry) => !entry.exemptForInnerHtmlFiles)
+	.map(asRule)
 
 // Where page metadata is actually declared. The keys below are banned only
 // inside these, not anywhere a property happens to share the name: a plain

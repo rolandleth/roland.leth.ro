@@ -99,11 +99,14 @@ describe("adminEditMetadata", () => {
 			},
 		})
 
-		expect(consoleError()).toHaveBeenCalledWith(
-			`${TAG} loadName failed`,
-			{ id: "7" },
-			error
-		)
+		// Two arguments carrying `bypassId`, matching every other line in this
+		// defence layer. The old three-argument shape matched none of the alert
+		// greps built on the group, so a DB outage here logged into the void.
+		expect(consoleError()).toHaveBeenCalledWith(`${TAG} loadName failed`, {
+			bypassId: expect.any(String),
+			id: "7",
+			error,
+		})
 	})
 
 	// #endregion
