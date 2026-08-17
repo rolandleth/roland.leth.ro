@@ -90,6 +90,25 @@ describe("BlogListPagedPage — param validation", () => {
 
 		await expect(BlogListPagedPage(params("tech", "3"))).resolves.toBeTruthy()
 	})
+
+	it("reads a blog-tagged cache before 404ing an out-of-range page", async () => {
+		// What lets a pinned 404 heal. `dynamicParams` stays at its default here
+		// (the param set comes from the post count, not a constant), so `/p/4` on
+		// a 3-page section renders on demand and CACHES the not-found result. If
+		// nothing tagged were read on that path, the entry would carry no tag for
+		// `revalidatePostSection` to bust and `/p/4` would keep 404ing after a
+		// fourth page existed — the same stale-404 class `61929b8` fixed on the
+		// detail routes.
+		//
+		// `getSectionPageCount` is an `unstable_cache` tagged `blog-{section}`, so
+		// reading it on the 404 path is what rides the tag up onto the route
+		// entry. This asserts the read happens; the propagation itself is Next's
+		// and needs a real deploy to confirm.
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
+
+		await expect(BlogListPagedPage(params("tech", "4"))).rejects.toThrow()
+		expect(getSectionPageCount).toHaveBeenCalledWith("tech")
+	})
 })
 
 // #endregion

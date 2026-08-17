@@ -170,9 +170,13 @@ describe("getPostsBySection", () => {
 		})
 	})
 
-	// Wrappers are memoized per (section, page) for the lifetime of the module,
+	// Wrappers are memoized per (section, page) for the LIFETIME OF THE MODULE,
 	// so these use page numbers no other test touches — otherwise the wrapper
-	// already exists and `unstable_cache` is never called again.
+	// already exists and `unstable_cache` is never called again, and the test
+	// passes vacuously with zero calls to inspect.
+	//
+	// 91-93 are reserved for this block. Reusing one below silently breaks these
+	// rather than failing the new test, so pick fresh numbers if you need more.
 	it("scopes the cache tag to the section", async () => {
 		// Busting `blog-tech` must not clear life's pages, and the cron busts
 		// per section. A shared tag would make every publish regenerate both.
@@ -201,6 +205,11 @@ describe("getPostsBySection", () => {
 			.mocked(unstable_cache)
 			.mock.calls.map((call) => (call[1] ?? []).join())
 
+		// Uniqueness alone would pass on keys that merely differ, including two
+		// that encode the section and not the page. The page number has to BE in
+		// the key, which is what makes the entries addressable.
+		expect(keys).toContain("blog-page-tech-92")
+		expect(keys).toContain("blog-page-tech-93")
 		expect(new Set(keys).size).toBe(keys.length)
 	})
 

@@ -37,6 +37,17 @@ vi.mock("@/lib/db/guides", () => ({
  */
 const OVER_CAP = 201
 
+/**
+ * Mirrors `WINDOW_HOURS` in the route, unimportable for the same reason.
+ *
+ * Restating it is the point here: this file asserts the window is exactly what
+ * the route intends, so a change to the constant has to be made deliberately in
+ * two places. Whether that number is still *correct* for the cron schedule is a
+ * different question, and `../windowInvariant.test.ts` answers it by reading
+ * both the route source and `vercel.json`.
+ */
+const WINDOW_HOURS = 50
+
 function postRows(count: number) {
 	return Array.from({ length: count }, (_, i) => ({
 		section: "tech" as const,
@@ -210,6 +221,49 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 		expect(revalidateGuideDetails).toHaveBeenCalled()
 	})
 
+	it("logs the slugs, not just the counts", async () => {
+		// Their own comment calls these the one lever for tracing a stranded post
+		// after the fact, and every other behaviour in this file is pinned. A
+		// count alone tells you something came due, not which thing failed to
+		// surface — which is the question asked during an incident.
+		const info = vi.spyOn(console, "info").mockImplementation(() => {})
+
+		vi.mocked(findPostsBecameLive).mockResolvedValue([
+			{ section: "tech", slug: "one" },
+			{ section: "life", slug: "two" },
+		])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a-guide"])
+
+		await GET(authorized())
+
+		expect(info).toHaveBeenCalledWith(
+			expect.stringContaining("revalidated for due content"),
+			expect.objectContaining({
+				duePostSlugs: ["tech/one", "life/two"],
+				dueGuideSlugs: ["a-guide"],
+			})
+		)
+	})
+
+	it("replaces the slug lists with a marker when a half overflowed", async () => {
+		// Hundreds of slugs would bury the line, and the blanket bust makes
+		// "which ones" moot — but the line must say that is what happened rather
+		// than silently reporting an empty list.
+		const info = vi.spyOn(console, "info").mockImplementation(() => {})
+
+		vi.mocked(findPostsBecameLive).mockResolvedValue(postRows(OVER_CAP))
+
+		await GET(authorized())
+
+		expect(info).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				duePostSlugs: expect.stringContaining("over cap"),
+				duePosts: OVER_CAP,
+			})
+		)
+	})
+
 	it("busts no detail tags when nothing came due", async () => {
 		// The common path by a wide margin. A bust here would regenerate content
 		// on every run, which is the cost this route was built to avoid.
@@ -227,22 +281,49 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 // #region Window
 
 describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
-	it("looks back further than the widest gap between two runs", async () => {
-		// A window equal to the interval strands a post whenever a run is
-		// skipped or delayed. Overlap costs one redundant revalidation; a gap
-		// loses the post until the next real mutation, so the window must be
-		// strictly wider than the schedule in `vercel.json` — and that schedule
-		// is daily, fired with ±59 minutes of Hobby jitter, so two consecutive
-		// runs can land 24h59m apart with nothing wrong.
-		await GET(authorized())
+	it("looks back exactly WINDOW_HOURS", async () => {
+		// This did not test the window. `windowStart < now` is a trivially-passing
+		// lexicographic compare, and the old `> 25h` bound accepted any value from
+		// 26 upward while the constant was 49 — the one number the whole design
+		// hinges on, unlocked. Fake timers pin the instant so the bound can be
+		// asserted to the millisecond.
+		//
+		// The relation between this number and the cron schedule is a separate
+		// concern, guarded in `windowInvariant.test.ts`.
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-08-15T10:00:00Z"))
 
-		const [windowStart, now] = vi.mocked(findPostsBecameLive).mock.calls[0]
-		const [guideWindowStart] = vi.mocked(findGuidesBecameLive).mock.calls[0]
+		try {
+			await GET(authorized())
 
-		expect(windowStart < now).toBe(true)
-		expect(Date.now() - guideWindowStart.getTime()).toBeGreaterThan(
-			25 * 60 * 60 * 1000
-		)
+			const [guideWindowStart, guideNow] =
+				vi.mocked(findGuidesBecameLive).mock.calls[0]
+			const spannedHours =
+				(guideNow.getTime() - guideWindowStart.getTime()) / (60 * 60 * 1000)
+
+			expect(spannedHours).toBe(WINDOW_HOURS)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it("ends the window at now, not in the future", async () => {
+		// The upper bound is `now` and the compare is `lte`, so a post dated
+		// exactly at this instant counts as due. Drifting it forward would surface
+		// scheduled content ahead of its date, which is the one thing the cron
+		// must never do.
+		vi.useFakeTimers()
+		vi.setSystemTime(new Date("2026-08-15T10:00:00Z"))
+
+		try {
+			await GET(authorized())
+
+			const [, guideNow] = vi.mocked(findGuidesBecameLive).mock.calls[0]
+
+			expect(guideNow.getTime()).toBe(Date.now())
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 
 	it("closes both windows at the same instant", async () => {

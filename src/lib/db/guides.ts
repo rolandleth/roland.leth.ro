@@ -355,6 +355,13 @@ export async function getGuideTopicBySlug(
 
 	// The hub itself has no date to schedule against; its list still hides
 	// guides whose date hasn't arrived. Read-time, same as everywhere else.
+	//
+	// KNOWN GAP, latent: this entry is tagged `guide-topic-{slug}` + `guide-pages`,
+	// and `/api/cron/revalidate-scheduled` busts neither — it busts `GUIDES_TAG`
+	// and `guide-detail-{slug}`. So a guide coming due would reach `/guides` and
+	// its own page but not its hub. Harmless today only because no `/guides/topics`
+	// route exists: this and `revalidateGuideTopic` are exported and tested but
+	// unrouted. Routing the hub means adding a topic bust to the cron.
 	const now = new Date()
 
 	return {

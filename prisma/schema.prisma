@@ -33,6 +33,11 @@ model Post {
   // this composite index lets Postgres hit the right shard and return rows
   // in order without a sort step.
   @@index([section, published, datetime])
+  // `findPostsBecameLive` deliberately does NOT filter by section — the sitemap
+  // and the `posts` aggregate span sections — so the composite above can't serve
+  // it: its leftmost column is absent and the query falls back to a scan. Same
+  // trade as the guide side: daily, negligible today, cheap now.
+  @@index([published, datetime])
   // There is deliberately NO slug-only index. One existed for
   // `legacySlug.lookupLegacySlug`, which queried by `slug` alone to resolve
   // root-level legacy URLs; that lookup and its route are gone, leaving the
@@ -131,6 +136,11 @@ model Guide {
   // sort step (same reasoning as `Post`'s section composite).
   @@index([topicId, published, sortOrder])
   @@index([projectSlug, published, sortOrder])
+  // `findGuidesBecameLive` filters on (published, publishedAt range) with no
+  // scope column, so neither composite above applies — its leftmost column is
+  // missing and the query degrades to a scan. Runs once a day, negligible at
+  // current row counts, and cheap to have in place before it isn't.
+  @@index([published, publishedAt])
 }
 
 model Project {

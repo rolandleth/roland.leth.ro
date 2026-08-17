@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest"
 import {
 	buildPageMetadata,
 	defaultOgImage,
+	OG_CARD_NAME,
+	OG_CARD_TAGLINE,
 	OG_IMAGE_HEIGHT,
 	OG_IMAGE_WIDTH,
 	ogImageEntry,
@@ -302,6 +304,33 @@ describe("defaultOgImage", () => {
 			OG_IMAGE_WIDTH,
 			OG_IMAGE_HEIGHT,
 		])
+	})
+
+	// The alt-text counterpart to the dimensions check above. The dimensions had a
+	// PNG-header test and the alt had no equivalent, while being the string a
+	// screen reader announces for every shared link on the site — and
+	// `yarn og:card --check` compares rendered bytes against committed bytes, so
+	// it sees a changed tagline in the picture and is blind to the alt still
+	// describing the old one.
+	it("builds the alt from the constants the card actually draws", () => {
+		const card = ogImageEntry(defaultOgImage) as { alt?: string }
+
+		expect(card.alt).toBe(`${OG_CARD_NAME} — ${OG_CARD_TAGLINE}`)
+	})
+
+	it("keeps the OG script reading those constants rather than its own copy", () => {
+		// Single-sourcing only holds while the script imports them. A refactor
+		// that restated `const NAME = "..."` locally would let the picture and its
+		// description drift again with every runtime assertion still passing.
+		const script = readFileSync(
+			path.join(process.cwd(), "scripts", "generate-og-card.tsx"),
+			"utf8"
+		)
+
+		expect(script).toContain("OG_CARD_NAME")
+		expect(script).toContain("OG_CARD_TAGLINE")
+		expect(script).not.toMatch(/const NAME = "/)
+		expect(script).not.toMatch(/const TAGLINE = "/)
 	})
 })
 
