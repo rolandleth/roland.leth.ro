@@ -132,9 +132,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		revalidateGuideDetails(dueGuides)
 	}
 
-	// The slugs, not just the count: this run is the only thing standing between
-	// a scheduled post and a pinned 404 on its detail URL, so a failure to
-	// surface one needs to be traceable to the exact post afterwards.
 	// The slugs, not just the counts: this run is the only thing standing between
 	// scheduled content and a pinned 404 on its detail URL, so a failure to
 	// surface one needs to be traceable to the exact post or guide afterwards.

@@ -518,11 +518,6 @@ export async function listGuideTopicOptions(): Promise<
 // #region Revalidation
 
 /**
- * Busts the shared aggregate: the `/guides` index, `llms.txt`, the sitemap, and
- * every project page's guides section. Every guide/topic mutation goes through
- * this, directly or via the helpers below.
- */
-/**
  * Published guides whose `publishedAt` fell inside `(windowStart, now]` — guides
  * that became live during the window with no mutation to hang a revalidation
  * off. The guide-side counterpart to `findPostsBecameLive`;
@@ -554,6 +549,11 @@ export async function findGuidesBecameLive(
 	return guides.map((guide) => guide.slug)
 }
 
+/**
+ * Busts the shared aggregate: the `/guides` index, `llms.txt`, the sitemap, and
+ * every project page's guides section. Every guide/topic mutation goes through
+ * this, directly or via the helpers below.
+ */
 export function revalidateGuides(): void {
 	revalidateTag(GUIDES_TAG, "max")
 }
