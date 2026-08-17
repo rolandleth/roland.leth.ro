@@ -21,6 +21,11 @@ export function generateStaticParams() {
 	return SECTIONS.map((section) => ({ section }))
 }
 
+// Closed param set, so an unknown section is always a bad URL. Off for the same
+// reason as `/blog/:section` — see that route for why the default produces a
+// soft 404 here.
+export const dynamicParams = false
+
 interface Props {
 	params: Promise<{ section: string }>
 }

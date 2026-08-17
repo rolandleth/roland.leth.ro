@@ -15,6 +15,23 @@ export function generateStaticParams() {
 	return SECTIONS.map((section) => ({ section }))
 }
 
+// `SECTIONS` is a compile-time constant, so the generated set is already every
+// section that can exist — an unknown one is always a bad URL, never content
+// added since the build.
+//
+// Left at the default (true), an unknown section is rendered on demand instead,
+// and that render is a *static generation*: it produces a cacheable output, and
+// a static output carries no per-request status. The `notFound()` below then
+// bakes the 404 page as an ordinary 200 — a soft 404 that invites crawlers to
+// index junk (`/blog/wat` returned 200 in production on 2026-08-17). Turning
+// `dynamicParams` off makes Next serve `/_not-found`, whose prerender does store
+// `status: 404`, without rendering this page at all.
+//
+// Only safe because the param set is closed. Routes whose params come from the
+// database (`[slug]`, `p/[page]`) must keep the default or new content would 404
+// until the next deploy.
+export const dynamicParams = false
+
 interface Props {
 	params: Promise<{ section: string }>
 }

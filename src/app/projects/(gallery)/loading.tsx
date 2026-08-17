@@ -1,5 +1,11 @@
 import PageGlow from "@/components/PageGlow"
 
+// The `(gallery)` group exists for this file — see the same note on
+// `blog/[section]/(list)/loading.tsx`. At `projects/` this skeleton also wrapped
+// `/projects/:slug`, whose Suspense boundary made `notFound()` serve the 404
+// page with a 200 status. The group scopes it to the gallery page alone, leaving
+// the detail route free to return a real 404.
+
 function FeaturedCardSkeleton() {
 	return (
 		<div className="animate-pulse overflow-hidden rounded-2xl border border-(--color-border)">
