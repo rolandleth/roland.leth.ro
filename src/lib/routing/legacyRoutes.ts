@@ -51,16 +51,25 @@ export const LEGACY_REDIRECTS: Redirects = [
 	// `has` captures the query value into `:page` for the destination. Next
 	// re-appends unmatched query params to the destination, so a link carrying
 	// both `?page=2&ref=x` keeps `ref`.
+	//
+	// `[1-9]\d*`, not `\d+`. The destination route rejects any segment that isn't
+	// exactly its own parsed form, so `\d+` matched `0`, `02` and `007` and then
+	// 308'd them into a 404 — a redirect that exists to carry SEO signal forward,
+	// carrying it into a dead end instead. Unmatched now, those fall through to
+	// `/blog/:section` and render page 1, which is a real page.
+	//
+	// `:section` is pinned for the same reason: bare, `/blog/bogus?page=2`
+	// redirected to `/blog/bogus/p/2` and 404'd there instead of 404ing directly.
 	{
-		source: "/blog/:section",
-		has: [{ type: "query", key: "page", value: "(?<page>\\d+)" }],
+		source: `/blog/:section(${SECTION_PATTERN})`,
+		has: [{ type: "query", key: "page", value: "(?<page>[1-9]\\d*)" }],
 		destination: "/blog/:section/p/:page",
 		permanent: true,
 	},
 	// `/p/1` and `/blog/:section` would otherwise be two URLs for one page.
 	// The bare path wins; `blogPagePath` keeps internal links off `/p/1`.
 	{
-		source: "/blog/:section/p/1",
+		source: `/blog/:section(${SECTION_PATTERN})/p/1`,
 		destination: "/blog/:section",
 		permanent: true,
 	},

@@ -42,14 +42,35 @@ export function blankToNull(value: string | null | undefined): string | null {
 	return trimmed === "" ? null : trimmed
 }
 
-// Upper bound is generous (10k pages × PAGE_SIZE=12 = 120k posts) so legitimate
-// pagination is never clipped, while still rejecting `?page=999999999` which
-// would translate to a wasted Postgres `OFFSET` scan.
-const MAX_PAGE = 10_000
+/**
+ * Hard ceiling on a page number reaching a route, ahead of any database work.
+ *
+ * `page` arrives from a URL segment, so a crawler can walk it freely. At 10_000
+ * (the previous value) every step was a billed on-demand render running a
+ * `findMany` with `skip` up to 99_990 plus a `count`, each minting its own
+ * on-disk cache entry — roughly 10k probes' worth of real work behind a bound
+ * that existed only to stop `OFFSET` scans.
+ *
+ * 30 × `PAGE_SIZE` = 300 posts, comfortably above the current corpus and small
+ * enough that the whole probe surface is cheap. `parsePageParam` clamps rather
+ * than rejects, and the routes compare the parsed value against the raw segment,
+ * so anything above this 404s before a query runs.
+ *
+ * This is the OUTER guard, not the exact one — the exact bound is the section's
+ * real `totalPages`, checked at the route after a cached count. Raising the
+ * corpus past 300 posts fails the build rather than 404ing a real page: see the
+ * ceiling assertion in `generateStaticParams` for the paginated blog route.
+ */
+export const MAX_PAGE = 30
 
 /**
- * Parses a `?page=` query value into a positive integer in `[1, MAX_PAGE]`,
- * defaulting to `1` on invalid input.
+ * Parses a page value into a positive integer in `[1, MAX_PAGE]`, defaulting to
+ * `1` on invalid input.
+ *
+ * Clamping (rather than returning `null`) is what lets callers do a round-trip
+ * check — `String(parsed) !== raw` rejects junk, padding, and out-of-range in
+ * one comparison. A caller that skips that check renders page 1 for garbage
+ * input, so every route boundary has to do it.
  */
 export function parsePageParam(raw: string | undefined | null): number {
 	const n = Number.parseInt(raw ?? "1", 10)

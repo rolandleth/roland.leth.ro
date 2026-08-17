@@ -158,6 +158,42 @@ export async function getPostsBySection(
 }
 
 /**
+ * Count-only page total for a section. One `count`, no rows.
+ *
+ * Exists because two callers want the page total and nothing else, and reaching
+ * it through `getPostsBySection` meant running the page-1 `findMany` with
+ * `postListItemSelect` — which carries `body` — and discarding the result.
+ * `generateStaticParams` paid that per section on every build; the paginated
+ * route now pays it on every out-of-range probe, which is precisely when the
+ * rows are least wanted.
+ *
+ * Its own cache entry rather than a slice of the page cache: the page caches key
+ * on (section, page) and this answer is page-independent, so folding it in would
+ * either duplicate the count per page or make page 1 special. Shares the
+ * `blog-{section}` tag, so the same bust covers both.
+ */
+function makeSectionPageCountCache(section: Section) {
+	return unstable_cache(
+		async () => {
+			const total = await prisma.post.count({
+				where: publishedWhere(section, currentDatetimeString()),
+			})
+
+			return Math.ceil(total / PAGE_SIZE)
+		},
+		[`blog-page-count-${section}`],
+		{ tags: [`blog-${section}`] }
+	)
+}
+
+const sectionPageCountCache = bySection(makeSectionPageCountCache)
+
+/** Total pages in a section, counted without loading a single post body. */
+export async function getSectionPageCount(section: Section): Promise<number> {
+	return sectionPageCountCache[section]()
+}
+
+/**
  * Single source for the per-post detail tag, shared by the `unstable_cache`
  * wrapper below and the revalidation helpers at the bottom of this file. If the
  * two ever drift, targeted busts stop reaching existing entries and a stale

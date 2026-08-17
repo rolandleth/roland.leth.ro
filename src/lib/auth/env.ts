@@ -92,8 +92,20 @@ function readEnv(): Env {
 	return result.data
 }
 
+/**
+ * A configured value, or `null` for absent-or-blank.
+ *
+ * Trims before testing, and returns the TRIMMED value. Without it a
+ * `CRON_SECRET=" "` — or, far likelier, a value pasted into a dashboard with a
+ * trailing newline — counts as configured, and every cron run then fails the
+ * constant-time compare and 401s at `console.warn`. That is a silently stopped
+ * cron presented as routine scanner noise, which is exactly the failure the cron
+ * logging exists to make visible.
+ */
 function nonEmpty(value: string | undefined): string | null {
-	return value != null && value.length > 0 ? value : null
+	const trimmed = value?.trim()
+
+	return trimmed != null && trimmed.length > 0 ? trimmed : null
 }
 
 function readRequired(name: keyof Env): string {

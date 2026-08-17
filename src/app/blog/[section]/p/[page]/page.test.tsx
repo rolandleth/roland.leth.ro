@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { getPostsBySection } from "@/lib/db/posts"
+import { getSectionPageCount } from "@/lib/db/posts"
+import { MAX_PAGE } from "@/lib/utils/format"
 import BlogListPagedPage, {
 	generateMetadata,
 	generateStaticParams,
@@ -13,7 +14,7 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/lib/db/posts", () => ({
-	getPostsBySection: vi.fn(),
+	getSectionPageCount: vi.fn(),
 }))
 
 vi.mock("@/components/blog/BlogPostList", () => ({
@@ -25,7 +26,11 @@ function params(section: string, page: string) {
 }
 
 beforeEach(() => {
-	vi.mocked(getPostsBySection).mockResolvedValue({ posts: [], totalPages: 3 })
+	// `restoreMocks` restores spies but leaves module-mock call history in place,
+	// so without this a test asserting "no query ran" sees the previous test's
+	// call and fails for the wrong reason.
+	vi.clearAllMocks()
+	vi.mocked(getSectionPageCount).mockResolvedValue(3)
 })
 
 // #region Param validation
@@ -50,7 +55,7 @@ describe("BlogListPagedPage — param validation", () => {
 		}
 	)
 
-	it.each(["abc", "2abc", "2.5", "", " 2"])(
+	it.each(["abc", "2abc", "2.5", "", " 2", "02", "007"])(
 		"404s the non-numeric segment %s",
 		async (page) => {
 			// `parsePageParam` would coerce several of these to a number and
@@ -59,6 +64,32 @@ describe("BlogListPagedPage — param validation", () => {
 			await expect(BlogListPagedPage(params("tech", page))).rejects.toThrow()
 		}
 	)
+
+	it("404s a page past MAX_PAGE via the clamp", async () => {
+		// The boundary between the two 404 mechanisms. `parsePageParam` clamps
+		// this into range, and the clamped value no longer stringifies back to
+		// the raw segment — so it dies on the round-trip check, before any query.
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
+
+		await expect(BlogListPagedPage(params("tech", "999999"))).rejects.toThrow()
+		expect(getSectionPageCount).not.toHaveBeenCalled()
+	})
+
+	it("404s a page inside MAX_PAGE that the section does not have", async () => {
+		// The other mechanism: `29` survives parsing and the clamp, so only the
+		// real page count rejects it. Without this check it was a billed render
+		// of an empty list, with its own cache entry, for every probe.
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
+
+		await expect(BlogListPagedPage(params("tech", "29"))).rejects.toThrow()
+	})
+
+	it("renders the last real page", async () => {
+		// The bound is inclusive — off by one here 404s a page that exists.
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
+
+		await expect(BlogListPagedPage(params("tech", "3"))).resolves.toBeTruthy()
+	})
 })
 
 // #endregion
@@ -69,7 +100,7 @@ describe("generateStaticParams", () => {
 	it("starts at page 2 and omits page 1", async () => {
 		// Page 1 is served by `/blog/:section`; generating it here would
 		// prerender a duplicate that the next.config redirect then bounces.
-		vi.mocked(getPostsBySection).mockResolvedValue({ posts: [], totalPages: 3 })
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
 
 		const result = await generateStaticParams()
 		const techPages = result
@@ -80,7 +111,7 @@ describe("generateStaticParams", () => {
 	})
 
 	it("generates nothing for a section that fits on one page", async () => {
-		vi.mocked(getPostsBySection).mockResolvedValue({ posts: [], totalPages: 1 })
+		vi.mocked(getSectionPageCount).mockResolvedValue(1)
 
 		expect(await generateStaticParams()).toEqual([])
 	})
@@ -88,9 +119,28 @@ describe("generateStaticParams", () => {
 	it("generates nothing for an empty section", async () => {
 		// `totalPages` is 0 with no posts; the length must clamp at 0 rather
 		// than going negative and throwing on `Array.from`.
-		vi.mocked(getPostsBySection).mockResolvedValue({ posts: [], totalPages: 0 })
+		vi.mocked(getSectionPageCount).mockResolvedValue(0)
 
 		expect(await generateStaticParams()).toEqual([])
+	})
+
+	it("counts pages without loading any post bodies", async () => {
+		// This used to call `getPostsBySection`, which runs the page-1 `findMany`
+		// with `postListItemSelect` — carrying `body` — plus a `count`, then threw
+		// the rows away. Two full pages of markdown per build, for one integer.
+		await generateStaticParams()
+
+		expect(getSectionPageCount).toHaveBeenCalled()
+	})
+
+	it("fails the build when the corpus outgrows MAX_PAGE", async () => {
+		// `resolvePage` 404s anything above `MAX_PAGE`, so a section that
+		// legitimately reaches that many pages would start serving 404s for real
+		// URLs with nothing to say why. Failing here makes the ceiling a build
+		// error with a named fix instead of a silent production regression.
+		vi.mocked(getSectionPageCount).mockResolvedValue(MAX_PAGE + 1)
+
+		await expect(generateStaticParams()).rejects.toThrow(/MAX_PAGE/)
 	})
 })
 
@@ -121,6 +171,23 @@ describe("generateMetadata", () => {
 
 	it("returns empty metadata for an unknown section", async () => {
 		expect(await generateMetadata(params("nope", "2"))).toEqual({})
+	})
+
+	it.each(["abc", "999999", "02", "1"])(
+		"returns empty metadata for %s rather than describing page 1",
+		async (page) => {
+			// `generateMetadata` used the CLAMPED value with no round-trip check,
+			// so every one of these produced a "page 1" title and a
+			// `/blog/tech/p/1` path — for a URL the body 404s fifteen lines later.
+			// Both now go through the same `resolvePage`.
+			expect(await generateMetadata(params("tech", page))).toEqual({})
+		}
+	)
+
+	it("returns empty metadata for a page the section does not have", async () => {
+		vi.mocked(getSectionPageCount).mockResolvedValue(3)
+
+		expect(await generateMetadata(params("tech", "29"))).toEqual({})
 	})
 })
 

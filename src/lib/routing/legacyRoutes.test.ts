@@ -12,6 +12,12 @@ function findRedirect(source: string) {
 	return LEGACY_REDIRECTS.find((rule) => rule.source === source)
 }
 
+// The two pagination rules pin `:section` to the known set rather than leaving
+// it bare, so their sources are built the same way the module builds them.
+const SECTION_PARAM = `:section(${SECTIONS.join("|")})`
+const PAGE_QUERY_SOURCE = `/blog/${SECTION_PARAM}`
+const PAGE_ONE_SOURCE = `/blog/${SECTION_PARAM}/p/1`
+
 // #region Redirects
 
 describe("LEGACY_REDIRECTS", () => {
@@ -74,14 +80,14 @@ describe("LEGACY_REDIRECTS", () => {
 		// Page 1 stopped reading `searchParams` so the route could prerender;
 		// without this, every indexed or bookmarked `?page=` URL renders page 1
 		// silently instead of the page that was linked.
-		const rule = findRedirect("/blog/:section")
+		const rule = findRedirect(PAGE_QUERY_SOURCE)
 
 		expect(rule).toMatchObject({
 			destination: "/blog/:section/p/:page",
 			permanent: true,
 		})
 		expect(rule?.has).toEqual([
-			{ type: "query", key: "page", value: "(?<page>\\d+)" },
+			{ type: "query", key: "page", value: "(?<page>[1-9]\\d*)" },
 		])
 	})
 
@@ -89,27 +95,51 @@ describe("LEGACY_REDIRECTS", () => {
 		// The destination interpolates `:page`, which only resolves if `has`
 		// exposes it as a named capture. A bare `.*` value would match but
 		// leave `:page` undefined in the destination.
-		const rule = findRedirect("/blog/:section")
+		const rule = findRedirect(PAGE_QUERY_SOURCE)
 
-		expect(rule?.has?.[0]).toHaveProperty("value", "(?<page>\\d+)")
+		expect(rule?.has?.[0]).toHaveProperty("value", "(?<page>[1-9]\\d*)")
 		expect(rule?.destination).toContain(":page")
 	})
 
-	it("only captures numeric page values", () => {
-		// `?page=abc` must not redirect to `/p/abc`, which would 404 rather
-		// than falling through to page 1 as it does today.
-		const rule = findRedirect("/blog/:section")
+	it.each([
+		["2", true],
+		["12", true],
+		["1", true],
+		["abc", false],
+		["2abc", false],
+		// The reason the pattern is `[1-9]\d*` and not `\d+`. The destination
+		// route rejects any segment that isn't exactly its own parsed form, so
+		// these matched, redirected, and 404'd — a rule whose entire job is
+		// carrying SEO signal forward, delivering it to a dead end. Unmatched,
+		// they fall through to `/blog/:section` and render page 1.
+		["0", false],
+		["02", false],
+		["007", false],
+	])("matches page value %s: %s", (value, expected) => {
+		const rule = findRedirect(PAGE_QUERY_SOURCE)
 		const pattern = new RegExp(`^${rule?.has?.[0]?.value}$`)
 
-		expect(pattern.test("2")).toBe(true)
-		expect(pattern.test("abc")).toBe(false)
-		expect(pattern.test("2abc")).toBe(false)
+		expect(pattern.test(value)).toBe(expected)
 	})
+
+	it.each([PAGE_QUERY_SOURCE, PAGE_ONE_SOURCE])(
+		"pins the section in %s rather than leaving it bare",
+		(source) => {
+			// Bare, `/blog/bogus?page=2` redirected to `/blog/bogus/p/2` and 404'd
+			// there — a redirect into a dead end where a direct 404 was available.
+			// Every other rule in the file pins the section; these two didn't.
+			expect(findRedirect(source)).toBeDefined()
+
+			for (const section of SECTIONS) {
+				expect(source).toContain(section)
+			}
+		}
+	)
 
 	it("collapses /p/1 onto the bare section path", () => {
 		// One page, one URL. `blogPagePath` keeps internal links off `/p/1`;
 		// this catches anything hand-typed or previously indexed.
-		expect(findRedirect("/blog/:section/p/1")).toMatchObject({
+		expect(findRedirect(PAGE_ONE_SOURCE)).toMatchObject({
 			destination: "/blog/:section",
 			permanent: true,
 		})
@@ -120,10 +150,10 @@ describe("LEGACY_REDIRECTS", () => {
 		// `/p/1`, which the next rule then collapses to `/blog/tech`. Reversed,
 		// the query rule would still fire but the ordering intent is lost.
 		const queryRuleIndex = LEGACY_REDIRECTS.findIndex(
-			(rule) => rule.source === "/blog/:section"
+			(rule) => rule.source === PAGE_QUERY_SOURCE
 		)
 		const collapseIndex = LEGACY_REDIRECTS.findIndex(
-			(rule) => rule.source === "/blog/:section/p/1"
+			(rule) => rule.source === PAGE_ONE_SOURCE
 		)
 
 		expect(queryRuleIndex).toBeLessThan(collapseIndex)

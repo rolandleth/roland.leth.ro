@@ -18,7 +18,8 @@ import { randomShortId } from "@/lib/utils/randomShortId"
 import type { PostRef } from "@/lib/db/posts"
 import type { NextRequest } from "next/server"
 
-const LOG_TAG = "api:cron:revalidate-scheduled"
+// Pre-bracketed, matching `logMiddlewareBypass` / `requireAdmin` / `requireCronAuth`.
+const LOG_TAG = "[api:cron:revalidate-scheduled]"
 
 /**
  * How far back to look for posts that came due, in hours. Deliberately WIDER
@@ -86,6 +87,105 @@ function failed(requestId: string): NextResponse {
 }
 
 /**
+ * Logs a failed due-content check and returns its correlation id, or `null` when
+ * both halves succeeded.
+ *
+ * The id shares `respondInternalError`'s contract — one id in the log line, the
+ * same id in the response body — without calling it. That helper logs
+ * `(tag, { requestId }, error)` and nothing more, and the window bounds are the
+ * whole of what makes a failed run reconstructable afterwards. Matching the
+ * shape rather than the call site is the reconciliation.
+ *
+ * Names WHICH half failed. Under `Promise.all` this line could say neither: one
+ * rejection surfaced as one opaque error, and `now` was never logged at all, so
+ * a window that looked wrong in hindsight could not be rebuilt from the log.
+ */
+function logCheckFailure(
+	postResult: PromiseSettledResult<PostRef[]>,
+	guideResult: PromiseSettledResult<string[]>,
+	windowStart: string,
+	now: string
+): string | null {
+	const postsFailed = postResult.status === "rejected"
+	const guidesFailed = guideResult.status === "rejected"
+
+	if (!postsFailed && !guidesFailed) {
+		return null
+	}
+
+	const requestId = randomShortId()
+
+	// eslint-disable-next-line no-console
+	console.error(`${LOG_TAG} due-content check failed`, {
+		requestId,
+		windowStart,
+		now,
+		postsFailed,
+		guidesFailed,
+		postsError: postsFailed ? postResult.reason : undefined,
+		guidesError: guidesFailed ? guideResult.reason : undefined,
+	})
+
+	return requestId
+}
+
+/**
+ * Busts what the due posts need.
+ *
+ * Every section is swept regardless of which one a due post belongs to: the
+ * sitemap and the `posts` aggregate span sections, and the extra work lands on a
+ * day that already had a real change. The detail busts are targeted instead,
+ * because a detail entry can be holding a 404 rendered while the post was still
+ * future-dated, and regenerating every sibling to fix one is waste.
+ *
+ * `overflowed` swaps both for a single `post-pages` bust. That is the more
+ * thorough branch, not a degraded one — it also covers the rows the capped query
+ * never returned, which is what makes the cap safe.
+ *
+ * Note what neither branch heals: a post stranded by a cron gap wider than
+ * `WINDOW_HOURS` falls outside every window, and the next admin save then busts
+ * the section aggregates for all posts while `revalidatePost` busts only the
+ * saved post's own detail tag. The stranded post ends up listed everywhere and
+ * 404ing on its own URL. `revalidateAllPosts` is the lever for that.
+ */
+function revalidateForDuePosts(duePosts: PostRef[], overflowed: boolean): void {
+	if (overflowed) {
+		revalidateAllPosts()
+
+		return
+	}
+
+	for (const section of SECTIONS) {
+		revalidatePostSection(section)
+	}
+
+	revalidatePostDetails(duePosts)
+}
+
+/** The guide-side counterpart, with the same overflow switch. */
+function revalidateForDueGuides(
+	dueGuides: string[],
+	overflowed: boolean
+): void {
+	if (overflowed) {
+		revalidateAllGuides()
+
+		return
+	}
+
+	revalidateGuides()
+	revalidateGuideDetails(dueGuides)
+}
+
+/**
+ * The slug list for the log, or a marker when the run overflowed — hundreds of
+ * slugs would bury the line, and a blanket bust makes "which ones" moot.
+ */
+function slugField(slugs: string[], overflowed: boolean): string[] | string {
+	return overflowed ? "over cap — blanket bust" : slugs
+}
+
+/**
  * Surfaces scheduled posts and guides whose publication time has passed.
  *
  * Every other path that changes the live content set is a mutation, and
@@ -146,31 +246,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 	const postsFailed = postResult.status === "rejected"
 	const guidesFailed = guideResult.status === "rejected"
-	const hasFailure = postsFailed || guidesFailed
-
-	// Shares `respondInternalError`'s contract — one id in the log line, the same
-	// id in the response body — without calling it. That helper logs `(tag, {
-	// requestId }, error)` and nothing more, and the window bounds are the whole
-	// of what makes a failed run reconstructable afterwards. Matching the shape
-	// rather than the call site is the reconciliation.
-	const failureId = hasFailure ? randomShortId() : null
-
-	if (failureId !== null) {
-		// Names WHICH half failed and carries both window bounds. Under `all` this
-		// line could say neither: one rejection surfaced as one opaque error, and
-		// `now` was never logged at all, so a window that looked wrong in hindsight
-		// could not be reconstructed from the log.
-		// eslint-disable-next-line no-console
-		console.error(`[${LOG_TAG}] due-content check failed`, {
-			requestId: failureId,
-			windowStart,
-			now,
-			postsFailed,
-			guidesFailed,
-			postsError: postsFailed ? postResult.reason : undefined,
-			guidesError: guidesFailed ? guideResult.reason : undefined,
-		})
-	}
+	const failureId = logCheckFailure(postResult, guideResult, windowStart, now)
 
 	if (duePosts.length === 0 && dueGuides.length === 0) {
 		if (failureId !== null) {
@@ -187,7 +263,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		// gone. Mirrors the positive heartbeat in the ping route, for the same
 		// "alert if no success in N hours" grep.
 		// eslint-disable-next-line no-console
-		console.info(`[${LOG_TAG}] nothing due`, { windowStart, now })
+		console.info(`${LOG_TAG} nothing due`, { windowStart, now })
 
 		return NextResponse.json({
 			ok: true,
@@ -200,58 +276,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const postsOverflowed = duePosts.length > DUE_ROW_CAP
 	const guidesOverflowed = dueGuides.length > DUE_ROW_CAP
 
-	// Every section is busted regardless of which one the due post belongs to:
-	// the sitemap and the `posts` aggregate span sections, and the extra work
-	// lands on an hour that already had a real change.
 	if (duePosts.length > 0) {
-		if (postsOverflowed) {
-			// Past the cap the per-row path is worse on both axes, so bust the
-			// shared `post-pages` tag once instead. Strictly more thorough than the
-			// targeted path — it covers rows this query never returned — which is
-			// what makes the cap safe to enforce with a `take`.
-			revalidateAllPosts()
-		} else {
-			for (const section of SECTIONS) {
-				revalidatePostSection(section)
-			}
-
-			// Targeted, unlike the section sweep above: only the posts that came due
-			// get their detail entries regenerated. Without this the aggregates would
-			// list a post whose own page and `.md` still served a pinned 404.
-			//
-			// A gap wider than `WINDOW_HOURS` strands a post outside every window, and
-			// the two halves then recover unevenly: the next admin save busts the
-			// section aggregates for ALL posts, but `revalidatePost` busts only the
-			// saved post's own detail tag. The stranded post ends up listed everywhere
-			// and 404ing on its own URL — the exact state this call exists to prevent.
-			// `revalidateAllPosts` (the `post-pages` tag) is the only thing that heals
-			// it; reach for that if a run is ever confirmed missed.
-			revalidatePostDetails(duePosts)
-		}
+		revalidateForDuePosts(duePosts, postsOverflowed)
 	}
 
 	if (dueGuides.length > 0) {
-		if (guidesOverflowed) {
-			revalidateAllGuides()
-		} else {
-			revalidateGuides()
-			revalidateGuideDetails(dueGuides)
-		}
+		revalidateForDueGuides(dueGuides, guidesOverflowed)
 	}
 
 	// The slugs, not just the counts: this run is the only thing standing between
 	// scheduled content and a pinned 404 on its detail URL, so a failure to
 	// surface one needs to be traceable to the exact post or guide afterwards.
-	// Slug lists are omitted on the overflow path — hundreds of them would bury
-	// the line, and the blanket bust makes "which ones" moot.
 	// eslint-disable-next-line no-console
-	console.info(`[${LOG_TAG}] revalidated for due content`, {
+	console.info(`${LOG_TAG} revalidated for due content`, {
 		duePosts: duePosts.length,
-		duePostSlugs: postsOverflowed
-			? "over cap — blanket bust"
-			: duePosts.map((post) => `${post.section}/${post.slug}`),
+		duePostSlugs: slugField(
+			duePosts.map((post) => `${post.section}/${post.slug}`),
+			postsOverflowed
+		),
 		dueGuides: dueGuides.length,
-		dueGuideSlugs: guidesOverflowed ? "over cap — blanket bust" : dueGuides,
+		dueGuideSlugs: slugField(dueGuides, guidesOverflowed),
 		// Carried even on the success path: without them a half that FAILED is
 		// indistinguishable here from a half that found nothing, since both report
 		// a count of 0.

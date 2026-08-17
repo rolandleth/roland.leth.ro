@@ -75,9 +75,37 @@ describe("GET /api/cron/ping — auth guard", () => {
 		await GET(makeRequest("Bearer wrong-secret"))
 
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
-			"[api:cron:ping] unauthorized"
+			"[api:cron:ping] unauthorized",
+			expect.anything()
 		)
 		expect(vi.mocked(console.error)).not.toHaveBeenCalled()
+	})
+
+	it("logs enough to tell a stale cron from a port scan", async () => {
+		// The two look identical without a payload, and the point of logging this
+		// branch at all is that a cron firing with a stale secret 401s silently
+		// and strands every scheduled post. A scanner sends no authorization
+		// header; a misconfigured cron sends a wrong one.
+		await GET(makeRequest("Bearer wrong-secret"))
+
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			expect.stringContaining("unauthorized"),
+			expect.objectContaining({
+				path: "/api/cron/ping",
+				method: "GET",
+				hasAuthorizationHeader: true,
+			})
+		)
+	})
+
+	it("never logs the offered credential", async () => {
+		// A near-miss of the real secret is exactly what must not land in a log
+		// aggregator.
+		await GET(makeRequest("Bearer wrong-secret"))
+
+		expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(
+			"wrong-secret"
+		)
 	})
 })
 

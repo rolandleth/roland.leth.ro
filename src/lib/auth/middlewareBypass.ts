@@ -25,8 +25,12 @@ export type BypassSurface =
  *
  * API handlers trip exactly one guard, so their line needs no correlation; the
  * id is still emitted for a uniform shape, and is simply unique per line there.
+ *
+ * Exported for the other lines in this defence layer that log outside
+ * `logMiddlewareBypass` — `adminEditMetadata`'s `loadName` failure is one — so
+ * they can join the same request rather than emitting an uncorrelated line.
  */
-const bypassIdForRequest = cache(randomShortId)
+export const bypassIdForRequest = cache(randomShortId)
 
 /**
  * Reports an unauthenticated request that reached a guard behind the middleware

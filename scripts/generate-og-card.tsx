@@ -20,7 +20,12 @@ import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { ImageResponse } from "next/og"
-import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "@/lib/content/metadata"
+import {
+	OG_CARD_NAME,
+	OG_CARD_TAGLINE,
+	OG_IMAGE_HEIGHT,
+	OG_IMAGE_WIDTH,
+} from "@/lib/content/metadata"
 
 const BACKGROUND = "#030712"
 const PRIMARY = "#f5f5f5"
@@ -33,8 +38,12 @@ const ACCENT = "#12a8da"
 const WIDTH = OG_IMAGE_WIDTH
 const HEIGHT = OG_IMAGE_HEIGHT
 
-const NAME = "Roland Leth"
-const TAGLINE = "iOS developer & full-stack engineer"
+// Imported for the same reason as the dimensions: `defaultOgImageDescriptor`
+// builds its `alt` from these two, and `--check` compares PNG bytes, so a copy
+// change made here alone would leave every shared link described by the old
+// tagline with nothing to catch it.
+const NAME = OG_CARD_NAME
+const TAGLINE = OG_CARD_TAGLINE
 const DOMAIN = "roland.leth.ro"
 
 /** Bounds a hung connection, which would otherwise stall the run with no error. */

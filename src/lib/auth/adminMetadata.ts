@@ -1,6 +1,6 @@
 import { parseIntId } from "@/lib/utils/format"
 import { verifySession } from "./auth"
-import { logMiddlewareBypass } from "./middlewareBypass"
+import { bypassIdForRequest, logMiddlewareBypass } from "./middlewareBypass"
 import type { Metadata } from "next"
 
 /**
@@ -91,8 +91,16 @@ export async function adminEditMetadata({
 	try {
 		name = await loadName(recordId)
 	} catch (error) {
+		// Two arguments, not three, and carrying `bypassId` — the shape every
+		// other line in this defence layer uses. A three-argument line with no
+		// correlation id matched none of the alert greps built on the group, so a
+		// database outage on an edit page produced a line nobody was watching.
 		// eslint-disable-next-line no-console
-		console.error(`${tag} loadName failed`, { id }, error)
+		console.error(`${tag} loadName failed`, {
+			bypassId: bypassIdForRequest(),
+			id,
+			error,
+		})
 
 		return { title: fallback }
 	}
