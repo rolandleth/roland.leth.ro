@@ -746,7 +746,7 @@ describe("findGuidesBecameLive", () => {
 			{ slug: "two" },
 		] as never)
 
-		const result = await findGuidesBecameLive(windowStart, now)
+		const result = await findGuidesBecameLive(windowStart, now, 50)
 
 		expect(result).toEqual(["one", "two"])
 		expect(prisma.guide.findMany).toHaveBeenCalledWith({
@@ -755,7 +755,18 @@ describe("findGuidesBecameLive", () => {
 				publishedAt: { gt: windowStart, lte: now },
 			},
 			select: { slug: true },
+			take: 50,
 		})
+	})
+
+	it("bounds the result with the caller's limit", async () => {
+		// Same contract as the post side: the caller asks for one row past what it
+		// will process individually, and switches to a blanket bust on overflow.
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([] as never)
+
+		await findGuidesBecameLive(windowStart, now, 7)
+
+		expect(vi.mocked(prisma.guide.findMany).mock.calls[0][0]?.take).toBe(7)
 	})
 
 	it("excludes the lower bound and includes the upper", async () => {
@@ -764,7 +775,7 @@ describe("findGuidesBecameLive", () => {
 		// the same guide every run and bust the caches on every pass.
 		vi.mocked(prisma.guide.findMany).mockResolvedValue([] as never)
 
-		await findGuidesBecameLive(windowStart, now)
+		await findGuidesBecameLive(windowStart, now, 50)
 
 		const where = vi.mocked(prisma.guide.findMany).mock.calls[0][0]?.where
 
@@ -776,7 +787,7 @@ describe("findGuidesBecameLive", () => {
 		// due. Prisma's range filter excludes nulls, which this pins.
 		vi.mocked(prisma.guide.findMany).mockResolvedValue([] as never)
 
-		await findGuidesBecameLive(windowStart, now)
+		await findGuidesBecameLive(windowStart, now, 50)
 
 		const where = vi.mocked(prisma.guide.findMany).mock.calls[0][0]?.where
 

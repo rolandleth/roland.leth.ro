@@ -475,10 +475,17 @@ export interface PostRef {
  * Callers should pass a window WIDER than the cron interval. Overlap costs one
  * redundant revalidation; a gap silently strands a post until the next real
  * mutation.
+ *
+ * `limit` bounds the result. A bulk import of backdated posts can drop hundreds
+ * inside one window, and an unbounded `findMany` here would load every row so
+ * the caller could fire one `revalidateTag` each. The cron asks for one row more
+ * than it intends to process individually and switches to a blanket bust when it
+ * gets it, so the bound never silently drops a post — see `DUE_ROW_CAP`.
  */
 export async function findPostsBecameLive(
 	windowStart: string,
-	now: string
+	now: string,
+	limit: number
 ): Promise<PostRef[]> {
 	return prisma.post.findMany({
 		where: {
@@ -486,6 +493,7 @@ export async function findPostsBecameLive(
 			datetime: { gt: windowStart, lte: now },
 		},
 		select: { section: true, slug: true },
+		take: limit,
 	})
 }
 

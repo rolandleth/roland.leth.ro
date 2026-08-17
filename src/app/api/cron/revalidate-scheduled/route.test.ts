@@ -2,28 +2,47 @@ import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	findGuidesBecameLive,
+	revalidateAllGuides,
 	revalidateGuideDetails,
 	revalidateGuides,
 } from "@/lib/db/guides"
 import {
 	findPostsBecameLive,
+	revalidateAllPosts,
 	revalidatePostDetails,
 	revalidatePostSection,
 } from "@/lib/db/posts"
 import { SECTIONS } from "@/lib/db/sections"
+import { currentDatetimeString } from "@/lib/utils/format"
 import { GET } from "./route"
 
 vi.mock("@/lib/db/posts", () => ({
 	findPostsBecameLive: vi.fn(),
+	revalidateAllPosts: vi.fn(),
 	revalidatePostDetails: vi.fn(),
 	revalidatePostSection: vi.fn(),
 }))
 
 vi.mock("@/lib/db/guides", () => ({
 	findGuidesBecameLive: vi.fn(),
+	revalidateAllGuides: vi.fn(),
 	revalidateGuideDetails: vi.fn(),
 	revalidateGuides: vi.fn(),
 }))
+
+/**
+ * One more than `DUE_ROW_CAP` in the route. Not imported — a `route.ts` may only
+ * export handlers and segment config, so the constant cannot be shared. Kept as
+ * a named local so the coupling is visible if the cap ever moves.
+ */
+const OVER_CAP = 201
+
+function postRows(count: number) {
+	return Array.from({ length: count }, (_, i) => ({
+		section: "tech" as const,
+		slug: `post-${i}`,
+	}))
+}
 
 function makeRequest(authorization?: string): NextRequest {
 	const headers = new Headers()
@@ -226,6 +245,23 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 		)
 	})
 
+	it("closes both windows at the same instant", async () => {
+		// One clock read for the run. This used to be three, so the post window
+		// and the guide window ended at different moments and the two halves of a
+		// single run disagreed about "now" — content landing in the gap was
+		// counted by one half and missed by the other.
+		await GET(authorized())
+
+		const [postStart, postNow] = vi.mocked(findPostsBecameLive).mock.calls[0]
+		const [guideStart, guideNow] = vi.mocked(findGuidesBecameLive).mock.calls[0]
+
+		// The halves take different types — a wall-clock string for the post
+		// column, a real Date for the guide column — so the comparison runs
+		// through the same formatter the route uses.
+		expect(postNow).toBe(currentDatetimeString(guideNow))
+		expect(postStart).toBe(currentDatetimeString(guideStart))
+	})
+
 	it("passes the post window as yyyy-MM-dd-HHmm strings", async () => {
 		// `Post.datetime` is a fixed-width string column, not a DateTime. The
 		// lexicographic compare only matches chronological order in that exact
@@ -255,6 +291,144 @@ describe("GET /api/cron/revalidate-scheduled — check failure", () => {
 		expect(response.status).toBe(500)
 		expect(revalidatePostSection).not.toHaveBeenCalled()
 		expect(revalidateGuides).not.toHaveBeenCalled()
+	})
+
+	it("500s when only the guide check fails", async () => {
+		// The guide half was never exercised: under `Promise.all` a single
+		// rejection was indistinguishable from either side, so this path could
+		// break without a test noticing.
+		vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.mocked(findGuidesBecameLive).mockRejectedValue(new Error("DB down"))
+
+		const response = await GET(authorized())
+
+		expect(response.status).toBe(500)
+	})
+
+	it("still revalidates the half that succeeded", async () => {
+		// The reason for `allSettled`. Under `all`, a transient guide-side failure
+		// threw away a good post result and revalidated nothing, so a post that
+		// came due stayed invisible until the next day's run — for a fault that
+		// had nothing to do with posts.
+		vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.spyOn(console, "info").mockImplementation(() => {})
+		vi.mocked(findPostsBecameLive).mockResolvedValue([
+			{ section: "tech", slug: "one" },
+		])
+		vi.mocked(findGuidesBecameLive).mockRejectedValue(new Error("DB down"))
+
+		const response = await GET(authorized())
+
+		expect(revalidatePostDetails).toHaveBeenCalledWith([
+			{ section: "tech", slug: "one" },
+		])
+		// Partial work, but the run is still failed — otherwise a persistent
+		// guide-side outage hides behind a healthy post side forever.
+		expect(response.status).toBe(500)
+	})
+
+	it("names which half failed in the error log", async () => {
+		// A cron that 500s tells you nothing about where to look. Under `all` the
+		// line carried one opaque error and no `now`, so the window could not be
+		// reconstructed after the fact.
+		const error = vi.spyOn(console, "error").mockImplementation(() => {})
+
+		vi.mocked(findGuidesBecameLive).mockRejectedValue(new Error("DB down"))
+
+		await GET(authorized())
+
+		expect(error).toHaveBeenCalledWith(
+			expect.stringContaining("due-content check failed"),
+			expect.objectContaining({
+				postsFailed: false,
+				guidesFailed: true,
+				windowStart: expect.any(String),
+				now: expect.any(String),
+			})
+		)
+	})
+
+	it("returns a requestId that matches the logged line", async () => {
+		// The contract `respondInternalError` gives every other 500 on the site:
+		// the id in the body is the id in the log, so a failed run can be found.
+		const error = vi.spyOn(console, "error").mockImplementation(() => {})
+
+		vi.mocked(findPostsBecameLive).mockRejectedValue(new Error("DB down"))
+
+		const response = await GET(authorized())
+		const data = await response.json()
+		const logged = error.mock.calls[0][1] as { requestId: string }
+
+		expect(data.requestId).toEqual(expect.any(String))
+		expect(data.requestId).toBe(logged.requestId)
+	})
+})
+
+// #endregion
+
+// #region Row cap
+
+describe("GET /api/cron/revalidate-scheduled — due-row cap", () => {
+	beforeEach(() => {
+		vi.spyOn(console, "info").mockImplementation(() => {})
+	})
+
+	it("busts per post while under the cap", async () => {
+		vi.mocked(findPostsBecameLive).mockResolvedValue(postRows(3))
+
+		await GET(authorized())
+
+		expect(revalidatePostDetails).toHaveBeenCalled()
+		expect(revalidateAllPosts).not.toHaveBeenCalled()
+	})
+
+	it("falls back to a blanket post bust over the cap", async () => {
+		// The switch, not a limit: past the cap the per-row path is slower AND
+		// less complete than one `post-pages` bust, because the query stopped
+		// returning rows at the cap. Blanket covers the ones it never saw.
+		vi.mocked(findPostsBecameLive).mockResolvedValue(postRows(OVER_CAP))
+
+		const response = await GET(authorized())
+
+		expect(revalidateAllPosts).toHaveBeenCalled()
+		expect(revalidatePostDetails).not.toHaveBeenCalled()
+		expect(response.status).toBe(200)
+	})
+
+	it("falls back to a blanket guide bust over the cap", async () => {
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(
+			Array.from({ length: OVER_CAP }, (_, i) => `guide-${i}`)
+		)
+
+		await GET(authorized())
+
+		expect(revalidateAllGuides).toHaveBeenCalled()
+		expect(revalidateGuideDetails).not.toHaveBeenCalled()
+	})
+
+	it("caps each half independently", async () => {
+		// One oversized import shouldn't drag the other half onto the blunt path.
+		vi.mocked(findPostsBecameLive).mockResolvedValue(postRows(OVER_CAP))
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a"])
+
+		await GET(authorized())
+
+		expect(revalidateAllPosts).toHaveBeenCalled()
+		expect(revalidateAllGuides).not.toHaveBeenCalled()
+		expect(revalidateGuideDetails).toHaveBeenCalledWith(["a"])
+	})
+
+	it("asks for one row more than it will process individually", async () => {
+		// How the route tells "exactly at the cap" from "over it" without a
+		// second count query. If the limit equalled the cap, a full page would
+		// read as under it and the overflow branch would be unreachable.
+		await GET(authorized())
+
+		const [, , postLimit] = vi.mocked(findPostsBecameLive).mock.calls[0]
+		const [, , guideLimit] = vi.mocked(findGuidesBecameLive).mock.calls[0]
+
+		expect(postLimit).toBe(OVER_CAP)
+		expect(guideLimit).toBe(OVER_CAP)
 	})
 })
 

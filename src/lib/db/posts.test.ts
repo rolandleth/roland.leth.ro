@@ -769,7 +769,8 @@ describe("findPostsBecameLive", () => {
 
 		const result = await findPostsBecameLive(
 			"2026-08-15-0800",
-			"2026-08-15-1000"
+			"2026-08-15-1000",
+			50
 		)
 
 		expect(result).toEqual([
@@ -782,7 +783,19 @@ describe("findPostsBecameLive", () => {
 				datetime: { gt: "2026-08-15-0800", lte: "2026-08-15-1000" },
 			},
 			select: { section: true, slug: true },
+			take: 50,
 		})
+	})
+
+	it("bounds the result with the caller's limit", async () => {
+		// Unbounded, a bulk import of backdated posts landing inside one window
+		// loads every row so the cron can fire one `revalidateTag` each. The cap
+		// is what makes that path's cost finite.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
+
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000", 7)
+
+		expect(vi.mocked(prisma.post.findMany).mock.calls[0][0]?.take).toBe(7)
 	})
 
 	it("selects the identity the caller needs to bust a detail tag", async () => {
@@ -792,7 +805,7 @@ describe("findPostsBecameLive", () => {
 		// serving a pinned 404.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
 
-		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000", 50)
 
 		const select = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.select
 
@@ -805,7 +818,7 @@ describe("findPostsBecameLive", () => {
 		// busting the caches this route exists to stop busting.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
 
-		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000", 50)
 
 		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
 
@@ -820,7 +833,7 @@ describe("findPostsBecameLive", () => {
 		// busts all sections on any hit — narrowing here would be misleading.
 		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
 
-		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000", 50)
 
 		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
 
