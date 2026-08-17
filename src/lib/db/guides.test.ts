@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
 import {
 	allGuides,
-	countGuidesBecameLive,
+	findGuidesBecameLive,
 	getGuideBySlug,
 	getGuideTopicBySlug,
 	getGuidesForProject,
@@ -12,6 +12,7 @@ import {
 	listGuidesForAdmin,
 	revalidateAllGuides,
 	revalidateGuide,
+	revalidateGuideDetails,
 	revalidateGuideTopic,
 	revalidateGuides,
 	type GuideListItem,
@@ -733,35 +734,39 @@ describe("module-load cache registrations", () => {
 
 // #endregion
 
-// #region countGuidesBecameLive
+// #region findGuidesBecameLive
 
-describe("countGuidesBecameLive", () => {
+describe("findGuidesBecameLive", () => {
 	const windowStart = new Date("2026-08-15T08:00:00Z")
 	const now = new Date("2026-08-15T10:00:00Z")
 
-	it("counts only published guides inside the window", async () => {
-		vi.mocked(prisma.guide.count).mockResolvedValue(1)
+	it("returns the slugs of published guides inside the window", async () => {
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			{ slug: "one" },
+			{ slug: "two" },
+		] as never)
 
-		const result = await countGuidesBecameLive(windowStart, now)
+		const result = await findGuidesBecameLive(windowStart, now)
 
-		expect(result).toBe(1)
-		expect(prisma.guide.count).toHaveBeenCalledWith({
+		expect(result).toEqual(["one", "two"])
+		expect(prisma.guide.findMany).toHaveBeenCalledWith({
 			where: {
 				published: true,
 				publishedAt: { gt: windowStart, lte: now },
 			},
+			select: { slug: true },
 		})
 	})
 
 	it("excludes the lower bound and includes the upper", async () => {
-		// Half-open, matching `countPostsBecameLive`: consecutive cron runs
-		// share a boundary instant, and an inclusive lower bound would re-count
+		// Half-open, matching `findPostsBecameLive`: consecutive cron runs
+		// share a boundary instant, and an inclusive lower bound would re-report
 		// the same guide every run and bust the caches on every pass.
-		vi.mocked(prisma.guide.count).mockResolvedValue(0)
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([] as never)
 
-		await countGuidesBecameLive(windowStart, now)
+		await findGuidesBecameLive(windowStart, now)
 
-		const where = vi.mocked(prisma.guide.count).mock.calls[0][0]?.where
+		const where = vi.mocked(prisma.guide.findMany).mock.calls[0][0]?.where
 
 		expect(where?.publishedAt).toEqual({ gt: windowStart, lte: now })
 	})
@@ -769,14 +774,46 @@ describe("countGuidesBecameLive", () => {
 	it("cannot match a guide with a null publishedAt", async () => {
 		// A null `publishedAt` means never scheduled, so it must never come
 		// due. Prisma's range filter excludes nulls, which this pins.
-		vi.mocked(prisma.guide.count).mockResolvedValue(0)
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([] as never)
 
-		await countGuidesBecameLive(windowStart, now)
+		await findGuidesBecameLive(windowStart, now)
 
-		const where = vi.mocked(prisma.guide.count).mock.calls[0][0]?.where
+		const where = vi.mocked(prisma.guide.findMany).mock.calls[0][0]?.where
 
 		expect(where?.publishedAt).not.toBeNull()
 		expect(where?.publishedAt).toHaveProperty("gt")
+	})
+})
+
+// #endregion
+
+// #region revalidateGuideDetails
+
+describe("revalidateGuideDetails", () => {
+	it("busts each due guide's own detail tag and nothing else", async () => {
+		// `revalidateGuides` covers the aggregates. This reaches the prerendered
+		// `/guides/:slug` entries, which can be holding a 404 rendered while the
+		// guide was still scheduled.
+		const { revalidateTag } = await import("next/cache")
+
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideDetails(["one", "two"])
+
+		expect(vi.mocked(revalidateTag).mock.calls.map((call) => call[0])).toEqual([
+			"guide-detail-one",
+			"guide-detail-two",
+		])
+	})
+
+	it("does nothing for an empty list", async () => {
+		const { revalidateTag } = await import("next/cache")
+
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideDetails([])
+
+		expect(revalidateTag).not.toHaveBeenCalled()
 	})
 })
 

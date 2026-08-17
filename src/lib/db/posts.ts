@@ -425,12 +425,23 @@ export async function searchPosts(
 	})
 }
 
+/** Identifies one post for a targeted detail-tag bust. */
+export interface PostRef {
+	section: Section
+	slug: string
+}
+
 /**
- * Counts published posts whose `datetime` fell inside `(windowStart, now]` —
- * that is, posts that became live during the window without any mutation
- * happening. This is the signal the scheduled-post cron acts on: a post
- * crossing its `datetime` is the one way the live set changes with nothing to
- * hang a `revalidateTag` off.
+ * Published posts whose `datetime` fell inside `(windowStart, now]` — that is,
+ * posts that became live during the window without any mutation happening. This
+ * is the signal the scheduled-post cron acts on: a post crossing its `datetime`
+ * is the one way the live set changes with nothing to hang a `revalidateTag`
+ * off.
+ *
+ * Returns the rows rather than a count because the cron needs both: the length
+ * decides whether to bust at all, and the identities let it bust each due post's
+ * own detail tag. A count alone left the detail entries untouched — see
+ * `revalidatePostDetails` for what that stranded.
  *
  * The comparison is a lexicographic string compare, which matches chronological
  * order for the fixed-width zero-padded `yyyy-MM-dd-HHmm` format (the invariant
@@ -441,15 +452,16 @@ export async function searchPosts(
  * redundant revalidation; a gap silently strands a post until the next real
  * mutation.
  */
-export async function countPostsBecameLive(
+export async function findPostsBecameLive(
 	windowStart: string,
 	now: string
-): Promise<number> {
-	return prisma.post.count({
+): Promise<PostRef[]> {
+	return prisma.post.findMany({
 		where: {
 			published: true,
 			datetime: { gt: windowStart, lte: now },
 		},
+		select: { section: true, slug: true },
 	})
 }
 
@@ -472,6 +484,29 @@ export function revalidatePostSection(section: Section): void {
 export function revalidatePost(section: Section, slug: string): void {
 	revalidateTag(postTag(section, slug), "max")
 	revalidatePostSection(section)
+}
+
+/**
+ * Invalidates the detail entries — HTML page and `.md` route alike — for posts
+ * that just came due, without touching siblings.
+ *
+ * Needed because a detail entry can hold a **404**. Both routes are prerendered
+ * with no time-based expiry (`initialRevalidateSeconds: false`), and a request
+ * for a post that is published but still future-dated renders the not-found
+ * result and pins it, tagged `post-{section}-{slug}` + `post-pages`. Nothing in
+ * `revalidatePostSection` touches either tag, so once the post came due the URL
+ * kept serving that stale 404 until the post was next saved in admin. The
+ * section aggregates (list, archive, feed, sitemap) never had this problem —
+ * they cache a padded superset and filter at read time.
+ *
+ * Per-post rather than a blanket `post-pages` bust so a single due post
+ * regenerates two entries instead of every post's page and `.md`, matching the
+ * per-slug targeting the detail tags exist for.
+ */
+export function revalidatePostDetails(posts: PostRef[]): void {
+	for (const post of posts) {
+		revalidateTag(postTag(post.section, post.slug), "max")
+	}
 }
 
 /**

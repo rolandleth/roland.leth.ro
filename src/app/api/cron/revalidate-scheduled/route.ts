@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server"
 import { requireCronAuth } from "@/lib/api/cronAuth"
-import { countGuidesBecameLive, revalidateGuides } from "@/lib/db/guides"
-import { countPostsBecameLive, revalidatePostSection } from "@/lib/db/posts"
+import {
+	findGuidesBecameLive,
+	revalidateGuideDetails,
+	revalidateGuides,
+} from "@/lib/db/guides"
+import {
+	findPostsBecameLive,
+	revalidatePostDetails,
+	revalidatePostSection,
+} from "@/lib/db/posts"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
+import type { PostRef } from "@/lib/db/posts"
 import type { NextRequest } from "next/server"
 
 const LOG_TAG = "api:cron:revalidate-scheduled"
@@ -65,13 +74,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const now = currentDatetimeString()
 	const windowStart = currentDatetimeString(windowStartDate)
 
-	let duePosts: number
-	let dueGuides: number
+	let duePosts: PostRef[]
+	let dueGuides: string[]
 
 	try {
 		;[duePosts, dueGuides] = await Promise.all([
-			countPostsBecameLive(windowStart, now),
-			countGuidesBecameLive(windowStartDate, new Date()),
+			findPostsBecameLive(windowStart, now),
+			findGuidesBecameLive(windowStartDate, new Date()),
 		])
 	} catch (error) {
 		// A failed check means scheduled content stops surfacing, and nothing
@@ -86,7 +95,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		return NextResponse.json({ error: "Check failed" }, { status: 500 })
 	}
 
-	if (duePosts === 0 && dueGuides === 0) {
+	if (duePosts.length === 0 && dueGuides.length === 0) {
 		// The common case, by a wide margin — but still logged. Silence on the
 		// happy path would make "nothing came due" indistinguishable from "this
 		// cron stopped running", and a cron that stops running strands every
@@ -98,8 +107,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 		return NextResponse.json({
 			ok: true,
-			duePosts,
-			dueGuides,
+			duePosts: duePosts.length,
+			dueGuides: dueGuides.length,
 			revalidated: false,
 		})
 	}
@@ -107,23 +116,42 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	// Every section is busted regardless of which one the due post belongs to:
 	// the sitemap and the `posts` aggregate span sections, and the extra work
 	// lands on an hour that already had a real change.
-	if (duePosts > 0) {
+	if (duePosts.length > 0) {
 		for (const section of SECTIONS) {
 			revalidatePostSection(section)
 		}
+
+		// Targeted, unlike the section sweep above: only the posts that came due
+		// get their detail entries regenerated. Without this the aggregates would
+		// list a post whose own page and `.md` still served a pinned 404.
+		revalidatePostDetails(duePosts)
 	}
 
-	if (dueGuides > 0) {
+	if (dueGuides.length > 0) {
 		revalidateGuides()
+		revalidateGuideDetails(dueGuides)
 	}
 
+	// The slugs, not just the count: this run is the only thing standing between
+	// a scheduled post and a pinned 404 on its detail URL, so a failure to
+	// surface one needs to be traceable to the exact post afterwards.
+	// The slugs, not just the counts: this run is the only thing standing between
+	// scheduled content and a pinned 404 on its detail URL, so a failure to
+	// surface one needs to be traceable to the exact post or guide afterwards.
 	// eslint-disable-next-line no-console
 	console.info(`[${LOG_TAG}] revalidated for due content`, {
-		duePosts,
-		dueGuides,
+		duePosts: duePosts.length,
+		duePostSlugs: duePosts.map((post) => `${post.section}/${post.slug}`),
+		dueGuides: dueGuides.length,
+		dueGuideSlugs: dueGuides,
 		windowStart,
 		now,
 	})
 
-	return NextResponse.json({ ok: true, duePosts, dueGuides, revalidated: true })
+	return NextResponse.json({
+		ok: true,
+		duePosts: duePosts.length,
+		dueGuides: dueGuides.length,
+		revalidated: true,
+	})
 }

@@ -4,7 +4,7 @@ import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import {
 	bySection,
-	countPostsBecameLive,
+	findPostsBecameLive,
 	getAllPublishedPostSlugs,
 	getPostBySlug,
 	getPostsBySection,
@@ -12,6 +12,7 @@ import {
 	listPostsForAdmin,
 	loadPost,
 	loadPostForAdmin,
+	revalidatePostDetails,
 	revalidatePostSection,
 	searchPosts,
 } from "@/lib/db/posts"
@@ -757,35 +758,56 @@ describe("revalidatePostSection", () => {
 
 // #endregion
 
-// #region countPostsBecameLive
+// #region findPostsBecameLive
 
-describe("countPostsBecameLive", () => {
-	it("counts only published posts inside the window", async () => {
-		vi.mocked(prisma.post.count).mockResolvedValue(2)
+describe("findPostsBecameLive", () => {
+	it("returns only published posts inside the window", async () => {
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{ section: "tech", slug: "one" },
+			{ section: "life", slug: "two" },
+		] as never)
 
-		const result = await countPostsBecameLive(
+		const result = await findPostsBecameLive(
 			"2026-08-15-0800",
 			"2026-08-15-1000"
 		)
 
-		expect(result).toBe(2)
-		expect(prisma.post.count).toHaveBeenCalledWith({
+		expect(result).toEqual([
+			{ section: "tech", slug: "one" },
+			{ section: "life", slug: "two" },
+		])
+		expect(prisma.post.findMany).toHaveBeenCalledWith({
 			where: {
 				published: true,
 				datetime: { gt: "2026-08-15-0800", lte: "2026-08-15-1000" },
 			},
+			select: { section: true, slug: true },
 		})
+	})
+
+	it("selects the identity the caller needs to bust a detail tag", async () => {
+		// `postTag` keys on (section, slug). Dropping either from the select would
+		// leave the cron able to see that something came due but not which detail
+		// entry to regenerate — the gap that let a scheduled post's own URL keep
+		// serving a pinned 404.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
+
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+
+		const select = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.select
+
+		expect(select).toEqual({ section: true, slug: true })
 	})
 
 	it("excludes the lower bound and includes the upper", async () => {
 		// Half-open on purpose: consecutive cron runs share a boundary instant,
-		// and an inclusive lower bound would re-count the same post every run,
+		// and an inclusive lower bound would re-report the same post every run,
 		// busting the caches this route exists to stop busting.
-		vi.mocked(prisma.post.count).mockResolvedValue(0)
+		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
 
-		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
 
-		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
 
 		expect(where?.datetime).toEqual({
 			gt: "2026-08-15-0800",
@@ -796,13 +818,48 @@ describe("countPostsBecameLive", () => {
 	it("does not filter by section", async () => {
 		// The sitemap and the `posts` aggregate span sections, so the caller
 		// busts all sections on any hit — narrowing here would be misleading.
-		vi.mocked(prisma.post.count).mockResolvedValue(1)
+		vi.mocked(prisma.post.findMany).mockResolvedValue([] as never)
 
-		await countPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
+		await findPostsBecameLive("2026-08-15-0800", "2026-08-15-1000")
 
-		const where = vi.mocked(prisma.post.count).mock.calls[0][0]?.where
+		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
 
 		expect(where).not.toHaveProperty("section")
+	})
+})
+
+// #endregion
+
+// #region revalidatePostDetails
+
+describe("revalidatePostDetails", () => {
+	it("busts each due post's own detail tag and nothing else", async () => {
+		// The section aggregates are the caller's job. This one exists solely to
+		// reach the per-post detail entries — the page and the `.md` route — which
+		// `revalidatePostSection` has never touched.
+		const { revalidateTag } = await import("next/cache")
+
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidatePostDetails([
+			{ section: "tech", slug: "one" },
+			{ section: "life", slug: "two" },
+		])
+
+		expect(vi.mocked(revalidateTag).mock.calls.map((call) => call[0])).toEqual([
+			"post-tech-one",
+			"post-life-two",
+		])
+	})
+
+	it("does nothing for an empty list", async () => {
+		const { revalidateTag } = await import("next/cache")
+
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidatePostDetails([])
+
+		expect(revalidateTag).not.toHaveBeenCalled()
 	})
 })
 

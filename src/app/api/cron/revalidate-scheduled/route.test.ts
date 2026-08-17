@@ -1,17 +1,27 @@
 import { NextRequest } from "next/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { countGuidesBecameLive, revalidateGuides } from "@/lib/db/guides"
-import { countPostsBecameLive, revalidatePostSection } from "@/lib/db/posts"
+import {
+	findGuidesBecameLive,
+	revalidateGuideDetails,
+	revalidateGuides,
+} from "@/lib/db/guides"
+import {
+	findPostsBecameLive,
+	revalidatePostDetails,
+	revalidatePostSection,
+} from "@/lib/db/posts"
 import { SECTIONS } from "@/lib/db/sections"
 import { GET } from "./route"
 
 vi.mock("@/lib/db/posts", () => ({
-	countPostsBecameLive: vi.fn(),
+	findPostsBecameLive: vi.fn(),
+	revalidatePostDetails: vi.fn(),
 	revalidatePostSection: vi.fn(),
 }))
 
 vi.mock("@/lib/db/guides", () => ({
-	countGuidesBecameLive: vi.fn(),
+	findGuidesBecameLive: vi.fn(),
+	revalidateGuideDetails: vi.fn(),
 	revalidateGuides: vi.fn(),
 }))
 
@@ -33,8 +43,8 @@ function authorized() {
 
 beforeEach(() => {
 	vi.stubEnv("CRON_SECRET", "test-secret")
-	vi.mocked(countPostsBecameLive).mockResolvedValue(0)
-	vi.mocked(countGuidesBecameLive).mockResolvedValue(0)
+	vi.mocked(findPostsBecameLive).mockResolvedValue([])
+	vi.mocked(findGuidesBecameLive).mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -72,8 +82,8 @@ describe("GET /api/cron/revalidate-scheduled — auth guard", () => {
 		// must not be able to drive DB load by hammering it.
 		await GET(makeRequest())
 
-		expect(countPostsBecameLive).not.toHaveBeenCalled()
-		expect(countGuidesBecameLive).not.toHaveBeenCalled()
+		expect(findPostsBecameLive).not.toHaveBeenCalled()
+		expect(findGuidesBecameLive).not.toHaveBeenCalled()
 	})
 })
 
@@ -122,8 +132,10 @@ describe("GET /api/cron/revalidate-scheduled — nothing due", () => {
 describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 	it("busts every section when a post came due", async () => {
 		// Section-agnostic on purpose: the `posts` aggregate and the sitemap
-		// span sections, and the count doesn't say which section is affected.
-		vi.mocked(countPostsBecameLive).mockResolvedValue(1)
+		// span sections, and one due post doesn't say which sections are affected.
+		vi.mocked(findPostsBecameLive).mockResolvedValue([
+			{ section: "tech", slug: "one" },
+		])
 
 		const response = await GET(authorized())
 		const data = await response.json()
@@ -135,25 +147,59 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 		}
 	})
 
+	it("busts the detail entries of exactly the posts that came due", async () => {
+		// The section sweep above leaves `post-{section}-{slug}` untouched, and a
+		// detail entry can be holding a 404 rendered while the post was still
+		// future-dated. Without this the aggregates would list a post whose own
+		// page and `.md` still 404'd.
+		const due = [
+			{ section: "tech" as const, slug: "one" },
+			{ section: "life" as const, slug: "two" },
+		]
+
+		vi.mocked(findPostsBecameLive).mockResolvedValue(due)
+
+		await GET(authorized())
+
+		expect(revalidatePostDetails).toHaveBeenCalledWith(due)
+	})
+
 	it("does not bust post caches when only a guide came due", async () => {
-		vi.mocked(countGuidesBecameLive).mockResolvedValue(2)
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a", "b"])
 
 		const response = await GET(authorized())
 		const data = await response.json()
 
 		expect(data).toMatchObject({ revalidated: true, dueGuides: 2 })
 		expect(revalidateGuides).toHaveBeenCalled()
+		expect(revalidateGuideDetails).toHaveBeenCalledWith(["a", "b"])
 		expect(revalidatePostSection).not.toHaveBeenCalled()
+		expect(revalidatePostDetails).not.toHaveBeenCalled()
 	})
 
 	it("busts both when a post and a guide came due in the same window", async () => {
-		vi.mocked(countPostsBecameLive).mockResolvedValue(1)
-		vi.mocked(countGuidesBecameLive).mockResolvedValue(1)
+		vi.mocked(findPostsBecameLive).mockResolvedValue([
+			{ section: "tech", slug: "one" },
+		])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a"])
 
 		await GET(authorized())
 
 		expect(revalidatePostSection).toHaveBeenCalled()
+		expect(revalidatePostDetails).toHaveBeenCalled()
 		expect(revalidateGuides).toHaveBeenCalled()
+		expect(revalidateGuideDetails).toHaveBeenCalled()
+	})
+
+	it("busts no detail tags when nothing came due", async () => {
+		// The common path by a wide margin. A bust here would regenerate content
+		// on every run, which is the cost this route was built to avoid.
+		const response = await GET(authorized())
+		const data = await response.json()
+
+		expect(data).toMatchObject({ revalidated: false })
+		expect(revalidatePostDetails).not.toHaveBeenCalled()
+		expect(revalidateGuideDetails).not.toHaveBeenCalled()
 	})
 })
 
@@ -171,8 +217,8 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 		// runs can land 24h59m apart with nothing wrong.
 		await GET(authorized())
 
-		const [windowStart, now] = vi.mocked(countPostsBecameLive).mock.calls[0]
-		const [guideWindowStart] = vi.mocked(countGuidesBecameLive).mock.calls[0]
+		const [windowStart, now] = vi.mocked(findPostsBecameLive).mock.calls[0]
+		const [guideWindowStart] = vi.mocked(findGuidesBecameLive).mock.calls[0]
 
 		expect(windowStart < now).toBe(true)
 		expect(Date.now() - guideWindowStart.getTime()).toBeGreaterThan(
@@ -186,7 +232,7 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 		// format.
 		await GET(authorized())
 
-		const [windowStart, now] = vi.mocked(countPostsBecameLive).mock.calls[0]
+		const [windowStart, now] = vi.mocked(findPostsBecameLive).mock.calls[0]
 
 		expect(windowStart).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/)
 		expect(now).toMatch(/^\d{4}-\d{2}-\d{2}-\d{4}$/)
@@ -202,7 +248,7 @@ describe("GET /api/cron/revalidate-scheduled — check failure", () => {
 		// A failed check means scheduled content stops surfacing and nothing
 		// else notices. The run must be visible as failed in Vercel's cron log.
 		vi.spyOn(console, "error").mockImplementation(() => {})
-		vi.mocked(countPostsBecameLive).mockRejectedValue(new Error("DB down"))
+		vi.mocked(findPostsBecameLive).mockRejectedValue(new Error("DB down"))
 
 		const response = await GET(authorized())
 

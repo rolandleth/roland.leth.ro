@@ -523,10 +523,14 @@ export async function listGuideTopicOptions(): Promise<
  * this, directly or via the helpers below.
  */
 /**
- * Counts published guides whose `publishedAt` fell inside `(windowStart, now]`
- * — guides that became live during the window with no mutation to hang a
- * revalidation off. The guide-side counterpart to `countPostsBecameLive`;
+ * Published guides whose `publishedAt` fell inside `(windowStart, now]` — guides
+ * that became live during the window with no mutation to hang a revalidation
+ * off. The guide-side counterpart to `findPostsBecameLive`;
  * `/api/cron/revalidate-scheduled` checks both, since the sitemap spans them.
+ *
+ * Returns slugs rather than a count for the same reason the post side does: the
+ * length decides whether to bust, the identities let each due guide's own detail
+ * tag be busted. See `revalidateGuideDetails`.
  *
  * `publishedAt` is a real `DateTime` column here, not a post's `yyyy-MM-dd-HHmm`
  * string, so this compares `Date`s directly. Guides with a null `publishedAt`
@@ -535,20 +539,38 @@ export async function listGuideTopicOptions(): Promise<
  * Callers should pass a window WIDER than the cron interval: overlap costs one
  * redundant revalidation, a gap strands a guide until the next real mutation.
  */
-export async function countGuidesBecameLive(
+export async function findGuidesBecameLive(
 	windowStart: Date,
 	now: Date
-): Promise<number> {
-	return prisma.guide.count({
+): Promise<string[]> {
+	const guides = await prisma.guide.findMany({
 		where: {
 			published: true,
 			publishedAt: { gt: windowStart, lte: now },
 		},
+		select: { slug: true },
 	})
+
+	return guides.map((guide) => guide.slug)
 }
 
 export function revalidateGuides(): void {
 	revalidateTag(GUIDES_TAG, "max")
+}
+
+/**
+ * Invalidates the detail entries for guides that just came due, without touching
+ * siblings. The guide-side counterpart to `revalidatePostDetails`, and needed for
+ * the same reason: `/guides/:slug` is prerendered with no time-based expiry, so a
+ * request landing while a guide is still scheduled pins a 404 tagged
+ * `guide-detail-{slug}` + `guide-pages` — neither of which `revalidateGuides`
+ * busts. The guide then stayed 404 on its own URL after coming due, while the
+ * aggregates that `GUIDES_TAG` covers listed it correctly.
+ */
+export function revalidateGuideDetails(slugs: string[]): void {
+	for (const slug of slugs) {
+		revalidateTag(guideTag(slug), "max")
+	}
 }
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */
