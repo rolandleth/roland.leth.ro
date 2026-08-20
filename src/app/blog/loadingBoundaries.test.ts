@@ -32,6 +32,11 @@ const ROUTES_REQUIRING_REAL_404 = [
 	"blog/[section]/[slug]",
 	"blog/[section]/p/[page]",
 	"projects/[slug]",
+	"guides/[slug]",
+	"admin/(protected)/posts/[id]/edit",
+	"admin/(protected)/guides/[id]/edit",
+	"admin/(protected)/guide-topics/[id]/edit",
+	"admin/(protected)/projects/[id]/edit",
 ]
 
 /** Every directory from the route up to (and including) `src/app`. */
@@ -82,8 +87,11 @@ describe("loading boundaries above routes that must 404", () => {
 	})
 
 	it("finds no loading.tsx that was added without updating this list", () => {
-		// Belt and braces: any NEW loading.tsx under blog/ or projects/ should be
-		// a deliberate decision made with this file open.
+		// Belt and braces: any NEW loading.tsx anywhere under src/app should be a
+		// deliberate decision made with this file open. Walks the whole app, not
+		// just blog/ and projects/ — a loading.tsx added above `guides/[slug]` or
+		// an admin edit route would be the identical bug in a directory this test
+		// used to be blind to.
 		const known = [
 			join(APP_DIR, "blog/[section]/(list)/loading.tsx"),
 			join(APP_DIR, "blog/[section]/archive/loading.tsx"),
@@ -102,11 +110,6 @@ describe("loading boundaries above routes that must 404", () => {
 			})
 		}
 
-		const found = [
-			...walk(join(APP_DIR, "blog")),
-			...walk(join(APP_DIR, "projects")),
-		]
-
-		expect(found.sort()).toEqual(known.sort())
+		expect(walk(APP_DIR).sort()).toEqual(known.sort())
 	})
 })
