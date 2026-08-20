@@ -53,13 +53,18 @@ export function blankToNull(value: string | null | undefined): string | null {
  *
  * 30 × `PAGE_SIZE` = 300 posts, comfortably above the current corpus and small
  * enough that the whole probe surface is cheap. `parsePageParam` clamps rather
- * than rejects, and the routes compare the parsed value against the raw segment,
- * so anything above this 404s before a query runs.
+ * than rejects; `/blog/:section/p/:page` compares the clamped value against the
+ * raw segment, so anything above this 404s before a query runs. That round-trip
+ * check is that route's job, not this function's — a caller that skips it (like
+ * admin's `parseAdminPageParam`, below) gets silent clamping instead of a 404.
  *
  * This is the OUTER guard, not the exact one — the exact bound is the section's
  * real `totalPages`, checked at the route after a cached count. Raising the
  * corpus past 300 posts fails the build rather than 404ing a real page: see the
  * ceiling assertion in `generateStaticParams` for the paginated blog route.
+ *
+ * Public/crawlable routes only. Admin pagination uses `parseAdminPageParam`
+ * instead — see there for why the same ceiling doesn't apply.
  */
 export const MAX_PAGE = 30
 
@@ -80,6 +85,23 @@ export function parsePageParam(raw: string | undefined | null): number {
 	}
 
 	return Math.min(n, MAX_PAGE)
+}
+
+/**
+ * Parses a page value into a positive integer, defaulting to `1` on invalid
+ * input. No upper ceiling, unlike `parsePageParam`.
+ *
+ * `MAX_PAGE` exists to bound the probe surface of a public, crawlable route —
+ * admin sits behind auth, for a single user, so that cost doesn't apply. Each
+ * admin tab already computes its own real `totalPages` from the same query
+ * that fetches the page (`listPostsForAdmin` and siblings), and a `page` past
+ * it just renders an empty list via `skip`/`take` — there's no query-less
+ * ceiling to protect here the way the blog route protects one.
+ */
+export function parseAdminPageParam(raw: string | undefined | null): number {
+	const n = Number.parseInt(raw ?? "1", 10)
+
+	return Number.isNaN(n) || n < 1 ? 1 : n
 }
 
 /**

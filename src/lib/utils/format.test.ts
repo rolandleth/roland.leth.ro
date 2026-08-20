@@ -8,6 +8,7 @@ import {
 	formatDate,
 	formatDateValue,
 	MAX_PAGE,
+	parseAdminPageParam,
 	parseIntId,
 	parsePageParam,
 	postDatetimeToISO,
@@ -142,6 +143,44 @@ describe("parsePageParam", () => {
 		// corpus grows is expected, jumping it back to 10k is not.
 		expect(MAX_PAGE).toBeLessThanOrEqual(100)
 		expect(MAX_PAGE * PAGE_SIZE).toBeGreaterThan(100)
+	})
+})
+
+// #endregion
+
+// #region parseAdminPageParam
+
+describe("parseAdminPageParam", () => {
+	it("parses a valid positive integer string", () => {
+		expect(parseAdminPageParam("3")).toBe(3)
+	})
+
+	it("defaults to 1 for null", () => {
+		expect(parseAdminPageParam(null)).toBe(1)
+	})
+
+	it("defaults to 1 for undefined", () => {
+		expect(parseAdminPageParam(undefined)).toBe(1)
+	})
+
+	it("defaults to 1 for non-numeric input", () => {
+		expect(parseAdminPageParam("abc")).toBe(1)
+	})
+
+	it("defaults to 1 for 0 (below minimum)", () => {
+		expect(parseAdminPageParam("0")).toBe(1)
+	})
+
+	it("defaults to 1 for a negative integer", () => {
+		expect(parseAdminPageParam("-5")).toBe(1)
+	})
+
+	it("does not clamp input past MAX_PAGE", () => {
+		// The admin dashboard is authenticated and single-user, so the public
+		// route's probe-cost ceiling doesn't apply — a page past the corpus
+		// just renders empty via `skip`/`take`, it doesn't silently alias to
+		// the last in-range page the way `parsePageParam` does.
+		expect(parseAdminPageParam(String(MAX_PAGE + 1))).toBe(MAX_PAGE + 1)
 	})
 })
 

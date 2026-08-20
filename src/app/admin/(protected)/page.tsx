@@ -11,7 +11,7 @@ import {
 	parseTab,
 	type AdminTab,
 } from "@/lib/client/adminPageUrl"
-import { parsePageParam } from "@/lib/utils/format"
+import { parseAdminPageParam } from "@/lib/utils/format"
 
 interface PageProps {
 	searchParams: Promise<{ tab?: string; page?: string; q?: string }>
@@ -28,7 +28,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 
 	const tab = parseTab(tabParam)
 	const query = queryParam?.trim() ?? ""
-	const page = parsePageParam(pageParam)
+	const page = parseAdminPageParam(pageParam)
 
 	return (
 		<div className="flex flex-col gap-6">
