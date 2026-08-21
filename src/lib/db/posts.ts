@@ -80,6 +80,18 @@ export function bySection<T>(fn: (section: Section) => T): Record<Section, T> {
 	return Object.fromEntries(entries) as Record<Section, T>
 }
 
+/**
+ * Single source for the section-aggregate tag, shared by every cache wrapper
+ * and revalidation helper in this file that touches a whole section (list
+ * pages, page count, archive, `revalidatePostSection`). Same reasoning as
+ * `postTag` below: if a caller drifted from the literal, a bust would stop
+ * reaching that cache entry and a stale page — or a stale 404 — would survive
+ * every section-level revalidation.
+ */
+function sectionTag(section: Section): string {
+	return `blog-${section}`
+}
+
 // One `unstable_cache` wrapper per (section, page), built lazily and reused.
 // Bounded because `page` reaches this from a URL segment: without a cap, a
 // crawler walking `/blog/tech/p/999999` would mint a wrapper per probe.
@@ -139,7 +151,7 @@ function makeBlogPageCache(section: Section, page: number) {
 			return { posts, totalPages }
 		},
 		[`blog-page-${section}-${page}`],
-		{ tags: [`blog-${section}`] }
+		{ tags: [sectionTag(section)] }
 	)
 }
 
@@ -193,7 +205,7 @@ function makeSectionPageCountCache(section: Section) {
 			return Math.ceil(total / PAGE_SIZE)
 		},
 		[`blog-page-count-${section}`],
-		{ tags: [`blog-${section}`] }
+		{ tags: [sectionTag(section)] }
 	)
 }
 
@@ -412,7 +424,7 @@ function makeArchiveCache(section: Section) {
 				orderBy: { datetime: "desc" },
 			}),
 		[`blog-archive-${section}`],
-		{ tags: [`blog-archive-${section}`, `blog-${section}`] }
+		{ tags: [`blog-archive-${section}`, sectionTag(section)] }
 	)
 }
 
@@ -550,7 +562,7 @@ export async function findPostsBecameLive(
  */
 export function revalidatePostSection(section: Section): void {
 	revalidateTag(`feed-${section}`, "max")
-	revalidateTag(`blog-${section}`, "max")
+	revalidateTag(sectionTag(section), "max")
 	revalidateTag(POSTS_TAG, "max")
 }
 

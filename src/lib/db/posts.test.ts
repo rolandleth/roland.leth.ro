@@ -238,6 +238,35 @@ describe("getPostsBySection", () => {
 
 // #endregion
 
+// #region getSectionPageCount
+
+describe("getSectionPageCount", () => {
+	it("scopes the cache tag to the section", async () => {
+		// Unlike the per-page cache above, `sectionPageCountCache` is built once
+		// per section at module load (`bySection(makeSectionPageCountCache)`),
+		// not lazily per call — so the `unstable_cache` call that tags it already
+		// happened before this test's `beforeEach` could clear it. Re-importing
+		// fresh replays that module-init call where it's observable.
+		vi.resetModules()
+		const fresh = await import("@/lib/db/posts")
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await fresh.getSectionPageCount("tech")
+
+		// Same tag `getPostsBySection` uses and `revalidatePostSection` busts
+		// (see "revalidates the feed, blog, and shared posts tags" below) — this
+		// is the string-level half of the drift class the 2026-07 stale-404
+		// incident came from.
+		expect(unstable_cache).toHaveBeenCalledWith(
+			expect.any(Function),
+			["blog-page-count-tech"],
+			{ tags: ["blog-tech"] }
+		)
+	})
+})
+
+// #endregion
+
 // #region getPostsGroupedByYear
 
 describe("getPostsGroupedByYear", () => {
