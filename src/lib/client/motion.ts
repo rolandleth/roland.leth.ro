@@ -8,6 +8,13 @@ import type { Transition } from "framer-motion"
  * When the current render follows a browser back/forward navigation, `initial`
  * is `false` so Framer renders straight in the resolved state — returning to a
  * page shouldn't replay its entrance.
+ *
+ * Reduced motion is deliberately *not* handled here. `<MotionPreferences>`
+ * (src/components/MotionPreferences.tsx) wraps the app in Framer's
+ * `reducedMotion="user"`, which drops the `y` slide and keeps the opacity fade
+ * for every motion component, not only this factory's callers. Reading the
+ * preference here would also mean returning a different `initial` on the client
+ * than the prerender produced.
  */
 export function fadeUp(
 	delay: number,

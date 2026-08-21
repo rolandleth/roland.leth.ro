@@ -43,6 +43,8 @@ export default function ProjectSectionCarousel({
 	const stageRef = useRef<HTMLDivElement | null>(null)
 	const { width } = useElementSize(stageRef)
 	const x = useMotionValue(0)
+	// Not covered by `<MotionPreferences>`: the standalone `animate()` takes
+	// `reduceMotion` from its own options, never from MotionConfig context.
 	const prefersReducedMotion = useReducedMotion()
 	// Set true by a real swipe so the trailing click doesn't also fire the
 	// enlarge; reset at the start of each new interaction (stage pointer-down).

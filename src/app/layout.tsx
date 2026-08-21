@@ -2,6 +2,7 @@ import { Inter, JetBrains_Mono, Newsreader } from "next/font/google"
 import ClientAnalytics from "@/components/ClientAnalytics"
 import Footer from "@/components/Footer"
 import Header from "@/components/Header"
+import MotionPreferences from "@/components/MotionPreferences"
 import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
@@ -104,24 +105,29 @@ export default function RootLayout({
 					Skip to main content
 				</a>
 
-				<ThemeProvider>
-					<NavigationTypeTracker />
-					<Header />
-					{/* Single document `<main>` lives here so the skip link targets
-						the actual landmark. Pages render their content as plain
-						wrappers (`<div>`/`<section>`) inside this. `tabIndex={-1}`
-						lets the skip link move keyboard focus into the landmark
-						without making it a tab stop. */}
-					<main
-						id="main-content"
-						tabIndex={-1}
-						className="flex flex-1 flex-col"
-					>
-						{children}
-					</main>
-					<ClientAnalytics />
-					<Footer />
-				</ThemeProvider>
+				{/* Outermost provider: reduced-motion handling has to reach every
+					animated component, and nesting it here means it keeps doing so
+					however the providers below are rearranged. */}
+				<MotionPreferences>
+					<ThemeProvider>
+						<NavigationTypeTracker />
+						<Header />
+						{/* Single document `<main>` lives here so the skip link targets
+							the actual landmark. Pages render their content as plain
+							wrappers (`<div>`/`<section>`) inside this. `tabIndex={-1}`
+							lets the skip link move keyboard focus into the landmark
+							without making it a tab stop. */}
+						<main
+							id="main-content"
+							tabIndex={-1}
+							className="flex flex-1 flex-col"
+						>
+							{children}
+						</main>
+						<ClientAnalytics />
+						<Footer />
+					</ThemeProvider>
+				</MotionPreferences>
 			</body>
 		</html>
 	)

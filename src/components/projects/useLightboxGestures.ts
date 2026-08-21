@@ -114,6 +114,8 @@ export function useLightboxGestures({
 	canNavigate,
 	onStep,
 }: Options): Gestures {
+	// Not covered by `<MotionPreferences>`: the standalone `animate()` takes
+	// `reduceMotion` from its own options, never from MotionConfig context.
 	const prefersReducedMotion = useReducedMotion()
 
 	const x = useMotionValue(0)

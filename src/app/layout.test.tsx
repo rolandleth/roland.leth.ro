@@ -1,11 +1,15 @@
+import { isValidElement } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import MotionPreferences from "@/components/MotionPreferences"
+import ThemeProvider from "@/components/ThemeProvider"
 import {
 	defaultOgImage,
 	ogImageEntry,
 	siteOpenGraph,
 	siteTwitter,
 } from "@/lib/content/metadata"
-import { generateMetadata } from "./layout"
+import RootLayout, { generateMetadata } from "./layout"
+import type { ElementType, ReactElement, ReactNode } from "react"
 
 // `next/font/google` runs the font loader at module load, which needs the Next
 // build pipeline; stub it so the layout module imports under Vitest. The stubbed
@@ -88,4 +92,63 @@ describe("root layout metadata", () => {
 	})
 
 	// #endregion
+})
+
+/** The `children` of a React element, or null when it has none. */
+function childrenOf(element: ReactElement): ReactNode {
+	// `ReactElement`'s props are `unknown` by default, and every element here is
+	// one the layout itself wrote — there is nothing to narrow against.
+	const { children } = element.props as { children?: ReactNode }
+
+	return children ?? null
+}
+
+/** Depth-first search for the first element of `type` in a rendered tree. */
+function findElement(node: ReactNode, type: ElementType): ReactElement | null {
+	if (Array.isArray(node)) {
+		for (const child of node) {
+			const match = findElement(child, type)
+
+			if (match) {
+				return match
+			}
+		}
+
+		return null
+	}
+
+	if (!isValidElement(node)) {
+		return null
+	}
+
+	if (node.type === type) {
+		return node
+	}
+
+	return findElement(childrenOf(node), type)
+}
+
+describe("root layout providers", () => {
+	// `MotionPreferences` only does its job for what it wraps, and the whole app
+	// is what needs wrapping. Asserted on the element tree rather than a render:
+	// the wiring is the part that can silently disappear, and rendering the real
+	// layout would drag in the header, footer, and analytics for no added signal.
+	it("wraps the app in MotionPreferences", () => {
+		const tree = RootLayout({ children: <div /> })
+
+		expect(findElement(tree, MotionPreferences)).not.toBeNull()
+	})
+
+	// Not a style preference — a component rendered outside the provider keeps
+	// animating through the OS preference. Pinning the nesting means moving a
+	// provider above `MotionPreferences` has to be a deliberate edit.
+	it("nests every other provider inside it", () => {
+		const tree = RootLayout({ children: <div /> })
+		const motionPreferences = findElement(tree, MotionPreferences)
+		const nested = motionPreferences
+			? findElement(childrenOf(motionPreferences), ThemeProvider)
+			: null
+
+		expect(nested).not.toBeNull()
+	})
 })
