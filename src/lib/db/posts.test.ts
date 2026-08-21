@@ -449,22 +449,22 @@ describe("searchPosts", () => {
 		}) as typeof prisma.post.findMany)
 	})
 
-	it("returns posts whose title matches the query", async () => {
-		const results = await searchPosts("tech", "SwiftUI")
+	it.each([
+		[
+			"returns posts whose title matches the query",
+			"SwiftUI",
+			"SwiftUI layouts",
+		],
+		[
+			"returns posts whose body matches the query",
+			"actors",
+			"Swift concurrency guide",
+		],
+		["is case-insensitive", "TYPESCRIPT", "TypeScript tricks"],
+	])("%s", async (_label, query, expectedTitle) => {
+		const results = await searchPosts("tech", query)
 		expect(results).toHaveLength(1)
-		expect(results[0].title).toBe("SwiftUI layouts")
-	})
-
-	it("returns posts whose body matches the query", async () => {
-		const results = await searchPosts("tech", "actors")
-		expect(results).toHaveLength(1)
-		expect(results[0].title).toBe("Swift concurrency guide")
-	})
-
-	it("is case-insensitive", async () => {
-		const results = await searchPosts("tech", "TYPESCRIPT")
-		expect(results).toHaveLength(1)
-		expect(results[0].title).toBe("TypeScript tricks")
+		expect(results[0].title).toBe(expectedTitle)
 	})
 
 	it("matches across both title and body in the same result set", async () => {

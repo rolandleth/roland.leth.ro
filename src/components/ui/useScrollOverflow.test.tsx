@@ -50,56 +50,38 @@ afterEach(() => {
 })
 
 describe("useScrollOverflow", () => {
-	it("reports no overflow when content fits the visible width", () => {
-		const element = makeScroller({
-			scrollLeft: 0,
-			scrollWidth: 300,
-			clientWidth: 300,
-		})
+	it.each([
+		[
+			"reports no overflow when content fits the visible width",
+			{ scrollLeft: 0, scrollWidth: 300, clientWidth: 300 },
+			false,
+			false,
+		],
+		[
+			"reports end-only overflow when scrolled to the start",
+			{ scrollLeft: 0, scrollWidth: 600, clientWidth: 300 },
+			false,
+			true,
+		],
+		[
+			"reports both edges when scrolled to the middle",
+			{ scrollLeft: 150, scrollWidth: 600, clientWidth: 300 },
+			true,
+			true,
+		],
+		[
+			"reports start-only overflow when scrolled to the end",
+			{ scrollLeft: 300, scrollWidth: 600, clientWidth: 300 },
+			true,
+			false,
+		],
+	] as const)("%s", (_label, metrics, expectedStart, expectedEnd) => {
+		const element = makeScroller(metrics)
 		const ref = { current: element }
 		const { result } = renderHook(() => useScrollOverflow(ref))
 
-		expect(result.current.canScrollStart).toBe(false)
-		expect(result.current.canScrollEnd).toBe(false)
-	})
-
-	it("reports end-only overflow when scrolled to the start", () => {
-		const element = makeScroller({
-			scrollLeft: 0,
-			scrollWidth: 600,
-			clientWidth: 300,
-		})
-		const ref = { current: element }
-		const { result } = renderHook(() => useScrollOverflow(ref))
-
-		expect(result.current.canScrollStart).toBe(false)
-		expect(result.current.canScrollEnd).toBe(true)
-	})
-
-	it("reports both edges when scrolled to the middle", () => {
-		const element = makeScroller({
-			scrollLeft: 150,
-			scrollWidth: 600,
-			clientWidth: 300,
-		})
-		const ref = { current: element }
-		const { result } = renderHook(() => useScrollOverflow(ref))
-
-		expect(result.current.canScrollStart).toBe(true)
-		expect(result.current.canScrollEnd).toBe(true)
-	})
-
-	it("reports start-only overflow when scrolled to the end", () => {
-		const element = makeScroller({
-			scrollLeft: 300,
-			scrollWidth: 600,
-			clientWidth: 300,
-		})
-		const ref = { current: element }
-		const { result } = renderHook(() => useScrollOverflow(ref))
-
-		expect(result.current.canScrollStart).toBe(true)
-		expect(result.current.canScrollEnd).toBe(false)
+		expect(result.current.canScrollStart).toBe(expectedStart)
+		expect(result.current.canScrollEnd).toBe(expectedEnd)
 	})
 
 	it("recomputes on scroll", () => {

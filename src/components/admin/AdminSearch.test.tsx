@@ -33,37 +33,24 @@ async function expandSearch() {
 }
 
 describe("AdminSearch — submit URL builder", () => {
-	it("uses /admin?q=… when on the posts tab", async () => {
-		const { push } = mockRouter()
-		render(<AdminSearch tab="posts" query="" />)
+	// `?` vs `&` separator was easy to regress with the old pageUrl builders —
+	// the projects-tab case pins it. The third case pins query encoding.
+	it.each([
+		["posts", "hello{enter}", "/admin?q=hello"],
+		["projects", "hello{enter}", "/admin?tab=projects&q=hello"],
+		["posts", "a&b{enter}", "/admin?q=a%26b"],
+	] as const)(
+		"tab=%s, typing %j pushes %j",
+		async (tab, typed, expectedUrl) => {
+			const { push } = mockRouter()
+			render(<AdminSearch tab={tab} query="" />)
 
-		const input = await expandSearch()
-		await user.type(input, "hello{enter}")
+			const input = await expandSearch()
+			await user.type(input, typed)
 
-		expect(push).toHaveBeenCalledWith("/admin?q=hello")
-	})
-
-	it("uses /admin?tab=projects&q=… when on the projects tab", async () => {
-		// `?` vs `&` separator was easy to regress with the old pageUrl
-		// builders; the dedicated test pins it.
-		const { push } = mockRouter()
-		render(<AdminSearch tab="projects" query="" />)
-
-		const input = await expandSearch()
-		await user.type(input, "hello{enter}")
-
-		expect(push).toHaveBeenCalledWith("/admin?tab=projects&q=hello")
-	})
-
-	it("URL-encodes special characters in the submitted query", async () => {
-		const { push } = mockRouter()
-		render(<AdminSearch tab="posts" query="" />)
-
-		const input = await expandSearch()
-		await user.type(input, "a&b{enter}")
-
-		expect(push).toHaveBeenCalledWith("/admin?q=a%26b")
-	})
+			expect(push).toHaveBeenCalledWith(expectedUrl)
+		}
+	)
 })
 
 describe("AdminSearch — close behavior", () => {

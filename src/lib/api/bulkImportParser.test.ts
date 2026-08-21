@@ -70,23 +70,13 @@ describe("parseBulkImportFilename rejects unsafe title characters", () => {
 	// either look like path traversal in audit text or corrupt log line
 	// boundaries, so the regex blocks them at parse time.
 
-	it("rejects a forward-slash in the title (path traversal shape)", () => {
-		const result = parseBulkImportFilename("2026-05-15-foo/bar.md")
-		expect(result.ok).toBe(false)
-	})
-
-	it("rejects a backslash in the title", () => {
-		const result = parseBulkImportFilename("2026-05-15-foo\\bar.md")
-		expect(result.ok).toBe(false)
-	})
-
-	it("rejects a control char (newline) in the title", () => {
-		const result = parseBulkImportFilename("2026-05-15-foo\nbar.md")
-		expect(result.ok).toBe(false)
-	})
-
-	it("rejects a control char (tab) in the title", () => {
-		const result = parseBulkImportFilename("2026-05-15-foo\tbar.md")
+	it.each([
+		["forward-slash (path traversal shape)", "2026-05-15-foo/bar.md"],
+		["backslash", "2026-05-15-foo\\bar.md"],
+		["control char (newline)", "2026-05-15-foo\nbar.md"],
+		["control char (tab)", "2026-05-15-foo\tbar.md"],
+	])("rejects a %s in the title", (_label, filename) => {
+		const result = parseBulkImportFilename(filename)
 		expect(result.ok).toBe(false)
 	})
 })
@@ -96,18 +86,12 @@ describe("parseBulkImportFilename rejects unsafe title characters", () => {
 // #region Failures
 
 describe("parseBulkImportFilename failures", () => {
-	it("rejects a filename with no .md extension", () => {
-		const result = parseBulkImportFilename("2026-05-15-Reflections.txt")
-		expect(result.ok).toBe(false)
-	})
-
-	it("rejects a filename with no date prefix", () => {
-		const result = parseBulkImportFilename("Reflections.md")
-		expect(result.ok).toBe(false)
-	})
-
-	it("rejects an empty title", () => {
-		const result = parseBulkImportFilename("2026-05-15-.md")
+	it.each([
+		["a filename with no .md extension", "2026-05-15-Reflections.txt"],
+		["a filename with no date prefix", "Reflections.md"],
+		["an empty title", "2026-05-15-.md"],
+	])("rejects %s", (_label, filename) => {
+		const result = parseBulkImportFilename(filename)
 		expect(result.ok).toBe(false)
 	})
 

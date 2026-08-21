@@ -91,24 +91,20 @@ ${body}
 		expect(warnings[0].message).toContain("/projects/reckon")
 	})
 
-	it("stays quiet when the body carries an inline link", () => {
+	it.each([
+		["an inline link", "I make [Reckon](/projects/reckon), an app."],
+		// The four real guides use reference definitions, not inline links.
+		[
+			"a reference definition",
+			'I make [Reckon][reckon].\n\n[reckon]: /projects/reckon "Reckon"',
+		],
+		[
+			"a link followed by punctuation or a closing paren",
+			"See [Reckon](/projects/reckon), it's an app.",
+		],
+	])("stays quiet when the body carries %s", (_label, body) => {
 		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink("I make [Reckon](/projects/reckon), an app."),
-			}),
-		])
-
-		expect(warnings).toEqual([])
-	})
-
-	// The four real guides use reference definitions, not inline links.
-	it("stays quiet when the body carries a reference definition", () => {
-		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink(
-					'I make [Reckon][reckon].\n\n[reckon]: /projects/reckon "Reckon"'
-				),
-			}),
+			rootGuideFile({ content: withLink(body) }),
 		])
 
 		expect(warnings).toEqual([])
@@ -116,21 +112,17 @@ ${body}
 
 	// A path shown as a code example is not a real link — the warning must still
 	// fire so the maker knows the guide doesn't actually link the product.
-	it("still warns when the only mention is inside a fenced code block", () => {
+	it.each([
+		["is inside a fenced code block", "```\nGET /projects/reckon\n```"],
+		["is inline code", "The route is `/projects/reckon`."],
+		// `/projects/reckon` must not match inside a longer sibling slug.
+		[
+			"is a link to a different project whose slug shares a prefix",
+			"See [Reckon Pro](/projects/reckon-pro).",
+		],
+	])("still warns when the only mention %s", (_label, body) => {
 		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink("```\nGET /projects/reckon\n```"),
-			}),
-		])
-
-		expect(warnings).toHaveLength(1)
-	})
-
-	it("still warns when the only mention is inline code", () => {
-		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink("The route is `/projects/reckon`."),
-			}),
+			rootGuideFile({ content: withLink(body) }),
 		])
 
 		expect(warnings).toHaveLength(1)
@@ -176,27 +168,6 @@ description: A self-test for overconfidence.
 
 No project, no link, no warning.
 `,
-			}),
-		])
-
-		expect(warnings).toEqual([])
-	})
-
-	// `/projects/reckon` must not match inside a longer sibling slug.
-	it("does not accept a link to a different project whose slug shares a prefix", () => {
-		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink("See [Reckon Pro](/projects/reckon-pro)."),
-			}),
-		])
-
-		expect(warnings).toHaveLength(1)
-	})
-
-	it("accepts a link followed by punctuation or a closing paren", () => {
-		const { warnings } = parseGuideFiles([
-			rootGuideFile({
-				content: withLink("See [Reckon](/projects/reckon), it's an app."),
 			}),
 		])
 

@@ -34,35 +34,14 @@ describe("httpUrl validator (via imageUrl)", () => {
 		expect(result.success).toBe(true)
 	})
 
-	it("rejects javascript: URLs", () => {
-		const result = postCreateSchema.safeParse({
-			...base,
-			imageUrl: "javascript:alert(1)",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects data: URLs", () => {
-		const result = postCreateSchema.safeParse({
-			...base,
-			imageUrl: "data:text/html,<h1>hi</h1>",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects ftp:// URLs", () => {
-		const result = postCreateSchema.safeParse({
-			...base,
-			imageUrl: "ftp://files.example.com/file.txt",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects a plain string with no protocol", () => {
-		const result = postCreateSchema.safeParse({
-			...base,
-			imageUrl: "example.com/img.png",
-		})
+	it.each([
+		["javascript: URLs", "javascript:alert(1)"],
+		["data: URLs", "data:text/html,<h1>hi</h1>"],
+		// eslint-disable-next-line sonarjs/no-clear-text-protocols -- rejecting ftp:// is the behavior under test, not a real request.
+		["ftp:// URLs", "ftp://files.example.com/file.txt"],
+		["a plain string with no protocol", "example.com/img.png"],
+	])("rejects %s", (_label, imageUrl) => {
+		const result = postCreateSchema.safeParse({ ...base, imageUrl })
 		expect(result.success).toBe(false)
 	})
 })
@@ -1022,60 +1001,29 @@ describe("projectCreateSchema — accentColor hex validation", () => {
 		platformTags: [PlatformTag.iOS],
 	}
 
-	it("accepts a 3-digit hex color", () => {
+	it.each([
+		["a 3-digit hex color", "#abc"],
+		["a 6-digit hex color", "#6366f1"],
+		["an 8-digit hex color with alpha", "#6366f1ff"],
+	])("accepts %s", (_label, accentColor) => {
 		const result = projectCreateSchema.safeParse({
 			...baseProject,
-			accentColor: "#abc",
+			accentColor,
 		})
 		expect(result.success).toBe(true)
 	})
 
-	it("accepts a 6-digit hex color", () => {
-		const result = projectCreateSchema.safeParse({
-			...baseProject,
-			accentColor: "#6366f1",
-		})
-		expect(result.success).toBe(true)
-	})
-
-	it("accepts an 8-digit hex color with alpha", () => {
-		const result = projectCreateSchema.safeParse({
-			...baseProject,
-			accentColor: "#6366f1ff",
-		})
-		expect(result.success).toBe(true)
-	})
-
-	it("rejects a named CSS color", () => {
+	it.each([
 		// A named color renders without the `#` prefix the project page expects
 		// and produces a broken CSS custom property.
+		["a named CSS color", "red"],
+		["a hex missing the leading '#'", "6366f1"],
+		["a 5-digit hex (not a valid CSS form)", "#12345"],
+		["a hex with non-hex characters", "#gggggg"],
+	])("rejects %s", (_label, accentColor) => {
 		const result = projectCreateSchema.safeParse({
 			...baseProject,
-			accentColor: "red",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects a hex missing the leading '#'", () => {
-		const result = projectCreateSchema.safeParse({
-			...baseProject,
-			accentColor: "6366f1",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects a 5-digit hex (not a valid CSS form)", () => {
-		const result = projectCreateSchema.safeParse({
-			...baseProject,
-			accentColor: "#12345",
-		})
-		expect(result.success).toBe(false)
-	})
-
-	it("rejects a hex with non-hex characters", () => {
-		const result = projectCreateSchema.safeParse({
-			...baseProject,
-			accentColor: "#gggggg",
+			accentColor,
 		})
 		expect(result.success).toBe(false)
 	})

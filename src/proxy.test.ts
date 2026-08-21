@@ -31,14 +31,28 @@ beforeEach(() => {
 // #region Admin page protection
 
 describe("proxy — admin page protection", () => {
-	it("redirects unauthenticated requests to /admin to /admin/login", async () => {
-		const response = await proxy(makeRequest("/admin"))
-		expect(response.status).toBe(307)
-		expect(response.headers.get("location")).toContain("/admin/login")
-	})
-
-	it("redirects unauthenticated requests to nested admin routes to /admin/login", async () => {
-		const response = await proxy(makeRequest("/admin/posts/new"))
+	it.each([
+		[
+			"unauthenticated requests to /admin to /admin/login",
+			"/admin",
+			undefined,
+			() => {},
+		],
+		[
+			"unauthenticated requests to nested admin routes to /admin/login",
+			"/admin/posts/new",
+			undefined,
+			() => {},
+		],
+		[
+			"to /admin/login when the session token is invalid",
+			"/admin",
+			"bad-token",
+			() => vi.mocked(jwtVerify).mockRejectedValue(new Error("Invalid token")),
+		],
+	] as const)("redirects %s", async (_label, path, token, setup) => {
+		setup()
+		const response = await proxy(makeRequest(path, token))
 		expect(response.status).toBe(307)
 		expect(response.headers.get("location")).toContain("/admin/login")
 	})
@@ -54,13 +68,6 @@ describe("proxy — admin page protection", () => {
 		} as never)
 		const response = await proxy(makeRequest("/admin", "valid-token"))
 		expect(response.headers.get("x-middleware-next")).toBe("1")
-	})
-
-	it("redirects to /admin/login when the session token is invalid", async () => {
-		vi.mocked(jwtVerify).mockRejectedValue(new Error("Invalid token"))
-		const response = await proxy(makeRequest("/admin", "bad-token"))
-		expect(response.status).toBe(307)
-		expect(response.headers.get("location")).toContain("/admin/login")
 	})
 
 	it("surfaces the error when SESSION_SECRET is missing and a token is present", async () => {

@@ -35,27 +35,14 @@ describe("moveAndReorder", () => {
 		expect(result.map((item) => item.sortOrder)).toEqual([0, 1, 2])
 	})
 
-	it("returns an equivalent list when moving the first item up", () => {
+	it.each([
+		["when moving the first item up", 0, "up"],
+		["when moving the last item down", 2, "down"],
+		["for an out-of-bounds index", 99, "up"],
+		["for a negative index", -1, "down"],
+	] as const)("returns an equivalent list %s", (_label, index, direction) => {
 		const list = makeList(3)
-		const result = moveAndReorder(list, 0, "up")
-		expect(result.map((item) => item.id)).toEqual([0, 1, 2])
-	})
-
-	it("returns an equivalent list when moving the last item down", () => {
-		const list = makeList(3)
-		const result = moveAndReorder(list, 2, "down")
-		expect(result.map((item) => item.id)).toEqual([0, 1, 2])
-	})
-
-	it("returns an equivalent list for an out-of-bounds index", () => {
-		const list = makeList(3)
-		const result = moveAndReorder(list, 99, "up")
-		expect(result.map((item) => item.id)).toEqual([0, 1, 2])
-	})
-
-	it("returns an equivalent list for a negative index", () => {
-		const list = makeList(3)
-		const result = moveAndReorder(list, -1, "down")
+		const result = moveAndReorder(list, index, direction)
 		expect(result.map((item) => item.id)).toEqual([0, 1, 2])
 	})
 

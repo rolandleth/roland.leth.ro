@@ -18,32 +18,28 @@ describe("filterAdminEvents", () => {
 		expect(filterAdminEvents({ url: "https://site/admin/login" })).toBeNull()
 	})
 
-	it("passes through public pages", () => {
-		const event = { url: "https://site/blog/tech" }
-		expect(filterAdminEvents(event)).toBe(event)
-	})
-
-	it("passes through the home page", () => {
-		const event = { url: "https://site/" }
-		expect(filterAdminEvents(event)).toBe(event)
-	})
-
-	it("passes through URLs where 'admin' appears without the leading slash", () => {
+	it.each([
+		["public pages", "https://site/blog/tech"],
+		["the home page", "https://site/"],
 		// The filter uses `.includes("/admin")`, so `?ref=fromadmin` (no leading
 		// slash in front of `admin`) is correctly treated as non-admin.
-		const event = { url: "https://site/blog/tech?ref=fromadmin" }
-		expect(filterAdminEvents(event)).toBe(event)
-	})
-
-	it("does not drop paths that merely start with /admin- (anchored on path segment)", () => {
+		[
+			"URLs where 'admin' appears without the leading slash",
+			"https://site/blog/tech?ref=fromadmin",
+		],
 		// Prior bug: `.includes("/admin")` ate `/admin-notes`. Fix splits on URL
 		// pathname and matches `/admin/...` boundary so adjacent prefixes are safe.
-		const event = { url: "https://site/admin-notes" }
-		expect(filterAdminEvents(event)).toBe(event)
-	})
-
-	it("does not drop nested paths that contain `/admin` mid-segment", () => {
-		const event = { url: "https://site/blog/tech/admin-tools" }
+		[
+			"a path that merely starts with /admin- (anchored on path segment)",
+			"https://site/admin-notes",
+		],
+		[
+			"a nested path that contains `/admin` mid-segment",
+			"https://site/blog/tech/admin-tools",
+		],
+		["/administrator (not a path-segment match)", "/administrator"],
+	])("passes through %s", (_label, url) => {
+		const event = { url }
 		expect(filterAdminEvents(event)).toBe(event)
 	})
 
@@ -58,10 +54,5 @@ describe("filterAdminEvents", () => {
 		// Without stripping `#`, `split('?')[0]` on `/admin#section` returns
 		// `/admin#section`, which fails the exact `/admin` check and passes through.
 		expect(filterAdminEvents({ url: "/admin#section" })).toBeNull()
-	})
-
-	it("passes through /administrator (not a path-segment match)", () => {
-		const event = { url: "/administrator" }
-		expect(filterAdminEvents(event)).toBe(event)
 	})
 })

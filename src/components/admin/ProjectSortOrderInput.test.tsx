@@ -225,62 +225,31 @@ describe("ProjectSortOrderInput strict digit parse", () => {
 		fireEvent.change(input, { target: { value: raw } })
 	}
 
-	it("rejects '3.7' (decimal) and resets to the initial value without firing a PUT", async () => {
-		mockRouter()
-		mockFetchResolved(true)
+	it.each([
+		["3.7", "decimal"],
+		["3abc", "trailing garbage"],
+		["-5", "negative"],
+	])(
+		"rejects %j (%s) and resets to the initial value without firing a PUT",
+		async (raw) => {
+			mockRouter()
+			mockFetchResolved(true)
 
-		render(
-			<ProjectSortOrderInput
-				projectId={1}
-				initialSortOrder={2}
-				totalCount={5}
-			/>
-		)
-		const input = screen.getByRole("spinbutton")
-		setValue(input, "3.7")
-		fireEvent.blur(input)
+			render(
+				<ProjectSortOrderInput
+					projectId={1}
+					initialSortOrder={2}
+					totalCount={5}
+				/>
+			)
+			const input = screen.getByRole("spinbutton")
+			setValue(input, raw)
+			fireEvent.blur(input)
 
-		expect(input).toHaveValue(3)
-		expect(global.fetch).not.toHaveBeenCalled()
-	})
-
-	it("rejects '3abc' (trailing garbage) and resets without firing a PUT", async () => {
-		mockRouter()
-		mockFetchResolved(true)
-
-		render(
-			<ProjectSortOrderInput
-				projectId={1}
-				initialSortOrder={2}
-				totalCount={5}
-			/>
-		)
-		const input = screen.getByRole("spinbutton")
-		setValue(input, "3abc")
-		fireEvent.blur(input)
-
-		expect(input).toHaveValue(3)
-		expect(global.fetch).not.toHaveBeenCalled()
-	})
-
-	it("rejects '-5' (negative) and resets without firing a PUT", async () => {
-		mockRouter()
-		mockFetchResolved(true)
-
-		render(
-			<ProjectSortOrderInput
-				projectId={1}
-				initialSortOrder={2}
-				totalCount={5}
-			/>
-		)
-		const input = screen.getByRole("spinbutton")
-		setValue(input, "-5")
-		fireEvent.blur(input)
-
-		expect(input).toHaveValue(3)
-		expect(global.fetch).not.toHaveBeenCalled()
-	})
+			expect(input).toHaveValue(3)
+			expect(global.fetch).not.toHaveBeenCalled()
+		}
+	)
 
 	it("accepts a plain integer string and PUTs the 0-indexed value", async () => {
 		mockRouter()

@@ -105,21 +105,13 @@ describe("getAdminCredentials", () => {
 		})
 	})
 
-	it("returns null when ADMIN_EMAIL is missing", () => {
-		vi.stubEnv("ADMIN_EMAIL", "")
-		vi.stubEnv("ADMIN_HASH_PASSWORD", "deadbeef")
-		expect(getAdminCredentials()).toBeNull()
-	})
-
-	it("returns null when ADMIN_HASH_PASSWORD is missing", () => {
-		vi.stubEnv("ADMIN_EMAIL", "admin@example.com")
-		vi.stubEnv("ADMIN_HASH_PASSWORD", "")
-		expect(getAdminCredentials()).toBeNull()
-	})
-
-	it("returns null when both are missing", () => {
-		vi.stubEnv("ADMIN_EMAIL", "")
-		vi.stubEnv("ADMIN_HASH_PASSWORD", "")
+	it.each([
+		["ADMIN_EMAIL is missing", "", "deadbeef"],
+		["ADMIN_HASH_PASSWORD is missing", "admin@example.com", ""],
+		["both are missing", "", ""],
+	])("returns null when %s", (_label, email, passwordHash) => {
+		vi.stubEnv("ADMIN_EMAIL", email)
+		vi.stubEnv("ADMIN_HASH_PASSWORD", passwordHash)
 		expect(getAdminCredentials()).toBeNull()
 	})
 
@@ -255,21 +247,13 @@ describe("getRedisConfig", () => {
 		})
 	})
 
-	it("returns null when only the token is set", () => {
-		vi.stubEnv("KV_REST_API_TOKEN", "tok")
-		vi.stubEnv("KV_REST_API_URL", "")
-		expect(getRedisConfig()).toBeNull()
-	})
-
-	it("returns null when only the URL is set", () => {
-		vi.stubEnv("KV_REST_API_TOKEN", "")
-		vi.stubEnv("KV_REST_API_URL", "https://example.upstash.io")
-		expect(getRedisConfig()).toBeNull()
-	})
-
-	it("returns null when neither is set", () => {
-		vi.stubEnv("KV_REST_API_TOKEN", "")
-		vi.stubEnv("KV_REST_API_URL", "")
+	it.each([
+		["only the token is set", "tok", ""],
+		["only the URL is set", "", "https://example.upstash.io"],
+		["neither is set", "", ""],
+	])("returns null when %s", (_label, token, url) => {
+		vi.stubEnv("KV_REST_API_TOKEN", token)
+		vi.stubEnv("KV_REST_API_URL", url)
 		expect(getRedisConfig()).toBeNull()
 	})
 })
