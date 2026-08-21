@@ -81,7 +81,9 @@ function isPageOverCeiling(raw: string): boolean {
  *
  * Three rejections, cheapest first, all before any database work:
  *   - a segment that isn't exactly its own parsed form (`02`, `2abc`, `2.5`)
- *   - page 1, which belongs to `/blog/:section` and is redirected there
+ *   - page 1, which belongs to `/blog/:section` and is redirected there — one
+ *     of three places enforcing that rule; see the docblock on `blogPagePath`
+ *     in `pagination.ts` for the other two
  *   - anything past `MAX_PAGE`, which `parsePageParam` clamps into range and the
  *     round-trip check then rejects
  */

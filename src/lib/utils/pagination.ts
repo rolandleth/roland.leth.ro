@@ -9,9 +9,14 @@ export const PAGE_SIZE = 10
 /**
  * Canonical URL for a page of a blog section.
  *
- * Page 1 is `/blog/:section`, not `/blog/:section/p/1` — one page, one URL. The
- * `/p/1` form is redirected to the bare path in `next.config.ts`; this helper is
- * what keeps internal links from generating it in the first place.
+ * Page 1 is `/blog/:section`, not `/blog/:section/p/1` — one page, one URL. That
+ * rule is enforced in three unconnected places, and this is the one a new link
+ * builder should actually call rather than re-deriving the rule a fourth time:
+ *   - here, for outbound links (this function)
+ *   - `legacyRoutes.ts`'s `/p/1` → `/blog/:section` redirect, for an inbound URL
+ *     that names page 1 the other way
+ *   - `resolvePage` in `/blog/[section]/p/[page]/page.tsx`, which 404s `/p/1`
+ *     rather than rendering it as a duplicate of the bare path
  *
  * `section` is a `Section`, not a `string`. This function is the single source
  * of the blog URL contract, so a widened parameter here is what would let a

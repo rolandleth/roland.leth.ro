@@ -67,7 +67,9 @@ export const LEGACY_REDIRECTS: Redirects = [
 		permanent: true,
 	},
 	// `/p/1` and `/blog/:section` would otherwise be two URLs for one page.
-	// The bare path wins; `blogPagePath` keeps internal links off `/p/1`.
+	// The bare path wins. One of three places enforcing that rule — see the
+	// docblock on `blogPagePath` in `pagination.ts` for the other two, and
+	// consult that function before adding a fourth.
 	{
 		source: `/blog/:section(${SECTION_PATTERN})/p/1`,
 		destination: "/blog/:section",
