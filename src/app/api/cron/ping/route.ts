@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireCronAuth } from "@/lib/api/cronAuth"
 import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
+import { errorDetails } from "@/lib/utils/errorMessage"
 
 const redis = getKeepaliveRedis()
 
@@ -23,8 +24,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	const result = await writeKeepalive(redis)
 
 	if (!result.ok) {
+		// `errorDetails` rather than the raw Error: `.message`/`.stack` live on
+		// non-enumerable properties, so passing the Error itself here would
+		// serialize to `{}` under any log pipeline that JSON.stringifies a
+		// console.error call's arguments before forwarding it.
 		// eslint-disable-next-line no-console
-		console.error("[api:cron:ping] redis.set() failed", result.error)
+		console.error(
+			"[api:cron:ping] redis.set() failed",
+			errorDetails(result.error)
+		)
 
 		return NextResponse.json(
 			{ error: "Redis keepalive failed" },

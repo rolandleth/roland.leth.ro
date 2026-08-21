@@ -9,19 +9,41 @@ export function errorMessage(error: unknown): string {
 }
 
 /**
- * Normalizes an unknown thrown value into a JSON-safe `{ message, stack }`
- * pair for structured logging. `Error.stack` lives on a non-enumerable
- * property, so nesting a raw `Error` inside a logged object serializes to `{}`
- * — silently dropping the stack — under any pipeline that `JSON.stringify`s
- * before storing or forwarding a log line. Spread the result into the payload
- * instead of logging `error` directly.
+ * Normalizes an unknown thrown value into a JSON-safe object for structured
+ * logging.
+ *
+ * Explicitly pulls `message` and `stack`: both live on non-enumerable
+ * properties, so nesting a raw `Error` directly in a logged object serializes
+ * to `{}` — silently dropping both — under any pipeline that `JSON.stringify`s
+ * before storing or forwarding a log line.
+ *
+ * Also spreads every other own enumerable property the error carries, rather
+ * than stopping at `message`/`stack`. A subclassed error can carry real
+ * diagnostic value there: Prisma's `PrismaClientKnownRequestError` assigns
+ * `code`, `meta`, and `clientVersion` as plain own properties, which DO
+ * survive `JSON.stringify` on the raw error — extracting only `message`/`stack`
+ * would trade those fields away instead of adding to what a pipeline already
+ * preserved, turning "P2025 record not found" and "connection refused" into
+ * the same line.
+ *
+ * Nest the result under a key at the call site (`error: errorDetails(error)`)
+ * rather than spreading it into the payload, so the error fields stay visually
+ * grouped and distinct from the rest of the log line.
  */
-export function errorDetails(error: unknown): {
-	message: string
-	stack?: string
-} {
-	return {
-		message: errorMessage(error),
-		stack: error instanceof Error ? error.stack : undefined,
+export function errorDetails(
+	error: unknown
+): { message: string; name?: string; stack?: string } & Record<
+	string,
+	unknown
+> {
+	if (error instanceof Error) {
+		return {
+			...error,
+			name: error.name,
+			message: error.message,
+			stack: error.stack,
+		}
 	}
+
+	return { message: errorMessage(error) }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
+import { errorDetails } from "@/lib/utils/errorMessage"
 
 interface Config {
 	url: string
@@ -140,8 +141,16 @@ export function useOptimisticMutation<TPayload>({
 			// A thrown fetch rejection (network down, CORS) would otherwise
 			// leave `isSaving=true` forever and block further mutations.
 			// Reverting and surfacing `err.message` is the recovery path.
+			//
+			// `errorDetails` rather than the raw `err`: `Error.message`/`.stack`
+			// live on non-enumerable properties, so nesting the Error itself here
+			// would serialize to `{}` under any pipeline that JSON.stringifies
+			// before forwarding a log — including a client-side error reporter.
 			// eslint-disable-next-line no-console
-			console.error("[useOptimisticMutation] fetch threw", { url, error: err })
+			console.error("[useOptimisticMutation] fetch threw", {
+				url,
+				error: errorDetails(err),
+			})
 			onRevert()
 			setError(err instanceof Error ? err.message : errorFallback)
 

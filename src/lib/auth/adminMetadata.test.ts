@@ -109,7 +109,27 @@ describe("adminEditMetadata", () => {
 		expect(consoleError()).toHaveBeenCalledWith(`${TAG} loadName failed`, {
 			bypassId: expect.any(String),
 			id: "7",
-			error: { message: error.message, stack: error.stack },
+			error: { name: error.name, message: error.message, stack: error.stack },
+		})
+	})
+
+	it("logs a non-Error throw without a stack, rather than losing the event", async () => {
+		// `errorDetails`' non-`Error` branch — a loader could reject with a plain
+		// string or object (a raw Postgres driver error, say), and this is the
+		// only test that exercises that path rather than always throwing a real
+		// `Error`.
+		mockVerifySession.mockResolvedValue(true)
+
+		await buildMetadata({
+			loadName: async () => {
+				throw "connection reset"
+			},
+		})
+
+		expect(consoleError()).toHaveBeenCalledWith(`${TAG} loadName failed`, {
+			bypassId: expect.any(String),
+			id: "7",
+			error: { message: "connection reset" },
 		})
 	})
 

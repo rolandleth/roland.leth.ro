@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getKeepaliveRedis, writeKeepalive } from "@/lib/api/keepalive"
 import { requireAdmin } from "@/lib/api/requireAdmin"
+import { errorDetails } from "@/lib/utils/errorMessage"
 
 // Session-gated by `src/proxy.ts` (every `/api/admin/*` request requires a
 // valid JWT cookie). Mirrors the cron route's write so an admin can confirm
@@ -29,8 +30,15 @@ export async function POST(): Promise<NextResponse> {
 	const result = await writeKeepalive(redis)
 
 	if (!result.ok) {
+		// `errorDetails` rather than the raw Error: `.message`/`.stack` live on
+		// non-enumerable properties, so passing the Error itself here would
+		// serialize to `{}` under any log pipeline that JSON.stringifies a
+		// console.error call's arguments before forwarding it.
 		// eslint-disable-next-line no-console
-		console.error("[api:admin:keepalive] redis.set() failed", result.error)
+		console.error(
+			"[api:admin:keepalive] redis.set() failed",
+			errorDetails(result.error)
+		)
 
 		return NextResponse.json(
 			{ error: "Redis keepalive failed" },
