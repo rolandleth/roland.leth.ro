@@ -78,16 +78,28 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 //   `requireAdmin`, so a path that misses the matcher 401s at the handler
 //   (logged as a security event) instead of running unauthenticated. Enforced
 //   by `src/app/api/admin/adminAuthContract.test.ts`.
-// - `/admin/*`: pages have no `requireAdmin`. `(protected)/layout.tsx` covers
-//   the rendered body, and `adminEditMetadata` covers the edit pages'
-//   `generateMetadata` (which runs outside the layout). Enforced by
-//   `src/app/admin/adminPageContract.test.ts`, which walks the page tree: a
-//   page outside `(protected)/`, or an edit page that skips the metadata
-//   guard, fails there rather than relying on the next author reading this.
+// - `/admin/*`: pages have no `requireAdmin`. Three layers, none of which
+//   alone covers a page's whole surface:
+//     - `(protected)/layout.tsx` covers the rendered body — but does NOT
+//       re-run on a client-side navigation within the same route segment.
+//     - `requireAdminPageSession` is the layout's client-nav gap closed per
+//       page: every page whose body reads data (all four `[id]/edit` pages,
+//       the two `new` pages that read a list, and the dashboard root) calls
+//       it directly.
+//     - `adminEditMetadata` covers only the edit pages' `generateMetadata`
+//       (which runs outside the layout) — and only the `<title>`: it logs and
+//       falls back, it does not stop the page body from rendering, since Next
+//       calls the two independently. It is NOT a substitute for
+//       `requireAdminPageSession` on the same page.
+//   Enforced by `src/app/admin/adminPageContract.test.ts`, which walks the
+//   page tree: a page outside `(protected)/`, a page that reads data in its
+//   body without calling `requireAdminPageSession`, or an edit page that skips
+//   the metadata guard, fails there rather than relying on the next author
+//   reading this.
 //
-// A bypass at any of the three guards is reported through
-// `logMiddlewareBypass`, which owns the shared message text and stamps a
-// per-request `bypassId` — a bypassed edit page trips two of them, and that
+// A bypass at any of these guards is reported through `logMiddlewareBypass`,
+// which owns the shared message text and stamps a per-request `bypassId` — a
+// bypassed edit page trips both its own guard and the layout's, and that
 // field is what joins the lines into one event.
 export const config = {
 	matcher: ["/admin", "/admin/:path*", "/api/admin", "/api/admin/:path*"],

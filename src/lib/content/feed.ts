@@ -42,3 +42,15 @@ export function feedLinkForSection(section: Section): {
 		title: feedTitleForSection(section),
 	}
 }
+
+/**
+ * Cache tag for a section's Atom feed. Set on the feed route's own cache
+ * entry (`/api/feed/[section]/route.ts`) and busted from `revalidatePostSection`
+ * in `posts.ts` — two different files that have to agree on the exact string,
+ * the same drift shape `sectionTag` in `posts.ts` exists to prevent for
+ * `blog-{section}`, except this pair crosses a module boundary instead of
+ * repeating within one file.
+ */
+export function feedTag(section: Section): string {
+	return `feed-${section}`
+}

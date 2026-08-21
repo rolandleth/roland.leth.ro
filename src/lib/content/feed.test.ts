@@ -3,6 +3,7 @@ import {
 	FEED_AUTHOR_NAME,
 	feedLinkForSection,
 	feedPathForSection,
+	feedTag,
 	feedTitleForSection,
 } from "./feed"
 
@@ -25,5 +26,14 @@ describe("feed identity helpers", () => {
 			path: "/blog/tech/feed.xml",
 			title: "Roland Leth — Tech blog",
 		})
+	})
+
+	it("builds the section-scoped feed cache tag", () => {
+		// Set on the feed route's cache entry and busted from
+		// revalidatePostSection in posts.ts — two files that have to agree on
+		// the exact string, which is the whole reason this is a shared function
+		// rather than a literal in each.
+		expect(feedTag("tech")).toBe("feed-tech")
+		expect(feedTag("life")).toBe("feed-life")
 	})
 })

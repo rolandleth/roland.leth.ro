@@ -4,6 +4,17 @@ import { verifySession } from "@/lib/auth/auth"
 import { randomShortId } from "@/lib/utils/randomShortId"
 import type { AdminPageTag } from "./adminTags"
 
+// This module owns two related but distinct things: REPORTING a bypass
+// (`logMiddlewareBypass`, `bypassIdForRequest`, `BypassSurface`) and, since
+// `requireAdminPageSession` was added, one ENFORCEMENT primitive — the actual
+// session check and redirect. They're colocated deliberately rather than
+// split across two files: enforcement's whole job is to detect a bypass and
+// call the reporting half inline, so the two changing together is the common
+// case, not the exception. A module that only reported would still need to
+// import an enforcement module's `verifySession` call shape to stay
+// consistent with it; keeping both here avoids that coupling running through
+// a second file instead.
+
 /**
  * The guards that sit behind the `src/proxy.ts` matcher. Each names where the
  * request surfaced, so one alert rule can distinguish "an API handler ran

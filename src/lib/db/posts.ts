@@ -1,5 +1,6 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
+import { feedTag } from "@/lib/content/feed"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
@@ -575,7 +576,7 @@ export async function findPostsBecameLive(
  * surface immediately on list, archive, and feed endpoints.
  */
 export function revalidatePostSection(section: Section): void {
-	revalidateTag(`feed-${section}`, "max")
+	revalidateTag(feedTag(section), "max")
 	revalidateTag(sectionTag(section), "max")
 	revalidateTag(POSTS_TAG, "max")
 }

@@ -3,6 +3,7 @@ import { getSiteUrl } from "@/lib/auth/env"
 import {
 	FEED_AUTHOR_NAME,
 	feedPathForSection,
+	feedTag,
 	feedTitleForSection,
 } from "@/lib/content/feed"
 import { markdownToHtml } from "@/lib/content/markdown"
@@ -121,7 +122,7 @@ function makeFeedPostsCache(section: Section) {
 			)
 		},
 		[`feed-posts-${section}`],
-		{ tags: [`feed-${section}`] }
+		{ tags: [feedTag(section)] }
 	)
 }
 
