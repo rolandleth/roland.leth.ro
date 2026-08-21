@@ -97,8 +97,10 @@ function sectionTag(section: Section): string {
 // crawler walking `/blog/tech/p/999999` would mint a wrapper per probe.
 //
 // The cap bounds THIS map and nothing else. Each distinct page still runs its
-// own `findMany` + `count` and mints its own on-disk cache entry, so what
-// limits probe damage is the page bound enforced at the route, not this map.
+// own `findMany` and mints its own on-disk cache entry (the count is now
+// shared via `getSectionPageCount`, not run per page — see `makeBlogPageCache`),
+// so what limits probe damage is the page bound enforced at the route, not
+// this map.
 const blogPageWrappers =
 	createBoundedWrapperCache<
 		() => Promise<{ posts: PostListItem[]; totalPages: number }>
@@ -129,8 +131,18 @@ const blogPageWrappers =
  * doesn't repopulate both atomically, so `Pagination` (fed by this cache) could
  * render an "Older" link to a page `isRealPage` (fed by the count cache) still
  * 404s, because one had regenerated and the other hadn't. Routing both through
- * the same cache entry makes them agree by construction — whichever value the
- * count cache currently holds is what both consult.
+ * the same cache entry rules out the two DISAGREEING on any single read —
+ * whichever value the count cache currently holds is what both consult.
+ *
+ * It does not make them agree "by construction" in the stronger sense —
+ * `unstable_cache` can still serve this entry a stale value that predates the
+ * count entry's own most recent regeneration, since a bust doesn't force either
+ * to regenerate immediately. `posts` (from `findMany`, generated fresh right
+ * here) and `totalPages` (borrowed from a cache entry that regenerates on its
+ * own schedule) can therefore still momentarily disagree, most plausibly right
+ * after an unpublish or delete shrinks the real page count. `BlogPostList`'s
+ * `page > 1 && posts.length === 0` check is the backstop for exactly that
+ * window — see its docblock.
  */
 function makeBlogPageCache(section: Section, page: number) {
 	return unstable_cache(
@@ -161,10 +173,12 @@ function makeBlogPageCache(section: Section, page: number) {
  * route boundary. This function does not clamp, to surface misuse early.
  *
  * `totalPages` reflects the live post count as of the last cache generation.
- * A page past the end returns an empty `posts` array rather than throwing;
- * the route is responsible for turning that into a 404 (see the blog list
- * pages), which matters now that these pages are prerendered and a deletion
- * can strand a page that used to exist.
+ * A page past the end returns an empty `posts` array rather than throwing.
+ * `/p/:page` 404s most out-of-range pages upstream via `isRealPage`, before
+ * this runs at all; `BlogPostList` (the shared body both list routes render)
+ * converts an empty result into a 404 itself as the backstop for the narrower
+ * case `isRealPage` can't catch — a page real at that check, no longer real by
+ * the time this ran (see `BlogPostList`'s docblock).
  */
 export async function getPostsBySection(
 	section: Section,
