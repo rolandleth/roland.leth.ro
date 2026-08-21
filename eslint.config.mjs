@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config"
 import nextVitals from "eslint-config-next/core-web-vitals"
 import importPlugin from "eslint-plugin-import"
+import jsxA11y from "eslint-plugin-jsx-a11y"
 import prettier from "eslint-plugin-prettier/recommended"
 import sonarjs from "eslint-plugin-sonarjs"
 import tseslint from "typescript-eslint"
@@ -162,6 +163,47 @@ const eslintConfig = defineConfig([
 			"import/no-duplicates": "warn",
 			"import/newline-after-import": "warn",
 			"import/no-unassigned-import": "error",
+		},
+	},
+	{
+		// `eslint-config-next` enables six jsx-a11y rules (alt-text, aria-props,
+		// aria-proptypes, aria-unsupported-elements, role-has-required-aria-props,
+		// role-supports-aria-props). This turns on the rest of the recommended set:
+		// the accessibility work here is hand-rolled — APG keyboard nav, a focus
+		// trap with restore, `inert` + `aria-hidden` on collapsed panels — and
+		// nothing in CI noticed when a change undid a piece of it.
+		//
+		// Rules only, no `plugins` key. `next` already registers `jsx-a11y` (as a
+		// module namespace object), and flat config rejects a second registration
+		// under the same name with `Cannot redefine plugin` — spreading
+		// `jsxA11y.flatConfigs.recommended` wholesale fails at startup. Scoped to
+		// `.tsx` so the rule ids always resolve against that registration, which is
+		// itself scoped to source files.
+		files: ["**/*.tsx"],
+		rules: {
+			...jsxA11y.flatConfigs.recommended.rules,
+			// `<ol role="list">` is redundant per the HTML spec and load-bearing in
+			// practice: WebKit drops list semantics from a list styled
+			// `list-style: none`, so VoiceOver stops announcing "list, 1 of 6". The
+			// role restores it. Allowed on both list elements, since the same
+			// `list-none` styling is what triggers the bug in either.
+			"jsx-a11y/no-redundant-roles": ["error", { ol: ["list"], ul: ["list"] }],
+			// The rule's premise — `tabIndex` belongs on interactive elements — has
+			// one standing exception: a scrollable container has to be focusable or
+			// keyboard-only users can't scroll it (WCAG 2.1.1). Its default
+			// allowlist covers `tabpanel` alone; `group` is the role this codebase
+			// labels those containers with.
+			"jsx-a11y/no-noninteractive-tabindex": [
+				"error",
+				{ tags: [], roles: ["tabpanel", "group"], allowExpressionValues: true },
+			],
+			// Watch the DOM attribute, not every prop that shares its name.
+			// `SearchForm` takes an `autoFocus` prop and deliberately does *not*
+			// forward it to the input — it focuses through a ref in an effect, to
+			// keep the focus off React's render pass. Left at the default, the rule
+			// reports that component and its four tests, which is precisely
+			// backwards.
+			"jsx-a11y/no-autofocus": ["error", { ignoreNonDOM: true }],
 		},
 	},
 	{

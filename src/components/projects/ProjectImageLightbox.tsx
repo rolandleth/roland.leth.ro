@@ -150,6 +150,21 @@ export default function ProjectImageLightbox({
 		return () => window.removeEventListener("keydown", handleKeyDown)
 	}, [isOpen, canNavigate, onClose, onPrev, onNext])
 
+	// Close only for a click that landed on the backdrop itself. Everything
+	// inside — the buttons, the stage, the caption, the image — reports itself
+	// as the target, so no child has to stop propagation to keep the overlay
+	// open. The children used to carry that job one `stopPropagation` at a time,
+	// which reads as an interactive element to anything inspecting the markup
+	// (`jsx-a11y/no-static-element-interactions` flagged the stage wrapper) while
+	// only ever meaning "don't close".
+	function handleBackdropClick(event: React.MouseEvent<HTMLDivElement>) {
+		if (event.target !== event.currentTarget) {
+			return
+		}
+
+		onClose()
+	}
+
 	// `createPortal` reads `document.body`, undefined during SSR; render nothing
 	// on the server and let the client mount the portal.
 	if (typeof document === "undefined") {
@@ -170,7 +185,7 @@ export default function ProjectImageLightbox({
 					// The on-page gallery avoids it by sitting on the plain opaque page;
 					// matching that here (solid surface, no blur) clears the artifact.
 					className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-950 p-4 sm:p-8"
-					onClick={onClose}
+					onClick={handleBackdropClick}
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
@@ -180,24 +195,15 @@ export default function ProjectImageLightbox({
 					<button
 						ref={closeButtonRef}
 						type="button"
-						onClick={(event) => {
-							// Without this the click also bubbles to the backdrop's close
-							// handler, firing `onClose` twice.
-							event.stopPropagation()
-							onClose()
-						}}
+						onClick={onClose}
 						aria-label="Close enlarged image"
 						className="absolute top-3 right-3 z-10 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:top-5 sm:right-5"
 					>
 						<X size={22} />
 					</button>
 
-					{/* Stage + caption. `stopPropagation` keeps taps on the image from
-					    reaching the backdrop's close handler. */}
-					<div
-						className="flex w-full max-w-5xl flex-col items-center"
-						onClick={(event) => event.stopPropagation()}
-					>
+					{/* Stage + caption. */}
+					<div className="flex w-full max-w-5xl flex-col items-center">
 						{/* Gesture surface: `touch-none` hands every touch to the pointer
 						    handlers (no native scroll/zoom); `overflow-hidden` clips the
 						    off-screen slides and the zoomed image beyond the frame. */}
@@ -224,16 +230,13 @@ export default function ProjectImageLightbox({
 						)}
 					</div>
 
-					{/* Prev / Next — siblings of the stage so clicks don't hit the
-					    backdrop, sitting against the viewport edges. */}
+					{/* Prev / Next — siblings of the stage, sitting against the viewport
+					    edges. */}
 					{canNavigate && (
 						<>
 							<button
 								type="button"
-								onClick={(event) => {
-									event.stopPropagation()
-									onPrev()
-								}}
+								onClick={onPrev}
 								aria-label="Previous image"
 								className="absolute top-1/2 left-2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:left-4"
 							>
@@ -242,10 +245,7 @@ export default function ProjectImageLightbox({
 
 							<button
 								type="button"
-								onClick={(event) => {
-									event.stopPropagation()
-									onNext()
-								}}
+								onClick={onNext}
 								aria-label="Next image"
 								className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors duration-200 hover:bg-white/20 sm:right-4"
 							>

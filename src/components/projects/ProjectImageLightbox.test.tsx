@@ -103,6 +103,29 @@ describe("ProjectImageLightbox", () => {
 		expect(onClose).toHaveBeenCalledOnce()
 	})
 
+	// The backdrop covers the viewport, so every click inside the overlay reaches
+	// it. Only the ones that landed on the backdrop itself may close — the two
+	// below are what the children used to enforce with their own
+	// `stopPropagation` calls, and nothing else fails if the guard regresses:
+	// the dialog just closes under the user mid-interaction.
+	it("does not close when the click lands on the image", async () => {
+		const onClose = vi.fn()
+		renderLightbox({ onClose })
+
+		await user.click(screen.getByAltText("First slide"))
+
+		expect(onClose).not.toHaveBeenCalled()
+	})
+
+	it("does not close when the click lands on a navigation arrow", async () => {
+		const onClose = vi.fn()
+		renderLightbox({ onClose })
+
+		await user.click(screen.getByRole("button", { name: /next image/i }))
+
+		expect(onClose).not.toHaveBeenCalled()
+	})
+
 	it("calls onClose on Escape", async () => {
 		const onClose = vi.fn()
 		renderLightbox({ onClose })
