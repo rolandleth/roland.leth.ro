@@ -41,6 +41,10 @@ describe("NewGuideTopicPage", () => {
 
 		await expect(NewGuideTopicPage()).resolves.toBeTruthy()
 		expect(redirect).not.toHaveBeenCalled()
+		// "Didn't redirect" isn't "did the actual read" — this page's whole job
+		// for a valid session is populating the form from the project list, and
+		// nothing above would fail if that silently stopped happening.
+		expect(getProjectsForAdmin).toHaveBeenCalled()
 	})
 
 	it("redirects to login without a valid session", async () => {

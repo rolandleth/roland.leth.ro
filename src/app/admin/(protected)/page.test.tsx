@@ -55,29 +55,33 @@ beforeEach(() => {
 })
 
 describe("AdminDashboard", () => {
-	it("renders when the session is valid", async () => {
+	it("renders the default tab when the session is valid", async () => {
+		const PostsTab = (await import("@/components/admin/PostsTab")).default
 		vi.mocked(verifySession).mockResolvedValue(true)
 
-		await expect(AdminDashboard(searchParams())).resolves.toBeTruthy()
+		const element = await AdminDashboard(searchParams())
+		// "Resolved truthy" alone doesn't prove a tab actually made it into the
+		// tree — the wrapping <div> would satisfy that on its own. JSX doesn't
+		// invoke a child component until something actually renders the tree,
+		// so this inspects the returned element structure directly rather than
+		// asserting the mock was called.
+		const children = element.props.children as unknown[]
+		const tabElement = children.find(
+			(child) =>
+				child != null &&
+				typeof child === "object" &&
+				"type" in child &&
+				child.type === PostsTab
+		) as { props: { query: string; page: number } } | undefined
+
+		expect(tabElement).toBeDefined()
+		expect(tabElement?.props).toEqual({ query: "", page: 1 })
 	})
 
 	it("redirects to login without a valid session", async () => {
 		vi.mocked(verifySession).mockResolvedValue(false)
 
 		await expect(AdminDashboard(searchParams())).rejects.toThrow("REDIRECT")
-	})
-
-	it("does not render any tab without a valid session", async () => {
-		const PostsTab = (await import("@/components/admin/PostsTab")).default
-		const ProjectsTab = (await import("@/components/admin/ProjectsTab")).default
-		const GuidesTab = (await import("@/components/admin/GuidesTab")).default
-		vi.mocked(verifySession).mockResolvedValue(false)
-
-		await expect(AdminDashboard(searchParams())).rejects.toThrow("REDIRECT")
-
-		expect(PostsTab).not.toHaveBeenCalled()
-		expect(ProjectsTab).not.toHaveBeenCalled()
-		expect(GuidesTab).not.toHaveBeenCalled()
 	})
 
 	it("logs the bypass under the dashboard tag with the page body surface", async () => {
