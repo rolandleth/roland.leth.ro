@@ -19,14 +19,22 @@ import { ADMIN_EDIT_TAGS } from "@/lib/auth/adminMetadata"
  *      Placement is NOT the same as "guarded", and this file asserts the former
  *      only. Next does not re-execute a layout on a client-side navigation
  *      within the same segment, so a page under `(protected)/` can still run its
- *      body on a request where the layout check did not. `guides/new/page.tsx`
- *      and `guide-topics/new/page.tsx` both read data in their bodies this way —
- *      each now carries its own `requireAdminPageSession` call for exactly that
- *      gap, tested in their own `page.test.tsx` files rather than here.
+ *      body on a request where the layout check did not — every page whose body
+ *      reads data (all four `[id]/edit` pages, `guides/new`, `guide-topics/new`,
+ *      and the dashboard root) now carries its own `requireAdminPageSession`
+ *      call for exactly that gap. `generateMetadata`'s `adminEditMetadata` guard
+ *      (invariant 2, below) does NOT cover this: it logs and falls back the
+ *      `<title>`, but does not stop the body from rendering, since Next calls the
+ *      two independently — a fix that shipped in 2026-08-20 covered two pages on
+ *      the strength of that guard alone and left the other five undiscovered
+ *      until the next review caught it. `admin page-body session guard` below
+ *      asserts this invariant directly, and the per-page behaviour is tested in
+ *      each page's own `page.test.tsx`.
  *   2. Every page that reads a row in `generateMetadata` routes it through
  *      `adminEditMetadata` with its own tag. `generateMetadata` runs outside the
  *      layout, so it is the one place on an admin page that can read a row with
- *      the layout's check never having run.
+ *      the layout's check never having run — but see invariant 1 above for what
+ *      this guard does NOT do.
  *
  * Asserted by IMPORTING each page and CALLING `generateMetadata`, not by
  * matching its source text. The source-text form claimed to prove "a fifth edit
@@ -75,18 +83,30 @@ function routeFor(page: string): string {
 }
 
 /**
- * Whether a page's source declares a `generateMetadata` export, in either of
- * the two shapes TypeScript accepts for it.
+ * Whether a page declares a callable `generateMetadata` export, checked by
+ * dynamically importing the module rather than matching its source text.
  *
- * A literal `.includes("export async function generateMetadata")` — this
- * predicate's previous form — matched only the function-declaration shape.
- * `export const generateMetadata = async (...) => ...` compiles identically
- * and Next treats it identically, but would silently fall out of
- * `metadataPages` below with no assertion covering it: the exact source-text
- * weakness the docblock above says this rewrite removed, reintroduced here.
+ * The previous form matched `export (async function|const) generateMetadata`
+ * as a regex against the file's text — which covered two shapes but silently
+ * missed the others TypeScript accepts for the same export (a non-async
+ * `function generateMetadata`, `export let`/`var`, `export { generateMetadata
+ * }`), each falling out of `metadataPages` below with no assertion covering
+ * it. Every page in this directory is already imported at least once by this
+ * file (via `metadataPages`'s own `load` functions or the walk below), so
+ * inspecting the resolved module's own shape — what Next actually sees —
+ * costs nothing extra and can't miss a spelling.
  */
-function hasGenerateMetadataExport(source: string): boolean {
-	return /export\s+(?:async\s+function|const)\s+generateMetadata\b/.test(source)
+async function hasGenerateMetadataExport(pagePath: string): Promise<boolean> {
+	// Vite's dynamic-import-vars plugin warns that it can't pre-bundle this for
+	// a production build without an extension in the static part of the
+	// specifier — harmless here (test-only code, never built), and adding
+	// `.tsx` breaks resolution rather than satisfying the plugin, so the
+	// warning is left as noise rather than "fixed".
+	const pageModule = (await import(`./${dirname(pagePath)}/page`)) as {
+		generateMetadata?: unknown
+	}
+
+	return typeof pageModule.generateMetadata === "function"
 }
 
 // #region page placement
@@ -112,6 +132,55 @@ describe("admin page placement", () => {
 		})
 
 		expect(layouts).toContain("layout.tsx")
+	})
+})
+
+/**
+ * Pages under `(protected)/` whose body reads no data — a bare form with no
+ * `initialData`, nothing fetched. There is nothing here for a client-nav
+ * bypass to leak, so these don't need `requireAdminPageSession`.
+ *
+ * Written out by hand rather than detected from source text, for the same
+ * reason `metadataPages` is: "reads data" isn't a shape a predicate can check
+ * reliably, and a wrong guess here would either demand the check on a page
+ * that doesn't need it or, worse, silently exempt one that does.
+ */
+const PAGES_WITH_NO_BODY_DATA_READ = new Set([
+	`${PROTECTED_SEGMENT}/posts/new/page.tsx`,
+	`${PROTECTED_SEGMENT}/posts/bulk/page.tsx`,
+	`${PROTECTED_SEGMENT}/projects/new/page.tsx`,
+])
+
+describe("admin page-body session guard", () => {
+	// The 2026-08-21 review's finding: `generateMetadata`'s `adminEditMetadata`
+	// guard only affects the `<title>` and does not stop the page body from
+	// rendering, since Next calls the two independently — so every page whose
+	// body reads data needs its own `requireAdminPageSession` call regardless
+	// of what its `generateMetadata` does. Checked as a call (`(`, not just the
+	// import) so a page that imports the function without invoking it still
+	// fails this.
+	it("every page that reads data in its body calls requireAdminPageSession", () => {
+		const unguarded = adminPages()
+			.filter((page) => page !== "login/page.tsx")
+			.filter((page) => !PAGES_WITH_NO_BODY_DATA_READ.has(page))
+			.filter((page) => {
+				const source = readFileSync(join(ADMIN_DIR, page), "utf8")
+
+				return !source.includes("requireAdminPageSession(")
+			})
+
+		expect(unguarded).toEqual([])
+	})
+
+	it("keeps the no-data-read allowlist pointed at real, current pages", () => {
+		// Guards the allowlist itself: a page renamed or deleted out from under it
+		// would otherwise silently stop being exempted from anything, since a
+		// missing entry can't fail the check above.
+		const discovered = new Set(adminPages())
+
+		for (const page of PAGES_WITH_NO_BODY_DATA_READ) {
+			expect(discovered).toContain(page)
+		}
 	})
 })
 
@@ -231,49 +300,44 @@ describe("routeFor", () => {
 })
 
 describe("hasGenerateMetadataExport", () => {
-	// Tested on synthetic input for the same reason as `routeFor` above: a
-	// predicate that silently narrows the discovered set passes vacuously
-	// against the real filesystem, since every current page happens to use the
-	// same shape.
-	it.each([
-		[
-			"the function-declaration form",
-			"export async function generateMetadata({ params }) {}",
-			true,
-		],
-		[
-			"the const-arrow form",
-			"export const generateMetadata = async ({ params }) => {}",
-			true,
-		],
-		[
-			"a page with no generateMetadata export",
-			"export default function Page() {}",
-			false,
-		],
-		[
-			"a bare mention with no export",
-			"// see generateMetadata in the sibling route",
-			false,
-		],
-	])("detects %s", (_label, source, expected) => {
-		expect(hasGenerateMetadataExport(source)).toBe(expected)
+	// Checked against real pages rather than synthetic source text, unlike
+	// `routeFor` above: `routeFor` is a string transform that can drift from
+	// reality no matter how it's implemented, but this predicate now inspects
+	// the module Next itself resolves, so testing it against a fabricated
+	// source string wouldn't exercise anything the real import path doesn't
+	// already cover below — it can't "silently narrow" the way a regex could.
+	it("returns true for a page with generateMetadata", async () => {
+		expect(
+			await hasGenerateMetadataExport("(protected)/posts/[id]/edit/page.tsx")
+		).toBe(true)
+	})
+
+	it("returns false for a page with only a static metadata export", async () => {
+		// `posts/new/page.tsx` exports `metadata` (a plain object), not
+		// `generateMetadata` (a function) — the two are easy to conflate by name.
+		expect(
+			await hasGenerateMetadataExport("(protected)/posts/new/page.tsx")
+		).toBe(false)
 	})
 })
 
 describe("the metadata-page list", () => {
-	it("covers every admin page that reads a row in generateMetadata", () => {
+	it("covers every admin page that reads a row in generateMetadata", async () => {
 		// Guards the "listed explicitly" decision above. The previous walker keyed
 		// on `/edit/page.tsx`, but the invariant is about any admin page reading a
 		// row in `generateMetadata` — a `[id]/page.tsx` or `[id]/preview/page.tsx`
 		// got no assertion and did not perturb the count, which made the gap look
 		// closed. This keys on the guard's own name instead, so a new page shape
 		// still has to be listed.
-		const discovered = adminPages()
-			.filter((page) =>
-				hasGenerateMetadataExport(readFileSync(join(ADMIN_DIR, page), "utf8"))
-			)
-			.map(routeFor)
+		const checks = await Promise.all(
+			adminPages().map(async (page) => ({
+				page,
+				hasIt: await hasGenerateMetadataExport(page),
+			}))
+		)
+		const discovered = checks
+			.filter(({ hasIt }) => hasIt)
+			.map(({ page }) => routeFor(page))
 			.sort()
 		const listed = metadataPages.map(({ route }) => route).sort()
 

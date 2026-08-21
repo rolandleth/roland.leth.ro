@@ -1,28 +1,17 @@
 import { errorDetails } from "@/lib/utils/errorMessage"
 import { parseIntId } from "@/lib/utils/format"
+import { ADMIN_EDIT_TAGS, type AdminEditTag } from "./adminTags"
 import { verifySession } from "./auth"
 import { bypassIdForRequest, logMiddlewareBypass } from "./middlewareBypass"
 import type { Metadata } from "next"
 
-/**
- * Every admin edit page's log tag, as a closed set.
- *
- * A const map rather than four bare string literals at the call sites: the tag
- * is what attributes a security line to a page, and a hand-typed literal can be
- * copy-pasted between pages with nothing failing. `adminPageContract.test.ts`
- * walks the edit-page directory against this map, so a fifth page can't ship
- * without an entry. (Not `adminAuthContract.test.ts` — that file exists and
- * does the same job one namespace over, for `/api/admin`.)
- */
-export const ADMIN_EDIT_TAGS = {
-	posts: "[admin:posts:edit]",
-	projects: "[admin:projects:edit]",
-	guides: "[admin:guides:edit]",
-	guideTopics: "[admin:guide-topics:edit]",
-} as const
-
-export type AdminEditTag =
-	(typeof ADMIN_EDIT_TAGS)[keyof typeof ADMIN_EDIT_TAGS]
+// Re-exported so existing importers (the four edit pages) don't have to
+// change — the tags themselves now live in `adminTags.ts`, alongside the
+// sibling `ADMIN_NEW_TAGS`/`ADMIN_DASHBOARD_TAG` that `requireAdminPageSession`
+// uses, so `middlewareBypass.ts` isn't stuck importing from a module that
+// itself imports `middlewareBypass.ts`.
+export { ADMIN_EDIT_TAGS }
+export type { AdminEditTag }
 
 interface AdminEditMetadataOptions {
 	/**

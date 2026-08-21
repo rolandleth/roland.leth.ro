@@ -26,6 +26,9 @@ vi.mock("next/navigation", () => ({
 	notFound: vi.fn(() => {
 		throw new Error("NOT_FOUND")
 	}),
+	redirect: vi.fn(() => {
+		throw new Error("REDIRECT")
+	}),
 }))
 
 vi.mock("@/components/admin/GuideTopicForm", () => ({
@@ -143,6 +146,39 @@ describe("EditGuideTopicPage", () => {
 			where: { topicId: 5 },
 		})
 		expect(element.props.guideCount).toBe(3)
+	})
+
+	// `generateMetadata`'s guard only affects the <title> — it does not stop
+	// this body from rendering, since Next calls the two independently. These
+	// three are what actually stop the row from reaching the client.
+	it("redirects to login without a valid session", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		await expect(EditGuideTopicPage(makeParams("1"))).rejects.toThrow(
+			"REDIRECT"
+		)
+	})
+
+	it("does not query the db without a valid session", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		await expect(EditGuideTopicPage(makeParams("1"))).rejects.toThrow(
+			"REDIRECT"
+		)
+		expect(vi.mocked(prisma.guideTopic.findUnique)).not.toHaveBeenCalled()
+	})
+
+	it("logs the bypass under this page's tag with the page body surface", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		await expect(EditGuideTopicPage(makeParams("1"))).rejects.toThrow(
+			"REDIRECT"
+		)
+
+		expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+			expect.stringContaining("[admin:guide-topics:edit]"),
+			expect.objectContaining({ surface: "the page body" })
+		)
 	})
 })
 

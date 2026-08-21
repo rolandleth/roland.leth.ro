@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import GuideTopicForm from "@/components/admin/GuideTopicForm"
 import { ADMIN_EDIT_TAGS, adminEditMetadata } from "@/lib/auth/adminMetadata"
+import { requireAdminPageSession } from "@/lib/auth/middlewareBypass"
 import { prisma } from "@/lib/db/db"
 import { loadGuideTopicForAdmin } from "@/lib/db/guides"
 import { getProjectsForAdmin } from "@/lib/db/projects"
@@ -27,6 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function EditGuideTopicPage({ params }: Props) {
+	// `generateMetadata`'s `adminEditMetadata` only guards the `<title>` — it
+	// logs and falls back but does not stop this body from rendering, since
+	// Next calls the two independently. See `requireAdminPageSession` for why
+	// this body needs its own check ahead of reading the row below.
+	await requireAdminPageSession(ADMIN_EDIT_TAGS.guideTopics)
+
 	const { id } = await params
 	const topicId = parseIntId(id)
 

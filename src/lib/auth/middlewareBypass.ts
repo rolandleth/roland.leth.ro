@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { cache } from "react"
 import { verifySession } from "@/lib/auth/auth"
 import { randomShortId } from "@/lib/utils/randomShortId"
+import type { AdminPageTag } from "./adminTags"
 
 /**
  * The guards that sit behind the `src/proxy.ts` matcher. Each names where the
@@ -67,7 +68,7 @@ export function logMiddlewareBypass(
 
 /**
  * Body-level session re-check for an admin page that reads data before
- * rendering, with no `generateMetadata` of its own to carry the check.
+ * rendering.
  *
  * `ProtectedLayout` already re-checks the session once, but Next does not
  * re-run a layout on a client-side navigation within the same route segment —
@@ -76,11 +77,28 @@ export function logMiddlewareBypass(
  * indistinguishable from an ordinary unauthenticated visit; `logMiddlewareBypass`
  * is what makes it visible in the logs.
  *
- * Call before any data read the page's body performs. Not needed on a page
- * whose only pre-render read happens in `generateMetadata` — route that
- * through `adminEditMetadata` instead, which carries this same check.
+ * Call before any data read the page's body performs — including a page that
+ * ALSO has a `generateMetadata` routed through `adminEditMetadata`.
+ * `adminEditMetadata`'s check is a title-only fallback: it logs and returns a
+ * fallback `<title>`, but `generateMetadata` and the page body are independent
+ * functions Next calls separately, so it does not stop the body from
+ * rendering. It carries no equivalent of this check; every page whose body
+ * reads a row needs its own call here regardless of what its
+ * `generateMetadata` does.
+ *
+ * MUST be awaited. `redirect()` throws synchronously once reached, but
+ * `verifySession()` above it is real async work (a cookie read + JWT verify),
+ * so the throw doesn't happen until a microtask boundary inside this
+ * function. An unawaited `requireAdminPageSession(tag)` returns a floating
+ * promise, and the calling function's next line runs immediately — very
+ * likely before that promise even settles, let alone rejects. There is no
+ * lint rule catching this (`eslint.config.mjs` uses `tseslint.configs.strict`,
+ * not `strictTypeChecked`, so `no-floating-promises` is off); discipline at
+ * the call site is what stops it.
  */
-export async function requireAdminPageSession(tag: string): Promise<void> {
+export async function requireAdminPageSession(
+	tag: AdminPageTag
+): Promise<void> {
 	const isAuthenticated = await verifySession()
 
 	if (!isAuthenticated) {

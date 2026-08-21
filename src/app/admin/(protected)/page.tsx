@@ -5,6 +5,8 @@ import IndexNowPanel from "@/components/admin/IndexNowPanel"
 import PostsTab from "@/components/admin/PostsTab"
 import ProjectsTab from "@/components/admin/ProjectsTab"
 import RevalidatePanel from "@/components/admin/RevalidatePanel"
+import { ADMIN_DASHBOARD_TAG } from "@/lib/auth/adminTags"
+import { requireAdminPageSession } from "@/lib/auth/middlewareBypass"
 import {
 	ADMIN_TABS,
 	buildAdminPageUrl,
@@ -24,6 +26,14 @@ const TAB_LABELS: Record<AdminTab, string> = {
 }
 
 export default async function AdminDashboard({ searchParams }: PageProps) {
+	// The layout's session check doesn't re-run on a client-side nav within
+	// `(protected)/` — and this page is the one every other protected page
+	// links back to (`AdminNav`'s home link, plus its own tab switcher is a
+	// same-layout nav into itself), so it's the page most exposed to exactly
+	// that gap. No `generateMetadata` here to carry a check either; this is
+	// the only guard. See `requireAdminPageSession`.
+	await requireAdminPageSession(ADMIN_DASHBOARD_TAG)
+
 	const { tab: tabParam, page: pageParam, q: queryParam } = await searchParams
 
 	const tab = parseTab(tabParam)
