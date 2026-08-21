@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { SECTIONS } from "@/lib/db/sections"
-import { LEGACY_REDIRECTS, LEGACY_REWRITES } from "@/lib/routing/legacyRoutes"
+import {
+	LEGACY_REDIRECTS,
+	LEGACY_REWRITES,
+	SECTION_PATTERN,
+} from "@/lib/routing/legacyRoutes"
 
 // These rules are consumed by Next's routing layer, not by app code, so the
 // matching itself belongs to path-to-regexp and is verified against a running
@@ -13,8 +16,10 @@ function findRedirect(source: string) {
 }
 
 // The two pagination rules pin `:section` to the known set rather than leaving
-// it bare, so their sources are built the same way the module builds them.
-const SECTION_PARAM = `:section(${SECTIONS.join("|")})`
+// it bare. Built from the module's own exported `SECTION_PATTERN`, not a
+// second `SECTIONS.join("|")` — a locally rebuilt copy can't see a change in
+// how the module actually constructs the pattern.
+const SECTION_PARAM = `:section(${SECTION_PATTERN})`
 const PAGE_QUERY_SOURCE = `/blog/${SECTION_PARAM}`
 const PAGE_ONE_SOURCE = `/blog/${SECTION_PARAM}/p/1`
 
@@ -41,8 +46,11 @@ describe("LEGACY_REDIRECTS", () => {
 	})
 
 	it("builds section rules from SECTIONS rather than hardcoding them", () => {
-		// Adding a section must extend every legacy rule at once. If these sources
-		// stop mentioning each section, a new section's legacy URLs 404 silently.
+		// Adding a section must extend every legacy rule at once. Checked against
+		// the module's own `SECTION_PATTERN` rather than each section name in
+		// isolation — a per-name `toContain` loop passes just as happily against
+		// an over-broad pattern like `(tech|life|.*)`, since every real section
+		// name is still a substring of that too.
 		const sectionRules = LEGACY_REDIRECTS.filter((rule) =>
 			rule.source.includes(":section(")
 		)
@@ -50,9 +58,7 @@ describe("LEGACY_REDIRECTS", () => {
 		expect(sectionRules.length).toBeGreaterThan(0)
 
 		for (const rule of sectionRules) {
-			for (const section of SECTIONS) {
-				expect(rule.source).toContain(section)
-			}
+			expect(rule.source).toContain(`:section(${SECTION_PATTERN})`)
 		}
 	})
 
@@ -116,6 +122,14 @@ describe("LEGACY_REDIRECTS", () => {
 		["02", false],
 		["007", false],
 	])("matches page value %s: %s", (value, expected) => {
+		// Only the pattern is checked here — whether an unmatched value actually
+		// reaches a live 200 belongs to Next's compiled router (this file's own
+		// top comment), not a unit test. The other half of the claim, that the
+		// fallthrough renders page 1 rather than erroring, comes from
+		// `(list)/page.test.tsx`'s "does not read searchParams": that page
+		// ignores the query string entirely, so ANY unmatched `?page=` value —
+		// not just these three — renders the same page 1 a bare `/blog/:section`
+		// would. This test and that one are the two halves of one claim.
 		const rule = findRedirect(PAGE_QUERY_SOURCE)
 		const pattern = new RegExp(`^${rule?.has?.[0]?.value}$`)
 
@@ -128,11 +142,15 @@ describe("LEGACY_REDIRECTS", () => {
 			// Bare, `/blog/bogus?page=2` redirected to `/blog/bogus/p/2` and 404'd
 			// there — a redirect into a dead end where a direct 404 was available.
 			// Every other rule in the file pins the section; these two didn't.
+			//
+			// `findRedirect` searches for the FULLY PINNED source string above
+			// (built from the real `SECTION_PATTERN`) — if the production rule
+			// used a bare `:section` instead, no rule would match it and this
+			// would fail. A further per-section loop over `source` here would
+			// only be checking that `SECTIONS.join("|")` contains its own
+			// elements, which is true by construction and asserts nothing about
+			// the production code.
 			expect(findRedirect(source)).toBeDefined()
-
-			for (const section of SECTIONS) {
-				expect(source).toContain(section)
-			}
 		}
 	)
 
@@ -197,9 +215,7 @@ describe("LEGACY_REWRITES", () => {
 
 	it("scopes every rewrite to a known section", () => {
 		for (const rule of LEGACY_REWRITES) {
-			for (const section of SECTIONS) {
-				expect(rule.source).toContain(section)
-			}
+			expect(rule.source).toContain(`:section(${SECTION_PATTERN})`)
 		}
 	})
 })

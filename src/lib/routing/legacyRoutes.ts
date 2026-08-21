@@ -23,7 +23,13 @@ type Rewrite = Extract<Rewrites, unknown[]>[number]
 
 // Inlined into each `source` as a path-to-regexp param pattern, so adding a
 // section to `SECTIONS` extends every rule below without touching them.
-const SECTION_PATTERN = SECTIONS.join("|")
+//
+// Exported so the test file can assert against this exact value rather than
+// re-deriving `SECTIONS.join("|")` a second time. A separately-rebuilt copy
+// can't see a change in how this module actually constructs the pattern, and
+// checking only that each section NAME appears as a substring of `source`
+// passes just as happily against an over-broad pattern like `(tech|life|.*)`.
+export const SECTION_PATTERN = SECTIONS.join("|")
 
 // Pinned explicitly so that reordering `SECTIONS` (e.g. adding a new section at
 // position 0) doesn't silently redirect `/feed` to a different Atom feed for
