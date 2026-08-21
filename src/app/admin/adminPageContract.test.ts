@@ -74,6 +74,21 @@ function routeFor(page: string): string {
 	return `/admin/${segments.join("/")}`
 }
 
+/**
+ * Whether a page's source declares a `generateMetadata` export, in either of
+ * the two shapes TypeScript accepts for it.
+ *
+ * A literal `.includes("export async function generateMetadata")` — this
+ * predicate's previous form — matched only the function-declaration shape.
+ * `export const generateMetadata = async (...) => ...` compiles identically
+ * and Next treats it identically, but would silently fall out of
+ * `metadataPages` below with no assertion covering it: the exact source-text
+ * weakness the docblock above says this rewrite removed, reintroduced here.
+ */
+function hasGenerateMetadataExport(source: string): boolean {
+	return /export\s+(?:async\s+function|const)\s+generateMetadata\b/.test(source)
+}
+
 // #region page placement
 
 describe("admin page placement", () => {
@@ -215,6 +230,37 @@ describe("routeFor", () => {
 	})
 })
 
+describe("hasGenerateMetadataExport", () => {
+	// Tested on synthetic input for the same reason as `routeFor` above: a
+	// predicate that silently narrows the discovered set passes vacuously
+	// against the real filesystem, since every current page happens to use the
+	// same shape.
+	it.each([
+		[
+			"the function-declaration form",
+			"export async function generateMetadata({ params }) {}",
+			true,
+		],
+		[
+			"the const-arrow form",
+			"export const generateMetadata = async ({ params }) => {}",
+			true,
+		],
+		[
+			"a page with no generateMetadata export",
+			"export default function Page() {}",
+			false,
+		],
+		[
+			"a bare mention with no export",
+			"// see generateMetadata in the sibling route",
+			false,
+		],
+	])("detects %s", (_label, source, expected) => {
+		expect(hasGenerateMetadataExport(source)).toBe(expected)
+	})
+})
+
 describe("the metadata-page list", () => {
 	it("covers every admin page that reads a row in generateMetadata", () => {
 		// Guards the "listed explicitly" decision above. The previous walker keyed
@@ -225,9 +271,7 @@ describe("the metadata-page list", () => {
 		// still has to be listed.
 		const discovered = adminPages()
 			.filter((page) =>
-				readFileSync(join(ADMIN_DIR, page), "utf8").includes(
-					"export async function generateMetadata"
-				)
+				hasGenerateMetadataExport(readFileSync(join(ADMIN_DIR, page), "utf8"))
 			)
 			.map(routeFor)
 			.sort()
