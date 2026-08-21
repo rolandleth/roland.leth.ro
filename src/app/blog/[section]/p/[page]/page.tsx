@@ -58,6 +58,20 @@ export async function generateStaticParams() {
 }
 
 /**
+ * True when `raw` is a well-formed page number that `MAX_PAGE` clamped out of
+ * range — as opposed to junk (`abc`, `02`, `2.5`) that fails the round-trip
+ * check for unrelated reasons. The one rejection reason worth a log line: it
+ * can mean the corpus outgrew `MAX_PAGE` between deploys rather than a
+ * crawler probing a malformed URL, and the two are indistinguishable from a
+ * bare `notFound()` alone.
+ */
+function isPageOverCeiling(raw: string): boolean {
+	const n = Number.parseInt(raw, 10)
+
+	return !Number.isNaN(n) && String(n) === raw && n > MAX_PAGE
+}
+
+/**
  * The page number this URL names, or `null` if it names none.
  *
  * Shared by `generateMetadata` and the page body because they used to disagree:
@@ -75,6 +89,13 @@ function resolvePage(pageParam: string): number | null {
 	const page = parsePageParam(pageParam)
 
 	if (String(page) !== pageParam || page < 2) {
+		if (isPageOverCeiling(pageParam)) {
+			// eslint-disable-next-line no-console
+			console.warn("[blog:p] page exceeds MAX_PAGE — possible stale ceiling", {
+				pageParam,
+			})
+		}
+
 		return null
 	}
 

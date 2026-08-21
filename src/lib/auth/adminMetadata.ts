@@ -1,3 +1,4 @@
+import { errorDetails } from "@/lib/utils/errorMessage"
 import { parseIntId } from "@/lib/utils/format"
 import { verifySession } from "./auth"
 import { bypassIdForRequest, logMiddlewareBypass } from "./middlewareBypass"
@@ -95,11 +96,16 @@ export async function adminEditMetadata({
 		// other line in this defence layer uses. A three-argument line with no
 		// correlation id matched none of the alert greps built on the group, so a
 		// database outage on an edit page produced a line nobody was watching.
+		//
+		// `errorDetails` rather than the raw `error`: `Error.message`/`.stack`
+		// live on non-enumerable properties, so nesting the Error itself here
+		// would serialize to `{}` — and drop the stack this line exists to
+		// capture — under any log pipeline that JSON.stringifies before storage.
 		// eslint-disable-next-line no-console
 		console.error(`${tag} loadName failed`, {
 			bypassId: bypassIdForRequest(),
 			id,
-			error,
+			error: errorDetails(error),
 		})
 
 		return { title: fallback }

@@ -102,10 +102,14 @@ describe("adminEditMetadata", () => {
 		// Two arguments carrying `bypassId`, matching every other line in this
 		// defence layer. The old three-argument shape matched none of the alert
 		// greps built on the group, so a DB outage here logged into the void.
+		//
+		// `error` is the plain-property `errorDetails` shape, not the raw Error —
+		// nesting the Error itself would serialize to `{}` under a JSON-based log
+		// pipeline, dropping the message and stack this line exists to capture.
 		expect(consoleError()).toHaveBeenCalledWith(`${TAG} loadName failed`, {
 			bypassId: expect.any(String),
 			id: "7",
-			error,
+			error: { message: error.message, stack: error.stack },
 		})
 	})
 

@@ -75,6 +75,36 @@ describe("BlogListPagedPage — param validation", () => {
 		expect(getSectionPageCount).not.toHaveBeenCalled()
 	})
 
+	it("logs a warning when a well-formed page number exceeds MAX_PAGE", async () => {
+		// A bare notFound() can't tell "the corpus outgrew MAX_PAGE" apart from
+		// "a crawler is probing junk" — this is the one rejection reason worth
+		// surfacing, since the other is routine noise.
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+		await expect(BlogListPagedPage(params("tech", "999999"))).rejects.toThrow()
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			expect.stringContaining("exceeds MAX_PAGE"),
+			expect.objectContaining({ pageParam: "999999" })
+		)
+		warnSpy.mockRestore()
+	})
+
+	it.each(["abc", "2abc", "2.5", "02", "007"])(
+		"does not log a warning for the malformed segment %s",
+		async (page) => {
+			// Only a well-formed integer past MAX_PAGE is diagnostically
+			// interesting — junk segments are routine crawler noise and would
+			// drown the signal if logged on every probe.
+			const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+			await expect(BlogListPagedPage(params("tech", page))).rejects.toThrow()
+
+			expect(warnSpy).not.toHaveBeenCalled()
+			warnSpy.mockRestore()
+		}
+	)
+
 	it("404s a page inside MAX_PAGE that the section does not have", async () => {
 		// The other mechanism: `29` survives parsing and the clamp, so only the
 		// real page count rejects it. Without this check it was a billed render
