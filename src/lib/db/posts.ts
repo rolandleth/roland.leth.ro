@@ -110,14 +110,22 @@ const blogPageWrappers =
  * `datetime desc` list, so a read-time filter shifts every page boundary by the
  * scheduled-post count. `publishedWhere` excludes them before `skip` applies,
  * and the page boundaries are then just multiples of `PAGE_SIZE`.
+ *
+ * `totalPages` comes from `getSectionPageCount` rather than a `count()` here.
+ * The two used to run independent counts under the same `blog-{section}` tag —
+ * same query, two cache entries that regenerate on their own schedules. A bust
+ * doesn't repopulate both atomically, so `Pagination` (fed by this cache) could
+ * render an "Older" link to a page `isRealPage` (fed by the count cache) still
+ * 404s, because one had regenerated and the other hadn't. Routing both through
+ * the same cache entry makes them agree by construction — whichever value the
+ * count cache currently holds is what both consult.
  */
 function makeBlogPageCache(section: Section, page: number) {
 	return unstable_cache(
 		async () => {
-			const now = currentDatetimeString()
-			const where = publishedWhere(section, now)
+			const where = publishedWhere(section, currentDatetimeString())
 
-			const [posts, total] = await Promise.all([
+			const [posts, totalPages] = await Promise.all([
 				prisma.post.findMany({
 					where,
 					select: postListItemSelect,
@@ -125,10 +133,10 @@ function makeBlogPageCache(section: Section, page: number) {
 					skip: (page - 1) * PAGE_SIZE,
 					take: PAGE_SIZE,
 				}),
-				prisma.post.count({ where }),
+				getSectionPageCount(section),
 			])
 
-			return { posts, totalPages: Math.ceil(total / PAGE_SIZE) }
+			return { posts, totalPages }
 		},
 		[`blog-page-${section}-${page}`],
 		{ tags: [`blog-${section}`] }
@@ -160,12 +168,15 @@ export async function getPostsBySection(
 /**
  * Count-only page total for a section. One `count`, no rows.
  *
- * Exists because two callers want the page total and nothing else, and reaching
+ * Exists because most callers want the page total and nothing else, and reaching
  * it through `getPostsBySection` meant running the page-1 `findMany` with
  * `postListItemSelect` — which carries `body` — and discarding the result.
  * `generateStaticParams` paid that per section on every build; the paginated
- * route now pays it on every out-of-range probe, which is precisely when the
- * rows are least wanted.
+ * route pays it on every out-of-range probe, which is precisely when the rows
+ * are least wanted. `getPostsBySection` itself now reads its `totalPages`
+ * through this same function rather than counting again — see the note on
+ * `makeBlogPageCache` for why duplicating the count was a correctness bug, not
+ * just redundant work.
  *
  * Its own cache entry rather than a slice of the page cache: the page caches key
  * on (section, page) and this answer is page-independent, so folding it in would

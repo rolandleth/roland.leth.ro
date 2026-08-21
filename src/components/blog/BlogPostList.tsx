@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation"
 import AnimatedCard from "@/components/AnimatedCard"
 import BlogSectionHeader from "@/components/blog/BlogSectionHeader"
 import Pagination from "@/components/blog/Pagination"
@@ -17,17 +16,15 @@ interface Props {
  * `/blog/:section/p/:page` (page 2 onward). One implementation rather than two,
  * since the pages differ only in which slice they render.
  *
- * 404s a page past the end. Both routes are prerendered, so a page that existed
- * at build time can stop existing when a post is deleted — without this it
- * would keep serving an empty list under a URL that shouldn't resolve. Page 1
- * is exempt: an empty section is a legitimately empty list, not a missing page.
+ * A page past the end never reaches this component — `/p/:page` 404s it via
+ * `isRealPage` before rendering, and `/blog/:section` always requests page 1,
+ * which is never out of range. `getPostsBySection`'s `totalPages` and
+ * `isRealPage`'s bound now read through the same cache entry (see
+ * `makeBlogPageCache` in `posts.ts`), so the two can't disagree about where the
+ * section ends.
  */
 export default async function BlogPostList({ section, page }: Props) {
 	const { posts, totalPages } = await getPostsBySection(section, page)
-
-	if (page > 1 && posts.length === 0) {
-		notFound()
-	}
 
 	const label = capitalizeSection(section)
 
