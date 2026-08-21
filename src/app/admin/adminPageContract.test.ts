@@ -19,10 +19,10 @@ import { ADMIN_EDIT_TAGS } from "@/lib/auth/adminMetadata"
  *      Placement is NOT the same as "guarded", and this file asserts the former
  *      only. Next does not re-execute a layout on a client-side navigation
  *      within the same segment, so a page under `(protected)/` can still run its
- *      body on a request where the layout check did not — `guides/new/page.tsx`
- *      and `guide-topics/new/page.tsx` both call `getProjectsForAdmin()` that
- *      way. The `/admin/:path*` matcher in `src/proxy.ts` bounds it, so this is
- *      an accuracy caveat on invariant 1 rather than an open hole.
+ *      body on a request where the layout check did not. `guides/new/page.tsx`
+ *      and `guide-topics/new/page.tsx` both read data in their bodies this way —
+ *      each now carries its own `requireAdminPageSession` call for exactly that
+ *      gap, tested in their own `page.test.tsx` files rather than here.
  *   2. Every page that reads a row in `generateMetadata` routes it through
  *      `adminEditMetadata` with its own tag. `generateMetadata` runs outside the
  *      layout, so it is the one place on an admin page that can read a row with

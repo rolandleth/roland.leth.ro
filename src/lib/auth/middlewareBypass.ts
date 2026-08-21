@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation"
 import { cache } from "react"
+import { verifySession } from "@/lib/auth/auth"
 import { randomShortId } from "@/lib/utils/randomShortId"
 
 /**
@@ -7,7 +9,7 @@ import { randomShortId } from "@/lib/utils/randomShortId"
  * unauthenticated" from "a page body rendered unauthenticated".
  */
 export type BypassSurface =
-	"the handler" | "the protected layout" | "generateMetadata"
+	"the handler" | "the protected layout" | "generateMetadata" | "the page body"
 
 /**
  * One id per request, shared by every guard that fires for it.
@@ -61,4 +63,28 @@ export function logMiddlewareBypass(
 		`${tag} unauthenticated request reached ${surface} — the middleware gate did not run for this path`,
 		{ bypassId: bypassIdForRequest(), surface, ...context }
 	)
+}
+
+/**
+ * Body-level session re-check for an admin page that reads data before
+ * rendering, with no `generateMetadata` of its own to carry the check.
+ *
+ * `ProtectedLayout` already re-checks the session once, but Next does not
+ * re-run a layout on a client-side navigation within the same route segment —
+ * so a page reached that way runs its body on a request the layout's check
+ * never saw. Redirects exactly like the layout does, so a bypass is
+ * indistinguishable from an ordinary unauthenticated visit; `logMiddlewareBypass`
+ * is what makes it visible in the logs.
+ *
+ * Call before any data read the page's body performs. Not needed on a page
+ * whose only pre-render read happens in `generateMetadata` — route that
+ * through `adminEditMetadata` instead, which carries this same check.
+ */
+export async function requireAdminPageSession(tag: string): Promise<void> {
+	const isAuthenticated = await verifySession()
+
+	if (!isAuthenticated) {
+		logMiddlewareBypass(tag, "the page body")
+		redirect("/admin/login")
+	}
 }

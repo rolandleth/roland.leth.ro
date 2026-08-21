@@ -1,10 +1,23 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { describe, expect, it, vi } from "vitest"
+import { redirect } from "next/navigation"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { verifySession } from "@/lib/auth/auth"
 import {
 	bypassIdForRequest,
 	logMiddlewareBypass,
+	requireAdminPageSession,
 } from "@/lib/auth/middlewareBypass"
+
+vi.mock("@/lib/auth/auth", () => ({
+	verifySession: vi.fn(),
+}))
+
+vi.mock("next/navigation", () => ({
+	redirect: vi.fn(() => {
+		throw new Error("REDIRECT")
+	}),
+}))
 
 /**
  * The module had no test file. Coverage reported it green because all three
@@ -19,6 +32,10 @@ import {
  * them, so a count-based alert double-counts and no operator can tell one bypass
  * from two.
  */
+
+beforeEach(() => {
+	vi.resetAllMocks()
+})
 
 describe("bypassIdForRequest", () => {
 	it("returns a 12-character id", () => {
@@ -133,5 +150,48 @@ describe("logMiddlewareBypass", () => {
 		const payload = error.mock.calls[0][1] as Record<string, unknown>
 
 		expect(payload).not.toHaveProperty("id")
+	})
+})
+
+describe("requireAdminPageSession", () => {
+	it("does nothing when the session is valid", async () => {
+		vi.mocked(verifySession).mockResolvedValue(true)
+
+		await expect(
+			requireAdminPageSession("[admin:guides:new]")
+		).resolves.toBeUndefined()
+		expect(redirect).not.toHaveBeenCalled()
+	})
+
+	it("redirects to login without a valid session", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+
+		await expect(requireAdminPageSession("[admin:guides:new]")).rejects.toThrow(
+			"REDIRECT"
+		)
+		expect(redirect).toHaveBeenCalledWith("/admin/login")
+	})
+
+	it("logs the bypass under the page body surface before redirecting", async () => {
+		vi.mocked(verifySession).mockResolvedValue(false)
+		const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+		await expect(requireAdminPageSession("[admin:guides:new]")).rejects.toThrow(
+			"REDIRECT"
+		)
+
+		expect(error).toHaveBeenCalledWith(
+			expect.stringContaining("[admin:guides:new]"),
+			expect.objectContaining({ surface: "the page body" })
+		)
+	})
+
+	it("does not log when the session is valid", async () => {
+		vi.mocked(verifySession).mockResolvedValue(true)
+		const error = vi.spyOn(console, "error").mockImplementation(() => undefined)
+
+		await requireAdminPageSession("[admin:guides:new]")
+
+		expect(error).not.toHaveBeenCalled()
 	})
 })
