@@ -88,6 +88,9 @@ ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
 CRON_SECRET=            # Bearer token for /api/cron/*; Vercel Cron sends it automatically once set. Unset means every cron run 401s and scheduled content never surfaces on its own — see "Scheduled content and revalidation" below.
 INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a-zA-Z0-9-]
+KV_REST_API_URL=        # Optional. Upstash Redis REST URL. Pairs with the token below.
+KV_REST_API_TOKEN=      # Optional. Upstash Redis REST token. Either one missing and `getRedisConfig()` returns null: the login limiter falls open and cron skips its keepalive ping.
+IP_HASH_SECRET=         # Optional. HMAC key that pseudonymizes client IPs into rate-limit bucket keys. `openssl rand -hex 32`
 ```
 
 `INDEXNOW_KEY` is served verbatim at `/indexnow-key.txt` and sent as the `key`
@@ -96,6 +99,17 @@ in submissions from the admin dashboard's IndexNow panel. Generate with
 returns 503 — but set it and confirm `/indexnow-key.txt` is live **before** the
 first submit: IndexNow fetches `keyLocation` at submit time and 403s if it isn't
 serving the matching key.
+
+`IP_HASH_SECRET` controls rate-limit *granularity*, not whether the limiter
+runs. With it, each client IP gets its own 5-per-15-minutes budget. Without it
+but with Redis configured, every request shares one global bucket — still a cap,
+but a botnet can exhaust it and lock the admin out, so the route warns at
+startup when it sees that combination. Plain-IP keys are not an option: the IPv4
+keyspace is small enough to brute-force a plain hash.
+
+The secret does not rotate, and rotating it on Vercel is not worth the cost —
+see `dev-journal/2026-05-14.md`. That makes the stored bucket key pseudonymous,
+not anonymous.
 
 ## Commands
 

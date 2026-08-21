@@ -17,13 +17,17 @@ const sections: LegalSectionEntry[] = [
 			<>
 				<p>
 					I do not use technologies like web beacons or unique device
-					identifiers. My hosting provider logs basic request data such as your
-					browser, operating system, and device type at the infrastructure
-					level.
+					identifiers. This site runs on{" "}
+					<a href="https://vercel.com/legal/privacy-policy">Vercel</a>, whose
+					infrastructure logs basic request data such as your IP address,
+					browser, operating system, and device type.
 				</p>
 				<p>
-					I do not collect personally identifiable information about you — no
-					name, address, phone number, or email address.
+					I do not ask you for personal details. There are no accounts, no
+					comments, and no forms, so I hold no name, address, phone number, or
+					email address for you. The admin login limits repeated failed attempts
+					using a short code derived from the incoming IP address, and stores
+					the code rather than the address.
 				</p>
 				<p>
 					This site uses{" "}
@@ -46,14 +50,14 @@ const sections: LegalSectionEntry[] = [
 		content: (
 			<>
 				<p>
-					Since I do not collect personally identifiable information, I never
-					share it with other companies.
+					I have no personal details about you to sell or share, and I would
+					not.
 				</p>
 				<p>
-					I may share anonymous information with vendors and contractors solely
-					to operate this site. Their use is limited to these purposes, subject
-					to confidentiality agreements, and they take reasonable steps to
-					safeguard the data they hold on my behalf.
+					I may share anonymous or pseudonymous information with vendors and
+					contractors solely to operate this site. Their use is limited to these
+					purposes, subject to confidentiality agreements, and they take
+					reasonable steps to safeguard the data they hold on my behalf.
 				</p>
 			</>
 		),
@@ -62,12 +66,12 @@ const sections: LegalSectionEntry[] = [
 		title: "Third parties",
 		content: (
 			<p>
-				To operate this site, I may make anonymous information available to
-				third parties in limited circumstances: (1) with your express consent,
-				(2) when required by law, (3) to protect my rights or property, or (4)
-				to any successor in a merger, acquisition, or sale of assets. Your
-				consent will not be required in these cases, but I will attempt to
-				notify you to the extent permitted by law.
+				To operate this site, I may make anonymous or pseudonymous information
+				available to third parties in limited circumstances: (1) with your
+				express consent, (2) when required by law, (3) to protect my rights or
+				property, or (4) to any successor in a merger, acquisition, or sale of
+				assets. Your consent will not be required in these cases, but I will
+				attempt to notify you to the extent permitted by law.
 			</p>
 		),
 	},
@@ -78,7 +82,7 @@ export default function PrivacyPage() {
 		<LegalPageLayout
 			title="Privacy Policy"
 			sections={sections}
-			lastUpdated="Apr 7, 2026"
+			lastUpdated="Aug 21, 2026"
 			contactEmail="roland+hi@leth.ro"
 			contactPronoun="me"
 		/>
