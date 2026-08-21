@@ -86,6 +86,7 @@ DATABASE_URL=           # PostgreSQL connection string
 SESSION_SECRET=         # JWT signing secret; 32+ chars, `openssl rand -hex 32`
 ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
+CRON_SECRET=            # Bearer token for /api/cron/*; Vercel Cron sends it automatically once set. Unset means every cron run 401s and scheduled content never surfaces on its own — see "Scheduled content and revalidation" below.
 INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a-zA-Z0-9-]
 ```
 
@@ -141,7 +142,7 @@ route renders per request:
 Every public content route is now static, so they all take the same path: the
 `datetime <= now` / `publishedAt` filter runs when the page is generated and then
 freezes. `/api/cron/revalidate-scheduled` runs daily, counts posts and guides
-that came due in a 49h lookback window, and busts the tags only when one did.
+that came due in a 50h lookback window, and busts the tags only when one did.
 
 Daily is the ceiling on Hobby: those accounts reject any cron expression that
 would fire more than once a day, and `0 * * * *` or `0 */3 * * *` fails at deploy
@@ -165,11 +166,15 @@ tests on the feed and sitemap assert its absence.
 
 The lookback window is deliberately wider than the cron interval. Overlap costs
 one redundant revalidation; a gap strands content until the next real mutation.
-It is 49h rather than 24h because two effects stack: Hobby cron timing is only
+It is 50h rather than 24h because three effects stack: Hobby cron timing is only
 accurate to ±59 minutes, so consecutive runs can land 24h59m apart with nothing
-wrong, and Vercel documents cron delivery as best effort with no retry, so a run
-can simply not happen. Double the interval for a missed run, add an hour for the
-jitter. Change the schedule in `vercel.json` and `WINDOW_HOURS` must follow.
+wrong; Vercel documents cron delivery as best effort with no retry, so a run can
+simply not happen; and the post half of the window flattens to a local
+wall-clock string, so a spring-forward transition costs it one more hour on a
+self-hosted deploy in a DST zone (inert on Vercel itself, which runs UTC).
+Double the interval for a missed run, add an hour for the jitter, add an hour
+for the DST shift. Change the schedule in `vercel.json` and `WINDOW_HOURS` must
+follow.
 
 ## Forcing scheduled content live
 
