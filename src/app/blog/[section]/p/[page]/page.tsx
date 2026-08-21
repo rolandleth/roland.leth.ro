@@ -23,7 +23,11 @@ interface Props {
  * `dynamicParams` is left at its default (true) on purpose: publishing a post
  * that pushes the section from 3 pages to 4 makes `/p/4` a real URL that no
  * build has seen. With the default it renders once on demand and then caches,
- * so a new page never depends on a redeploy.
+ * so a new page never depends on a redeploy — up to `MAX_PAGE`. Past it the two
+ * mechanisms contradict: `resolvePage` 404s a real page at runtime, and the
+ * `generateStaticParams` guard below that exists to catch exactly this can't
+ * fire without a build. Not a redesign at 300 posts, but worth knowing the
+ * "never depends on a redeploy" claim above has that ceiling.
  *
  * Unlike `/blog/:section`, this route can NOT take `dynamicParams = false` — its
  * param set comes from the post count, not from a compile-time constant, so
