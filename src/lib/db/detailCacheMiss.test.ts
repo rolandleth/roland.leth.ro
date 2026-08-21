@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
 import { getGuideBySlug, getGuideTopicBySlug } from "@/lib/db/guides"
-import { getPostBySlug } from "@/lib/db/posts"
+import {
+	getPostBySlug,
+	getPostsBySection,
+	getSectionPageCount,
+} from "@/lib/db/posts"
 import { getProjectBySlug } from "@/lib/db/projects"
 
 // The memo factory actually stores fulfilled results per cache key, like the
@@ -23,7 +27,7 @@ vi.mock("react", async (importOriginal) => {
 
 vi.mock("@/lib/db/db", () => ({
 	prisma: {
-		post: { findFirst: vi.fn() },
+		post: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
 		project: { findUnique: vi.fn() },
 		guide: { findFirst: vi.fn() },
 		guideTopic: { findFirst: vi.fn() },
@@ -231,6 +235,49 @@ describe("detail lookups gate a scheduled row to null off a warm cache", () => {
 		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
 		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
 		expect(prisma.guide.findFirst).toHaveBeenCalledTimes(1)
+	})
+})
+
+// #endregion
+
+// #region Blog pagination shares one count cache entry
+
+// The behaviour 070f6bf changed: getPostsBySection's totalPages used to run
+// its own independent `count()`, the same query getSectionPageCount also ran
+// under the same tag but as a separate cache entry that could regenerate on
+// its own schedule — the split that let Pagination and isRealPage disagree
+// about where a section ends. Every other test file mocks `prisma.post.count`
+// directly, which can't tell a shared cache entry from two independent ones
+// that just happen to return the same mocked value. This one can, because the
+// memo mock actually stores by cache key instead of passing calls through.
+describe("getPostsBySection delegates its count to getSectionPageCount's cache entry", () => {
+	it("does not re-count when the section's page count is already cached", async () => {
+		vi.mocked(prisma.post.count).mockResolvedValue(25)
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+
+		const directCount = await getSectionPageCount("tech")
+		const { totalPages } = await getPostsBySection("tech", 1)
+
+		expect(directCount).toBe(3) // ceil(25 / PAGE_SIZE 10)
+		expect(totalPages).toBe(3)
+		// The load-bearing assertion: if getPostsBySection ran its own count()
+		// instead of reading getSectionPageCount's cache entry, this would be 2.
+		expect(prisma.post.count).toHaveBeenCalledTimes(1)
+	})
+
+	it("populates the shared entry from the list-page path too, not just the direct path", async () => {
+		// The other direction: warm the cache via getPostsBySection first, then
+		// confirm getSectionPageCount (as the p/[page] route's isRealPage calls
+		// it) reads the same entry rather than counting again.
+		vi.mocked(prisma.post.count).mockResolvedValue(15)
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+
+		const { totalPages } = await getPostsBySection("life", 1)
+		const laterCount = await getSectionPageCount("life")
+
+		expect(totalPages).toBe(2) // ceil(15 / PAGE_SIZE 10)
+		expect(laterCount).toBe(2)
+		expect(prisma.post.count).toHaveBeenCalledTimes(1)
 	})
 })
 
