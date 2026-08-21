@@ -1,7 +1,7 @@
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
-import type { ProjectListItem } from "@/lib/db/projects"
+import type { ProjectGalleryItem, ProjectListItem } from "@/lib/db/projects"
 
 export const TEST_SECRET = "abc123"
 
@@ -66,6 +66,19 @@ export function makeProjectListItem(
 		isDiscontinued: false,
 		sortOrder: 0,
 		icon: null,
+		...overrides,
+	}
+}
+
+export function makeProjectGalleryItem(
+	overrides: Partial<ProjectGalleryItem> = {}
+): ProjectGalleryItem {
+	return {
+		...makeProjectListItem(),
+		summary: "A project",
+		featuredImage: null,
+		accentColor: null,
+		role: null,
 		...overrides,
 	}
 }
