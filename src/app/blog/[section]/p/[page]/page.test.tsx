@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { notFound } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getSectionPageCount } from "@/lib/db/posts"
@@ -90,6 +92,22 @@ describe("BlogListPagedPage — param validation", () => {
 		warnSpy.mockRestore()
 	})
 
+	it("also logs the warning from generateMetadata, not just the page body", async () => {
+		// `resolvePage` is shared by both — this only exercises the body above.
+		// A regression that stopped `generateMetadata` from calling the shared
+		// `resolvePage` (or called a divergent copy) would pass every test above
+		// and still leave `generateMetadata` silent for the same URL.
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+		await generateMetadata(params("tech", "999999"))
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			expect.stringContaining("exceeds MAX_PAGE"),
+			expect.objectContaining({ pageParam: "999999" })
+		)
+		warnSpy.mockRestore()
+	})
+
 	it.each(["abc", "2abc", "2.5", "02", "007"])(
 		"does not log a warning for the malformed segment %s",
 		async (page) => {
@@ -104,6 +122,21 @@ describe("BlogListPagedPage — param validation", () => {
 			warnSpy.mockRestore()
 		}
 	)
+
+	it("routes resolvePage through React's per-request memo", () => {
+		// The structural half of "one execution per request, not one per
+		// caller": `cache()` only dedupes within an active React request scope,
+		// which a unit test running `resolvePage` directly does not have (see
+		// `bypassIdForRequest`'s test for the same limitation) — so the actual
+		// dedup can't be asserted here. What's reachable is the regression that
+		// would realistically break it: someone dropping the `cache()` wrapper,
+		// which would make every out-of-range request log this page's warning
+		// twice instead of once.
+		const source = readFileSync(join(__dirname, "page.tsx"), "utf8")
+
+		expect(source).toMatch(/import \{ cache \} from "react"/)
+		expect(source).toMatch(/resolvePage = cache\(/)
+	})
 
 	it("404s a page inside MAX_PAGE that the section does not have", async () => {
 		// The other mechanism: `29` survives parsing and the clamp, so only the

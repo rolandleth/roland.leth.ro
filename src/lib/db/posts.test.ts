@@ -325,6 +325,30 @@ describe("getPostsGroupedByYear", () => {
 		expect(groups["2024"]).toHaveLength(1)
 		expect(groups["2024"][0].title).toBe("Live")
 	})
+
+	it("tags the cache with both the archive tag and the shared section tag", async () => {
+		// `archiveCache` is built once per section at module load
+		// (`bySection(makeArchiveCache)`), not lazily per call — same situation
+		// as `sectionPageCountCache`, so the `unstable_cache` call that tags it
+		// already happened before this test's `beforeEach` could clear it.
+		// Re-importing fresh replays that module-init call where it's observable.
+		//
+		// Both tags matter: `blog-archive-tech` is this cache's own key, and
+		// `blog-tech` (via `sectionTag`) is what rides the archive onto every
+		// other post-mutation bust — without it, `revalidatePostSection` would
+		// refresh the list pages while leaving a stale archive behind.
+		vi.resetModules()
+		const fresh = await import("@/lib/db/posts")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+
+		await fresh.getPostsGroupedByYear("tech")
+
+		expect(unstable_cache).toHaveBeenCalledWith(
+			expect.any(Function),
+			["blog-archive-tech"],
+			{ tags: ["blog-archive-tech", "blog-tech"] }
+		)
+	})
 })
 
 // #endregion

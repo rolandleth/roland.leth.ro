@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { cache } from "react"
 import BlogPostList from "@/components/blog/BlogPostList"
 import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
@@ -90,8 +91,14 @@ function isPageOverCeiling(raw: string): boolean {
  *     in `pagination.ts` for the other two
  *   - anything past `MAX_PAGE`, which `parsePageParam` clamps into range and the
  *     round-trip check then rejects
+ *
+ * Wrapped in `cache()` — the same per-request memo `bypassIdForRequest` uses —
+ * so the two call sites resolve to one execution instead of two. Without it,
+ * every out-of-range request logs the stale-ceiling warning below twice (once
+ * from each caller), and `dynamicParams` is left true on this route, so an
+ * unbounded stream of crawler probes each pay for it twice over.
  */
-function resolvePage(pageParam: string): number | null {
+const resolvePage = cache((pageParam: string): number | null => {
 	const page = parsePageParam(pageParam)
 
 	if (String(page) !== pageParam || page < 2) {
@@ -106,7 +113,7 @@ function resolvePage(pageParam: string): number | null {
 	}
 
 	return page
-}
+})
 
 /**
  * Whether this URL names a page the section actually has.
