@@ -8,6 +8,7 @@ import {
 	formatDate,
 	formatDateValue,
 	MAX_PAGE,
+	MAX_SAFE_ADMIN_PAGE,
 	parseAdminPageParam,
 	parseIntId,
 	parsePageParam,
@@ -175,12 +176,52 @@ describe("parseAdminPageParam", () => {
 		expect(parseAdminPageParam("-5")).toBe(1)
 	})
 
+	it("defaults to 1 for an empty string", () => {
+		// `?page=` on the admin dashboard produces exactly this.
+		expect(parseAdminPageParam("")).toBe(1)
+	})
+
+	it("truncates floats to their integer part", () => {
+		expect(parseAdminPageParam("4.7")).toBe(4)
+	})
+
 	it("does not clamp input past MAX_PAGE", () => {
 		// The admin dashboard is authenticated and single-user, so the public
 		// route's probe-cost ceiling doesn't apply — a page past the corpus
 		// just renders empty via `skip`/`take`, it doesn't silently alias to
 		// the last in-range page the way `parsePageParam` does.
-		expect(parseAdminPageParam(String(MAX_PAGE + 1))).toBe(MAX_PAGE + 1)
+		//
+		// A large, arbitrary value rather than `MAX_PAGE + 1`: that boundary
+		// value alone can't distinguish "no ceiling" from "a different,
+		// reintroduced ceiling somewhere above 31" — this pins the property
+		// against a value comfortably clear of any plausible probe-cost ceiling
+		// but still under `MAX_SAFE_ADMIN_PAGE` (~214.7M), which is a real,
+		// separate bound tested on its own below.
+		expect(parseAdminPageParam("1000000")).toBe(1000000)
+	})
+
+	it("clamps to MAX_SAFE_ADMIN_PAGE rather than overflowing a 32-bit skip", () => {
+		// Not a probe-cost ceiling like MAX_PAGE — see MAX_SAFE_ADMIN_PAGE's own
+		// docblock. This is the boundary itself, not an adjacent value, so a
+		// future formula change (a different PAGE_SIZE, say) still holds.
+		expect(parseAdminPageParam(String(MAX_SAFE_ADMIN_PAGE))).toBe(
+			MAX_SAFE_ADMIN_PAGE
+		)
+		expect(parseAdminPageParam(String(MAX_SAFE_ADMIN_PAGE + 1))).toBe(
+			MAX_SAFE_ADMIN_PAGE
+		)
+		expect(parseAdminPageParam(String(MAX_SAFE_ADMIN_PAGE * 10))).toBe(
+			MAX_SAFE_ADMIN_PAGE
+		)
+	})
+
+	it("keeps a 32-bit-safe skip at the clamped boundary", () => {
+		// The invariant MAX_SAFE_ADMIN_PAGE exists to protect: `(page - 1) *
+		// PAGE_SIZE` must never exceed a signed 32-bit integer, no matter how
+		// large the raw input was.
+		const skip = (MAX_SAFE_ADMIN_PAGE - 1) * PAGE_SIZE
+
+		expect(skip).toBeLessThanOrEqual(2 ** 31 - 1)
 	})
 })
 

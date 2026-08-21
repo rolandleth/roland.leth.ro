@@ -1,4 +1,5 @@
 import readingTime from "reading-time"
+import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // Anchored so `postDatetimeToISO` doesn't silently accept a string with
 // leading or trailing garbage around a valid-looking date. `formatDate` uses
@@ -55,8 +56,10 @@ export function blankToNull(value: string | null | undefined): string | null {
  * enough that the whole probe surface is cheap. `parsePageParam` clamps rather
  * than rejects; `/blog/:section/p/:page` compares the clamped value against the
  * raw segment, so anything above this 404s before a query runs. That round-trip
- * check is that route's job, not this function's — a caller that skips it (like
- * admin's `parseAdminPageParam`, below) gets silent clamping instead of a 404.
+ * check is that route's job, not this function's — a caller that skips it
+ * renders page 1 for garbage input instead of 404ing. `parseAdminPageParam`,
+ * below, is not such a caller: it's a separate function with no clamp at all,
+ * not a wrapper around this one.
  *
  * This is the OUTER guard, not the exact one — the exact bound is the section's
  * real `totalPages`, checked at the route after a cached count. Raising the
@@ -88,8 +91,18 @@ export function parsePageParam(raw: string | undefined | null): number {
 }
 
 /**
+ * The largest `page` whose `skip` (`(page - 1) * PAGE_SIZE`) still fits a
+ * signed 32-bit integer — the width Postgres/the `pg` driver bind an
+ * `OFFSET` parameter to by default. Not a probe-cost ceiling like `MAX_PAGE`
+ * (see `parseAdminPageParam`'s docblock for why that one doesn't apply here);
+ * this exists only so a page number past it fails predictably instead of
+ * whatever an overflowed bind parameter does.
+ */
+export const MAX_SAFE_ADMIN_PAGE = Math.floor((2 ** 31 - 1) / PAGE_SIZE)
+
+/**
  * Parses a page value into a positive integer, defaulting to `1` on invalid
- * input. No upper ceiling, unlike `parsePageParam`.
+ * input. No probe-cost ceiling, unlike `parsePageParam`.
  *
  * `MAX_PAGE` exists to bound the probe surface of a public, crawlable route —
  * admin sits behind auth, for a single user, so that cost doesn't apply. Each
@@ -97,11 +110,21 @@ export function parsePageParam(raw: string | undefined | null): number {
  * that fetches the page (`listPostsForAdmin` and siblings), and a `page` past
  * it just renders an empty list via `skip`/`take` — there's no query-less
  * ceiling to protect here the way the blog route protects one.
+ *
+ * Still clamped to `MAX_SAFE_ADMIN_PAGE`, though: that bound isn't about probe
+ * cost, it's about not handing Prisma a `skip` that overflows a 32-bit bind
+ * parameter. Realistic impact is a self-inflicted error from a hand-edited
+ * URL, not anything a real corpus reaches — but "no bound at all" was one
+ * hand-typed digit away from it.
  */
 export function parseAdminPageParam(raw: string | undefined | null): number {
 	const n = Number.parseInt(raw ?? "1", 10)
 
-	return Number.isNaN(n) || n < 1 ? 1 : n
+	if (Number.isNaN(n) || n < 1) {
+		return 1
+	}
+
+	return Math.min(n, MAX_SAFE_ADMIN_PAGE)
 }
 
 /**
