@@ -28,10 +28,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function EditGuideTopicPage({ params }: Props) {
-	// `generateMetadata`'s `adminEditMetadata` only guards the `<title>` — it
-	// logs and falls back but does not stop this body from rendering, since
-	// Next calls the two independently. See `requireAdminPageSession` for why
-	// this body needs its own check ahead of reading the row below.
+	// Required even though `generateMetadata` above is guarded; see
+	// `requireAdminPageSession` for why the two don't substitute.
 	await requireAdminPageSession(ADMIN_EDIT_TAGS.guideTopics)
 
 	const { id } = await params

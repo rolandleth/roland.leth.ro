@@ -15,6 +15,17 @@ import { describe, expect, it } from "vitest"
 // do. This test is the only thing that makes the constraint enforced rather
 // than remembered, so it asserts on the filesystem rather than on behavior:
 // catching it needs a production build, which no unit test can run.
+//
+// `redirect()` has the identical dependency, for the identical reason — it
+// rewrites the response, and a flushed shell can't be rewritten either, so a
+// boundary above the route degrades a server redirect into a client-side one.
+// That makes `ROUTES_REQUIRING_REAL_404` narrower than what this file actually
+// protects: `/admin` isn't in that list (it has no 404 path) but its
+// out-of-range page correction is a `redirect()` from `AdminPagination`, and
+// `requireAdminPageSession`'s auth redirect fires from every protected page
+// body. Both are covered by the catch-all at the bottom, which is the test
+// that matters most here — the named list is the documentation, the catch-all
+// is the enforcement.
 
 const APP_DIR = join(process.cwd(), "src", "app")
 

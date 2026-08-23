@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/db"
 import {
 	bySection,
 	findPostsBecameLive,
+	feedTag,
 	getAllPublishedPostSlugs,
 	getPostBySlug,
 	getPostsBySection,
@@ -815,6 +816,15 @@ describe("revalidatePostSection", () => {
 		expect(revalidateTag).toHaveBeenCalledWith("blog-life", "max")
 		expect(revalidateTag).toHaveBeenCalledWith("posts", "max")
 		expect(revalidateTag).toHaveBeenCalledTimes(3)
+	})
+
+	it("builds the section-scoped feed cache tag", () => {
+		// The bust above and the feed route's `unstable_cache` entry have to
+		// agree on this exact string, which is why it's a shared function rather
+		// than a literal in each — pinned directly so the helper keeps its own
+		// assertion, not just the one it happens to satisfy above.
+		expect(feedTag("tech")).toBe("feed-tech")
+		expect(feedTag("life")).toBe("feed-life")
 	})
 })
 

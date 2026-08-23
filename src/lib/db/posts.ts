@@ -1,6 +1,5 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
-import { feedTag } from "@/lib/content/feed"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
@@ -93,6 +92,24 @@ function sectionTag(section: Section): string {
 	return `blog-${section}`
 }
 
+/**
+ * Cache tag for a section's Atom feed. Set on the feed route's own cache entry
+ * (`src/app/api/feed/[section]/route.ts`) and busted by `revalidatePostSection`
+ * at the bottom of this file — two files that have to agree on the exact
+ * string, the same drift shape `sectionTag` above prevents for `blog-{section}`,
+ * except this pair crosses a module boundary instead of repeating within one.
+ *
+ * Lives here beside `sectionTag` rather than in `content/feed.ts` with the
+ * feed's other section helpers: every tag in this codebase is minted and busted
+ * from the db layer, and putting this one in `content/` made `posts.ts` import
+ * from `content/` to revalidate — the db layer reaching up into the content
+ * layer for a string it owns. The feed route already imports `bySection` from
+ * here, so pulling the tag from the same place costs it no new dependency.
+ */
+export function feedTag(section: Section): string {
+	return `feed-${section}`
+}
+
 // One `unstable_cache` wrapper per (section, page), built lazily and reused.
 // Bounded because `page` reaches this from a URL segment: without a cap, a
 // crawler walking `/blog/tech/p/999999` would mint a wrapper per probe.
@@ -135,15 +152,25 @@ const blogPageWrappers =
  * the same cache entry rules out the two DISAGREEING on any single read —
  * whichever value the count cache currently holds is what both consult.
  *
- * It does not make them agree "by construction" in the stronger sense —
- * `unstable_cache` can still serve this entry a stale value that predates the
- * count entry's own most recent regeneration, since a bust doesn't force either
- * to regenerate immediately. `posts` (from `findMany`, generated fresh right
- * here) and `totalPages` (borrowed from a cache entry that regenerates on its
- * own schedule) can therefore still momentarily disagree, most plausibly right
- * after an unpublish or delete shrinks the real page count. `BlogPostList`'s
- * `page > 1 && posts.length === 0` check is the backstop for exactly that
- * window — see its docblock.
+ * It does not make them agree "by construction" in the stronger sense, and the
+ * mechanism is worth naming because it isn't visible from the call: the
+ * `getSectionPageCount` call below sits INSIDE this `unstable_cache` callback,
+ * so it's one cache entry reading another. The callback only runs on a miss —
+ * which means a warm entry here returns a `totalPages` FROZEN at its own last
+ * generation, not the value the count entry holds now. `isRealPage` reads the
+ * count entry directly and sees the current one. Same tag on both, so a bust
+ * eventually converges them; between the bust and this entry's regeneration
+ * they can differ.
+ *
+ * So `posts` (from `findMany`, generated fresh whenever this callback runs) and
+ * `totalPages` (a snapshot of a value that has its own regeneration schedule)
+ * can momentarily disagree, most plausibly right after an unpublish or delete
+ * shrinks the real page count. `BlogPostList`'s `page > 1 && posts.length === 0`
+ * check is the backstop for exactly that window — see its docblock.
+ *
+ * The nesting is deliberate and worth keeping: the alternative is a `count()`
+ * here, which is the independent-second-entry bug this replaced. Just don't
+ * read "shared cache entry" as "shared at read time".
  */
 function makeBlogPageCache(section: Section, page: number) {
 	return unstable_cache(

@@ -3,12 +3,11 @@ import { getSiteUrl } from "@/lib/auth/env"
 import {
 	FEED_AUTHOR_NAME,
 	feedPathForSection,
-	feedTag,
 	feedTitleForSection,
 } from "@/lib/content/feed"
 import { markdownToHtml } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
-import { bySection } from "@/lib/db/posts"
+import { bySection, feedTag } from "@/lib/db/posts"
 import { isValidSection, SECTIONS, type Section } from "@/lib/db/sections"
 import { currentDatetimeString, postDatetimeToISO } from "@/lib/utils/format"
 
