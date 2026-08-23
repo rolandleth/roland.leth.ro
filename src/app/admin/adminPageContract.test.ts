@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ADMIN_EDIT_TAGS } from "@/lib/auth/adminMetadata"
+import { stripComments } from "@/test/sourceText"
 
 /**
  * Contract test for the `/admin` page namespace — the mirror of
@@ -151,6 +152,13 @@ const PAGES_WITH_NO_BODY_DATA_READ = new Set([
 	`${PROTECTED_SEGMENT}/projects/new/page.tsx`,
 ])
 
+/** Pages that must carry a body-level `requireAdminPageSession` call. */
+function pagesRequiringBodyGuard(): string[] {
+	return adminPages()
+		.filter((page) => page !== "login/page.tsx")
+		.filter((page) => !PAGES_WITH_NO_BODY_DATA_READ.has(page))
+}
+
 describe("admin page-body session guard", () => {
 	// The 2026-08-21 review's finding: `generateMetadata`'s `adminEditMetadata`
 	// guard only affects the `<title>` and does not stop the page body from
@@ -160,16 +168,43 @@ describe("admin page-body session guard", () => {
 	// import) so a page that imports the function without invoking it still
 	// fails this.
 	it("every page that reads data in its body calls requireAdminPageSession", () => {
-		const unguarded = adminPages()
-			.filter((page) => page !== "login/page.tsx")
-			.filter((page) => !PAGES_WITH_NO_BODY_DATA_READ.has(page))
-			.filter((page) => {
-				const source = readFileSync(join(ADMIN_DIR, page), "utf8")
+		const unguarded = pagesRequiringBodyGuard().filter((page) => {
+			const source = readFileSync(join(ADMIN_DIR, page), "utf8")
 
-				return !source.includes("requireAdminPageSession(")
-			})
+			return !source.includes("requireAdminPageSession(")
+		})
 
 		expect(unguarded).toEqual([])
+	})
+
+	// The check above passes for an UNAWAITED call, which is no guard at all:
+	// `requireAdminPageSession` reaches its `redirect()` only after `await
+	// verifySession()`, so a floating call returns a pending promise and the
+	// page's next line — the data read — runs before it ever settles. The row
+	// reaches the client and the rejection surfaces as an unhandled one.
+	//
+	// Nothing else catches this. `eslint.config.mjs` uses
+	// `tseslint.configs.strict`, not `strictTypeChecked`, so there is no
+	// `no-floating-promises`; and a page test that mocks `verifySession` to
+	// `false` still sees `redirect()` throw eventually, just too late to matter.
+	// Asserted on source text because the defect is syntactic: the call is
+	// present, correct, and reached — only unawaited.
+	it("awaits every requireAdminPageSession call", () => {
+		const unawaited = pagesRequiringBodyGuard().filter((page) => {
+			// Comments stripped first: every one of these pages carries a comment
+			// naming the function, and one that happened to write it with a paren
+			// would read as an unawaited call site.
+			const code = stripComments(readFileSync(join(ADMIN_DIR, page), "utf8"))
+			// One segment per call site, each holding the text that PRECEDES it;
+			// the trailing segment is what follows the last call, so it's dropped.
+			const beforeEachCall = code.split("requireAdminPageSession(").slice(0, -1)
+
+			// Every call site, not just one — a page could pick up a second one on
+			// a later branch and only await the first.
+			return beforeEachCall.some((before) => !/\bawait\s+$/.test(before))
+		})
+
+		expect(unawaited).toEqual([])
 	})
 
 	it("keeps the no-data-read allowlist pointed at real, current pages", () => {

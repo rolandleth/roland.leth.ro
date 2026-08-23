@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { notFound } from "next/navigation"
 import { describe, expect, it, vi } from "vitest"
 import { SECTIONS } from "@/lib/db/sections"
+import { stripComments } from "@/test/sourceText"
 import BlogListPage, {
 	dynamicParams,
 	generateMetadata,
@@ -49,15 +50,16 @@ describe("BlogListPage — static rendering", () => {
 		// object (which can never carry a `searchParams` property regardless of
 		// what the function reads, since it's a page PROP, never a module
 		// export — that made the assertion this replaces incapable of failing).
-		// Strips `//` comments first — this file's own comments say the word —
-		// then checks the rest, so a mention anywhere real (the `Props` type,
-		// the destructure, the body) is caught regardless of which one a future
-		// author reaches for.
-		const source = readFileSync(join(__dirname, "page.tsx"), "utf8")
-		const code = source
-			.split("\n")
-			.filter((line) => !line.trim().startsWith("//"))
-			.join("\n")
+		// Strips comments first — the page's own comments say the word — then
+		// checks the rest, so a mention anywhere real (the `Props` type, the
+		// destructure, the body) is caught regardless of which one a future
+		// author reaches for. `stripComments` handles block comments and JSDoc
+		// too: a line-only filter would fail this test the first time someone
+		// documented the route's static-rendering constraint in a docblock,
+		// which is exactly where that explanation belongs.
+		const code = stripComments(
+			readFileSync(join(__dirname, "page.tsx"), "utf8")
+		)
 
 		expect(code).not.toContain("searchParams")
 	})

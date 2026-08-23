@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getSectionPageCount } from "@/lib/db/posts"
 import { MAX_PAGE } from "@/lib/utils/format"
+import { stripComments } from "@/test/sourceText"
 import BlogListPagedPage, {
 	generateMetadata,
 	generateStaticParams,
@@ -132,10 +133,17 @@ describe("BlogListPagedPage — param validation", () => {
 		// would realistically break it: someone dropping the `cache()` wrapper,
 		// which would make every out-of-range request log this page's warning
 		// twice instead of once.
-		const source = readFileSync(join(__dirname, "page.tsx"), "utf8")
+		//
+		// Comments stripped: these are PRESENCE assertions, so a comment saying
+		// `resolvePage = cache(` would satisfy them against a page that no longer
+		// wraps anything — the false-pass direction, which is the one that
+		// matters for a guard.
+		const code = stripComments(
+			readFileSync(join(__dirname, "page.tsx"), "utf8")
+		)
 
-		expect(source).toMatch(/import \{ cache \} from "react"/)
-		expect(source).toMatch(/resolvePage = cache\(/)
+		expect(code).toMatch(/import \{ cache \} from "react"/)
+		expect(code).toMatch(/resolvePage = cache\(/)
 	})
 
 	it("404s a page inside MAX_PAGE that the section does not have", async () => {
