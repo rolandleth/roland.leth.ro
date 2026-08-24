@@ -1,9 +1,9 @@
 import Link from "next/link"
+import { extractDefinitions, truncateBody } from "@/lib/content/markdown"
 import {
 	formatDate,
 	postDatetimeToISO,
 	calculateReadingTime,
-	truncateBody,
 } from "@/lib/utils/format"
 import PostMarkdownContent from "./PostMarkdownContent"
 import type { PostListItem } from "@/lib/db/posts"
@@ -14,6 +14,10 @@ interface Props {
 
 export default async function PostCard({ post }: Props) {
 	const { text: preview, isTruncated } = truncateBody(post.body)
+	// Reference-link definitions live at the bottom of a post, past the cut, so
+	// a truncated preview would render `[text][label]` as literal brackets.
+	const definitions = isTruncated ? extractDefinitions(post.body) : ""
+	const excerpt = definitions ? `${preview}\n\n${definitions}` : preview
 	const readingTime = post.readingTime ?? calculateReadingTime(post.body)
 	const href = `/blog/${post.section}/${post.slug}`
 
@@ -33,7 +37,7 @@ export default async function PostCard({ post }: Props) {
 			</div>
 
 			<div className="text-secondary prose-sm">
-				<PostMarkdownContent content={preview} />
+				<PostMarkdownContent content={excerpt} />
 			</div>
 
 			{isTruncated && (

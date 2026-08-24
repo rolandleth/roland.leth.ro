@@ -13,7 +13,6 @@ import {
 	parseIntId,
 	parsePageParam,
 	postDatetimeToISO,
-	truncateBody,
 	yearFromDatetime,
 } from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
@@ -576,51 +575,6 @@ describe("calculateReadingTime", () => {
 
 	it("returns a standard minute-based string for longer content", () => {
 		expect(calculateReadingTime(words(400))).toBe("2 min read")
-	})
-})
-
-// #endregion
-
-// #region truncateBody
-
-describe("truncateBody", () => {
-	it("returns body unchanged when under 900 chars", () => {
-		const body = "Short body content."
-		expect(truncateBody(body)).toEqual({ text: body, isTruncated: false })
-	})
-
-	it("returns body unchanged at exactly 899 chars", () => {
-		const body = "a".repeat(899)
-		expect(truncateBody(body)).toEqual({ text: body, isTruncated: false })
-	})
-
-	it("truncates at a paragraph break near 700 chars", () => {
-		// first paragraph ends before 700, second paragraph pushes total > 900
-		const firstPara = "a".repeat(500)
-		const secondPara = "b".repeat(600)
-		const body = `${firstPara}\n\n${secondPara}`
-		const { text, isTruncated } = truncateBody(body)
-		expect(isTruncated).toBe(true)
-		expect(text).toBe(firstPara)
-	})
-
-	it("truncates at 700 chars when no paragraph break exists before 700", () => {
-		const body = "a".repeat(1000)
-		const { text, isTruncated } = truncateBody(body)
-		expect(isTruncated).toBe(true)
-		expect(text).toBe("a".repeat(700))
-	})
-
-	it("trims before a heading that appears before the cut point", () => {
-		// intro → heading → content; total > 900; heading falls within first 700
-		const intro = "a".repeat(400)
-		const heading = "\n\n## Section Heading\n\n"
-		const content = "b".repeat(700)
-		const body = intro + heading + content
-		const { text, isTruncated } = truncateBody(body)
-		expect(isTruncated).toBe(true)
-		// excerpt should stop before the heading
-		expect(text).toBe(intro)
 	})
 })
 

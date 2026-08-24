@@ -347,31 +347,3 @@ export function calculateReadingTime(body: string): string {
 
 	return t.text
 }
-
-const TRUNCATE_MIN_LENGTH = 900
-const TRUNCATE_TARGET_LENGTH = 700
-
-/**
- * Truncates a raw markdown body at a paragraph boundary near `TRUNCATE_TARGET_LENGTH` chars,
- * but only if the body exceeds `TRUNCATE_MIN_LENGTH` chars. Returns the text and whether
- * it was truncated (to decide whether to show "Continue reading").
- */
-export function truncateBody(body: string): {
-	text: string
-	isTruncated: boolean
-} {
-	if (body.length < TRUNCATE_MIN_LENGTH) {
-		return { text: body, isTruncated: false }
-	}
-
-	const candidate = body.slice(0, TRUNCATE_TARGET_LENGTH)
-	const lastBreak = candidate.lastIndexOf("\n\n")
-	const cutPoint = lastBreak > 0 ? lastBreak : TRUNCATE_TARGET_LENGTH
-
-	const slicedText = body.slice(0, cutPoint)
-	// Trim before a heading block so we don't show the heading without its content.
-	const lastHeadingBreak = slicedText.lastIndexOf("\n\n#")
-	const finalCutPoint = lastHeadingBreak > 0 ? lastHeadingBreak : cutPoint
-
-	return { text: body.slice(0, finalCutPoint), isTruncated: true }
-}

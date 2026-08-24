@@ -2,10 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import {
 	deriveSummary,
+	extractDefinitions,
 	markdownToHtml,
 	markdownToReact,
 	stripMarkdown,
 	SUMMARY_MAX_CHARS,
+	truncateBody,
 } from "@/lib/content/markdown"
 
 async function render(markdown: string): Promise<string> {
@@ -303,5 +305,169 @@ describe("deriveSummary", () => {
 		// narrative content and would otherwise pad the summary with syntax.
 		const body = "Intro line.\n\n```ts\nconst noise = 1\n```\n\nOutro."
 		expect(deriveSummary(body)).toBe("Intro line. Outro.")
+	})
+})
+
+describe("truncateBody", () => {
+	it("returns body unchanged when under 900 chars", () => {
+		const body = "Short body content."
+		expect(truncateBody(body)).toEqual({ text: body, isTruncated: false })
+	})
+
+	it("returns body unchanged at exactly 899 chars", () => {
+		const body = "a".repeat(899)
+		expect(truncateBody(body)).toEqual({ text: body, isTruncated: false })
+	})
+
+	it("truncates at a paragraph break near 700 chars", () => {
+		// first paragraph ends before 700, second paragraph pushes total > 900
+		const firstPara = "a".repeat(500)
+		const secondPara = "b".repeat(600)
+		const body = `${firstPara}\n\n${secondPara}`
+		const { text, isTruncated } = truncateBody(body)
+		expect(isTruncated).toBe(true)
+		expect(text).toBe(firstPara)
+	})
+
+	it("truncates at 700 chars when no paragraph break exists before 700", () => {
+		const body = "a".repeat(1000)
+		const { text, isTruncated } = truncateBody(body)
+		expect(isTruncated).toBe(true)
+		expect(text).toBe("a".repeat(700))
+	})
+
+	it("trims before a heading that appears before the cut point", () => {
+		// intro → heading → content; total > 900; heading falls within first 700
+		const intro = "a".repeat(400)
+		const heading = "\n\n## Section Heading\n\n"
+		const content = "b".repeat(700)
+		const body = intro + heading + content
+		const { text, isTruncated } = truncateBody(body)
+		expect(isTruncated).toBe(true)
+		// excerpt should stop before the heading
+		expect(text).toBe(intro)
+	})
+
+	// A code block whose blank line falls before 700 and whose closing delimiter
+	// falls after it. That makes the blank line the last paragraph break in range,
+	// so the naive cut lands inside the block.
+	function straddlingBlock(delimiter: string) {
+		return `${delimiter}ts\nconst x = 1\n\n${"const y = 2\n".repeat(40)}${delimiter}`
+	}
+
+	it("pulls back to the start of a fenced block the cut lands inside", () => {
+		const intro = "a".repeat(400)
+		const body = `${intro}\n\n${straddlingBlock("```")}\n\n${"b".repeat(600)}`
+		const { text } = truncateBody(body)
+
+		expect(text).toBe(intro)
+		expect(text).not.toContain("```")
+	})
+
+	it("pulls back past a heading that introduced the fenced block", () => {
+		// Pulling out of the block would otherwise strand the heading above it.
+		const intro = "a".repeat(400)
+		const body = `${intro}\n\n## Setup\n\n${straddlingBlock("```")}\n\n${"b".repeat(600)}`
+
+		expect(truncateBody(body).text).toBe(intro)
+	})
+
+	it("recognises a tilde fence, not just backticks", () => {
+		const intro = "a".repeat(400)
+		const body = `${intro}\n\n${straddlingBlock("~~~")}\n\n${"b".repeat(600)}`
+
+		expect(truncateBody(body).text).toBe(intro)
+	})
+
+	it("keeps a partial block when it starts at the very beginning", () => {
+		// Nothing to pull back to, so the block stands as-is. An unclosed fence
+		// runs to the end of input, so it still renders as code.
+		const body = `\`\`\`ts\n${"const x = 1\n\n".repeat(80)}\`\`\``
+		const { text, isTruncated } = truncateBody(body)
+
+		expect(isTruncated).toBe(true)
+		expect(text.startsWith("```ts")).toBe(true)
+		expect(text).toContain("const x = 1")
+	})
+
+	it("leaves a cut that lands cleanly between blocks alone", () => {
+		const intro = "a".repeat(400)
+		const fence = "```ts\nconst x = 1\n```"
+		const body = `${intro}\n\n${fence}\n\n${"b".repeat(600)}`
+
+		// No blank line inside this fence, so the last break before 700 is the one
+		// after the closing fence — the whole block belongs in the excerpt.
+		expect(truncateBody(body).text).toBe(`${intro}\n\n${fence}`)
+	})
+})
+
+describe("extractDefinitions", () => {
+	it("returns an empty string for a body with no definitions", () => {
+		expect(extractDefinitions("Just a [normal](/link) here.")).toBe("")
+	})
+
+	it("returns every definition in source order", () => {
+		const body =
+			"See [one][a] and [two][b].\n\n[a]: /first\n[b]: /second 'Second'"
+
+		expect(extractDefinitions(body)).toBe(
+			"[a]: /first\n\n[b]: /second 'Second'"
+		)
+	})
+
+	it("keeps a title containing double quotes verbatim", () => {
+		// Valid only because the title is single-quoted. Rebuilding the line from
+		// the parsed `title` with `"` delimiters would truncate it mid-title;
+		// slicing the source sidesteps the escaping question entirely.
+		const body = `Text [x][a].\n\n[a]: /url 'He said "hi" once'`
+
+		expect(extractDefinitions(body)).toBe(`[a]: /url 'He said "hi" once'`)
+	})
+
+	it("keeps an angle-bracketed URL containing a space", () => {
+		const body = 'Text [x][a].\n\n[a]: </some path> "Title"'
+
+		expect(extractDefinitions(body)).toBe('[a]: </some path> "Title"')
+	})
+
+	it("finds a definition nested inside a blockquote", () => {
+		// A definition resolves document-wide regardless of the block it sits in,
+		// so the walk can't stop at the top level.
+		const body = "Text [x][a].\n\n> Quoted.\n>\n> [a]: /nested"
+
+		expect(extractDefinitions(body)).toBe("[a]: /nested")
+	})
+
+	it("ignores a definition-shaped line inside a fenced code block", () => {
+		const body = "Text.\n\n```md\n[a]: /not-a-definition\n```"
+
+		expect(extractDefinitions(body)).toBe("")
+	})
+
+	it("restores reference links when appended to a truncated excerpt", async () => {
+		// The regression this exists for: a post's definitions sit below the
+		// excerpt cut, so the preview rendered `[label][ref]` as literal brackets.
+		const excerpt = "Back in [the opener][series] I wrote something."
+		const definitions = extractDefinitions(
+			`${excerpt}\n\nMore body.\n\n[series]: /blog/tech/the-opener "The opener"`
+		)
+
+		expect(await render(excerpt)).not.toContain("<a")
+
+		const html = await render(`${excerpt}\n\n${definitions}`)
+		expect(html).toContain('href="/blog/tech/the-opener"')
+		expect(html).toContain("the opener")
+		expect(html).not.toContain("[series]")
+	})
+
+	it("resolves an image reference the same way", async () => {
+		const excerpt = "![A diagram][fig]"
+		const definitions = extractDefinitions(
+			`${excerpt}\n\nBody.\n\n[fig]: /images/fig.png`
+		)
+
+		const html = await render(`${excerpt}\n\n${definitions}`)
+		expect(html).toContain('src="/images/fig.png"')
+		expect(html).toContain('alt="A diagram"')
 	})
 })

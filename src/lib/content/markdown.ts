@@ -63,6 +63,142 @@ export async function markdownToHtml(content: string): Promise<string> {
 	return String(result)
 }
 
+const TRUNCATE_MIN_LENGTH = 900
+const TRUNCATE_TARGET_LENGTH = 700
+
+/**
+ * Returns the start offset of the code block containing `offset`, or `null` when
+ * the offset sits outside every code block.
+ *
+ * Asking the parser rather than scanning for fence delimiters covers the cases a
+ * regex misses: tilde fences, fences indented up to three spaces, info strings,
+ * indented (four-space) code blocks, and fences nested in a list or blockquote.
+ */
+function enclosingCodeBlockStart(markdown: string, offset: number) {
+	const tree = textOnlyProcessor.parse(markdown)
+	let start: number | null = null
+
+	function walk(node: Nodes) {
+		if (node.type === "code") {
+			const nodeStart = node.position?.start.offset
+			const nodeEnd = node.position?.end.offset
+
+			if (nodeStart != null && nodeEnd != null) {
+				if (offset > nodeStart && offset < nodeEnd) {
+					start = nodeStart
+				}
+			}
+
+			return
+		}
+
+		if (!("children" in node)) {
+			return
+		}
+
+		for (const child of node.children) {
+			walk(child)
+		}
+	}
+
+	walk(tree)
+
+	return start
+}
+
+/**
+ * Truncates a raw markdown body at a paragraph boundary near `TRUNCATE_TARGET_LENGTH` chars,
+ * but only if the body exceeds `TRUNCATE_MIN_LENGTH` chars. Returns the text and whether
+ * it was truncated (to decide whether to show "Continue reading").
+ *
+ * Lives here rather than with the generic formatters because the cut has to
+ * respect markdown block structure, which needs the parser — and `format.ts`
+ * reaches client components, where importing the pipeline would ship Shiki to
+ * the browser.
+ */
+export function truncateBody(body: string): {
+	text: string
+	isTruncated: boolean
+} {
+	if (body.length < TRUNCATE_MIN_LENGTH) {
+		return { text: body, isTruncated: false }
+	}
+
+	const candidate = body.slice(0, TRUNCATE_TARGET_LENGTH)
+	const lastBreak = candidate.lastIndexOf("\n\n")
+	const paragraphCut = lastBreak > 0 ? lastBreak : TRUNCATE_TARGET_LENGTH
+
+	// A code block can contain blank lines, so the paragraph cut above can land
+	// inside one. Pull back to the block's start rather than emit half of it.
+	// A block starting at offset 0 has nowhere to pull back to, so the partial
+	// block stands — it still renders, since an unclosed fence runs to the end.
+	const codeBlockStart = enclosingCodeBlockStart(body, paragraphCut)
+	const codeSafeCut =
+		codeBlockStart != null && codeBlockStart > 0 ? codeBlockStart : paragraphCut
+
+	// Trim before a heading block so we don't show the heading without its
+	// content. Runs after the code-block pull-back, which can itself strand a
+	// heading that introduced the block.
+	const slicedText = body.slice(0, codeSafeCut)
+	const lastHeadingBreak = slicedText.lastIndexOf("\n\n#")
+	const finalCutPoint = lastHeadingBreak > 0 ? lastHeadingBreak : codeSafeCut
+
+	// A pull-back cuts at the block's own start offset, which leaves the blank
+	// line that preceded it dangling on the end.
+	return { text: body.slice(0, finalCutPoint).trimEnd(), isTruncated: true }
+}
+
+function collectDefinitionSources(
+	node: Nodes,
+	markdown: string,
+	out: string[]
+) {
+	if (node.type === "definition") {
+		const start = node.position?.start.offset
+		const end = node.position?.end.offset
+
+		// Positions are always present on a tree straight from remark-parse, but
+		// the mdast types mark them optional. Skip rather than emit a broken line.
+		if (start != null && end != null) {
+			out.push(markdown.slice(start, end))
+		}
+
+		return
+	}
+
+	if (!("children" in node)) {
+		return
+	}
+
+	for (const child of node.children) {
+		collectDefinitionSources(child, markdown, out)
+	}
+}
+
+/**
+ * Returns the link reference definitions (`[label]: /url "Title"`) found in a
+ * markdown body, as their original source lines joined by blank lines.
+ *
+ * Definitions are conventionally written at the bottom of a post, so any excerpt
+ * that cuts above them loses them, and every `[text][label]` in that excerpt
+ * renders as literal brackets instead of a link. Appending the result of this to
+ * a truncated excerpt restores those links. A definition whose label is never
+ * referenced renders nothing, so returning all of them is safe.
+ *
+ * Slices the source by node position instead of rebuilding the line from
+ * `label`/`url`/`title`, which keeps quoted titles and spaced URLs intact
+ * without any escaping. The walk is recursive because a definition can sit
+ * inside a blockquote or list item and still resolve document-wide.
+ */
+export function extractDefinitions(markdown: string): string {
+	const tree = textOnlyProcessor.parse(markdown)
+	const sources: string[] = []
+
+	collectDefinitionSources(tree, markdown, sources)
+
+	return sources.join("\n\n")
+}
+
 // Block-level node types whose text content should be separated by whitespace
 // when multiple appear as siblings, so paragraphs don't run together after joining.
 const BLOCK_TYPES = new Set(["paragraph", "heading", "blockquote", "listItem"])

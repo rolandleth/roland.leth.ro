@@ -21,7 +21,7 @@ Log paths: Use your scratchpad to store and read logs, if you need.
 - **Images**: Vercel Blob (free tier: 1GB storage)
 - **Deployment**: Vercel
 - **Linting**: ESLint 9 (flat config) + Prettier
-- **Markdown**: `react-markdown` + `remark-gfm` + `rehype-highlight`
+- **Markdown**: `unified` (`remark-parse` + `remark-gfm` + `remark-rehype`), rendered to React via `hast-util-to-jsx-runtime`. Highlighting is `rehype-pretty-code` (Shiki) on pages; the feed swaps it for `rehype-stringify` so the markup carries no stylesheet-dependent spans. All processors are built once at module load in `src/lib/content/markdown.ts`.
 - **Analytics**: Vercel Analytics (cookie-free, no banner needed)
 
 ## Project structure
