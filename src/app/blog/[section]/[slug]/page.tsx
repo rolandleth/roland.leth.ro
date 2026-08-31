@@ -1,6 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
+import ScheduledPostNotice from "@/components/blog/ScheduledPostNotice"
 import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
 import { getSiteUrl } from "@/lib/auth/env"
@@ -8,7 +9,11 @@ import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
 import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
-import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
+import {
+	getAllPublishedPostSlugs,
+	loadPost,
+	loadScheduledPost,
+} from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
 import {
 	calculateReadingTime,
@@ -37,6 +42,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 	const post = await loadPost(section, slug)
 
 	if (!post) {
+		const scheduled = await loadScheduledPost(section, slug)
+
+		// A scheduled post's URL serves a 200 notice (see the page body), so it
+		// carries real metadata — but `noindex`, so the placeholder never gets
+		// indexed as the page's content. Regeneration flips this to the full
+		// article metadata the moment the post is live.
+		if (scheduled) {
+			return {
+				title: scheduled.title,
+				robots: { index: false },
+			}
+		}
+
 		return {}
 	}
 
@@ -62,13 +80,27 @@ export default async function PostPage({ params }: Props) {
 	const post = await loadPost(section, slug)
 
 	if (!post) {
-		// A renamed legacy slug 308s to its canonical form; every other miss is a
-		// real 404. In-memory alias check on the miss path only — a found post
-		// never reaches it.
+		// A renamed legacy slug 308s to its canonical form; a scheduled post
+		// renders a notice instead of pinning a 404 (alias first, so an aliased
+		// scheduled slug lands on its canonical URL before showing it); every
+		// other miss is a real 404. In-memory alias check on the miss path only —
+		// a found post never reaches it.
 		const alias = resolveLegacyPostAlias(slug)
 
 		if (alias && alias.section === section) {
 			permanentRedirect(`/blog/${alias.section}/${alias.slug}`)
+		}
+
+		const scheduled = await loadScheduledPost(section, slug)
+
+		if (scheduled) {
+			return (
+				<ScheduledPostNotice
+					title={scheduled.title}
+					datetime={scheduled.datetime}
+					section={section}
+				/>
+			)
 		}
 
 		notFound()

@@ -1,11 +1,12 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { loadPost } from "@/lib/db/posts"
+import { loadPost, loadScheduledPost } from "@/lib/db/posts"
 import PostPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/posts", () => ({
 	getAllPublishedPostSlugs: vi.fn().mockResolvedValue([]),
 	loadPost: vi.fn(),
+	loadScheduledPost: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -82,6 +83,34 @@ describe("PostPage", () => {
 		).rejects.toThrow("NOT_FOUND")
 	})
 
+	it("renders the scheduled notice with a title tease for a future-dated post", async () => {
+		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadScheduledPost).mockResolvedValue({
+			title: "Hello",
+			datetime: "2999-01-01-0900",
+		})
+
+		const { container } = render(await PostPage(paramsFor("tech", "hello")))
+
+		expect(container.textContent).toContain("Hello")
+		expect(container.textContent).toContain("isn’t live yet")
+		expect(container.textContent).toContain("Jan 1, 2999")
+	})
+
+	it("still 308-redirects an aliased slug even when its post is scheduled", async () => {
+		// Alias check runs before the scheduled check, so the notice renders on
+		// the canonical URL, never the dirty legacy one.
+		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadScheduledPost).mockResolvedValue({
+			title: "Hello",
+			datetime: "2999-01-01-0900",
+		})
+
+		await expect(
+			PostPage(paramsFor("tech", "final-version--for-now-"))
+		).rejects.toThrow("REDIRECT:/blog/tech/final-version-for-now")
+	})
+
 	it("renders when both section and post are valid", async () => {
 		vi.mocked(loadPost).mockResolvedValue(existingPost)
 		const result = await PostPage(paramsFor("tech", "hello"))
@@ -130,6 +159,20 @@ describe("generateMetadata", () => {
 		vi.mocked(loadPost).mockResolvedValue(null)
 		const result = await generateMetadata(paramsFor("tech", "missing"))
 		expect(result).toEqual({})
+	})
+
+	it("returns noindex title-only metadata for a scheduled post", async () => {
+		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadScheduledPost).mockResolvedValue({
+			title: "Hello",
+			datetime: "2999-01-01-0900",
+		})
+
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+
+		expect(result.title).toBe("Hello")
+		expect(result.robots).toEqual({ index: false })
+		expect(result.openGraph).toBeUndefined()
 	})
 
 	it("returns title + article metadata for a valid post", async () => {

@@ -152,6 +152,31 @@ export function formatDate(datetime: string): string {
 }
 
 /**
+ * Formats a `yyyy-MM-dd-HHmm` datetime as its short month + day ("Sep 4") — the
+ * scheduled-post notice's backdrop glyph, which needs the date at roughly "404"
+ * length. Same parsing and calendar-day semantics as `formatDate` above.
+ */
+export function formatDayMonth(datetime: string): string {
+	const match = datetime.match(DATETIME_REGEX)
+
+	if (!match) {
+		return datetime
+	}
+
+	const [, year, month, day] = match
+	const date = new Date(
+		Number.parseInt(year, 10),
+		Number.parseInt(month, 10) - 1,
+		Number.parseInt(day, 10)
+	)
+
+	return date.toLocaleDateString("en-US", {
+		month: "short",
+		day: "numeric",
+	})
+}
+
+/**
  * Formats a `Date` as a human-readable day, in the same shape as `formatDate`
  * ("Jul 17, 2026").
  *

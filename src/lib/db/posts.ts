@@ -286,20 +286,26 @@ const POSTS_TAG = "posts"
 const postBySlugWrappers =
 	createBoundedWrapperCache<() => Promise<PostDetail>>()
 
-export async function getPostBySlug(
+/**
+ * The cached row read shared by `getPostBySlug` and `getScheduledPost`: the
+ * published row regardless of `datetime`, or `null`. The visibility verdict
+ * stays with the callers, so the row is cached once while scheduled and each
+ * caller recomputes only its own clock comparison.
+ */
+function fetchPostRow(
 	section: Section,
 	slug: string
 ): Promise<PostDetail | null> {
-	const post = await wrapNullableDetail(
+	return wrapNullableDetail(
 		postBySlugWrappers,
 		`${section}:${slug}`,
 		// `findFirst` (not `findUnique`) so `published: true` can be enforced at
 		// the query boundary; otherwise the canonical post URL would serve drafts.
 		// The `datetime <= now` check is intentionally NOT here — it's applied to
-		// the cached row below, so the row stays cached while the post is still
-		// scheduled and only the visibility verdict is recomputed. That verdict is
-		// recomputed on regeneration, not per request: the detail route is
-		// prerendered, which is the whole reason `revalidatePostDetails` exists.
+		// the cached row by the callers, so the row stays cached while the post is
+		// still scheduled and only the visibility verdict is recomputed. That
+		// verdict is recomputed on regeneration, not per request: the detail route
+		// is prerendered, which is the whole reason `revalidatePostDetails` exists.
 		() =>
 			prisma.post.findFirst({
 				where: { section, slug, published: true },
@@ -319,6 +325,13 @@ export async function getPostBySlug(
 		[postTag(section, slug)],
 		[postTag(section, slug), POST_PAGES_TAG]
 	)
+}
+
+export async function getPostBySlug(
+	section: Section,
+	slug: string
+): Promise<PostDetail | null> {
+	const post = await fetchPostRow(section, slug)
 
 	if (!post) {
 		return null
@@ -335,6 +348,46 @@ export async function getPostBySlug(
  */
 export const loadPost = cache(async (section: Section, slug: string) =>
 	getPostBySlug(section, slug)
+)
+
+/** The teaser subset a scheduled post's URL is allowed to show before it's live. */
+export interface ScheduledPost {
+	title: string
+	datetime: string
+}
+
+/**
+ * The scheduled counterpart to `getPostBySlug`: `{ title, datetime }` when the
+ * row exists, is published, and is still future-dated — `null` for a missing
+ * row or one already live. Reads the same cached row as `getPostBySlug`, so
+ * the two can never disagree about the row and no second cache entry or tag
+ * set exists. The detail routes use it to render a scheduled notice instead of
+ * pinning a 404 (see `revalidatePostDetails` for what that pinned); the same
+ * cron bust that healed the 404 regenerates the notice into the live page.
+ */
+export async function getScheduledPost(
+	section: Section,
+	slug: string
+): Promise<ScheduledPost | null> {
+	const post = await fetchPostRow(section, slug)
+
+	if (!post) {
+		return null
+	}
+
+	const now = currentDatetimeString()
+
+	return post.datetime > now
+		? { title: post.title, datetime: post.datetime }
+		: null
+}
+
+/**
+ * Request-scoped dedupe around `getScheduledPost`, mirroring `loadPost` for
+ * the same `generateMetadata` + page-body pair on the scheduled branch.
+ */
+export const loadScheduledPost = cache(async (section: Section, slug: string) =>
+	getScheduledPost(section, slug)
 )
 
 /**
