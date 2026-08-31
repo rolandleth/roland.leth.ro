@@ -34,8 +34,8 @@ export default function ScheduledPostNotice({
 
 			<h1 className="-mt-4 text-3xl font-bold">Scheduled</h1>
 
-			<p className="text-secondary mt-3 max-w-md leading-relaxed text-pretty">
-				“{title}” isn’t live yet.
+			<p className="text-secondary max-w-m mt-3 leading-relaxed text-pretty sm:text-wrap">
+				<span className="font-medium">“{title}”</span> isn’t live yet.
 				<br /> Come back on {formatDate(datetime)}, or grab{" "}
 				<a
 					href={feed.path}
@@ -43,7 +43,7 @@ export default function ScheduledPostNotice({
 				>
 					the feed
 				</a>{" "}
-				and let it come to you.
+				and wait for it.
 			</p>
 
 			<Link
