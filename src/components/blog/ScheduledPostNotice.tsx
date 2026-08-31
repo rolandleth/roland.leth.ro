@@ -11,7 +11,7 @@ interface Props {
 
 /**
  * What a scheduled post's URL serves until the post goes live: the 404 page's
- * design (backdrop glyph, heading, one secondary line) with the publish date as
+ * design (backdrop glyph, heading, secondary copy) with the publish date as
  * the glyph. Served with a 200 and `noindex` metadata — see the post page's
  * scheduled branch. Prerendered and pinned like the post itself, so the
  * revalidate-scheduled cron is what replaces it with the live post.
@@ -34,7 +34,7 @@ export default function ScheduledPostNotice({
 
 			<h1 className="-mt-4 text-3xl font-bold">Scheduled</h1>
 
-			<p className="text-secondary max-w-m mt-3 leading-relaxed">
+			<p className="text-secondary mt-3 max-w-md leading-relaxed text-pretty">
 				“{title}” isn’t live yet.
 				<br /> Come back on {formatDate(datetime)}, or grab{" "}
 				<a
