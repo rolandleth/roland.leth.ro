@@ -10,6 +10,7 @@ import {
 	getPostBySlug,
 	getPostsBySection,
 	getPostsGroupedByYear,
+	getScheduledPost,
 	listPostsForAdmin,
 	loadPost,
 	loadPostForAdmin,
@@ -433,6 +434,63 @@ describe("getPostBySlug", () => {
 		const result = await getPostBySlug("tech", "my-post")
 		expect(result?.imageUrl).toBeNull()
 		expect(result?.readingTime).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region getScheduledPost
+
+describe("getScheduledPost", () => {
+	const scheduledDetail = {
+		id: 1,
+		title: "My Post",
+		slug: "my-post",
+		section: "tech" as const,
+		datetime: "9999-12-31-2359",
+		body: "Body content.",
+		summary: "A short summary.",
+		imageUrl: null,
+		readingTime: null,
+	}
+
+	it("returns only the teaser subset for a future-dated row", async () => {
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(
+			scheduledDetail as unknown as Post
+		)
+
+		const result = await getScheduledPost("tech", "my-post")
+		expect(result).toEqual({ title: "My Post", datetime: "9999-12-31-2359" })
+	})
+
+	it("returns null for a row that is already live", async () => {
+		vi.mocked(prisma.post.findFirst).mockResolvedValue({
+			...scheduledDetail,
+			datetime: "2024-06-01-1200",
+		} as unknown as Post)
+
+		const result = await getScheduledPost("tech", "my-post")
+		expect(result).toBeNull()
+	})
+
+	it("returns null when the row does not exist", async () => {
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+
+		const result = await getScheduledPost("tech", "missing-post")
+		expect(result).toBeNull()
+	})
+
+	it("keeps drafts invisible via the same `published: true` boundary", async () => {
+		// A future-dated DRAFT must not tease its title: the query boundary
+		// filters `published: true` before the datetime comparison ever runs.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+
+		await getScheduledPost("life", "some-slug")
+
+		const call = vi.mocked(prisma.post.findFirst).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+		expect(call.where.published).toBe(true)
 	})
 })
 

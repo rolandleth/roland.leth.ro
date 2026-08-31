@@ -1,7 +1,12 @@
 import { getSiteUrl } from "@/lib/auth/env"
 import { buildPostMarkdownFile } from "@/lib/content/postMarkdown"
-import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
+import {
+	getAllPublishedPostSlugs,
+	loadPost,
+	loadScheduledPost,
+} from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
+import { formatDate } from "@/lib/utils/format"
 
 // Raw-markdown view of a blog post, reached at `/blog/:section/:slug.md` — the
 // `next.config.ts` rewrite points that pretty URL here because a `route.ts`
@@ -62,6 +67,25 @@ export async function GET(
 	const post = await loadPost(section, slug)
 
 	if (!post) {
+		const scheduled = await loadScheduledPost(section, slug)
+
+		// Mirrors the HTML page's scheduled notice: a 200 with a stub body rather
+		// than a 404, `X-Robots-Tag` standing in for the page's `noindex` metadata
+		// (a markdown body has nowhere to carry robots meta). Prerendered under
+		// the same tags via the shared cached row, so the same cron bust replaces
+		// it with the real markdown.
+		if (scheduled) {
+			const body = `# ${scheduled.title}\n\nScheduled: this post goes live on ${formatDate(scheduled.datetime)}.\n`
+
+			return new Response(body, {
+				status: 200,
+				headers: {
+					"Content-Type": "text/markdown; charset=utf-8",
+					"X-Robots-Tag": "noindex",
+				},
+			})
+		}
+
 		return notFoundResponse()
 	}
 

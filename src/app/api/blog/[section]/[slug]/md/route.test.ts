@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { getAllPublishedPostSlugs, loadPost } from "@/lib/db/posts"
+import {
+	getAllPublishedPostSlugs,
+	loadPost,
+	loadScheduledPost,
+} from "@/lib/db/posts"
 import { dynamic, generateStaticParams, GET } from "./route"
 import * as mdRoute from "./route"
 
 vi.mock("@/lib/db/posts", () => ({
 	loadPost: vi.fn(),
+	loadScheduledPost: vi.fn(),
 	getAllPublishedPostSlugs: vi.fn(),
 }))
 
@@ -43,6 +48,24 @@ describe("GET /api/blog/:section/:slug/md", () => {
 		vi.mocked(loadPost).mockResolvedValue(null)
 		const response = await GET(...makeArgs("tech", "missing"))
 		expect(response.status).toBe(404)
+	})
+
+	it("returns a 200 noindex stub for a scheduled post", async () => {
+		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadScheduledPost).mockResolvedValue({
+			title: "Hello World",
+			datetime: "2999-01-01-0900",
+		})
+
+		const response = await GET(...makeArgs("tech", "hello-world"))
+
+		expect(response.status).toBe(200)
+		expect(response.headers.get("Content-Type")).toContain("text/markdown")
+		expect(response.headers.get("X-Robots-Tag")).toBe("noindex")
+
+		const text = await response.text()
+		expect(text).toContain("# Hello World")
+		expect(text).toContain("Jan 1, 2999")
 	})
 
 	it("returns 200 markdown with the frontmatter + body for a valid post", async () => {

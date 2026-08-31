@@ -7,6 +7,7 @@ import {
 	datetimeToUtcDate,
 	formatDate,
 	formatDateValue,
+	formatDayMonth,
 	MAX_PAGE,
 	MAX_SAFE_ADMIN_PAGE,
 	parseAdminPageParam,
@@ -297,6 +298,24 @@ describe("formatDate", () => {
 
 	it("returns the raw string for an empty string", () => {
 		expect(formatDate("")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region formatDayMonth
+
+describe("formatDayMonth", () => {
+	it("formats the short month + day without a year", () => {
+		expect(formatDayMonth("2026-09-04-0000")).toBe("Sep 4")
+	})
+
+	it("shares formatDate's calendar-day semantics on a leap day", () => {
+		expect(formatDayMonth("2024-02-29-1200")).toBe("Feb 29")
+	})
+
+	it("returns the raw string when no date pattern matches", () => {
+		expect(formatDayMonth("invalid")).toBe("invalid")
 	})
 })
 
