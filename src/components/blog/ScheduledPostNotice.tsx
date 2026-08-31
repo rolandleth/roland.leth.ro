@@ -34,8 +34,9 @@ export default function ScheduledPostNotice({
 
 			<h1 className="-mt-4 text-3xl font-bold">Scheduled</h1>
 
-			<p className="text-secondary mt-3 max-w-sm leading-relaxed">
-				“{title}” isn’t live yet; come back on {formatDate(datetime)}, or grab{" "}
+			<p className="text-secondary max-w-m mt-3 leading-relaxed">
+				“{title}” isn’t live yet.
+				<br /> Come back on {formatDate(datetime)}, or grab{" "}
 				<a
 					href={feed.path}
 					className="text-(--color-accent) transition-opacity hover:opacity-75"
