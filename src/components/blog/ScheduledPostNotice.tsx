@@ -34,7 +34,7 @@ export default function ScheduledPostNotice({
 
 			<h1 className="-mt-4 text-3xl font-bold">Scheduled</h1>
 
-			<p className="text-secondary max-w-m mt-3 leading-relaxed text-pretty sm:text-wrap">
+			<p className="text-secondary mt-3 max-w-lg leading-relaxed text-pretty sm:text-wrap">
 				<span className="font-medium">“{title}”</span> isn’t live yet.
 				<br /> Come back on {formatDate(datetime)}, or grab{" "}
 				<a

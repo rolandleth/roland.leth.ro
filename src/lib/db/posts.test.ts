@@ -1,5 +1,5 @@
 import { revalidateTag, unstable_cache } from "next/cache"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Post } from "@/generated/prisma/client"
 import { prisma } from "@/lib/db/db"
 import {
@@ -10,10 +10,9 @@ import {
 	getPostBySlug,
 	getPostsBySection,
 	getPostsGroupedByYear,
-	getScheduledPost,
 	listPostsForAdmin,
-	loadPost,
 	loadPostForAdmin,
+	loadPostResolution,
 	revalidatePostDetails,
 	revalidatePostSection,
 	searchPosts,
@@ -439,9 +438,9 @@ describe("getPostBySlug", () => {
 
 // #endregion
 
-// #region getScheduledPost
+// #region loadPostResolution
 
-describe("getScheduledPost", () => {
+describe("loadPostResolution", () => {
 	const scheduledDetail = {
 		id: 1,
 		title: "My Post",
@@ -454,30 +453,34 @@ describe("getScheduledPost", () => {
 		readingTime: null,
 	}
 
-	it("returns only the teaser subset for a future-dated row", async () => {
+	it("resolves a future-dated row as scheduled, teaser fields only", async () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(
 			scheduledDetail as unknown as Post
 		)
 
-		const result = await getScheduledPost("tech", "my-post")
-		expect(result).toEqual({ title: "My Post", datetime: "9999-12-31-2359" })
+		const result = await loadPostResolution("tech", "my-post")
+
+		expect(result).toEqual({
+			status: "scheduled",
+			scheduled: { title: "My Post", datetime: "9999-12-31-2359" },
+		})
 	})
 
-	it("returns null for a row that is already live", async () => {
-		vi.mocked(prisma.post.findFirst).mockResolvedValue({
-			...scheduledDetail,
-			datetime: "2024-06-01-1200",
-		} as unknown as Post)
+	it("resolves an already-live row as live, carrying the whole row", async () => {
+		const live = { ...scheduledDetail, datetime: "2024-06-01-1200" }
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(live as unknown as Post)
 
-		const result = await getScheduledPost("tech", "my-post")
-		expect(result).toBeNull()
+		const result = await loadPostResolution("tech", "my-post")
+
+		expect(result).toEqual({ status: "live", post: live })
 	})
 
-	it("returns null when the row does not exist", async () => {
+	it("resolves a row that does not exist as missing", async () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
-		const result = await getScheduledPost("tech", "missing-post")
-		expect(result).toBeNull()
+		const result = await loadPostResolution("tech", "missing-post")
+
+		expect(result).toEqual({ status: "missing" })
 	})
 
 	it("keeps drafts invisible via the same `published: true` boundary", async () => {
@@ -485,12 +488,50 @@ describe("getScheduledPost", () => {
 		// filters `published: true` before the datetime comparison ever runs.
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
-		await getScheduledPost("life", "some-slug")
+		await loadPostResolution("life", "some-slug")
 
 		const call = vi.mocked(prisma.post.findFirst).mock.calls[0][0] as {
 			where: Record<string, unknown>
 		}
 		expect(call.where.published).toBe(true)
+	})
+
+	// `live` and `scheduled` have to stay exact complements: the minute a post
+	// comes due must land on one of them and never on neither. "Neither" is what
+	// falls through to `notFound()` and pins a 404 on a post at the moment it
+	// goes live, which is the failure the single-clock-read resolver exists to
+	// rule out.
+	describe("at the exact publish minute", () => {
+		beforeEach(() => {
+			vi.useFakeTimers()
+			vi.setSystemTime(new Date(2026, 8, 4, 9, 0, 0))
+		})
+
+		afterEach(() => {
+			vi.useRealTimers()
+		})
+
+		it("resolves live when `datetime` equals now to the minute", async () => {
+			vi.mocked(prisma.post.findFirst).mockResolvedValue({
+				...scheduledDetail,
+				datetime: "2026-09-04-0900",
+			} as unknown as Post)
+
+			const result = await loadPostResolution("tech", "my-post")
+
+			expect(result.status).toBe("live")
+		})
+
+		it("resolves scheduled for the minute before it comes due", async () => {
+			vi.mocked(prisma.post.findFirst).mockResolvedValue({
+				...scheduledDetail,
+				datetime: "2026-09-04-0901",
+			} as unknown as Post)
+
+			const result = await loadPostResolution("tech", "my-post")
+
+			expect(result.status).toBe("scheduled")
+		})
 	})
 })
 
@@ -733,26 +774,7 @@ describe("getAllPublishedPostSlugs", () => {
 
 // #endregion
 
-// #region loadPost / loadPostForAdmin
-
-describe("loadPost", () => {
-	it("delegates to getPostBySlug returning its result", async () => {
-		const post = {
-			id: 1,
-			title: "P",
-			slug: "s",
-			section: "tech" as const,
-			datetime: "2024-06-01-1200",
-			body: "b",
-			summary: "b",
-			imageUrl: null,
-			readingTime: null,
-		}
-		vi.mocked(prisma.post.findFirst).mockResolvedValue(post as unknown as Post)
-
-		expect(await loadPost("tech", "s")).toEqual(post)
-	})
-})
+// #region loadPostForAdmin
 
 describe("loadPostForAdmin", () => {
 	it("queries by numeric id with no tag caching", async () => {

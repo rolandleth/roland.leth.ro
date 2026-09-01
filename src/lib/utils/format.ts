@@ -128,9 +128,19 @@ export function parseAdminPageParam(raw: string | undefined | null): number {
 }
 
 /**
- * Parses a `yyyy-MM-dd-HHmm` datetime string into a human-readable date.
+ * Renders the calendar day named by a `yyyy-MM-dd-HHmm` string, with `options`
+ * choosing which fields appear. Returns the input verbatim when it doesn't
+ * parse, so a legacy row renders as its raw value rather than "Invalid Date".
+ *
+ * The `Date` is built from the parts as a LOCAL midnight, which is what makes
+ * the rendered day the day that was authored, whatever zone the render happens
+ * in. `formatDateValue` below documents the opposite case and why it can't
+ * share this.
  */
-export function formatDate(datetime: string): string {
+function formatCalendarDay(
+	datetime: string,
+	options: Intl.DateTimeFormatOptions
+): string {
 	const match = datetime.match(DATETIME_REGEX)
 
 	if (!match) {
@@ -144,7 +154,14 @@ export function formatDate(datetime: string): string {
 		Number.parseInt(day, 10)
 	)
 
-	return date.toLocaleDateString("en-US", {
+	return date.toLocaleDateString("en-US", options)
+}
+
+/**
+ * Parses a `yyyy-MM-dd-HHmm` datetime string into a human-readable date.
+ */
+export function formatDate(datetime: string): string {
+	return formatCalendarDay(datetime, {
 		year: "numeric",
 		month: "short",
 		day: "numeric",
@@ -157,20 +174,7 @@ export function formatDate(datetime: string): string {
  * length. Same parsing and calendar-day semantics as `formatDate` above.
  */
 export function formatDayMonth(datetime: string): string {
-	const match = datetime.match(DATETIME_REGEX)
-
-	if (!match) {
-		return datetime
-	}
-
-	const [, year, month, day] = match
-	const date = new Date(
-		Number.parseInt(year, 10),
-		Number.parseInt(month, 10) - 1,
-		Number.parseInt(day, 10)
-	)
-
-	return date.toLocaleDateString("en-US", {
+	return formatCalendarDay(datetime, {
 		month: "short",
 		day: "numeric",
 	})

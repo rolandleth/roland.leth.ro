@@ -1,15 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import {
-	getAllPublishedPostSlugs,
-	loadPost,
-	loadScheduledPost,
-} from "@/lib/db/posts"
+import { getAllPublishedPostSlugs, loadPostResolution } from "@/lib/db/posts"
 import { dynamic, generateStaticParams, GET } from "./route"
 import * as mdRoute from "./route"
 
 vi.mock("@/lib/db/posts", () => ({
-	loadPost: vi.fn(),
-	loadScheduledPost: vi.fn(),
+	loadPostResolution: vi.fn(),
 	getAllPublishedPostSlugs: vi.fn(),
 }))
 
@@ -33,6 +28,16 @@ const existingPost = {
 	updatedAt: new Date("2024-01-15T09:30:00.000Z"),
 }
 
+const MISSING = { status: "missing" } as const
+
+function live(post = existingPost) {
+	return { status: "live", post } as const
+}
+
+function scheduled(title: string, datetime: string) {
+	return { status: "scheduled", scheduled: { title, datetime } } as const
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 })
@@ -41,21 +46,19 @@ describe("GET /api/blog/:section/:slug/md", () => {
 	it("returns 404 for an invalid section without hitting the DB", async () => {
 		const response = await GET(...makeArgs("garbage", "hello-world"))
 		expect(response.status).toBe(404)
-		expect(loadPost).not.toHaveBeenCalled()
+		expect(loadPostResolution).not.toHaveBeenCalled()
 	})
 
 	it("returns 404 when the post does not exist", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		const response = await GET(...makeArgs("tech", "missing"))
 		expect(response.status).toBe(404)
 	})
 
 	it("returns a 200 noindex stub for a scheduled post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
-		vi.mocked(loadScheduledPost).mockResolvedValue({
-			title: "Hello World",
-			datetime: "2999-01-01-0900",
-		})
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello World", "2999-01-01-0900")
+		)
 
 		const response = await GET(...makeArgs("tech", "hello-world"))
 
@@ -68,8 +71,41 @@ describe("GET /api/blog/:section/:slug/md", () => {
 		expect(text).toContain("Jan 1, 2999")
 	})
 
+	it("marks the scheduled stub as such in frontmatter, not just in prose", async () => {
+		// Without frontmatter the stub is indistinguishable from a malformed
+		// export to anything parsing this route's documented shape, and
+		// `X-Robots-Tag` only reaches search crawlers — an agent fetching the URL
+		// sees the body alone.
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello World", "2999-01-01-0900")
+		)
+
+		const text = await (await GET(...makeArgs("tech", "hello-world"))).text()
+
+		expect(text).toContain('title: "Hello World"')
+		expect(text).toContain("slug: hello-world")
+		expect(text).toContain("section: tech")
+		expect(text).toContain("scheduled: true")
+		// `date:` carries the FUTURE publish date, the same thing the key means
+		// on a live export — so a consumer reads one key, not two.
+		expect(text).toContain("date: 2999-01-01T")
+		expect(text).toContain(
+			"canonical: https://roland.leth.ro/blog/tech/hello-world"
+		)
+	})
+
+	it("escapes a quote in a scheduled title so the stub's YAML stays valid", async () => {
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled('The "good" parts', "2999-01-01-0900")
+		)
+
+		const text = await (await GET(...makeArgs("tech", "good-parts"))).text()
+
+		expect(text).toContain('title: "The \\"good\\" parts"')
+	})
+
 	it("returns 200 markdown with the frontmatter + body for a valid post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const response = await GET(...makeArgs("tech", "hello-world"))
 
 		expect(response.status).toBe(200)
@@ -87,8 +123,8 @@ describe("GET /api/blog/:section/:slug/md", () => {
 		// A hand-set `s-maxage` lands on the CDN copy, where `revalidateTag` can't
 		// reach it — an edited post would serve stale markdown until the window
 		// expired. Freshness is the route cache's job now, via the tags
-		// `getPostBySlug` puts on the entry.
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		// `fetchPostRow` puts on the entry.
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const response = await GET(...makeArgs("tech", "hello-world"))
 		expect(response.headers.get("Cache-Control")).toBeNull()
 	})

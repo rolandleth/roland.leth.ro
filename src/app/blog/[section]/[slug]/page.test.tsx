@@ -1,12 +1,11 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { loadPost, loadScheduledPost } from "@/lib/db/posts"
+import { loadPostResolution } from "@/lib/db/posts"
 import PostPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/posts", () => ({
 	getAllPublishedPostSlugs: vi.fn().mockResolvedValue([]),
-	loadPost: vi.fn(),
-	loadScheduledPost: vi.fn(),
+	loadPostResolution: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -49,6 +48,18 @@ const existingPost = {
 	updatedAt: new Date(),
 }
 
+// `loadPostResolution` outcomes, so each test names the branch it exercises
+// instead of assembling a discriminated union inline.
+const MISSING = { status: "missing" } as const
+
+function live(post: typeof existingPost = existingPost) {
+	return { status: "live", post } as const
+}
+
+function scheduled(title: string, datetime: string) {
+	return { status: "scheduled", scheduled: { title, datetime } } as const
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 })
@@ -61,14 +72,14 @@ describe("PostPage", () => {
 	})
 
 	it("calls notFound when the post does not exist", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		await expect(PostPage(paramsFor("tech", "missing"))).rejects.toThrow(
 			"NOT_FOUND"
 		)
 	})
 
 	it("308-redirects a renamed legacy slug to its canonical form", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		await expect(
 			PostPage(paramsFor("tech", "final-version--for-now-"))
 		).rejects.toThrow("REDIRECT:/blog/tech/final-version-for-now")
@@ -77,18 +88,16 @@ describe("PostPage", () => {
 	it("does not redirect an alias hit whose section differs from the URL", async () => {
 		// `final-version--for-now-` is a tech alias; requested under life it must
 		// 404, not cross-redirect into tech.
-		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		await expect(
 			PostPage(paramsFor("life", "final-version--for-now-"))
 		).rejects.toThrow("NOT_FOUND")
 	})
 
 	it("renders the scheduled notice with a title tease for a future-dated post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
-		vi.mocked(loadScheduledPost).mockResolvedValue({
-			title: "Hello",
-			datetime: "2999-01-01-0900",
-		})
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
 
 		const { container } = render(await PostPage(paramsFor("tech", "hello")))
 
@@ -98,13 +107,11 @@ describe("PostPage", () => {
 	})
 
 	it("still 308-redirects an aliased slug even when its post is scheduled", async () => {
-		// Alias check runs before the scheduled check, so the notice renders on
+		// Alias check runs before the scheduled branch, so the notice renders on
 		// the canonical URL, never the dirty legacy one.
-		vi.mocked(loadPost).mockResolvedValue(null)
-		vi.mocked(loadScheduledPost).mockResolvedValue({
-			title: "Hello",
-			datetime: "2999-01-01-0900",
-		})
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
 
 		await expect(
 			PostPage(paramsFor("tech", "final-version--for-now-"))
@@ -112,13 +119,13 @@ describe("PostPage", () => {
 	})
 
 	it("renders when both section and post are valid", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const result = await PostPage(paramsFor("tech", "hello"))
 		expect(result).toBeDefined()
 	})
 
 	it("emits BlogPosting JSON-LD for the post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 
 		const { container } = render(await PostPage(paramsFor("tech", "hello")))
 		const script = container.querySelector('script[type="application/ld+json"]')
@@ -130,10 +137,12 @@ describe("PostPage", () => {
 	})
 
 	it("escapes a `</script>` payload in the title so it can't break out of the JSON-LD block", async () => {
-		vi.mocked(loadPost).mockResolvedValue({
-			...existingPost,
-			title: "Pwn</script><img src=x onerror=alert(1)>",
-		})
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			live({
+				...existingPost,
+				title: "Pwn</script><img src=x onerror=alert(1)>",
+			})
+		)
 
 		const { container } = render(await PostPage(paramsFor("tech", "hello")))
 		const script = container.querySelector('script[type="application/ld+json"]')
@@ -156,27 +165,52 @@ describe("generateMetadata", () => {
 	})
 
 	it("returns empty metadata when the post does not exist", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
+		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		const result = await generateMetadata(paramsFor("tech", "missing"))
 		expect(result).toEqual({})
 	})
 
-	it("returns noindex title-only metadata for a scheduled post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(null)
-		vi.mocked(loadScheduledPost).mockResolvedValue({
-			title: "Hello",
-			datetime: "2999-01-01-0900",
-		})
+	it("returns noindex, title-only metadata for a scheduled post", async () => {
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
 
 		const result = await generateMetadata(paramsFor("tech", "hello"))
 
 		expect(result.title).toBe("Hello")
 		expect(result.robots).toEqual({ index: false })
-		expect(result.openGraph).toBeUndefined()
+		// The tease is title-only: no summary exists to describe, and inventing
+		// one would leak more than the notice shows.
+		expect(result.description).toBeUndefined()
+	})
+
+	it("advertises the post's OWN section feed on a scheduled life post", async () => {
+		// Regression guard: a hand-rolled `{ title, robots }` emits no
+		// `alternates`, so the page silently inherits the root layout's tech-feed
+		// default and contradicts the feed link the notice itself renders.
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
+
+		const result = await generateMetadata(paramsFor("life", "hello"))
+
+		expect(result.alternates?.types?.["application/atom+xml"]).toEqual([
+			{ url: "/blog/life/feed.xml", title: "Roland Leth — Life blog" },
+		])
+	})
+
+	it("omits the .md alternate for a scheduled post, whose .md twin is a stub", async () => {
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
+
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+
+		expect(result.alternates?.types?.["text/markdown"]).toBeUndefined()
 	})
 
 	it("returns title + article metadata for a valid post", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const result = await generateMetadata(paramsFor("tech", "hello"))
 		expect(result.title).toBe("Hello")
 		// `Metadata.openGraph` is a discriminated union; cast to read the
@@ -186,7 +220,7 @@ describe("generateMetadata", () => {
 	})
 
 	it("advertises the .md alternate so crawlers can discover the raw markdown", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const result = await generateMetadata(paramsFor("tech", "hello"))
 		expect(result.alternates?.types?.["text/markdown"]).toBe(
 			"/blog/tech/hello.md"
@@ -194,7 +228,7 @@ describe("generateMetadata", () => {
 	})
 
 	it("advertises the section's feed (titled) for autodiscovery from a post page", async () => {
-		vi.mocked(loadPost).mockResolvedValue(existingPost)
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
 		const result = await generateMetadata(paramsFor("tech", "hello"))
 		expect(result.alternates?.types?.["application/atom+xml"]).toEqual([
 			{ url: "/blog/tech/feed.xml", title: "Roland Leth — Tech blog" },

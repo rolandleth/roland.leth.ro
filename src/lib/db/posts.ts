@@ -4,7 +4,11 @@ import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { SECTIONS, type Section } from "@/lib/db/sections"
-import { currentDatetimeString, yearFromDatetime } from "@/lib/utils/format"
+import {
+	currentDatetimeString,
+	isFutureDatetime,
+	yearFromDatetime,
+} from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
 // "Is this post live yet?" is answered in two places in this file, and the split
@@ -287,10 +291,10 @@ const postBySlugWrappers =
 	createBoundedWrapperCache<() => Promise<PostDetail>>()
 
 /**
- * The cached row read shared by `getPostBySlug` and `getScheduledPost`: the
- * published row regardless of `datetime`, or `null`. The visibility verdict
- * stays with the callers, so the row is cached once while scheduled and each
- * caller recomputes only its own clock comparison.
+ * The cached row behind `resolvePost`: the published row regardless of
+ * `datetime`, or `null`. The visibility verdict stays with `resolvePost`, so the
+ * row is cached once while the post is scheduled and only the clock comparison
+ * is recomputed.
  */
 function fetchPostRow(
 	section: Section,
@@ -302,7 +306,7 @@ function fetchPostRow(
 		// `findFirst` (not `findUnique`) so `published: true` can be enforced at
 		// the query boundary; otherwise the canonical post URL would serve drafts.
 		// The `datetime <= now` check is intentionally NOT here — it's applied to
-		// the cached row by the callers, so the row stays cached while the post is
+		// the cached row by `resolvePost`, so the row stays cached while the post is
 		// still scheduled and only the visibility verdict is recomputed. That
 		// verdict is recomputed on regeneration, not per request: the detail route
 		// is prerendered, which is the whole reason `revalidatePostDetails` exists.
@@ -327,29 +331,6 @@ function fetchPostRow(
 	)
 }
 
-export async function getPostBySlug(
-	section: Section,
-	slug: string
-): Promise<PostDetail | null> {
-	const post = await fetchPostRow(section, slug)
-
-	if (!post) {
-		return null
-	}
-
-	const now = currentDatetimeString()
-
-	return post.datetime <= now ? post : null
-}
-
-/**
- * Request-scoped dedupe around `getPostBySlug` so multiple callers in a single
- * render pass (e.g. `generateMetadata` + the page body) share one DB hit.
- */
-export const loadPost = cache(async (section: Section, slug: string) =>
-	getPostBySlug(section, slug)
-)
-
 /** The teaser subset a scheduled post's URL is allowed to show before it's live. */
 export interface ScheduledPost {
 	title: string
@@ -357,38 +338,73 @@ export interface ScheduledPost {
 }
 
 /**
- * The scheduled counterpart to `getPostBySlug`: `{ title, datetime }` when the
- * row exists, is published, and is still future-dated — `null` for a missing
- * row or one already live. Reads the same cached row as `getPostBySlug`, so
- * the two can never disagree about the row and no second cache entry or tag
- * set exists. The detail routes use it to render a scheduled notice instead of
- * pinning a 404 (see `revalidatePostDetails` for what that pinned); the same
- * cron bust that healed the 404 regenerates the notice into the live page.
+ * What a post URL resolves to once the clock is applied: the full row, the
+ * teaser a scheduled post may show, or nothing.
  */
-export async function getScheduledPost(
+export type PostResolution =
+	| { status: "live"; post: PostDetail }
+	| { status: "scheduled"; scheduled: ScheduledPost }
+	| { status: "missing" }
+
+/**
+ * Resolves a post URL against ONE reading of the clock.
+ *
+ * The single reading is the point, not an optimization. Asking "is it live?"
+ * and "is it scheduled?" as two calls means two `currentDatetimeString()`
+ * reads, and a post crossing its `datetime` in the gap between them answers no
+ * to both: the caller falls through to a 404 and — because the detail routes
+ * are prerendered — pins it, at the exact moment the post went live. That is
+ * the defect the scheduled notice exists to remove, so the resolver refuses to
+ * reintroduce it in a one-minute window. Deciding once also keeps
+ * `generateMetadata` and the page body from reaching different verdicts in the
+ * same render.
+ *
+ * `isFutureDatetime` carries the comparison (rather than an inline `>`), so
+ * "live" and "scheduled" stay exact complements by construction and share the
+ * lexicographic-compare invariant that helper documents.
+ */
+async function resolvePost(
 	section: Section,
 	slug: string
-): Promise<ScheduledPost | null> {
+): Promise<PostResolution> {
 	const post = await fetchPostRow(section, slug)
 
 	if (!post) {
-		return null
+		return { status: "missing" }
 	}
 
-	const now = currentDatetimeString()
+	if (isFutureDatetime(post.datetime, currentDatetimeString())) {
+		return {
+			status: "scheduled",
+			scheduled: { title: post.title, datetime: post.datetime },
+		}
+	}
 
-	return post.datetime > now
-		? { title: post.title, datetime: post.datetime }
-		: null
+	return { status: "live", post }
 }
 
 /**
- * Request-scoped dedupe around `getScheduledPost`, mirroring `loadPost` for
- * the same `generateMetadata` + page-body pair on the scheduled branch.
+ * Request-scoped dedupe around `resolvePost` so `generateMetadata` and the page
+ * body of one render share a single DB hit and a single verdict. The detail
+ * routes read this rather than `getPostBySlug`, because they need to tell
+ * "scheduled" apart from "missing" — see `revalidatePostDetails` for the pinned
+ * 404 that distinction removes.
  */
-export const loadScheduledPost = cache(async (section: Section, slug: string) =>
-	getScheduledPost(section, slug)
-)
+export const loadPostResolution = cache(resolvePost)
+
+/**
+ * The published, already-live row for a slug, or `null` for anything else
+ * (missing, draft, or still scheduled). The narrow accessor for callers that
+ * have no scheduled branch to render.
+ */
+export async function getPostBySlug(
+	section: Section,
+	slug: string
+): Promise<PostDetail | null> {
+	const resolved = await resolvePost(section, slug)
+
+	return resolved.status === "live" ? resolved.post : null
+}
 
 /**
  * Request-scoped dedupe for the admin edit page, where `generateMetadata` and
