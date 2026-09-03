@@ -16,10 +16,13 @@ interface Props {
 // Load-bearing, not a precaution. This route reads no cookie and no request
 // header, so without the flag a dynamic-param route with no
 // `generateStaticParams` renders once and is then served from the full route
-// cache — freezing both halves of what this page decides per request: the body
-// (stale the moment the post is edited) and the live-yet verdict below (which
-// would keep serving the preview long after the post went live, instead of
-// redirecting to it).
+// cache, freezing the live-yet verdict below: the preview would keep serving
+// long after the post went live instead of redirecting to it.
+//
+// The body is NOT what the flag buys. It comes from `fetchPostRow`'s cache
+// entry, tagged `postTag(section, slug)`, and saving a post busts that tag —
+// so an edit reaches this route either way. The verdict is the half with no
+// tag to bust, because nothing mutates when a post's `datetime` simply passes.
 export const dynamic = "force-dynamic"
 
 /**
@@ -90,6 +93,17 @@ export default async function OverridePreviewPage({ params }: Props) {
 	if (resolved.status === "live") {
 		redirect(`/blog/${section}/${slug}`)
 	}
+
+	// The only trace this URL leaves. Access control here is the URL itself, so
+	// nothing else separates a preview link Roland sent from a probe that guessed
+	// the suffix — without this line, "has anyone else found it?" has no answer
+	// to grep for. Deliberately not `auditLog`: that tag enum is for admin
+	// writes, and this is an anonymous public read.
+	// eslint-disable-next-line no-console
+	console.info("[blog:override-preview] scheduled body served", {
+		section,
+		slug,
+	})
 
 	const { post } = resolved
 	const readingTime = post.readingTime ?? calculateReadingTime(post.body)

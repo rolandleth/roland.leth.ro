@@ -590,10 +590,10 @@ describe("loadPostRowResolution", () => {
 	})
 
 	it("keeps drafts invisible via the same `published: true` boundary", async () => {
-		// The session gate is not the only thing standing between a preview URL
-		// and a draft: the query boundary excludes unpublished rows before the
-		// datetime comparison runs, so overriding the schedule can't also
-		// override the draft flag.
+		// The preview route is public, so this query boundary is the whole of
+		// what stands between a guessed URL and a draft: it excludes unpublished
+		// rows before the datetime comparison runs, so overriding the schedule
+		// can't also override the draft flag.
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
 		await loadPostRowResolution("life", "some-slug")

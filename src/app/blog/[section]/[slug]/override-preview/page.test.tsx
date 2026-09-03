@@ -1,10 +1,24 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { verifySession } from "@/lib/auth/auth"
+import { requireAdminPageSession } from "@/lib/auth/middlewareBypass"
 import { loadPostRowResolution } from "@/lib/db/posts"
-import OverridePreviewPage, { generateMetadata } from "./page"
+import OverridePreviewPage, { dynamic, generateMetadata } from "./page"
 
 vi.mock("@/lib/db/posts", () => ({
 	loadPostRowResolution: vi.fn(),
+}))
+
+// Neither module is imported by the route, and mocking them anyway is the
+// point: it turns "this route has no auth gate" from something that happens to
+// be true into something a test can watch. Add a session call to the page and
+// these spies start registering it.
+vi.mock("@/lib/auth/auth", () => ({
+	verifySession: vi.fn(),
+}))
+
+vi.mock("@/lib/auth/middlewareBypass", () => ({
+	requireAdminPageSession: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
@@ -51,6 +65,24 @@ function live(post: typeof existingPost = existingPost) {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	// The hostile default: a session gate added here would SUCCEED and render
+	// normally, so nothing incidental fails. That leaves the explicit
+	// not-called assertions as the only thing standing between a future auth
+	// check and a green suite.
+	vi.mocked(verifySession).mockResolvedValue(true)
+	vi.mocked(requireAdminPageSession).mockResolvedValue(undefined)
+	vi.spyOn(console, "info").mockImplementation(() => {})
+})
+
+describe("route config", () => {
+	it("stays force-dynamic, which is what makes the live redirect reachable", () => {
+		// Not decoration. This route reads no cookie and no header, so without
+		// the flag Next serves it from the full route cache after one render and
+		// the live-yet verdict freezes — the preview would keep serving a post
+		// that has since gone live instead of redirecting to it. Nothing else
+		// opts the route out, and no tag busts when a `datetime` merely passes.
+		expect(dynamic).toBe("force-dynamic")
+	})
 })
 
 describe("OverridePreviewPage", () => {
@@ -63,7 +95,9 @@ describe("OverridePreviewPage", () => {
 	it("serves the body with no session, which is the point of the URL", async () => {
 		// The route is public by decision, not by oversight: the URL itself is
 		// the override, so a preview link works for someone with no account.
-		// Anything that reintroduces an auth check fails here.
+		// Anything that reintroduces an auth check fails here — the spies, not
+		// the render, are what enforce that, since a working gate would render
+		// the body just fine.
 		vi.mocked(loadPostRowResolution).mockResolvedValue(scheduled())
 
 		const { container } = render(
@@ -71,6 +105,50 @@ describe("OverridePreviewPage", () => {
 		)
 
 		expect(container.textContent).toContain("Body content.")
+		expect(verifySession).not.toHaveBeenCalled()
+		expect(requireAdminPageSession).not.toHaveBeenCalled()
+	})
+
+	it("consults no session on the way to a 404 either", async () => {
+		// The missing-post path is the one an enumerator hits, and it must stay
+		// as anonymous as the success path — an auth check there would turn a
+		// probe into a login redirect and change what the URL tells a guesser.
+		vi.mocked(loadPostRowResolution).mockResolvedValue(MISSING)
+
+		await expect(
+			OverridePreviewPage(paramsFor("tech", "missing"))
+		).rejects.toThrow("NOT_FOUND")
+
+		expect(verifySession).not.toHaveBeenCalled()
+		expect(requireAdminPageSession).not.toHaveBeenCalled()
+	})
+
+	it("logs the section and slug whenever it serves a scheduled body", async () => {
+		// The route's only trace. Access control is the URL, so this line is the
+		// whole of what answers "did anyone other than me open it?" — see the
+		// watch-out in `dev-journal/2026-09-03.md`.
+		vi.mocked(loadPostRowResolution).mockResolvedValue(scheduled())
+
+		render(await OverridePreviewPage(paramsFor("tech", "hello")))
+
+		expect(console.info).toHaveBeenCalledWith(
+			"[blog:override-preview] scheduled body served",
+			{ section: "tech", slug: "hello" }
+		)
+	})
+
+	it("logs nothing when it redirects a post that has gone live", async () => {
+		// A redirect discloses no body, so it isn't the event worth watching;
+		// logging it would bury the one that is under bot traffic.
+		vi.mocked(loadPostRowResolution).mockResolvedValue(
+			live({ ...existingPost, datetime: "2024-06-01-1200" })
+		)
+
+		await expect(
+			OverridePreviewPage(paramsFor("tech", "hello"))
+		).rejects.toThrow("REDIRECT:")
+
+		expect(console.info).not.toHaveBeenCalled()
 	})
 
 	it("calls notFound when the post does not exist", async () => {
