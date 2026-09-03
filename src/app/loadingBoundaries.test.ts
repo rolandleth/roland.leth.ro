@@ -41,6 +41,10 @@ const APP_DIR = join(process.cwd(), "src", "app")
  */
 const ROUTES_REQUIRING_REAL_404 = [
 	"blog/[section]/[slug]",
+	// Both halves of the note above apply here: it 404s an unknown slug, and it
+	// carries two `redirect()`s (to the login page, and to a post that has since
+	// gone live) that a flushed shell would degrade into client-side ones.
+	"blog/[section]/[slug]/override-preview",
 	"blog/[section]/p/[page]",
 	"projects/[slug]",
 	"guides/[slug]",

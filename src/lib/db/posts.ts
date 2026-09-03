@@ -347,6 +347,20 @@ export type PostResolution =
 	| { status: "missing" }
 
 /**
+ * The same verdict as `PostResolution`, carrying the full row on BOTH branches.
+ *
+ * Only the override-preview route reads this shape. That route is public, so
+ * the narrowing `PostResolution` performs is not what keeps a scheduled body
+ * private — the URL is. What the narrowing still buys is that no *cached*
+ * surface can carry the body: every prerendered page takes `PostResolution`,
+ * where the scheduled branch has no body to leak.
+ */
+export type PostRowResolution =
+	| { status: "live"; post: PostDetail }
+	| { status: "scheduled"; post: PostDetail }
+	| { status: "missing" }
+
+/**
  * Resolves a post URL against ONE reading of the clock.
  *
  * The single reading is the point, not an optimization. Asking "is it live?"
@@ -363,10 +377,10 @@ export type PostResolution =
  * "live" and "scheduled" stay exact complements by construction and share the
  * lexicographic-compare invariant that helper documents.
  */
-async function resolvePost(
+async function resolvePostRow(
 	section: Section,
 	slug: string
-): Promise<PostResolution> {
+): Promise<PostRowResolution> {
 	const post = await fetchPostRow(section, slug)
 
 	if (!post) {
@@ -374,13 +388,39 @@ async function resolvePost(
 	}
 
 	if (isFutureDatetime(post.datetime, currentDatetimeString())) {
-		return {
-			status: "scheduled",
-			scheduled: { title: post.title, datetime: post.datetime },
-		}
+		return { status: "scheduled", post }
 	}
 
 	return { status: "live", post }
+}
+
+/**
+ * `resolvePostRow` with the scheduled branch narrowed to its teaser — title and
+ * date, never the body.
+ *
+ * The narrowing is a safety property, not a convenience: the post page renders
+ * from a prerendered, publicly cached page, so whatever this branch returns is
+ * readable by anyone holding the URL. Keeping it a separate type means a future
+ * caller can't widen the teaser by reaching for a field that happens to be
+ * there.
+ */
+async function resolvePost(
+	section: Section,
+	slug: string
+): Promise<PostResolution> {
+	const resolved = await resolvePostRow(section, slug)
+
+	if (resolved.status !== "scheduled") {
+		return resolved
+	}
+
+	return {
+		status: "scheduled",
+		scheduled: {
+			title: resolved.post.title,
+			datetime: resolved.post.datetime,
+		},
+	}
 }
 
 /**
@@ -391,6 +431,18 @@ async function resolvePost(
  * 404 that distinction removes.
  */
 export const loadPostResolution = cache(resolvePost)
+
+/**
+ * The same dedupe around the un-narrowed verdict, for the override-preview
+ * route — the one surface that renders a scheduled post's body, and the only
+ * caller allowed to read this.
+ *
+ * That route is `force-dynamic`, so this verdict is recomputed per request
+ * rather than frozen at generation time. It has to be: the route redirects to
+ * the canonical post once the post is live, and a cached verdict would keep
+ * serving the preview instead.
+ */
+export const loadPostRowResolution = cache(resolvePostRow)
 
 /**
  * The published, already-live row for a slug, or `null` for anything else

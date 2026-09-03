@@ -13,6 +13,7 @@ import {
 	listPostsForAdmin,
 	loadPostForAdmin,
 	loadPostResolution,
+	loadPostRowResolution,
 	revalidatePostDetails,
 	revalidatePostSection,
 	searchPosts,
@@ -532,6 +533,76 @@ describe("loadPostResolution", () => {
 
 			expect(result.status).toBe("scheduled")
 		})
+	})
+})
+
+// #endregion
+
+// #region loadPostRowResolution
+
+describe("loadPostRowResolution", () => {
+	const scheduledDetail = {
+		id: 1,
+		title: "My Post",
+		slug: "my-post",
+		section: "tech" as const,
+		datetime: "9999-12-31-2359",
+		body: "Body content.",
+		summary: "A short summary.",
+		imageUrl: null,
+		readingTime: null,
+	}
+
+	it("carries the body on the scheduled branch, which the teaser withholds", async () => {
+		// The whole reason the override-preview route reads this accessor rather
+		// than `loadPostResolution`.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(
+			scheduledDetail as unknown as Post
+		)
+
+		const result = await loadPostRowResolution("tech", "my-post")
+
+		expect(result).toEqual({ status: "scheduled", post: scheduledDetail })
+	})
+
+	it("reaches the same live/scheduled verdict as the narrowed resolver", async () => {
+		// The two share one clock read by construction; this pins that they stay
+		// the same function, so a preview can't disagree with the public page
+		// about whether a post is out.
+		const live = { ...scheduledDetail, datetime: "2024-06-01-1200" }
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(live as unknown as Post)
+
+		const [narrowed, row] = await Promise.all([
+			loadPostResolution("tech", "my-post"),
+			loadPostRowResolution("tech", "my-post"),
+		])
+
+		expect(row.status).toBe(narrowed.status)
+		expect(row).toEqual({ status: "live", post: live })
+	})
+
+	it("resolves a row that does not exist as missing", async () => {
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+
+		const result = await loadPostRowResolution("tech", "missing-post")
+
+		expect(result).toEqual({ status: "missing" })
+	})
+
+	it("keeps drafts invisible via the same `published: true` boundary", async () => {
+		// The session gate is not the only thing standing between a preview URL
+		// and a draft: the query boundary excludes unpublished rows before the
+		// datetime comparison runs, so overriding the schedule can't also
+		// override the draft flag.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+
+		await loadPostRowResolution("life", "some-slug")
+
+		const call = vi.mocked(prisma.post.findFirst).mock.calls[0][0] as {
+			where: Record<string, unknown>
+		}
+
+		expect(call.where.published).toBe(true)
 	})
 })
 
