@@ -23,7 +23,7 @@ export default async function PostCard({ post }: Props) {
 
 	return (
 		<article className="py-8">
-			<h2 className="text-primary mb-2 text-2xl font-semibold">
+			<h2 className="text-primary mb-2 text-2xl font-semibold text-pretty">
 				<Link href={href} className="hover:text-accent">
 					{post.title}
 				</Link>

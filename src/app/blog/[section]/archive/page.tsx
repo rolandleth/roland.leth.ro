@@ -67,7 +67,7 @@ export default async function ArchivePage({ params }: Props) {
 				<div className="space-y-10">
 					{years.map((year) => (
 						<section key={year}>
-							<h2 className="border-border mb-3 border-l-2 pl-3 text-xl font-semibold">
+							<h2 className="border-border mb-3 border-l-2 pl-3 text-xl font-semibold text-pretty">
 								{year}
 							</h2>
 

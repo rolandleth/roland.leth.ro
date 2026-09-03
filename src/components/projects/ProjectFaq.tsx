@@ -50,7 +50,7 @@ export default function ProjectFaq({ faqs, renderedAnswers, accent }: Props) {
 		>
 			<h2
 				id="faq-heading"
-				className="mb-4 text-xl font-semibold"
+				className="mb-4 text-xl font-semibold text-pretty"
 				style={{ color: accent }}
 			>
 				FAQ
