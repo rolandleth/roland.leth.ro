@@ -22,7 +22,7 @@ export default function PostContent({
 		<ProseShell
 			header={
 				<>
-					<h1 className="mb-3 text-4xl font-bold">{title}</h1>
+					<h1 className="mb-3 text-4xl font-bold text-pretty">{title}</h1>
 					<div className="text-secondary flex gap-4 text-sm">
 						<time dateTime={postDatetimeToISO(datetime)}>{formattedDate}</time>
 						{readingTime && <span>{readingTime}</span>}

@@ -36,7 +36,7 @@ export default function GuideContent({
 						</Link>
 					)}
 
-					<h1 className="mb-3 text-4xl font-bold">{title}</h1>
+					<h1 className="mb-3 text-4xl font-bold text-pretty">{title}</h1>
 
 					<div className="text-secondary flex gap-4 text-sm">
 						{/* "Updated", never the publish date: these are maintained pages,

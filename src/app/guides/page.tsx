@@ -32,7 +32,7 @@ export default async function GuidesPage() {
 			<PageGlow />
 
 			<div className="mx-auto w-full max-w-3xl px-4 py-12">
-				<h1 className="mb-3 text-4xl font-bold">Guides</h1>
+				<h1 className="mb-3 text-4xl font-bold text-pretty">Guides</h1>
 				<p className="text-secondary mb-10">{DESCRIPTION}</p>
 
 				{items.length === 0 ? (
