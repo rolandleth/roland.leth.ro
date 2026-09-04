@@ -59,7 +59,7 @@ export default async function ArchivePage({ params }: Props) {
 
 	return (
 		<div className="mx-auto max-w-4xl px-4 py-12">
-			<h1 className="mb-8 text-3xl font-bold text-pretty">Archive</h1>
+			<h1 className="mb-8 text-3xl font-bold">Archive</h1>
 
 			{years.length === 0 ? (
 				<p className="text-(--color-secondary)">No posts yet.</p>
@@ -67,7 +67,7 @@ export default async function ArchivePage({ params }: Props) {
 				<div className="space-y-10">
 					{years.map((year) => (
 						<section key={year}>
-							<h2 className="border-border mb-3 border-l-2 pl-3 text-xl font-semibold text-pretty">
+							<h2 className="border-border mb-3 border-l-2 pl-3 text-xl font-semibold">
 								{year}
 							</h2>
 

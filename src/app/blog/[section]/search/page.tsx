@@ -70,7 +70,7 @@ export default async function SearchPage({ params, searchParams }: Props) {
 										href={`/blog/${post.section}/${post.slug}`}
 										className="group block"
 									>
-										<h2 className="font-medium transition-colors duration-300 group-hover:text-(--color-accent)">
+										<h2 className="font-medium text-pretty transition-colors duration-300 group-hover:text-(--color-accent)">
 											{post.title}
 										</h2>
 

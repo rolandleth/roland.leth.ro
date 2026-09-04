@@ -386,7 +386,7 @@ export default function ProjectContent({
 
 								{sections.length === 1 && (
 									<h2
-										className="mb-4 text-xl font-semibold"
+										className="mb-4 text-xl font-semibold text-pretty"
 										style={{ color: accent }}
 									>
 										{activeSection.title}

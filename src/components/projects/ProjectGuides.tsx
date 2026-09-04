@@ -28,7 +28,7 @@ export default function ProjectGuides({ items, accent }: Props) {
 		>
 			<h2
 				id="guides-heading"
-				className="mb-4 text-xl font-semibold text-pretty"
+				className="mb-4 text-xl font-semibold"
 				style={{ color: accent }}
 			>
 				Guides

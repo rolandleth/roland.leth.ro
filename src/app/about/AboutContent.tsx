@@ -214,7 +214,9 @@ export default function AboutContent() {
 						as="section"
 						delay={SECTION_BASE_DELAY + (i + 1) * SECTION_STAGGER}
 					>
-						<h2 className="mb-3 text-xl font-semibold">{section.heading}</h2>
+						<h2 className="mb-3 text-xl font-semibold text-pretty">
+							{section.heading}
+						</h2>
 
 						<div className="space-y-4">
 							{section.paragraphs.map((paragraph, j) => (
