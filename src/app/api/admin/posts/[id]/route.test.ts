@@ -131,17 +131,32 @@ describe("PUT /api/admin/posts/[id]", () => {
 		expect(data.title).toBe("Updated Title")
 	})
 
-	it("regenerates the slug when title changes", async () => {
+	it("never writes the slug, even when the title changes", async () => {
+		// The slug is the post's permanent public identity. A title edit used to
+		// re-derive it, which moved the URL of an already-indexed post; the
+		// importer's `slug:` frontmatter has always been the source of truth and
+		// this route now agrees with it.
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 		await PUT(putRequest("1", { title: "Brand New Title" }), params("1"))
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.slug).toBe("brand-new-title")
+		expect(data.slug).toBeUndefined()
+		expect(data.title).toBe("Brand New Title")
 	})
 
 	it("does not include slug in update when title is not changed", async () => {
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 		await PUT(putRequest("1", { published: false }), params("1"))
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.slug).toBeUndefined()
+	})
+
+	it("ignores a slug sent in the payload", async () => {
+		// `postUpdateSchema` has no `slug` key and Zod strips unknown ones, so a
+		// client can't reach the column that way either.
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+		await PUT(putRequest("1", { slug: "client-chosen-slug" }), params("1"))
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
 		expect(data.slug).toBeUndefined()
@@ -263,26 +278,17 @@ describe("PUT /api/admin/posts/[id]", () => {
 		)
 	})
 
-	it("audits previousSlug when a title rename changes the slug", async () => {
-		// A title edit derives a new slug via `createSlug(title)`; the audit line
-		// must show the prior slug so a rename is distinguishable from an in-place
-		// edit in logs.
-		vi.mocked(prisma.post.findUnique).mockResolvedValue({
-			...existingPost,
-			slug: "old-slug",
-		})
-		vi.mocked(prisma.post.update).mockResolvedValue({
-			...existingPost,
-			slug: "new-slug",
-		})
+	it("audits previousSlug as null on a title edit, since the slug is frozen", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 
 		await PUT(putRequest("1", { title: "Brand new title" }), params("1"))
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:posts:PUT] success",
 			expect.objectContaining({
-				slug: "new-slug",
-				previousSlug: "old-slug",
+				slug: existingPost.slug,
+				previousSlug: null,
 			})
 		)
 	})

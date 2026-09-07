@@ -12,7 +12,7 @@ import { postUpdateSchema } from "@/lib/api/schemas"
 import { deriveSummary } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { revalidatePost } from "@/lib/db/posts"
-import { calculateReadingTime, createSlug } from "@/lib/utils/format"
+import { calculateReadingTime } from "@/lib/utils/format"
 
 export async function GET(
 	_request: Request,
@@ -76,21 +76,26 @@ export async function PUT(
 	const { title, body: postBody, summary, ...rest } = parsed
 	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
 	// so the validated payload flows straight in. `title`/`body`/`summary` are
-	// folded back with their derived columns (`slug`, `readingTime`, auto-derived
+	// folded back with their derived columns (`readingTime`, auto-derived
 	// summary) only when they were set or when the rules below require a re-derive.
 	// Matches the shape in `src/app/api/admin/projects/[id]/route.ts`.
 	type PostUpdatePayload = typeof rest & {
 		title?: string
-		slug?: string
 		body?: string
 		summary?: string
 		readingTime?: string
 	}
 	const data: PostUpdatePayload = { ...rest }
 
+	// The slug is deliberately NOT re-derived from the title. It's the post's
+	// permanent public identity: derived from the title once at creation, then
+	// frozen. A title edit used to move it, which silently moved the URL of an
+	// indexed post — the exact failure `postImport.ts` avoids by treating the
+	// file's `slug:` frontmatter as the source of truth. The two write paths now
+	// agree. `postUpdateSchema` carries no `slug` key either, so nothing here can
+	// write the column.
 	if (title != null) {
 		data.title = title
-		data.slug = createSlug(title)
 	}
 
 	if (postBody != null) {
@@ -161,25 +166,23 @@ export async function PUT(
 
 		revalidatePost(post.section, post.slug)
 
-		// A slug rename OR a cross-section move leaves the old detail page cached
-		// under its previous tag; bust that one too so it 404s/redirects.
-		if (
-			previous != null &&
-			(previous.section !== post.section || previous.slug !== post.slug)
-		) {
+		// A cross-section move leaves the old detail page cached under its previous
+		// tag; bust that one too so it 404s. Section is the only half of the tag
+		// this route can still change — the slug is frozen above.
+		if (previous != null && previous.section !== post.section) {
 			revalidatePost(previous.section, previous.slug)
 		}
-		// Audit trail. Includes prior section + slug so cross-section moves and
-		// slug renames (driven by a title edit) are visible in logs distinct from
-		// in-place body edits.
+		// Audit trail. Includes the prior section so cross-section moves are
+		// visible in logs distinct from in-place body edits. `previousSlug` is
+		// always null here and kept only to match the shared audit shape: this
+		// route cannot rename a slug.
 		auditLog("[api:admin:posts:PUT]", {
 			id: post.id,
 			slug: post.slug,
 			section: post.section,
 			sortOrder: null,
 			previousSection: previous?.section ?? null,
-			previousSlug:
-				previous != null && previous.slug !== post.slug ? previous.slug : null,
+			previousSlug: null,
 			batchId: null,
 		})
 

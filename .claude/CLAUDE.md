@@ -126,7 +126,7 @@ yarn run db:seed         # Seed database (if needed)
 
 The blog has two sections (`tech` and `life`), stored in a single `posts` table with a `section` field.
 
-Post fields: title, body (markdown), summary, imageUrl, section, slug (derived from title), datetime (original format: `yyyy-MM-dd-HHmm`), readingTime, published (boolean for draft support).
+Post fields: title, body (markdown), summary, imageUrl, section, slug (derived from the title on creation, or read from the file's `slug:` frontmatter on import — then frozen; no write path re-derives it, so a title edit never moves the URL), datetime (original format: `yyyy-MM-dd-HHmm`), readingTime, published (boolean for draft support).
 
 ## Legacy URL handling
 
