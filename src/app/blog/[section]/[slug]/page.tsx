@@ -1,4 +1,4 @@
-import { notFound, permanentRedirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import PostContent from "@/components/blog/PostContent"
 import PostMarkdownContent from "@/components/blog/PostMarkdownContent"
 import ScheduledPostNotice from "@/components/blog/ScheduledPostNotice"
@@ -8,7 +8,6 @@ import { getSiteUrl } from "@/lib/auth/env"
 import { feedLinkForSection } from "@/lib/content/feed"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { buildBlogPostingJsonLd } from "@/lib/content/postJsonLd"
-import { resolveLegacyPostAlias } from "@/lib/db/legacyPostSlugAliases"
 import { getAllPublishedPostSlugs, loadPostResolution } from "@/lib/db/posts"
 import { isValidSection } from "@/lib/db/sections"
 import {
@@ -87,16 +86,6 @@ export default async function PostPage({ params }: Props) {
 	const resolved = await loadPostResolution(section, slug)
 
 	if (resolved.status !== "live") {
-		// A renamed legacy slug 308s to its canonical form before anything renders
-		// on the dirty URL — the scheduled notice included, so the notice is only
-		// ever served from the canonical path. In-memory alias check on the
-		// non-live path only; a live post never reaches it.
-		const alias = resolveLegacyPostAlias(slug)
-
-		if (alias && alias.section === section) {
-			permanentRedirect(`/blog/${alias.section}/${alias.slug}`)
-		}
-
 		// A scheduled post renders a notice instead of pinning a 404; every other
 		// non-live result is a real 404.
 		if (resolved.status === "scheduled") {

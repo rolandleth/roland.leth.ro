@@ -12,9 +12,6 @@ vi.mock("next/navigation", () => ({
 	notFound: vi.fn(() => {
 		throw new Error("NOT_FOUND")
 	}),
-	permanentRedirect: vi.fn((url: string) => {
-		throw new Error(`REDIRECT:${url}`)
-	}),
 }))
 
 vi.mock("@/components/blog/PostContent", () => ({
@@ -78,22 +75,6 @@ describe("PostPage", () => {
 		)
 	})
 
-	it("308-redirects a renamed legacy slug to its canonical form", async () => {
-		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
-		await expect(
-			PostPage(paramsFor("tech", "final-version--for-now-"))
-		).rejects.toThrow("REDIRECT:/blog/tech/final-version-for-now")
-	})
-
-	it("does not redirect an alias hit whose section differs from the URL", async () => {
-		// `final-version--for-now-` is a tech alias; requested under life it must
-		// 404, not cross-redirect into tech.
-		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
-		await expect(
-			PostPage(paramsFor("life", "final-version--for-now-"))
-		).rejects.toThrow("NOT_FOUND")
-	})
-
 	it("renders the scheduled notice with a title tease for a future-dated post", async () => {
 		vi.mocked(loadPostResolution).mockResolvedValue(
 			scheduled("Hello", "2999-01-01-0900")
@@ -104,18 +85,6 @@ describe("PostPage", () => {
 		expect(container.textContent).toContain("Hello")
 		expect(container.textContent).toContain("isn’t live yet")
 		expect(container.textContent).toContain("Jan 1, 2999")
-	})
-
-	it("still 308-redirects an aliased slug even when its post is scheduled", async () => {
-		// Alias check runs before the scheduled branch, so the notice renders on
-		// the canonical URL, never the dirty legacy one.
-		vi.mocked(loadPostResolution).mockResolvedValue(
-			scheduled("Hello", "2999-01-01-0900")
-		)
-
-		await expect(
-			PostPage(paramsFor("tech", "final-version--for-now-"))
-		).rejects.toThrow("REDIRECT:/blog/tech/final-version-for-now")
 	})
 
 	it("renders when both section and post are valid", async () => {

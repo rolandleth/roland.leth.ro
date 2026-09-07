@@ -144,7 +144,7 @@ Rewrites (`beforeFiles`, so they win over the filesystem route that would otherw
 - `/blog/:section/feed.xml` → `/api/feed/:section`
 - `/blog/:section/:slug.md` → `/api/blog/:section/:slug/md`
 
-Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **removed** — the route invoked a function on every unmatched path, including scanner probes, and carried no measurable traffic. Unmatched paths now resolve to the static 404 at zero compute. `LEGACY_POST_SLUG_ALIASES` still exists and is unrelated: `src/app/blog/[section]/[slug]/page.tsx` uses it to fix the old slugifier's dirty slugs on a blog-route miss.
+Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **removed** — the route invoked a function on every unmatched path, including scanner probes, and carried no measurable traffic. Unmatched paths now resolve to the static 404 at zero compute.
 
 ## Scheduled content and revalidation
 
