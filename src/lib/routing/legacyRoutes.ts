@@ -128,6 +128,28 @@ export const LEGACY_REDIRECTS: Redirects = [
 		destination: `/api/feed/${DEFAULT_FEED_SECTION}`,
 		permanent: true,
 	},
+
+	// Repairs a two-day feed bug, not a legacy URL shape. Between 2026-04-05 and
+	// 2026-04-07 the feed built its entry URLs from `process.env.NEXTAUTH_URL` —
+	// a variable this project never set, since auth is custom — so every `<link>`
+	// and `<id>` went out as the RELATIVE reference `undefined/blog/:section/:slug`.
+	// Consumers resolved it against the feed's own URL (`/api/feed/:section`,
+	// whose base directory is `/api/feed/`) and recorded the paths this rule
+	// matches. They still get crawled: `robots.ts` disallows `/api/` but re-allows
+	// `/api/feed/`, which these sit under.
+	//
+	// A redirect rather than leaving them to 404: the static 404 costs no server
+	// compute, but it is a full page carrying the root layout's Speed Insights
+	// island, so every hit filed real Web Vitals under a junk path. A 308 returns
+	// no HTML, so nothing reports, and the visit lands on the post.
+	//
+	// The slug is constrained to `createSlug`'s alphabet so a malformed tail
+	// 404s directly instead of redirecting into a 404.
+	{
+		source: `/api/feed/undefined/blog/:section(${SECTION_PATTERN})/:slug([a-z0-9-]+)`,
+		destination: "/blog/:section/:slug",
+		permanent: true,
+	},
 ]
 
 /**

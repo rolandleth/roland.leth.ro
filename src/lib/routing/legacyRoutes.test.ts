@@ -22,6 +22,7 @@ function findRedirect(source: string) {
 const SECTION_PARAM = `:section(${SECTION_PATTERN})`
 const PAGE_QUERY_SOURCE = `/blog/${SECTION_PARAM}`
 const PAGE_ONE_SOURCE = `/blog/${SECTION_PARAM}/p/1`
+const BROKEN_FEED_SOURCE = `/api/feed/undefined/blog/${SECTION_PARAM}/:slug([a-z0-9-]+)`
 
 // #region Redirects
 
@@ -75,8 +76,12 @@ describe("LEGACY_REDIRECTS", () => {
 	it("requires at least one slug segment on the blog rule", () => {
 		// `:slug+`, not `:slug*` — with `*` the rule also matches `/tech/blog/`
 		// and redirects it to a slugless `/blog/tech/`, which 404s.
-		const rule = LEGACY_REDIRECTS.find((entry) =>
-			entry.destination.startsWith("/blog/:section/:slug")
+		//
+		// Matched on the exact destination, not a prefix: the broken-feed rule
+		// below also lands on `/blog/:section/:slug`, so a `startsWith` selector
+		// could pick either rule depending on array order.
+		const rule = LEGACY_REDIRECTS.find(
+			(entry) => entry.destination === "/blog/:section/:slug+"
 		)
 
 		expect(rule?.source).toContain(":slug+")
@@ -175,6 +180,27 @@ describe("LEGACY_REDIRECTS", () => {
 		)
 
 		expect(queryRuleIndex).toBeLessThan(collapseIndex)
+	})
+
+	it("recovers the broken-feed URLs the undefined origin produced", () => {
+		// The April 2026 feed emitted `undefined/blog/:section/:slug` as a
+		// relative reference, which consumers resolved against `/api/feed/` —
+		// crawlers still hit the result, and `robots.ts` re-allows `/api/feed/`.
+		const rule = findRedirect(BROKEN_FEED_SOURCE)
+
+		expect(rule).toMatchObject({
+			destination: "/blog/:section/:slug",
+			permanent: true,
+		})
+	})
+
+	it("constrains the broken-feed slug to the shape createSlug produces", () => {
+		// An unconstrained tail would redirect junk paths into a 404 instead of
+		// letting them 404 directly — the dead-end the `[1-9]\d*` page pattern
+		// above exists to avoid.
+		expect(findRedirect(BROKEN_FEED_SOURCE)?.source).toContain(
+			":slug([a-z0-9-]+)"
+		)
 	})
 
 	it("marks every legacy redirect permanent", () => {
