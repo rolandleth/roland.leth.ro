@@ -328,6 +328,7 @@ async function writeProject(
 					heroImage: data.heroImage ?? null,
 					isFeatured: data.isFeatured ?? false,
 					isDiscontinued: data.isDiscontinued ?? false,
+					isOwnApp: data.isOwnApp ?? false,
 					date: data.date ?? null,
 					// Imports honour the authored `sortOrder` verbatim — unlike the
 					// admin create route, which shifts siblings to make room. The

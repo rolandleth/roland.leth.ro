@@ -278,6 +278,7 @@ const projectFields = {
 	heroImage: httpUrl.nullable().optional(),
 	isFeatured: z.boolean().optional(),
 	isDiscontinued: z.boolean().optional(),
+	isOwnApp: z.boolean().optional(),
 	date: z.string().nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),

@@ -166,6 +166,30 @@ export function detailLabel(
 	return safeTags.map(tagLabel).join(", ")
 }
 
+/** The Apple storefronts a project can be listed on. */
+export type Storefront = "AppStore" | "MacAppStore"
+
+/**
+ * The Apple storefront an app in `bucket` is sold on, or null for the buckets
+ * that aren't app buckets. Keyed off the bucket rather than the link: an iOS
+ * and a Mac listing share the `apps.apple.com/app/id…` URL shape, so the URL
+ * can't tell them apart, and the link label is copy.
+ *
+ * simplified: a project listing both an iOS and a Mac storefront gets the same
+ * badge on both, since the bucket is per project. No project does that today;
+ * the upgrade path is a per-link storefront column.
+ */
+export function storefrontFor(bucket: PlatformBucket): Storefront | null {
+	switch (bucket) {
+		case PlatformBucket.iOS:
+			return "AppStore"
+		case PlatformBucket.Mac:
+			return "MacAppStore"
+		default:
+			return null
+	}
+}
+
 /**
  * Returns true when the compact label adds no information beyond the
  * gallery section header. The capsule under the icon is hidden in that case

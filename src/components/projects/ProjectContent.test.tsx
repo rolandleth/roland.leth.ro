@@ -65,6 +65,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		accentColor: null,
 		isFeatured: false,
 		isDiscontinued: false,
+		isOwnApp: false,
 		date: null,
 		sortOrder: 0,
 		createdAt: new Date(),
@@ -561,4 +562,124 @@ describe("ProjectContent — store CTA", () => {
 			screen.getAllByRole("link", { name: "Get on Mac App Store" })
 		).toHaveLength(1)
 	})
+
+	// #region App Store badge
+
+	const appStoreBadge = { name: "Download on the App Store" }
+	const macAppStoreBadge = { name: "Download on the Mac App Store" }
+	const iosListing = makeLink(
+		1,
+		"App Store",
+		"https://apps.apple.com/app/id111"
+	)
+
+	it("renders the App Store badge instead of the pill on an own iOS app, in both spots", () => {
+		renderWithLinks(
+			[iosListing, makeLink(2, "GitHub", "https://github.com/rolandleth/test")],
+			guideItems,
+			{ isOwnApp: true, bucket: PlatformBucket.iOS }
+		)
+
+		const badges = screen.getAllByRole("link", appStoreBadge)
+		expect(badges).toHaveLength(2)
+		for (const badge of badges) {
+			expect(badge).toHaveAttribute("href", iosListing.url)
+		}
+		expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: /Get on|^App Store$/ })
+		).not.toBeInTheDocument()
+	})
+
+	it("renders the Mac App Store badge on an own Mac app", () => {
+		renderWithLinks([storeLink], [], {
+			isOwnApp: true,
+			bucket: PlatformBucket.Mac,
+			platformTags: [PlatformTag.macOS],
+		})
+
+		expect(screen.getAllByRole("link", macAppStoreBadge)).toHaveLength(2)
+		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
+	})
+
+	// The theme is a class on `<html>`, so both variants ship and CSS picks one;
+	// the images are decorative so only the link's label names the control.
+	it("ships the light and dark artwork as decorative images inside the badge link", () => {
+		renderWithLinks([storeLink], [], {
+			isOwnApp: true,
+			bucket: PlatformBucket.Mac,
+		})
+
+		const [badge] = screen.getAllByRole("link", macAppStoreBadge)
+		const images = Array.from(badge.querySelectorAll("img"))
+		expect(images.map((image) => image.getAttribute("src"))).toEqual([
+			"/images/app-store/mas-black.svg",
+			"/images/app-store/mas-white.svg",
+		])
+		for (const image of images) {
+			expect(image).toHaveAttribute("alt", "")
+		}
+	})
+
+	it("keeps the 'Get on' pill on a storefront link when the project isn't an own app", () => {
+		renderWithLinks([iosListing], [], {
+			isOwnApp: false,
+			bucket: PlatformBucket.iOS,
+		})
+
+		expect(
+			screen.getAllByRole("link", { name: "Get on App Store" })
+		).toHaveLength(2)
+		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
+	})
+
+	it("keeps the 'Get on' pill on an own app outside the iOS and Mac buckets", () => {
+		renderWithLinks([storeLink], [], {
+			isOwnApp: true,
+			bucket: PlatformBucket.Web,
+			platformTags: [PlatformTag.Frontend],
+		})
+
+		expect(
+			screen.getAllByRole("link", { name: "Get on Mac App Store" })
+		).toHaveLength(2)
+		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
+	})
+
+	// The badge asserts the app is on sale, which the Discontinued badge
+	// contradicts — same reasoning as dropping the "Get on" prefix.
+	it("drops the badge and the repeated CTA for a discontinued own app", () => {
+		renderWithLinks([storeLink], guideItems, {
+			isOwnApp: true,
+			bucket: PlatformBucket.Mac,
+			isDiscontinued: true,
+		})
+
+		const links = screen.getAllByRole("link", { name: "Mac App Store" })
+		expect(links).toHaveLength(1)
+		expect(links[0]).toHaveAttribute("href", storeLink.url)
+		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: /Get on/ })
+		).not.toBeInTheDocument()
+	})
+
+	// Older rows link to the pre-2019 storefront host.
+	it("treats a legacy itunes.apple.com listing as a storefront", () => {
+		renderWithLinks(
+			[
+				makeLink(
+					1,
+					"App Store",
+					"https://itunes.apple.com/ro/app/id1492111259"
+				),
+			],
+			[],
+			{ isOwnApp: true, bucket: PlatformBucket.iOS }
+		)
+
+		expect(screen.getAllByRole("link", appStoreBadge)).toHaveLength(2)
+	})
+
+	// #endregion
 })

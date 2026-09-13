@@ -127,6 +127,7 @@ const initialData = {
 	heroImage: null,
 	isFeatured: true,
 	isDiscontinued: false,
+	isOwnApp: false,
 	date: "2023",
 	sortOrder: 1,
 	sections: [],
@@ -162,11 +163,11 @@ describe("ProjectForm — create mode", () => {
 		expect(screen.getByLabelText(/summary/i)).toBeInTheDocument()
 	})
 
-	it("renders the featured and discontinued checkboxes", () => {
+	it("renders the featured, discontinued, and own-app checkboxes", () => {
 		mockRouter()
 		render(<ProjectForm />)
 		const checkboxes = screen.getAllByRole("checkbox")
-		expect(checkboxes).toHaveLength(2)
+		expect(checkboxes).toHaveLength(3)
 	})
 
 	it("does not show a delete button in create mode", () => {
@@ -323,6 +324,25 @@ describe("ProjectForm — edit mode", () => {
 		render(<ProjectForm initialData={initialData} />)
 		const [featuredCheckbox] = screen.getAllByRole("checkbox")
 		expect(featuredCheckbox).toBeChecked()
+	})
+
+	it("checks the Own app checkbox when isOwnApp is true", () => {
+		mockRouter()
+		render(<ProjectForm initialData={{ ...initialData, isOwnApp: true }} />)
+		expect(screen.getByRole("checkbox", { name: "Own app" })).toBeChecked()
+	})
+
+	it("sends the toggled Own app checkbox as isOwnApp in the payload", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		await user.click(screen.getByRole("checkbox", { name: "Own app" }))
+		await user.click(screen.getByRole("button", { name: /save project/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body).isOwnApp).toBe(true)
 	})
 
 	it("shows the delete button in edit mode", () => {

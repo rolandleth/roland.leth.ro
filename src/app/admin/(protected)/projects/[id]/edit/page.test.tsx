@@ -56,6 +56,7 @@ const existingProject = {
 	accentColor: null,
 	isFeatured: false,
 	isDiscontinued: false,
+	isOwnApp: false,
 	date: null,
 	sortOrder: 0,
 	createdAt: new Date(),

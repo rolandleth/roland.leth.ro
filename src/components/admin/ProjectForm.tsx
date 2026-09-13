@@ -29,6 +29,7 @@ interface InitialData {
 	heroImage: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
+	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
 	sections: (Omit<SectionItem, "_key" | "images"> & {
@@ -56,6 +57,7 @@ interface ProjectPayload {
 	heroImage: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
+	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
 	sections: (Omit<SectionItem, "_key" | "images"> & {
@@ -92,6 +94,7 @@ interface FormState {
 	heroImage: string
 	isFeatured: boolean
 	isDiscontinued: boolean
+	isOwnApp: boolean
 	sections: SectionItem[]
 	links: LinkItem[]
 	faqs: FaqItem[]
@@ -134,6 +137,7 @@ export default function ProjectForm({ initialData }: Props) {
 		heroImage: initialData?.heroImage ?? "",
 		isFeatured: initialData?.isFeatured ?? false,
 		isDiscontinued: initialData?.isDiscontinued ?? false,
+		isOwnApp: initialData?.isOwnApp ?? false,
 		sections: (initialData?.sections ?? []).map((section) => ({
 			...section,
 			_key: crypto.randomUUID(),
@@ -210,6 +214,7 @@ export default function ProjectForm({ initialData }: Props) {
 			heroImage: state.heroImage || null,
 			isFeatured: state.isFeatured,
 			isDiscontinued: state.isDiscontinued,
+			isOwnApp: state.isOwnApp,
 			date: state.date || null,
 			sortOrder,
 			// Strip the client-only `_key` from sections, their nested images,
@@ -395,6 +400,18 @@ export default function ProjectForm({ initialData }: Props) {
 					<span className="text-secondary text-sm font-medium">
 						Discontinued
 					</span>
+				</label>
+
+				{/* Own product, not client or employer work. Unlocks the App Store badge
+				    on the detail page; see `storefrontFor` for which artwork. */}
+				<label className="flex cursor-pointer items-center gap-2">
+					<input
+						type="checkbox"
+						checked={state.isOwnApp}
+						onChange={(e) => setField("isOwnApp", e.target.checked)}
+						className="accent-accent h-4 w-4"
+					/>
+					<span className="text-secondary text-sm font-medium">Own app</span>
 				</label>
 			</div>
 

@@ -23,6 +23,7 @@ here are a guide, not a substitute.
 | `accentColor` | Brand color — `AccentColor.colorset`, else **ask** | CSS hex (`#rgb` / `#rrggbb` / `#rgba` / `#rrggbbaa`). For an Xcode app, read `<app-repo>/**/Assets.xcassets/AccentColor.colorset/Contents.json` (sRGB components ×255 → hex). |
 | `isFeatured` | **Ask** | Whether it's pinned/highlighted in the gallery. |
 | `isDiscontinued` | **Ask** | Discontinued projects sort last on public surfaces. |
+| `isOwnApp` | **Ask** | Whether Roland is the app's creator and publisher — his own product, not one built for an employer or client. Drives the App Store badge on iOS / Mac projects; a non-own app keeps a plain "App Store" link. |
 | `date` | Brief / **ask** | Free-form string (e.g. "2024"). |
 | `sortOrder` | **Ask** | Integer ≥ 0. The import honours it verbatim — consider existing projects' order. |
 | `sections[].title` | `copy/web/landing-page.md` section headings, `copy/stores/*` features | ≤ 200. A real feature or idea. |
@@ -51,7 +52,7 @@ These aren't in the marketing copy. Ask, a couple at a time:
 1. `bucket` + `platformTags`
 2. App Store **app id** (build `https://apps.apple.com/app/id<id>`), plus website / GitHub URLs
 3. `accentColor`, `date`, `role`
-4. `isFeatured`, `isDiscontinued`, `sortOrder`
+4. `isFeatured`, `isDiscontinued`, `isOwnApp`, `sortOrder`
 5. **Pricing** → `offers` (free / one-time + amount / subscription plans). Default currency **USD**.
 
 ## SEO & structured-data fields

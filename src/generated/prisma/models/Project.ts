@@ -52,6 +52,7 @@ export type ProjectMinAggregateOutputType = {
   accentColor: string | null
   isFeatured: boolean | null
   isDiscontinued: boolean | null
+  isOwnApp: boolean | null
   date: string | null
   sortOrder: number | null
   createdAt: Date | null
@@ -74,6 +75,7 @@ export type ProjectMaxAggregateOutputType = {
   accentColor: string | null
   isFeatured: boolean | null
   isDiscontinued: boolean | null
+  isOwnApp: boolean | null
   date: string | null
   sortOrder: number | null
   createdAt: Date | null
@@ -99,6 +101,7 @@ export type ProjectCountAggregateOutputType = {
   accentColor: number
   isFeatured: number
   isDiscontinued: number
+  isOwnApp: number
   date: number
   sortOrder: number
   createdAt: number
@@ -133,6 +136,7 @@ export type ProjectMinAggregateInputType = {
   accentColor?: true
   isFeatured?: true
   isDiscontinued?: true
+  isOwnApp?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -155,6 +159,7 @@ export type ProjectMaxAggregateInputType = {
   accentColor?: true
   isFeatured?: true
   isDiscontinued?: true
+  isOwnApp?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -180,6 +185,7 @@ export type ProjectCountAggregateInputType = {
   accentColor?: true
   isFeatured?: true
   isDiscontinued?: true
+  isOwnApp?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -292,6 +298,7 @@ export type ProjectGroupByOutputType = {
   accentColor: string | null
   isFeatured: boolean
   isDiscontinued: boolean
+  isOwnApp: boolean
   date: string | null
   sortOrder: number
   createdAt: Date
@@ -340,6 +347,7 @@ export type ProjectWhereInput = {
   accentColor?: Prisma.StringNullableFilter<"Project"> | string | null
   isFeatured?: Prisma.BoolFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
+  isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
   date?: Prisma.StringNullableFilter<"Project"> | string | null
   sortOrder?: Prisma.IntFilter<"Project"> | number
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
@@ -368,6 +376,7 @@ export type ProjectOrderByWithRelationInput = {
   accentColor?: Prisma.SortOrderInput | Prisma.SortOrder
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
+  isOwnApp?: Prisma.SortOrder
   date?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -399,6 +408,7 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   accentColor?: Prisma.StringNullableFilter<"Project"> | string | null
   isFeatured?: Prisma.BoolFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
+  isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
   date?: Prisma.StringNullableFilter<"Project"> | string | null
   sortOrder?: Prisma.IntFilter<"Project"> | number
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
@@ -427,6 +437,7 @@ export type ProjectOrderByWithAggregationInput = {
   accentColor?: Prisma.SortOrderInput | Prisma.SortOrder
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
+  isOwnApp?: Prisma.SortOrder
   date?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -460,6 +471,7 @@ export type ProjectScalarWhereWithAggregatesInput = {
   accentColor?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   isFeatured?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
+  isOwnApp?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   date?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   sortOrder?: Prisma.IntWithAggregatesFilter<"Project"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Project"> | Date | string
@@ -484,6 +496,7 @@ export type ProjectCreateInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -512,6 +525,7 @@ export type ProjectUncheckedCreateInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -539,6 +553,7 @@ export type ProjectUpdateInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -567,6 +582,7 @@ export type ProjectUncheckedUpdateInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -595,6 +611,7 @@ export type ProjectCreateManyInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -619,6 +636,7 @@ export type ProjectUpdateManyMutationInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -644,6 +662,7 @@ export type ProjectUncheckedUpdateManyInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -685,6 +704,7 @@ export type ProjectCountOrderByAggregateInput = {
   accentColor?: Prisma.SortOrder
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
+  isOwnApp?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -712,6 +732,7 @@ export type ProjectMaxOrderByAggregateInput = {
   accentColor?: Prisma.SortOrder
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
+  isOwnApp?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -734,6 +755,7 @@ export type ProjectMinOrderByAggregateInput = {
   accentColor?: Prisma.SortOrder
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
+  isOwnApp?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -832,6 +854,7 @@ export type ProjectCreateWithoutSectionsInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -859,6 +882,7 @@ export type ProjectUncheckedCreateWithoutSectionsInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -901,6 +925,7 @@ export type ProjectUpdateWithoutSectionsInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -928,6 +953,7 @@ export type ProjectUncheckedUpdateWithoutSectionsInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -954,6 +980,7 @@ export type ProjectCreateWithoutLinksInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -981,6 +1008,7 @@ export type ProjectUncheckedCreateWithoutLinksInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1023,6 +1051,7 @@ export type ProjectUpdateWithoutLinksInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1050,6 +1079,7 @@ export type ProjectUncheckedUpdateWithoutLinksInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1076,6 +1106,7 @@ export type ProjectCreateWithoutFaqsInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1103,6 +1134,7 @@ export type ProjectUncheckedCreateWithoutFaqsInput = {
   accentColor?: string | null
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1145,6 +1177,7 @@ export type ProjectUpdateWithoutFaqsInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1172,6 +1205,7 @@ export type ProjectUncheckedUpdateWithoutFaqsInput = {
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1248,6 +1282,7 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   accentColor?: boolean
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1277,6 +1312,7 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   accentColor?: boolean
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1302,6 +1338,7 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   accentColor?: boolean
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1327,13 +1364,14 @@ export type ProjectSelectScalar = {
   accentColor?: boolean
   isFeatured?: boolean
   isDiscontinued?: boolean
+  isOwnApp?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "isOwnApp" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sections?: boolean | Prisma.Project$sectionsArgs<ExtArgs>
   links?: boolean | Prisma.Project$linksArgs<ExtArgs>
@@ -1369,6 +1407,7 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     accentColor: string | null
     isFeatured: boolean
     isDiscontinued: boolean
+    isOwnApp: boolean
     date: string | null
     sortOrder: number
     createdAt: Date
@@ -1817,6 +1856,7 @@ export interface ProjectFieldRefs {
   readonly accentColor: Prisma.FieldRef<"Project", 'String'>
   readonly isFeatured: Prisma.FieldRef<"Project", 'Boolean'>
   readonly isDiscontinued: Prisma.FieldRef<"Project", 'Boolean'>
+  readonly isOwnApp: Prisma.FieldRef<"Project", 'Boolean'>
   readonly date: Prisma.FieldRef<"Project", 'String'>
   readonly sortOrder: Prisma.FieldRef<"Project", 'Int'>
   readonly createdAt: Prisma.FieldRef<"Project", 'DateTime'>

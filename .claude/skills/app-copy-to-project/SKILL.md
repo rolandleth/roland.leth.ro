@@ -160,7 +160,8 @@ first. A wrong bucket or a missing store URL is worse than a question.
   iPad, and Mac on one App Store page, so one "App Store" link is usually enough. Also ask for a
   website and GitHub URL if they exist. All `links` need real `https` URLs.
 - **accentColor** (hex), **date**, **role**.
-- **isFeatured**, **isDiscontinued**, **sortOrder** (gallery placement — the import honours this
+- **isFeatured**, **isDiscontinued**, **isOwnApp** (Roland's own product, not client or employer
+  work; drives the App Store badge), **sortOrder** (gallery placement — the import honours this
   verbatim, so think about where it sits relative to existing projects).
 - **pricing** → `offers` (free → one entry priced `"0"`; one-time → one entry + amount;
   subscription → one entry per plan; default currency USD) — feeds the `SoftwareApplication` JSON-LD

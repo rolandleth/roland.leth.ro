@@ -21,6 +21,7 @@
 	"accentColor": "#3B82F6",
 	"isFeatured": true,
 	"isDiscontinued": false,
+	"isOwnApp": true,
 	"date": "2025",
 	"sortOrder": 1,
 	"sections": [

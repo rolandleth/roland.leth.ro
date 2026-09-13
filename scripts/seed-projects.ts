@@ -22,6 +22,7 @@ type ProjectInput = {
 	accentColor: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
+	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
 	sections: {
@@ -47,6 +48,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#4F7EFF",
 		isFeatured: true,
 		isDiscontinued: false,
+		isOwnApp: true,
 		date: "2024",
 		sortOrder: 1,
 		sections: [
@@ -122,6 +124,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#E84040",
 		isFeatured: true,
 		isDiscontinued: false,
+		isOwnApp: true,
 		date: "2023",
 		sortOrder: 2,
 		sections: [
@@ -192,6 +195,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#9B59B6",
 		isFeatured: false,
 		isDiscontinued: false,
+		isOwnApp: true,
 		date: "2024",
 		sortOrder: 3,
 		sections: [
@@ -243,6 +247,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#2ECC71",
 		isFeatured: false,
 		isDiscontinued: false,
+		isOwnApp: true,
 		date: "2025",
 		sortOrder: 4,
 		sections: [
@@ -282,6 +287,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#F39C12",
 		isFeatured: false,
 		isDiscontinued: true,
+		isOwnApp: true,
 		date: "2022",
 		sortOrder: 5,
 		sections: [

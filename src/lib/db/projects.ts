@@ -66,6 +66,7 @@ export interface ProjectDetail {
 	accentColor: string | null
 	isFeatured: boolean
 	isDiscontinued: boolean
+	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
 	createdAt: Date

@@ -7,6 +7,7 @@ import {
 	detailLabel,
 	groupByBucket,
 	isCompactLabelRedundant,
+	storefrontFor,
 	tagLabel,
 } from "@/lib/utils/platforms"
 
@@ -351,6 +352,25 @@ describe("BUCKET_SUGGESTED_TAGS", () => {
 		expect(BUCKET_SUGGESTED_TAGS[PlatformBucket.OpenSource]).toContain(
 			PlatformTag.Library
 		)
+	})
+})
+
+// #endregion
+
+// #region storefrontFor
+
+describe("storefrontFor", () => {
+	it("maps the iOS bucket to the App Store", () => {
+		expect(storefrontFor(PlatformBucket.iOS)).toBe("AppStore")
+	})
+
+	it("maps the Mac bucket to the Mac App Store", () => {
+		expect(storefrontFor(PlatformBucket.Mac)).toBe("MacAppStore")
+	})
+
+	it("has no storefront for the non-app buckets", () => {
+		expect(storefrontFor(PlatformBucket.Web)).toBeNull()
+		expect(storefrontFor(PlatformBucket.OpenSource)).toBeNull()
 	})
 })
 

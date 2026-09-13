@@ -62,6 +62,7 @@ const createdProject = {
 	heroImage: null,
 	isFeatured: false,
 	isDiscontinued: false,
+	isOwnApp: false,
 	date: null,
 	sortOrder: 1,
 	createdAt: new Date(),

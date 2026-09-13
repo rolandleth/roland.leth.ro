@@ -35,6 +35,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		accentColor: null,
 		isFeatured: false,
 		isDiscontinued: false,
+		isOwnApp: false,
 		date: null,
 		sortOrder: 0,
 		createdAt: new Date(),

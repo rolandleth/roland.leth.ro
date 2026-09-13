@@ -148,6 +148,7 @@ export const ProjectScalarFieldEnum = {
   accentColor: 'accentColor',
   isFeatured: 'isFeatured',
   isDiscontinued: 'isDiscontinued',
+  isOwnApp: 'isOwnApp',
   date: 'date',
   sortOrder: 'sortOrder',
   createdAt: 'createdAt',

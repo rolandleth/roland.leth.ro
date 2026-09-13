@@ -78,6 +78,7 @@ export type ProjectManifest = {
 	accentColor?: string | null
 	isFeatured?: boolean
 	isDiscontinued?: boolean
+	isOwnApp?: boolean
 	date?: string | null
 	sortOrder?: number
 	sections?: ManifestSection[]

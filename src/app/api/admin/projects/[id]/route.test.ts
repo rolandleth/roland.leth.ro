@@ -65,6 +65,7 @@ const existingProject = {
 	heroImage: null,
 	isFeatured: false,
 	isDiscontinued: false,
+	isOwnApp: false,
 	date: null,
 	sortOrder: 3,
 	createdAt: new Date(),

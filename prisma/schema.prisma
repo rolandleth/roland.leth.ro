@@ -183,6 +183,12 @@ model Project {
   accentColor    String?
   isFeatured     Boolean          @default(false)
   isDiscontinued Boolean          @default(false)
+  // Roland is the creator and publisher: his own product, not an employer's or
+  // client's app he worked on. Drives the App Store badge on the detail page
+  // (`storefrontFor` picks the artwork by `bucket`). A flag rather than a value
+  // derived from `role`, which is free text ("Head of Digital" exists) — copy
+  // must not decide behaviour.
+  isOwnApp       Boolean          @default(false)
   date           String?
   sortOrder      Int              @default(0)
   createdAt      DateTime         @default(now())

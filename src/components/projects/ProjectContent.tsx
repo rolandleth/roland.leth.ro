@@ -6,13 +6,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
 import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
-import { detailLabel } from "@/lib/utils/platforms"
+import { detailLabel, storefrontFor } from "@/lib/utils/platforms"
+import AppStoreBadge from "./AppStoreBadge"
 import ProjectFaq from "./ProjectFaq"
 import ProjectGuides from "./ProjectGuides"
 import ProjectImageLightbox from "./ProjectImageLightbox"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { GuideLinkItem } from "@/lib/content/guideLinks"
 import type { ProjectDetail } from "@/lib/db/projects"
+import type { Storefront } from "@/lib/utils/platforms"
 import type { ReactNode } from "react"
 
 interface Props {
@@ -42,6 +44,7 @@ export default function ProjectContent({
 		role,
 		accentColor,
 		isDiscontinued,
+		isOwnApp,
 		sections,
 		links,
 		faqs,
@@ -56,6 +59,14 @@ export default function ProjectContent({
 	const storeLink = isDiscontinued
 		? undefined
 		: links.find((link) => isStoreUrl(link.url))
+	// The Apple badge a storefront link renders as, or null to keep the "Get on
+	// …" pill. Gated on `isOwnApp` because the badge says "Download" about a
+	// product Roland sells, which an employer's or client's app isn't, and on
+	// the bucket because the artwork differs per store and the URL can't tell an
+	// iOS listing from a Mac one (see `storefrontFor`). A discontinued project
+	// keeps the bare pill for the same reason it loses the "Get on" prefix.
+	const badgeStorefront =
+		isOwnApp && !isDiscontinued ? storefrontFor(bucket) : null
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
 	// and lightbox both slide across this whole strip; each slide carries its
@@ -251,24 +262,20 @@ export default function ProjectContent({
 					</div>
 
 					{/* Right: links grid */}
+					{/* `items-center`: a badge row is 40px and a pill row ~32px, so a
+					    pill sharing a row with a badge would otherwise stretch. */}
 					{links.length > 0 && (
 						<div
-							className={`grid shrink-0 grid-flow-col gap-2 ${links.length === 1 ? "grid-rows-1" : "grid-rows-2"}`}
+							className={`grid shrink-0 grid-flow-col items-center gap-2 ${links.length === 1 ? "grid-rows-1" : "grid-rows-2"}`}
 						>
 							{links.map((link) => (
-								<a
+								<ProjectLinkCta
 									key={link.id}
-									href={link.url}
-									target="_blank"
-									rel="noopener noreferrer"
-									className={ctaPillClass}
-									style={{
-										color: accent,
-										borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
-									}}
-								>
-									{ctaLabel(link, isDiscontinued)}
-								</a>
+									link={link}
+									accent={accent}
+									isDiscontinued={isDiscontinued}
+									badgeStorefront={badgeStorefront}
+								/>
 							))}
 						</div>
 					)}
@@ -417,21 +424,15 @@ export default function ProjectContent({
 					</motion.div>
 				)}
 
-				{/* Store CTA repeated above the guides, mirroring the hero pill. */}
+				{/* Store CTA repeated above the guides, mirroring the hero one. */}
 				{storeLink && (
 					<motion.div className="mt-12 flex justify-center" {...fadeUp(0.2)}>
-						<a
-							href={storeLink.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							className={ctaPillClass}
-							style={{
-								color: accent,
-								borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
-							}}
-						>
-							{ctaLabel(storeLink, isDiscontinued)}
-						</a>
+						<ProjectLinkCta
+							link={storeLink}
+							accent={accent}
+							isDiscontinued={isDiscontinued}
+							badgeStorefront={badgeStorefront}
+						/>
 					</motion.div>
 				)}
 
@@ -448,6 +449,55 @@ export default function ProjectContent({
 				)}
 			</div>
 		</>
+	)
+}
+
+interface ProjectLinkCtaProps {
+	link: ProjectDetail["links"][number]
+	accent: string
+	isDiscontinued: boolean
+	/** The storefront whose badge store links render as; null keeps them on the pill. */
+	badgeStorefront: Storefront | null
+}
+
+/**
+ * One project link. A storefront link on a project that may carry the Apple
+ * badge renders the badge; every other link — GitHub, a website, a storefront
+ * on a project that isn't an own app — renders the accent-coloured pill. Shared
+ * by the hero links grid and the repeated CTA below the content so the two
+ * can't disagree on which links get the badge.
+ */
+function ProjectLinkCta({
+	link,
+	accent,
+	isDiscontinued,
+	badgeStorefront,
+}: ProjectLinkCtaProps) {
+	if (badgeStorefront && isStoreUrl(link.url)) {
+		// `justify-self-center`: in the hero grid the anchor would otherwise
+		// stretch to the column and leave the artwork flush left.
+		return (
+			<AppStoreBadge
+				storefront={badgeStorefront}
+				href={link.url}
+				className="justify-self-center"
+			/>
+		)
+	}
+
+	return (
+		<a
+			href={link.url}
+			target="_blank"
+			rel="noopener noreferrer"
+			className={ctaPillClass}
+			style={{
+				color: accent,
+				borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
+			}}
+		>
+			{ctaLabel(link, isDiscontinued)}
+		</a>
 	)
 }
 
@@ -472,8 +522,13 @@ function ctaLabel(
  * Hostnames that count as a storefront. Apple-only because that's every
  * storefront the projects carry today; another store (Play, Setapp, a direct
  * download) renders as a plain link until its host is added here.
+ * `itunes.apple.com` is the pre-2019 host: it still redirects to
+ * `apps.apple.com`, and older rows link to it.
  */
-const STORE_HOSTNAMES: ReadonlySet<string> = new Set(["apps.apple.com"])
+const STORE_HOSTNAMES: ReadonlySet<string> = new Set([
+	"apps.apple.com",
+	"itunes.apple.com",
+])
 
 /** True for storefront URLs; a malformed URL is treated as a non-store link. */
 function isStoreUrl(url: string): boolean {

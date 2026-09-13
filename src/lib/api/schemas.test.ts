@@ -453,6 +453,15 @@ describe("projectCreateSchema", () => {
 		expect(projectCreateSchema.safeParse(valid).success).toBe(true)
 	})
 
+	it("takes isOwnApp as an optional boolean and nothing else", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, isOwnApp: true }).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({ ...valid, isOwnApp: "yes" }).success
+		).toBe(false)
+	})
+
 	it("accepts a fully-populated payload with sections and links", () => {
 		const result = projectCreateSchema.safeParse({
 			...valid,
@@ -462,6 +471,7 @@ describe("projectCreateSchema", () => {
 			heroImage: "https://example.com/hero.png",
 			isFeatured: true,
 			isDiscontinued: false,
+			isOwnApp: true,
 			date: "2024",
 			sortOrder: 1,
 			sections: [
