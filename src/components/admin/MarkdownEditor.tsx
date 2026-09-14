@@ -101,7 +101,7 @@ export default function MarkdownEditor({
 			</div>
 
 			{isPreview ? (
-				<div className="border-border prose dark:prose-invert min-h-64 rounded-md border p-4">
+				<div className="border-border prose dark:prose-invert min-h-64 max-w-none rounded-md border p-4">
 					{preview ?? (
 						<span className="text-secondary text-sm">Rendering…</span>
 					)}

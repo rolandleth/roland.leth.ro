@@ -152,6 +152,14 @@ code[data-theme*=" "] span {
 	content: none;
 }
 
+/* Preflight makes `<img>` block-level, so an image narrower than the column
+   would sit flush left. Here rather than as `prose-img:mx-auto` on each
+   wrapper, so every markdown surface (posts, guides, project sections, FAQ
+   answers, the admin preview) centres images without repeating the class. */
+.prose img {
+	margin-inline: auto;
+}
+
 .prose :not(pre) > code {
 	background-color: color-mix(
 		in srgb,
