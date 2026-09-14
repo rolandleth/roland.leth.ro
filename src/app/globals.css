@@ -160,6 +160,26 @@ code[data-theme*=" "] span {
 	margin-inline: auto;
 }
 
+/* Text links: inside markdown (`.prose a`) and anywhere else a link sits in
+   running text (`.link`). Dark and underlined at rest, accent on hover, with
+   the underline following the text colour. Unlayered, like the other `.prose`
+   overrides: typography's own link rule compiles into the utilities layer, so
+   a rule in `@layer components` loses to it, which is what happened to the
+   accent-coloured version this replaces. The flip side: a colour utility on a
+   `.link` element can't override this either. */
+.link,
+.prose a {
+	color: var(--color-primary-value);
+	font-weight: 500;
+	text-decoration-line: underline;
+	text-underline-offset: 4px;
+}
+
+.link:hover,
+.prose a:hover {
+	color: var(--color-accent-value);
+}
+
 .prose :not(pre) > code {
 	background-color: color-mix(
 		in srgb,
@@ -186,9 +206,4 @@ code[data-theme*=" "] span {
 		@apply text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50;
 	}
 
-	.link,
-	.prose a {
-		@apply text-accent underline decoration-transparent underline-offset-4 hover:decoration-current;
-		font-weight: inherit;
-	}
 }
