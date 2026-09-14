@@ -633,7 +633,7 @@ describe("ProjectContent — store CTA", () => {
 		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
 	})
 
-	it("keeps the 'Get on' pill on an own app outside the iOS and Mac buckets", () => {
+	it("renders a 'Download on' pill on an own app outside the iOS and Mac buckets", () => {
 		renderWithLinks([storeLink], [], {
 			isOwnApp: true,
 			bucket: PlatformBucket.Web,
@@ -641,8 +641,37 @@ describe("ProjectContent — store CTA", () => {
 		})
 
 		expect(
-			screen.getAllByRole("link", { name: "Get on Mac App Store" })
+			screen.getAllByRole("link", { name: "Download on Mac App Store" })
 		).toHaveLength(2)
+		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: /Get on/ })
+		).not.toBeInTheDocument()
+	})
+
+	// The bucket names one store, so a badge on either listing could name the
+	// wrong one; each pill takes its own link's label instead.
+	it("renders 'Download on' pills instead of the badge on an own app with several storefront links", () => {
+		renderWithLinks(
+			[
+				iosListing,
+				makeLink(2, "Mac App Store", "https://apps.apple.com/app/id222"),
+			],
+			[],
+			{ isOwnApp: true, bucket: PlatformBucket.Mac }
+		)
+
+		const iosPills = screen.getAllByRole("link", {
+			name: "Download on App Store",
+		})
+		expect(iosPills).toHaveLength(2)
+		for (const pill of iosPills) {
+			expect(pill).toHaveAttribute("href", iosListing.url)
+		}
+		expect(
+			screen.getAllByRole("link", { name: "Download on Mac App Store" })
+		).toHaveLength(1)
+		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
 		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
 	})
 

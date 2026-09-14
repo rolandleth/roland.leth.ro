@@ -173,11 +173,9 @@ export type Storefront = "AppStore" | "MacAppStore"
  * The Apple storefront an app in `bucket` is sold on, or null for the buckets
  * that aren't app buckets. Keyed off the bucket rather than the link: an iOS
  * and a Mac listing share the `apps.apple.com/app/id…` URL shape, so the URL
- * can't tell them apart, and the link label is copy.
- *
- * simplified: a project listing both an iOS and a Mac storefront gets the same
- * badge on both, since the bucket is per project. No project does that today;
- * the upgrade path is a per-link storefront column.
+ * can't tell them apart, and the link label is copy. The bucket names one
+ * store per project, which is why `linkCtasFor` shows the badge only on a
+ * project with a single storefront link.
  */
 export function storefrontFor(bucket: PlatformBucket): Storefront | null {
 	switch (bucket) {
@@ -187,6 +185,98 @@ export function storefrontFor(bucket: PlatformBucket): Storefront | null {
 			return "MacAppStore"
 		default:
 			return null
+	}
+}
+
+/**
+ * How one project link renders on the detail page:
+ * - `badge`: Apple's artwork for `storefront`.
+ * - `storePill`: a storefront link as a call to action, `label` already prefixed.
+ * - `plainPill`: any other link, with its bare label.
+ */
+export type LinkCta =
+	| { kind: "badge"; storefront: Storefront }
+	| { kind: "storePill"; label: string }
+	| { kind: "plainPill"; label: string }
+
+/**
+ * Pairs every link of a project with how it renders, in link order. The one
+ * place that decides which links are storefronts, which get the Apple badge,
+ * and what a discontinued project shows, so the hero links grid and the
+ * repeated CTA below the content can't disagree.
+ *
+ * - A discontinued project renders every link with its bare label: the listing
+ *   stays reachable, but a call to action would assert availability the
+ *   Discontinued badge contradicts.
+ * - A storefront link on an own app says "Download on …" — about a product
+ *   Roland sells, which an employer's or client's app isn't — and on any other
+ *   project "Get on …". Keyed off the URL and `isOwnApp`, never the label.
+ * - The badge replaces the "Download on" pill when the bucket has a storefront
+ *   (see `storefrontFor`).
+ *
+ * simplified: a project with more than one storefront link never gets the
+ * badge. The bucket names one store and the URL can't say which listing is
+ * which, so a badge on either link could name the wrong store; the pills use
+ * each link's own label instead. The upgrade path is a per-link storefront
+ * column.
+ */
+export function linkCtasFor<
+	Link extends { label: string; url: string },
+>(project: {
+	bucket: PlatformBucket
+	isOwnApp: boolean
+	isDiscontinued: boolean
+	links: readonly Link[]
+}): { link: Link; cta: LinkCta }[] {
+	if (project.isDiscontinued) {
+		return project.links.map((link) => ({
+			link,
+			cta: { kind: "plainPill", label: link.label },
+		}))
+	}
+
+	const storeFlags = project.links.map((link) => isStoreUrl(link.url))
+	const storeLinkCount = storeFlags.filter(Boolean).length
+	const badgeStorefront =
+		project.isOwnApp && storeLinkCount === 1
+			? storefrontFor(project.bucket)
+			: null
+	const storePrefix = project.isOwnApp ? "Download on" : "Get on"
+
+	return project.links.map((link, index) => {
+		if (!storeFlags[index]) {
+			return { link, cta: { kind: "plainPill", label: link.label } }
+		}
+
+		if (badgeStorefront != null) {
+			return { link, cta: { kind: "badge", storefront: badgeStorefront } }
+		}
+
+		return {
+			link,
+			cta: { kind: "storePill", label: `${storePrefix} ${link.label}` },
+		}
+	})
+}
+
+/**
+ * Hostnames that count as a storefront. Apple-only because that's every
+ * storefront the projects carry today; another store (Play, Setapp, a direct
+ * download) renders as a plain link until its host is added here.
+ * `itunes.apple.com` is the pre-2019 host: it still redirects to
+ * `apps.apple.com`, and older rows link to it.
+ */
+const STORE_HOSTNAMES: ReadonlySet<string> = new Set([
+	"apps.apple.com",
+	"itunes.apple.com",
+])
+
+/** True for storefront URLs; a malformed URL is treated as a non-store link. */
+function isStoreUrl(url: string): boolean {
+	try {
+		return STORE_HOSTNAMES.has(new URL(url).hostname)
+	} catch {
+		return false
 	}
 }
 

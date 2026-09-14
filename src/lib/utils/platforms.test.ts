@@ -7,6 +7,7 @@ import {
 	detailLabel,
 	groupByBucket,
 	isCompactLabelRedundant,
+	linkCtasFor,
 	storefrontFor,
 	tagLabel,
 } from "@/lib/utils/platforms"
@@ -371,6 +372,151 @@ describe("storefrontFor", () => {
 	it("has no storefront for the non-app buckets", () => {
 		expect(storefrontFor(PlatformBucket.Web)).toBeNull()
 		expect(storefrontFor(PlatformBucket.OpenSource)).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region linkCtasFor
+
+describe("linkCtasFor", () => {
+	const iosListing = {
+		label: "App Store",
+		url: "https://apps.apple.com/app/id111",
+	}
+	const macListing = {
+		label: "Mac App Store",
+		url: "https://apps.apple.com/app/id222",
+	}
+	const github = { label: "GitHub", url: "https://github.com/rolandleth/test" }
+
+	function ctasFor(
+		links: { label: string; url: string }[],
+		overrides: Partial<{
+			bucket: PlatformBucket
+			isOwnApp: boolean
+			isDiscontinued: boolean
+		}> = {}
+	) {
+		return linkCtasFor({
+			bucket: PlatformBucket.iOS,
+			isOwnApp: false,
+			isDiscontinued: false,
+			links,
+			...overrides,
+		}).map(({ cta }) => cta)
+	}
+
+	it("returns each link alongside its CTA, in order", () => {
+		const entries = linkCtasFor({
+			bucket: PlatformBucket.iOS,
+			isOwnApp: false,
+			isDiscontinued: false,
+			links: [github, iosListing],
+		})
+
+		expect(entries.map(({ link }) => link)).toEqual([github, iosListing])
+	})
+
+	it("returns nothing for a project without links", () => {
+		expect(ctasFor([])).toEqual([])
+	})
+
+	it("prefixes a storefront link with 'Get on' when the project isn't an own app", () => {
+		expect(ctasFor([iosListing, github])).toEqual([
+			{ kind: "storePill", label: "Get on App Store" },
+			{ kind: "plainPill", label: "GitHub" },
+		])
+	})
+
+	it("renders the only storefront link of an own iOS app as the App Store badge", () => {
+		expect(ctasFor([iosListing, github], { isOwnApp: true })).toEqual([
+			{ kind: "badge", storefront: "AppStore" },
+			{ kind: "plainPill", label: "GitHub" },
+		])
+	})
+
+	it("renders the only storefront link of an own Mac app as the Mac App Store badge", () => {
+		expect(
+			ctasFor([macListing], { isOwnApp: true, bucket: PlatformBucket.Mac })
+		).toEqual([{ kind: "badge", storefront: "MacAppStore" }])
+	})
+
+	it("prefixes a storefront link with 'Download on' on an own app outside the app buckets", () => {
+		expect(
+			ctasFor([iosListing], { isOwnApp: true, bucket: PlatformBucket.Web })
+		).toEqual([{ kind: "storePill", label: "Download on App Store" }])
+	})
+
+	// The bucket names one store and the URL can't say which listing is which,
+	// so a badge on either link could name the wrong store.
+	it("keeps every storefront link of an own app on a 'Download on' pill when there are several", () => {
+		expect(
+			ctasFor([iosListing, macListing, github], {
+				isOwnApp: true,
+				bucket: PlatformBucket.Mac,
+			})
+		).toEqual([
+			{ kind: "storePill", label: "Download on App Store" },
+			{ kind: "storePill", label: "Download on Mac App Store" },
+			{ kind: "plainPill", label: "GitHub" },
+		])
+	})
+
+	it("keeps 'Get on' on every storefront link of a project that isn't an own app", () => {
+		expect(ctasFor([iosListing, macListing])).toEqual([
+			{ kind: "storePill", label: "Get on App Store" },
+			{ kind: "storePill", label: "Get on Mac App Store" },
+		])
+	})
+
+	it("renders every link of a discontinued project with its bare label", () => {
+		const expected = [
+			{ kind: "plainPill", label: "App Store" },
+			{ kind: "plainPill", label: "GitHub" },
+		]
+
+		expect(ctasFor([iosListing, github], { isDiscontinued: true })).toEqual(
+			expected
+		)
+		expect(
+			ctasFor([iosListing, github], { isDiscontinued: true, isOwnApp: true })
+		).toEqual(expected)
+	})
+
+	it("treats the legacy itunes.apple.com host as a storefront", () => {
+		expect(
+			ctasFor(
+				[
+					{
+						label: "App Store",
+						url: "https://itunes.apple.com/ro/app/id1492111259",
+					},
+				],
+				{ isOwnApp: true }
+			)
+		).toEqual([{ kind: "badge", storefront: "AppStore" }])
+	})
+
+	it("treats other Apple hosts as plain links", () => {
+		expect(
+			ctasFor([
+				{ label: "TestFlight", url: "https://testflight.apple.com/join/abc" },
+			])
+		).toEqual([{ kind: "plainPill", label: "TestFlight" }])
+	})
+
+	// `projectLinkSchema` validates `url` on write, so a malformed URL only
+	// reaches here from a legacy or hand-edited row.
+	it("treats a malformed URL as a plain link that doesn't count as a storefront", () => {
+		expect(
+			ctasFor([{ label: "Broken", url: "not-a-url" }, iosListing], {
+				isOwnApp: true,
+			})
+		).toEqual([
+			{ kind: "plainPill", label: "Broken" },
+			{ kind: "badge", storefront: "AppStore" },
+		])
 	})
 })
 
