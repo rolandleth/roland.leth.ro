@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { GET } from "@/app/llms.txt/route"
 import { getGuidesOverview } from "@/lib/db/guides"
+import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
 import type { GuideTopicWithGuides } from "@/lib/db/guides"
+import type { RecentPost } from "@/lib/db/posts"
 
 vi.mock("@/lib/db/projects", () => ({
 	getProjectsGalleryCached: vi.fn(),
@@ -11,6 +13,10 @@ vi.mock("@/lib/db/projects", () => ({
 
 vi.mock("@/lib/db/guides", () => ({
 	getGuidesOverview: vi.fn(),
+}))
+
+vi.mock("@/lib/db/posts", () => ({
+	getRecentPosts: vi.fn(),
 }))
 
 const BASE = "https://roland.leth.ro"
@@ -32,10 +38,21 @@ function projectStub(
 	}
 }
 
+function postStub(overrides: Partial<RecentPost> = {}): RecentPost {
+	return {
+		title: "Hello",
+		slug: "hello",
+		section: "tech",
+		description: "A short description.",
+		...overrides,
+	}
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 	vi.mocked(getProjectsGalleryCached).mockResolvedValue([])
 	vi.mocked(getGuidesOverview).mockResolvedValue({ topics: [], ungrouped: [] })
+	vi.mocked(getRecentPosts).mockResolvedValue([])
 })
 
 // #region Response
@@ -210,6 +227,71 @@ describe("llms.txt — guides", () => {
 		const body = await (await GET()).text()
 		expect(body).toContain(
 			"https://preview.example.com/guides/how-to-keep-a-decision-journal"
+		)
+	})
+})
+
+// #endregion
+
+// #region Posts section
+
+describe("llms.txt — posts", () => {
+	it("omits the section entirely when there are no posts", async () => {
+		const body = await (await GET()).text()
+		expect(body).not.toContain("## Posts")
+	})
+
+	it("reads the tech section only", async () => {
+		await GET()
+		expect(getRecentPosts).toHaveBeenCalledWith("tech")
+		expect(getRecentPosts).toHaveBeenCalledTimes(1)
+	})
+
+	it("slots the section between Guides and Site", async () => {
+		vi.mocked(getGuidesOverview).mockResolvedValue({
+			topics: [],
+			ungrouped: [makeGuideListItem()],
+		})
+		vi.mocked(getRecentPosts).mockResolvedValue([postStub()])
+
+		const body = await (await GET()).text()
+		expect(body.indexOf("## Guides")).toBeLessThan(body.indexOf("## Posts"))
+		expect(body.indexOf("## Posts")).toBeLessThan(body.indexOf("## Site"))
+	})
+
+	it("lists a post with its canonical URL and description", async () => {
+		vi.mocked(getRecentPosts).mockResolvedValue([postStub()])
+
+		const body = await (await GET()).text()
+		expect(body).toContain(
+			`- [Hello](${BASE}/blog/tech/hello): A short description.`
+		)
+	})
+
+	it("points at the archive for everything older than the list", async () => {
+		vi.mocked(getRecentPosts).mockResolvedValue([postStub()])
+
+		const body = await (await GET()).text()
+		expect(body).toContain(`${BASE}/blog/tech/archive`)
+	})
+
+	it("collapses a multi-line description onto one line", async () => {
+		vi.mocked(getRecentPosts).mockResolvedValue([
+			postStub({ description: "Line one.\n\nLine two." }),
+		])
+
+		const body = await (await GET()).text()
+		expect(body).toContain(`](${BASE}/blog/tech/hello): Line one. Line two.`)
+	})
+
+	it("escapes markdown control characters in the post title", async () => {
+		vi.mocked(getRecentPosts).mockResolvedValue([
+			postStub({ title: "[NJS] Routing", slug: "njs-routing" }),
+		])
+
+		const body = await (await GET()).text()
+		expect(body).toContain(
+			`- [\\[NJS\\] Routing](${BASE}/blog/tech/njs-routing):`
 		)
 	})
 })

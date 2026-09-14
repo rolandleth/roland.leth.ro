@@ -36,7 +36,7 @@ const basePost = {
 	section: "tech" as const,
 	datetime: "2024-01-01-0900",
 	body: "Some content.",
-	summary: "A short summary.",
+	description: "A short summary.",
 	imageUrl: null,
 	readingTime: null,
 	published: true,
@@ -125,7 +125,7 @@ describe("GET /api/feed/:section", () => {
 		expect(text).toContain('<content type="html">')
 	})
 
-	it("uses the DB summary field when present", async () => {
+	it("fills the Atom summary from the post's description", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
 		const text = await GET(...makeRequest("tech")).then((r) => r.text())
 		expect(text).toContain("<summary>A short summary.</summary>")

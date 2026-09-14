@@ -15,7 +15,7 @@ interface Props {
 		body: string
 		section: string
 		datetime: string
-		summary: string
+		description: string
 		imageUrl: string | null
 		published: boolean
 	}
@@ -27,7 +27,7 @@ interface PostPayload {
 	section: string
 	datetime: string
 	published: boolean
-	summary?: string
+	description?: string
 	imageUrl?: string
 }
 
@@ -36,7 +36,7 @@ interface FormState {
 	section: string
 	datetime: string
 	published: boolean
-	summary: string
+	description: string
 	imageUrl: string
 	body: string
 }
@@ -58,7 +58,7 @@ export default function PostForm({ initialData }: Props) {
 		section: initialData?.section ?? "tech",
 		datetime: initialData?.datetime ?? currentDatetimeString(),
 		published: initialData?.published ?? true,
-		summary: initialData?.summary ?? "",
+		description: initialData?.description ?? "",
 		imageUrl: initialData?.imageUrl ?? "",
 		body: initialData?.body ?? "",
 	})
@@ -72,7 +72,7 @@ export default function PostForm({ initialData }: Props) {
 			section: state.section,
 			datetime: state.datetime,
 			published: state.published,
-			summary: state.summary || undefined,
+			description: state.description || undefined,
 			imageUrl: state.imageUrl || undefined,
 		})
 	}
@@ -148,15 +148,18 @@ export default function PostForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<label htmlFor="summary" className="text-secondary text-sm font-medium">
-					Summary
+				<label
+					htmlFor="description"
+					className="text-secondary text-sm font-medium"
+				>
+					Description
 				</label>
 				<textarea
-					id="summary"
-					value={state.summary}
-					onChange={(e) => setField("summary", e.target.value)}
+					id="description"
+					value={state.description}
+					onChange={(e) => setField("description", e.target.value)}
 					rows={3}
-					placeholder="Optional summary shown in post listings…"
+					placeholder="Optional. The meta description for search, social cards and the feed; derived from the body when empty."
 					className="admin-input"
 				/>
 			</div>

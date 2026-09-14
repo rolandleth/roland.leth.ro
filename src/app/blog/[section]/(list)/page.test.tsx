@@ -131,6 +131,13 @@ describe("generateMetadata", () => {
 		expect(JSON.stringify(metadata.alternates)).toContain("tech")
 	})
 
+	it("describes the tech section for the search result, not with a placeholder", async () => {
+		const metadata = await generateMetadata(params("tech"))
+
+		expect(metadata.description).toContain("Next.js")
+		expect(metadata.description).not.toBe("Thoughts on tech.")
+	})
+
 	it("returns empty metadata for an unknown section", async () => {
 		expect(await generateMetadata(params("nope"))).toEqual({})
 	})

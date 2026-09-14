@@ -11,7 +11,7 @@ const basePost: PostDetail = {
 	section: "tech",
 	datetime: "2024-01-15-0930",
 	body: "First paragraph.\n\nSecond paragraph.",
-	summary: "A short summary.",
+	description: "A short summary.",
 	imageUrl: null,
 	readingTime: null,
 	updatedAt: new Date("2024-01-15T09:30:00.000Z"),
@@ -30,6 +30,7 @@ describe("buildPostMarkdownFile", () => {
 		expect(file).toContain(
 			"canonical: https://roland.leth.ro/blog/tech/hello-world"
 		)
+		expect(file).toContain('description: "A short summary."')
 	})
 
 	it("appends the raw body verbatim after the frontmatter block", () => {
@@ -39,7 +40,7 @@ describe("buildPostMarkdownFile", () => {
 		)
 	})
 
-	it("round-trips through the importer's parseFrontmatter (title + slug + body preserved)", () => {
+	it("round-trips through the importer's parseFrontmatter (title + slug + description + body preserved)", () => {
 		const file = buildPostMarkdownFile(basePost, "https://roland.leth.ro")
 		const parsed = parseFrontmatter(file)
 
@@ -47,7 +48,18 @@ describe("buildPostMarkdownFile", () => {
 		// The stored slug survives even when it no longer matches what the title
 		// derives — the whole reason the export carries an explicit `slug:`.
 		expect(parsed.slug).toBe(basePost.slug)
+		// And the description lands on the value it left with, so a re-import of
+		// an export plans no description write.
+		expect(parsed.description).toBe(basePost.description)
 		expect(parsed.body).toBe(basePost.body)
+	})
+
+	it("escapes a description containing quotes so it round-trips", () => {
+		const post = { ...basePost, description: 'Say "no" more.' }
+		const parsed = parseFrontmatter(
+			buildPostMarkdownFile(post, "https://roland.leth.ro")
+		)
+		expect(parsed.description).toBe('Say "no" more.')
 	})
 
 	it("escapes a title containing quotes and backslashes so it round-trips", () => {

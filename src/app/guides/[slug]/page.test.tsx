@@ -159,6 +159,36 @@ describe("GuidePage — JSON-LD", () => {
 		)
 	})
 
+	it("emits a BreadcrumbList as a second block, after the Article", async () => {
+		vi.mocked(loadGuide).mockResolvedValue({
+			...guide,
+			topic: {
+				slug: "making-better-decisions",
+				title: "Making better decisions",
+			},
+		})
+
+		const { container } = render(await GuidePage(paramsFor(guide.slug)))
+		const scripts = container.querySelectorAll(
+			'script[type="application/ld+json"]'
+		)
+		const blocks = Array.from(scripts).map((script) =>
+			JSON.parse(script.innerHTML)
+		)
+
+		expect(blocks.map((block) => block["@type"])).toEqual([
+			"Article",
+			"BreadcrumbList",
+		])
+		expect(
+			blocks[1].itemListElement.map((item: { name: string }) => item.name)
+		).toEqual([
+			"Guides",
+			"Making better decisions",
+			"How to keep a decision journal",
+		])
+	})
+
 	// The hub is a landing page, not an article; the plan scopes Article JSON-LD
 	// to guides only.
 	it("emits no JSON-LD for a topic hub", async () => {
@@ -292,6 +322,25 @@ describe("generateMetadata", () => {
 		expect(result.alternates?.canonical).toBe(
 			"/guides/how-to-keep-a-decision-journal"
 		)
+	})
+
+	it("advertises the .md alternate for a guide so agents can find the raw markdown", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(guide)
+
+		const result = await generateMetadata(paramsFor(guide.slug))
+
+		expect(result.alternates?.types?.["text/markdown"]).toBe(
+			"/guides/how-to-keep-a-decision-journal.md"
+		)
+	})
+
+	it("advertises no .md alternate for a topic hub, which the route doesn't serve", async () => {
+		vi.mocked(loadGuide).mockResolvedValue(null)
+		vi.mocked(loadGuideTopic).mockResolvedValue(topic)
+
+		const result = await generateMetadata(paramsFor(topic.slug))
+
+		expect(result.alternates?.types?.["text/markdown"]).toBeUndefined()
 	})
 
 	it("emits article type with both published and modified times", async () => {

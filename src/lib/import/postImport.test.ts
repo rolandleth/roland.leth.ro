@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { deriveSummary } from "@/lib/content/markdown"
+import { deriveDescription } from "@/lib/content/markdown"
 import { calculateReadingTime } from "@/lib/utils/format"
 import { buildPostFile, parseFrontmatter } from "./frontmatter"
 import {
@@ -19,6 +19,19 @@ function fmFile(filename: string, title: string, body: string): ImportFile {
 	return { filename, content: buildPostFile(title, body) }
 }
 
+/** A post file that also carries an authored `description:` line. */
+function fmFileWithDescription(
+	filename: string,
+	title: string,
+	description: string,
+	body: string
+): ImportFile {
+	return {
+		filename,
+		content: `---\ntitle: "${title}"\ndescription: "${description}"\n---\n\n${body}`,
+	}
+}
+
 function existing(overrides: Partial<ExistingPost> = {}): ExistingPost {
 	const body = "Original body with a handful of words."
 
@@ -26,7 +39,7 @@ function existing(overrides: Partial<ExistingPost> = {}): ExistingPost {
 		id: 1,
 		title: "Hello world",
 		body,
-		summary: deriveSummary(body),
+		description: deriveDescription(body),
 		datetime: "2026-01-01-0900",
 		readingTime: calculateReadingTime(body),
 		...overrides,
@@ -53,6 +66,7 @@ describe("parsePostFiles", () => {
 				slug: "the-tools",
 				datetime: "2026-07-24-0937",
 				body: "Body text",
+				description: null,
 				slugRewrite: {
 					content: `---\ntitle: "The tools"\nslug: the-tools\n---\n\nBody text`,
 					previous: null,
@@ -279,7 +293,7 @@ describe("diffBodyLines", () => {
 // #region planPostImport — creates
 
 describe("planPostImport — creates", () => {
-	it("plans a create with derived summary and reading time for a new slug", () => {
+	it("plans a create with derived description and reading time for a new slug", () => {
 		const { parsed } = parsePostFiles([
 			fmFile("2026-07-01-0900-fresh.md", "Fresh post", LONG_BODY),
 		])
@@ -297,8 +311,47 @@ describe("planPostImport — creates", () => {
 		const create = plan.creates[0]
 		expect(create.slug).toBe("fresh-post")
 		expect(create.section).toBe("tech")
-		expect(create.summary).toBe(deriveSummary(LONG_BODY))
+		expect(create.description).toBe(deriveDescription(LONG_BODY))
 		expect(create.readingTime).toBe(calculateReadingTime(LONG_BODY))
+	})
+
+	it("uses the file's description over a derived one", () => {
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-07-01-0900-fresh.md",
+				"Fresh post",
+				"Written for the search result.",
+				LONG_BODY
+			),
+		])
+
+		const plan = planPostImport(parsed, new Map(), {
+			section: "tech",
+			now: NOW,
+			overwrite: false,
+		})
+
+		expect(plan.creates[0]?.description).toBe("Written for the search result.")
+	})
+
+	it("skips a create whose description is past the admin schema's cap", () => {
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-07-01-0900-long.md",
+				"Long one",
+				"x".repeat(161),
+				"Body text"
+			),
+		])
+
+		const plan = planPostImport(parsed, new Map(), {
+			section: "tech",
+			now: NOW,
+			overwrite: false,
+		})
+
+		expect(plan.creates).toEqual([])
+		expect(plan.skipped[0]?.reason).toMatch(/description/)
 	})
 
 	it("imports future-dated files as published and past-dated as drafts", () => {
@@ -371,7 +424,7 @@ describe("planPostImport — overwrite", () => {
 		expect(plan.skipped[0]?.reason).toBe("Unchanged")
 	})
 
-	it("updates body, reading time, and a derived summary on body change", () => {
+	it("updates body, reading time, and a derived description on body change", () => {
 		const row = existing()
 		const { parsed } = parsePostFiles([
 			fmFile("2026-01-01-0900-hello.md", "Hello world", LONG_BODY),
@@ -387,11 +440,11 @@ describe("planPostImport — overwrite", () => {
 		const { data } = plan.updates[0]
 		expect(data.body).toBe(LONG_BODY)
 		expect(data.readingTime).toBe(calculateReadingTime(LONG_BODY))
-		expect(data.summary).toBe(deriveSummary(LONG_BODY))
+		expect(data.description).toBe(deriveDescription(LONG_BODY))
 	})
 
-	it("preserves a hand-authored summary when the body changes", () => {
-		const row = existing({ summary: "Hand written summary." })
+	it("preserves a hand-authored description when the body changes", () => {
+		const row = existing({ description: "Hand written description." })
 		const { parsed } = parsePostFiles([
 			fmFile("2026-01-01-0900-hello.md", "Hello world", LONG_BODY),
 		])
@@ -402,12 +455,12 @@ describe("planPostImport — overwrite", () => {
 			overwrite: true,
 		})
 
-		expect(plan.updates[0]?.data.summary).toBeUndefined()
+		expect(plan.updates[0]?.data.description).toBeUndefined()
 	})
 
-	// Bodies diverge only past the 160-char summary window, so a still-derived
-	// summary resolves to the same text — the body updates, the summary doesn't.
-	it("omits the summary from the update when a derived summary is unchanged", () => {
+	// Bodies diverge only past the 160-char description window, so a still-derived
+	// description resolves to the same text — the body updates, the description doesn't.
+	it("omits the description from the update when a derived description is unchanged", () => {
 		const shared = Array.from({ length: 40 }, () => "word").join(" ")
 		const row = existing({ body: `${shared} alpha` })
 		const { parsed } = parsePostFiles([
@@ -421,7 +474,72 @@ describe("planPostImport — overwrite", () => {
 		})
 
 		expect(plan.updates[0]?.data.body).toBe(`${shared} beta`)
-		expect(plan.updates[0]?.data.summary).toBeUndefined()
+		expect(plan.updates[0]?.data.description).toBeUndefined()
+	})
+
+	it("writes a file description that differs from the stored one, body unchanged", () => {
+		const row = existing()
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				"Written for the search result.",
+				row.body
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data).toEqual({
+			description: "Written for the search result.",
+		})
+	})
+
+	it("lets a file description override one authored in the admin", () => {
+		const row = existing({ description: "Authored in the admin." })
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				"Written for the search result.",
+				row.body
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data.description).toBe(
+			"Written for the search result."
+		)
+	})
+
+	it("skips a file whose description and body both match the stored row", () => {
+		const row = existing({ description: "Written for the search result." })
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				"Written for the search result.",
+				row.body
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates).toEqual([])
+		expect(plan.skipped[0]?.reason).toBe("Unchanged")
 	})
 
 	it("never includes published in an update payload", () => {

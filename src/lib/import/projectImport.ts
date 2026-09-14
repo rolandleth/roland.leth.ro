@@ -136,6 +136,32 @@ export function deriveSlug(name: string, slug?: string | null): string {
 	return candidate
 }
 
+// The boolean flags a manifest has to set explicitly, in the order an error
+// lists them.
+const REQUIRED_FLAGS = ["isFeatured", "isDiscontinued", "isOwnApp"] as const
+
+/**
+ * Throws unless the manifest sets every flag in `REQUIRED_FLAGS` to a boolean.
+ * The import replaces the row wholesale (delete, then create), so a left-out
+ * flag would quietly reset whatever the admin set: a project ticked "Own app"
+ * in the admin lost its App Store badge on the next import. Checked before any
+ * upload, so `--dry-run` catches it too. Only the flags are required: for them
+ * `false` is a real answer, so a default can't tell "not a featured project"
+ * from "forgot to say", while a left-out text field is just empty.
+ */
+export function assertRequiredFlags(manifest: ProjectManifest): void {
+	const missingFlags = REQUIRED_FLAGS.filter(
+		(flag) => typeof manifest[flag] !== "boolean"
+	)
+
+	if (missingFlags.length > 0) {
+		throw new Error(
+			`Manifest must set ${missingFlags.join(", ")} to true or false. ` +
+				`The import replaces the whole row, so a left-out flag would reset the value set in the admin.`
+		)
+	}
+}
+
 /**
  * Splits a manifest-relative image path into sanitised key segments, dropping
  * `.`/`..`/empty parts so a traversal-shaped path (`../../secret.png`) can't

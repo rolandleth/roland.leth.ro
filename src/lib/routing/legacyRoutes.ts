@@ -186,4 +186,11 @@ export const LEGACY_REWRITES: Rewrite[] = [
 		source: `/blog/:section(${SECTION_PATTERN})/:slug([a-z0-9-]+).md`,
 		destination: "/api/blog/:section/:slug/md",
 	},
+	// `/guides/:slug.md` is the same arrangement for a guide's raw markdown. The
+	// slug constraint is the guide importer's canonical form, which is the post
+	// rule's pattern too. Topic hubs share the namespace; the handler 404s them.
+	{
+		source: "/guides/:slug([a-z0-9-]+).md",
+		destination: "/api/guides/:slug/md",
+	},
 ]

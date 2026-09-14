@@ -82,13 +82,32 @@ export function jsonLdImageUrl(
 }
 
 /**
- * The site's single author/publisher `Person` entity. Reused across blog and
- * project structured data so a personal site isn't forced to assert a separate
- * Organization it doesn't have. `url` is the site origin — Google's
+ * The author's profiles elsewhere, for `Person.sameAs`. The same three accounts
+ * the About page and the posts link to, listed here so every emitted entity
+ * carries them: `sameAs` is how a search engine ties the site's author to the
+ * accounts that mention the site, which is most of what author authority rests
+ * on for a single-person domain.
+ */
+export const PERSON_SAME_AS = [
+	"https://github.com/rolandleth",
+	"https://x.com/rolandleth",
+	"https://bsky.app/profile/roland.leth.ro",
+] as const
+
+/**
+ * The site's single author/publisher `Person` entity. Reused across blog,
+ * guide and project structured data so a personal site isn't forced to assert
+ * a separate Organization it doesn't have. `url` is the site origin — Google's
  * structured-data validator flags author entities without a `url`, and the
  * author's homepage genuinely is this site. `base` is the origin from
- * `getSiteUrl()`, passed in so the builder stays pure.
+ * `getSiteUrl()`, passed in so the builder stays pure. `sameAs` is copied per
+ * call so no two blocks share one array instance.
  */
 export function personFor(base: string) {
-	return { "@type": "Person", name: "Roland Leth", url: base } as const
+	return {
+		"@type": "Person",
+		name: "Roland Leth",
+		url: base,
+		sameAs: [...PERSON_SAME_AS],
+	} as const
 }

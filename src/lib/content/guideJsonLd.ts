@@ -58,3 +58,43 @@ export function buildGuideArticleJsonLd(
 
 	return jsonLd
 }
+
+/**
+ * `BreadcrumbList` JSON-LD for a guide: Guides → its topic hub, when it has a
+ * live one → the guide itself. The page draws the parent link as chrome; this
+ * is the same trail in the form a search engine reads into the result line,
+ * and the one structured-data type that still changes how that line looks.
+ *
+ * A guide with no live topic gets a two-item trail rather than none: the
+ * `/guides` index is the discoverability floor for every guide, grouped or not.
+ * The last item carries its own URL — Google tolerates omitting it, but
+ * every other consumer is happier with a complete list.
+ */
+export function buildGuideBreadcrumbJsonLd(
+	guide: GuideDetail,
+	base: string
+): Record<string, unknown> {
+	const trail = [
+		{ name: "Guides", item: `${base}/guides` },
+		...(guide.topic == null
+			? []
+			: [
+					{
+						name: guide.topic.title,
+						item: `${base}/guides/${guide.topic.slug}`,
+					},
+				]),
+		{ name: guide.title, item: `${base}/guides/${guide.slug}` },
+	]
+
+	return {
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		itemListElement: trail.map((crumb, index) => ({
+			"@type": "ListItem",
+			position: index + 1,
+			name: crumb.name,
+			item: crumb.item,
+		})),
+	}
+}

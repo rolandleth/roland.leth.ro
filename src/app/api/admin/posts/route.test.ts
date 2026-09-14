@@ -44,7 +44,7 @@ const createdPost = {
 	slug: "my-new-post",
 	section: "tech" as const,
 	published: true,
-	summary: "Some content here.",
+	description: "Some content here.",
 	imageUrl: null,
 	readingTime: null,
 	createdAt: new Date(),
@@ -208,37 +208,39 @@ describe("POST /api/admin/posts", () => {
 		expect(response.status).toBe(400)
 	})
 
-	// #region summary auto-derive
+	// #region description auto-derive
 
-	it("auto-derives summary from body when summary is omitted", async () => {
+	it("auto-derives description from body when description is omitted", async () => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
 		await POST(makeRequest(validPayload))
 
 		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
 		// `validPayload.body` is "Some content here." — fits under 160 chars,
-		// so the derived summary is the stripped body verbatim.
-		expect(data.summary).toBe("Some content here.")
+		// so the derived description is the stripped body verbatim.
+		expect(data.description).toBe("Some content here.")
 	})
 
-	it("auto-derives summary from body when summary is an empty string", async () => {
+	it("auto-derives description from body when description is an empty string", async () => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(makeRequest({ ...validPayload, summary: "" }))
+		await POST(makeRequest({ ...validPayload, description: "" }))
 
 		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		expect(data.summary).toBe("Some content here.")
+		expect(data.description).toBe("Some content here.")
 	})
 
-	it("uses the provided summary verbatim when non-empty", async () => {
+	it("uses the provided description verbatim when non-empty", async () => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(makeRequest({ ...validPayload, summary: "Hand-written blurb" }))
+		await POST(
+			makeRequest({ ...validPayload, description: "Hand-written blurb" })
+		)
 
 		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		expect(data.summary).toBe("Hand-written blurb")
+		expect(data.description).toBe("Hand-written blurb")
 	})
 
-	it("returns 400 when summary exceeds 160 chars", async () => {
+	it("returns 400 when description exceeds 160 chars", async () => {
 		const response = await POST(
-			makeRequest({ ...validPayload, summary: "a".repeat(161) })
+			makeRequest({ ...validPayload, description: "a".repeat(161) })
 		)
 		expect(response.status).toBe(400)
 	})

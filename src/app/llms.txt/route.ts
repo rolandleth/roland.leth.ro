@@ -1,7 +1,9 @@
 import { getSiteUrl } from "@/lib/auth/env"
 import { getGuidesOverview } from "@/lib/db/guides"
+import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 import type { GuidesOverview } from "@/lib/db/guides"
+import type { RecentPost } from "@/lib/db/posts"
 
 // Prerender at build instead of per-request: this handler has no dynamic
 // dependency (env origin + tag-cached project data), so it serves as a static
@@ -10,9 +12,10 @@ import type { GuidesOverview } from "@/lib/db/guides"
 export const dynamic = "force-static"
 
 // `/llms.txt` is the agent-facing counterpart to the sitemap: a short, plain
-// overview plus one line per project, so an AI system can ground answers about
-// the site without scraping every page. It's generated from the same cached
-// project data the gallery uses, so it can't drift from what's actually live.
+// overview plus one line per project, guide and recent post, so an AI system
+// can ground answers about the site without scraping every page. It's
+// generated from the same cached data the gallery, the guides and the blog
+// list use, so it can't drift from what's actually live.
 
 /** Collapses runtime whitespace (newlines, doubled spaces) so a summary fits on one line. */
 function oneLine(text: string): string {
@@ -72,11 +75,41 @@ ${lines.join("\n")}
 `
 }
 
+/**
+ * The `## Posts` block: the newest tech posts with their descriptions, so an
+ * agent can cite a post without crawling the list pages. The query caps the
+ * count; the archive link covers everything older. Every post also serves its
+ * raw markdown at its URL plus `.md`, which is worth saying once here rather
+ * than per line.
+ *
+ * Returns an empty string when there are no posts, so the header is omitted
+ * entirely rather than advertising a section that isn't there.
+ */
+function postsSection(base: string, posts: RecentPost[]): string {
+	if (posts.length === 0) {
+		return ""
+	}
+
+	const lines = posts.map(
+		(post) =>
+			`- [${linkLabel(post.title)}](${base}/blog/${post.section}/${post.slug}): ${oneLine(post.description)}`
+	)
+
+	return `## Posts
+
+The newest posts on the tech blog, with their descriptions. The full archive is at ${base}/blog/tech/archive, and every post serves its raw markdown at its URL with \`.md\` appended.
+
+${lines.join("\n")}
+
+`
+}
+
 export async function GET(): Promise<Response> {
 	const base = getSiteUrl()
-	const [projects, guides] = await Promise.all([
+	const [projects, guides, posts] = await Promise.all([
 		getProjectsGalleryCached(),
 		getGuidesOverview(),
+		getRecentPosts("tech"),
 	])
 
 	// Discontinued projects are sorted last in the gallery but not dropped. This
@@ -100,7 +133,7 @@ This file gives AI systems a clean overview of ${base.replace(/^https?:\/\//, ""
 
 ${projectLines}
 
-${guidesSection(base, guides)}## Site
+${guidesSection(base, guides)}${postsSection(base, posts)}## Site
 
 - [Tech blog](${base}/blog/tech): posts on iOS, web, and software engineering.
 - [About](${base}/about): background and contact.

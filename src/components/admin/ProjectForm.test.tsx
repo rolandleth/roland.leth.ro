@@ -195,6 +195,24 @@ describe("ProjectForm — create mode", () => {
 		expect(options.method).toBe("POST")
 	})
 
+	it("sends isFeatured, isDiscontinued and isOwnApp as false when left unticked", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await user.type(screen.getByLabelText(/^name$/i), "New App")
+		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
+		await user.type(screen.getByLabelText(/summary/i), "A new app.")
+		await user.click(screen.getByRole("button", { name: /save project/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const body = JSON.parse(options.body)
+		expect(body.isFeatured).toBe(false)
+		expect(body.isDiscontinued).toBe(false)
+		expect(body.isOwnApp).toBe(false)
+	})
+
 	it("navigates to /admin after a successful save", async () => {
 		const { push } = mockRouter()
 		mockFetch(true)

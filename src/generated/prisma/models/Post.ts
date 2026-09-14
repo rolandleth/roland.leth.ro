@@ -38,7 +38,7 @@ export type PostMinAggregateOutputType = {
   id: number | null
   title: string | null
   body: string | null
-  summary: string | null
+  description: string | null
   imageUrl: string | null
   section: $Enums.Section | null
   slug: string | null
@@ -53,7 +53,7 @@ export type PostMaxAggregateOutputType = {
   id: number | null
   title: string | null
   body: string | null
-  summary: string | null
+  description: string | null
   imageUrl: string | null
   section: $Enums.Section | null
   slug: string | null
@@ -68,7 +68,7 @@ export type PostCountAggregateOutputType = {
   id: number
   title: number
   body: number
-  summary: number
+  description: number
   imageUrl: number
   section: number
   slug: number
@@ -93,7 +93,7 @@ export type PostMinAggregateInputType = {
   id?: true
   title?: true
   body?: true
-  summary?: true
+  description?: true
   imageUrl?: true
   section?: true
   slug?: true
@@ -108,7 +108,7 @@ export type PostMaxAggregateInputType = {
   id?: true
   title?: true
   body?: true
-  summary?: true
+  description?: true
   imageUrl?: true
   section?: true
   slug?: true
@@ -123,7 +123,7 @@ export type PostCountAggregateInputType = {
   id?: true
   title?: true
   body?: true
-  summary?: true
+  description?: true
   imageUrl?: true
   section?: true
   slug?: true
@@ -225,7 +225,7 @@ export type PostGroupByOutputType = {
   id: number
   title: string
   body: string
-  summary: string
+  description: string
   imageUrl: string | null
   section: $Enums.Section
   slug: string
@@ -263,7 +263,7 @@ export type PostWhereInput = {
   id?: Prisma.IntFilter<"Post"> | number
   title?: Prisma.StringFilter<"Post"> | string
   body?: Prisma.StringFilter<"Post"> | string
-  summary?: Prisma.StringFilter<"Post"> | string
+  description?: Prisma.StringFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableFilter<"Post"> | string | null
   section?: Prisma.EnumSectionFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringFilter<"Post"> | string
@@ -278,7 +278,7 @@ export type PostOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -297,7 +297,7 @@ export type PostWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PostWhereInput | Prisma.PostWhereInput[]
   title?: Prisma.StringFilter<"Post"> | string
   body?: Prisma.StringFilter<"Post"> | string
-  summary?: Prisma.StringFilter<"Post"> | string
+  description?: Prisma.StringFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableFilter<"Post"> | string | null
   section?: Prisma.EnumSectionFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringFilter<"Post"> | string
@@ -312,7 +312,7 @@ export type PostOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -335,7 +335,7 @@ export type PostScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"Post"> | number
   title?: Prisma.StringWithAggregatesFilter<"Post"> | string
   body?: Prisma.StringWithAggregatesFilter<"Post"> | string
-  summary?: Prisma.StringWithAggregatesFilter<"Post"> | string
+  description?: Prisma.StringWithAggregatesFilter<"Post"> | string
   imageUrl?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
   section?: Prisma.EnumSectionWithAggregatesFilter<"Post"> | $Enums.Section
   slug?: Prisma.StringWithAggregatesFilter<"Post"> | string
@@ -349,7 +349,7 @@ export type PostScalarWhereWithAggregatesInput = {
 export type PostCreateInput = {
   title: string
   body: string
-  summary: string
+  description: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -364,7 +364,7 @@ export type PostUncheckedCreateInput = {
   id?: number
   title: string
   body: string
-  summary: string
+  description: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -378,7 +378,7 @@ export type PostUncheckedCreateInput = {
 export type PostUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -393,7 +393,7 @@ export type PostUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -408,7 +408,7 @@ export type PostCreateManyInput = {
   id?: number
   title: string
   body: string
-  summary: string
+  description: string
   imageUrl?: string | null
   section?: $Enums.Section
   slug: string
@@ -422,7 +422,7 @@ export type PostCreateManyInput = {
 export type PostUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -437,7 +437,7 @@ export type PostUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   body?: Prisma.StringFieldUpdateOperationsInput | string
-  summary?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
   imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   section?: Prisma.EnumSectionFieldUpdateOperationsInput | $Enums.Section
   slug?: Prisma.StringFieldUpdateOperationsInput | string
@@ -457,7 +457,7 @@ export type PostCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -476,7 +476,7 @@ export type PostMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -491,7 +491,7 @@ export type PostMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   body?: Prisma.SortOrder
-  summary?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   imageUrl?: Prisma.SortOrder
   section?: Prisma.SortOrder
   slug?: Prisma.SortOrder
@@ -540,7 +540,7 @@ export type PostSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   id?: boolean
   title?: boolean
   body?: boolean
-  summary?: boolean
+  description?: boolean
   imageUrl?: boolean
   section?: boolean
   slug?: boolean
@@ -555,7 +555,7 @@ export type PostSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   id?: boolean
   title?: boolean
   body?: boolean
-  summary?: boolean
+  description?: boolean
   imageUrl?: boolean
   section?: boolean
   slug?: boolean
@@ -570,7 +570,7 @@ export type PostSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   id?: boolean
   title?: boolean
   body?: boolean
-  summary?: boolean
+  description?: boolean
   imageUrl?: boolean
   section?: boolean
   slug?: boolean
@@ -585,7 +585,7 @@ export type PostSelectScalar = {
   id?: boolean
   title?: boolean
   body?: boolean
-  summary?: boolean
+  description?: boolean
   imageUrl?: boolean
   section?: boolean
   slug?: boolean
@@ -596,7 +596,7 @@ export type PostSelectScalar = {
   updatedAt?: boolean
 }
 
-export type PostOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "body" | "summary" | "imageUrl" | "section" | "slug" | "datetime" | "readingTime" | "published" | "createdAt" | "updatedAt", ExtArgs["result"]["post"]>
+export type PostOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "body" | "description" | "imageUrl" | "section" | "slug" | "datetime" | "readingTime" | "published" | "createdAt" | "updatedAt", ExtArgs["result"]["post"]>
 
 export type $PostPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Post"
@@ -605,7 +605,7 @@ export type $PostPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     id: number
     title: string
     body: string
-    summary: string
+    description: string
     imageUrl: string | null
     section: $Enums.Section
     slug: string
@@ -1040,7 +1040,7 @@ export interface PostFieldRefs {
   readonly id: Prisma.FieldRef<"Post", 'Int'>
   readonly title: Prisma.FieldRef<"Post", 'String'>
   readonly body: Prisma.FieldRef<"Post", 'String'>
-  readonly summary: Prisma.FieldRef<"Post", 'String'>
+  readonly description: Prisma.FieldRef<"Post", 'String'>
   readonly imageUrl: Prisma.FieldRef<"Post", 'String'>
   readonly section: Prisma.FieldRef<"Post", 'Section'>
   readonly slug: Prisma.FieldRef<"Post", 'String'>

@@ -14,7 +14,7 @@ function makePost(overrides: Partial<PostDetail> = {}): PostDetail {
 		section: "tech",
 		datetime: "2025-01-02-0900",
 		body: "Content",
-		summary: "A short summary.",
+		description: "A short summary.",
 		imageUrl: null,
 		readingTime: null,
 		updatedAt: new Date("2025-03-04T05:06:07.000Z"),

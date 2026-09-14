@@ -109,7 +109,9 @@ export default function LegalPageLayout({
 							<ul className="list-disc space-y-2 pl-5">
 								{relatedLinks.map((link) => (
 									<li key={link.href}>
-										<Link href={link.href}>{link.label}</Link>
+										<Link href={link.href} className="link">
+											{link.label}
+										</Link>
 									</li>
 								))}
 							</ul>
@@ -126,7 +128,10 @@ export default function LegalPageLayout({
 			content: (
 				<p>
 					{boilerplate.contactIntro}
-					<a href={`mailto:${contactEmail}`}>contact {contactPronoun}</a>.
+					<a href={`mailto:${contactEmail}`} className="link">
+						contact {contactPronoun}
+					</a>
+					.
 				</p>
 			),
 		},

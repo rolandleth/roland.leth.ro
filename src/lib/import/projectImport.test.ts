@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	assertRequiredFlags,
 	blobKeyFor,
 	blobPrefixFor,
 	contentHashFor,
@@ -62,6 +63,67 @@ describe("deriveSlug", () => {
 	it("throws when neither an explicit slug nor the name yields a slug", () => {
 		expect(() => deriveSlug("!!!")).toThrow(/slug/i)
 		expect(() => deriveSlug("", "")).toThrow(/slug/i)
+	})
+})
+
+// #endregion
+
+// #region assertRequiredFlags
+
+describe("assertRequiredFlags", () => {
+	const allFlags = {
+		name: "Reckon",
+		isFeatured: true,
+		isDiscontinued: false,
+		isOwnApp: true,
+	} satisfies ProjectManifest
+
+	it("accepts a manifest that sets every flag, false included", () => {
+		expect(() => assertRequiredFlags(allFlags)).not.toThrow()
+		expect(() =>
+			assertRequiredFlags({
+				name: "Old client app",
+				isFeatured: false,
+				isDiscontinued: false,
+				isOwnApp: false,
+			})
+		).not.toThrow()
+	})
+
+	// The import replaces the row, so a left-out flag would silently reset the
+	// value set in the admin.
+	it("names the flag a manifest leaves out", () => {
+		const { isOwnApp: _omitted, ...withoutOwnApp } = allFlags
+
+		expect(() => assertRequiredFlags(withoutOwnApp)).toThrow(
+			/must set isOwnApp to true or false/
+		)
+	})
+
+	it("names every missing flag at once", () => {
+		expect(() => assertRequiredFlags({ name: "Reckon" })).toThrow(
+			/isFeatured, isDiscontinued, isOwnApp/
+		)
+	})
+
+	// The manifest is untrusted JSON cast to the type, so a string can arrive
+	// where the type says boolean.
+	it("rejects a flag that isn't a boolean", () => {
+		const manifest = {
+			...allFlags,
+			isFeatured: "yes",
+		} as unknown as ProjectManifest
+
+		expect(() => assertRequiredFlags(manifest)).toThrow(/isFeatured/)
+	})
+
+	it("rejects a null flag", () => {
+		const manifest = {
+			...allFlags,
+			isDiscontinued: null,
+		} as unknown as ProjectManifest
+
+		expect(() => assertRequiredFlags(manifest)).toThrow(/isDiscontinued/)
 	})
 })
 

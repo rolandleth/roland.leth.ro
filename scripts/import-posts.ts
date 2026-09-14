@@ -28,9 +28,11 @@
 //
 // Creates follow the bulk endpoint's rule: future-dated files import as
 // published (scheduled), past-dated as drafts. Overwrites refresh title, body,
-// datetime, and reading time, PRESERVE `published`, and only re-derive
-// `summary` when the stored one was itself derived — a hand-authored summary
-// survives. Unchanged files plan zero writes, so re-runs are idempotent.
+// datetime, and reading time, PRESERVE `published`, and write `description`
+// only when the file carries one that differs from the stored value, or when
+// the stored one was itself derived and the body changed — a description
+// authored in the admin survives an overwrite from a file without one.
+// Unchanged files plan zero writes, so re-runs are idempotent.
 //
 // Direct Prisma writes: this deliberately skips the admin API, so it cannot
 // bust the site's caches. After a run with writes, hit "Revalidate caches" in
@@ -167,7 +169,7 @@ function toCreateRow(create: PlannedCreate) {
 		slug: create.slug,
 		section: create.section,
 		body: create.body,
-		summary: create.summary,
+		description: create.description,
 		datetime: create.datetime,
 		readingTime: create.readingTime,
 		published: create.published,
@@ -294,7 +296,7 @@ async function main(): Promise<void> {
 				slug: true,
 				title: true,
 				body: true,
-				summary: true,
+				description: true,
 				datetime: true,
 				readingTime: true,
 			},

@@ -37,10 +37,7 @@ export default function ScheduledPostNotice({
 			<p className="text-secondary mt-3 max-w-lg leading-relaxed text-pretty sm:text-wrap">
 				<span className="font-medium">“{title}”</span> isn’t live yet.
 				<br /> Come back on {formatDate(datetime)}, or grab{" "}
-				<a
-					href={feed.path}
-					className="text-(--color-accent) transition-opacity hover:opacity-75"
-				>
+				<a href={feed.path} className="link">
 					the feed
 				</a>{" "}
 				and wait for it.

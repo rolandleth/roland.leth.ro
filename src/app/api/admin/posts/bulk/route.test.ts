@@ -331,12 +331,12 @@ describe("POST /api/admin/posts/bulk frontmatter", () => {
 			title: string
 			slug: string
 			body: string
-			summary: string
+			description: string
 		}>
 		expect(data[0].title).toBe("A real post")
 		expect(data[0].slug).toBe("a-real-post")
 		expect(data[0].body).toBe("Actual body text.")
-		expect(data[0].summary).toBe("Actual body text.")
+		expect(data[0].description).toBe("Actual body text.")
 	})
 
 	it("derives the slug from a title the filename can't hold", async () => {
@@ -529,11 +529,11 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(auditCalls).toEqual([])
 	})
 
-	it("derives summary from the body on every inserted row", async () => {
-		// Bulk import has no per-file summary input — every created row must
-		// carry an auto-derived summary so the OG meta description and feed
-		// `<summary>` are never blank. Pins the contract against accidental
-		// reintroduction of null summaries.
+	it("derives the description from the body on every row without one", async () => {
+		// A file without a `description:` line must still produce a row with a
+		// derived description, so the meta description and feed `<summary>` are
+		// never blank. Pins the contract against accidental reintroduction of
+		// null descriptions.
 		await POST(
 			makeRequest({
 				section: "tech",
@@ -546,9 +546,28 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 
 		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
 			.calls[0]?.[0]
-		const data = insertCall?.data as Array<{ summary: string }>
-		expect(data[0].summary).toBe("First post body.")
-		expect(data[1].summary).toBe("Second post body.")
+		const data = insertCall?.data as Array<{ description: string }>
+		expect(data[0].description).toBe("First post body.")
+		expect(data[1].description).toBe("Second post body.")
+	})
+
+	it("stores a frontmatter description instead of deriving one", async () => {
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-first.md",
+						content: `---\ntitle: "First"\ndescription: "Written for the search result."\n---\n\nFirst post body.`,
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ description: string }>
+		expect(data[0].description).toBe("Written for the search result.")
 	})
 
 	it("emits a skip-reason summary log when files are skipped", async () => {

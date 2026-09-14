@@ -225,22 +225,46 @@ describe("LEGACY_REWRITES", () => {
 		expect(rule?.destination).toBe("/api/feed/:section")
 	})
 
-	it("rewrites the markdown export to its route handler", () => {
-		const rule = LEGACY_REWRITES.find((entry) => entry.source.endsWith(".md"))
+	it("rewrites the post markdown export to its route handler", () => {
+		const rule = LEGACY_REWRITES.find(
+			(entry) =>
+				entry.source.startsWith("/blog/") && entry.source.endsWith(".md")
+		)
 
 		expect(rule?.destination).toBe("/api/blog/:section/:slug/md")
 	})
 
-	it("constrains the markdown slug to the shape createSlug produces", () => {
-		// The `.md` suffix is only unambiguous because a slug can't contain a dot.
-		// A looser pattern would make `/blog/tech/some.name.md` split arbitrarily.
-		const rule = LEGACY_REWRITES.find((entry) => entry.source.endsWith(".md"))
+	it("rewrites the guide markdown export to its route handler", () => {
+		const rule = LEGACY_REWRITES.find((entry) =>
+			entry.source.startsWith("/guides/")
+		)
 
-		expect(rule?.source).toContain(":slug([a-z0-9-]+)")
+		expect(rule?.source).toBe("/guides/:slug([a-z0-9-]+).md")
+		expect(rule?.destination).toBe("/api/guides/:slug/md")
 	})
 
-	it("scopes every rewrite to a known section", () => {
-		for (const rule of LEGACY_REWRITES) {
+	it("constrains every markdown slug to the shape createSlug produces", () => {
+		// The `.md` suffix is only unambiguous because a slug can't contain a dot.
+		// A looser pattern would make `/blog/tech/some.name.md` split arbitrarily.
+		const rules = LEGACY_REWRITES.filter((entry) =>
+			entry.source.endsWith(".md")
+		)
+
+		expect(rules).toHaveLength(2)
+
+		for (const rule of rules) {
+			expect(rule.source).toContain(":slug([a-z0-9-]+)")
+		}
+	})
+
+	it("scopes every blog rewrite to a known section", () => {
+		const blogRules = LEGACY_REWRITES.filter((entry) =>
+			entry.source.startsWith("/blog/")
+		)
+
+		expect(blogRules.length).toBeGreaterThan(0)
+
+		for (const rule of blogRules) {
 			expect(rule.source).toContain(`:section(${SECTION_PATTERN})`)
 		}
 	})

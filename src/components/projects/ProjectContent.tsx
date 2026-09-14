@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
 import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
-import { detailLabel, storefrontFor } from "@/lib/utils/platforms"
+import { detailLabel, linkCtasFor } from "@/lib/utils/platforms"
 import AppStoreBadge from "./AppStoreBadge"
 import ProjectFaq from "./ProjectFaq"
 import ProjectGuides from "./ProjectGuides"
@@ -14,7 +14,7 @@ import ProjectImageLightbox from "./ProjectImageLightbox"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { GuideLinkItem } from "@/lib/content/guideLinks"
 import type { ProjectDetail } from "@/lib/db/projects"
-import type { Storefront } from "@/lib/utils/platforms"
+import type { LinkCta } from "@/lib/utils/platforms"
 import type { ReactNode } from "react"
 
 interface Props {
@@ -44,29 +44,20 @@ export default function ProjectContent({
 		role,
 		accentColor,
 		isDiscontinued,
-		isOwnApp,
 		sections,
 		links,
 		faqs,
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
+	// Every link with how it renders; the storefront, badge and discontinued
+	// rules all live in `linkCtasFor`.
+	const linkCtas = linkCtasFor(project)
 	// The primary storefront link, repeated as a standalone CTA below the content
 	// — by then the hero pill has long scrolled off-screen. `find` takes the
 	// lowest-`sortOrder` storefront when a project lists several (an iOS and a
 	// Mac listing are both `apps.apple.com`), so the author picks the primary one
-	// by ordering the links. Discontinued projects are excluded: a prominent
-	// "Get on …" asserts availability the Discontinued badge contradicts.
-	const storeLink = isDiscontinued
-		? undefined
-		: links.find((link) => isStoreUrl(link.url))
-	// The Apple badge a storefront link renders as, or null to keep the "Get on
-	// …" pill. Gated on `isOwnApp` because the badge says "Download" about a
-	// product Roland sells, which an employer's or client's app isn't, and on
-	// the bucket because the artwork differs per store and the URL can't tell an
-	// iOS listing from a Mac one (see `storefrontFor`). A discontinued project
-	// keeps the bare pill for the same reason it loses the "Get on" prefix.
-	const badgeStorefront =
-		isOwnApp && !isDiscontinued ? storefrontFor(bucket) : null
+	// by ordering the links. A discontinued project has no storefront CTA.
+	const storeCta = linkCtas.find(({ cta }) => cta.kind !== "plainPill")
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
 	// and lightbox both slide across this whole strip; each slide carries its
@@ -268,13 +259,12 @@ export default function ProjectContent({
 						<div
 							className={`grid shrink-0 grid-flow-col items-center gap-2 ${links.length === 1 ? "grid-rows-1" : "grid-rows-2"}`}
 						>
-							{links.map((link) => (
+							{linkCtas.map(({ link, cta }) => (
 								<ProjectLinkCta
 									key={link.id}
-									link={link}
+									url={link.url}
+									cta={cta}
 									accent={accent}
-									isDiscontinued={isDiscontinued}
-									badgeStorefront={badgeStorefront}
 								/>
 							))}
 						</div>
@@ -425,13 +415,12 @@ export default function ProjectContent({
 				)}
 
 				{/* Store CTA repeated above the guides, mirroring the hero one. */}
-				{storeLink && (
+				{storeCta && (
 					<motion.div className="mt-12 flex justify-center" {...fadeUp(0.2)}>
 						<ProjectLinkCta
-							link={storeLink}
+							url={storeCta.link.url}
+							cta={storeCta.cta}
 							accent={accent}
-							isDiscontinued={isDiscontinued}
-							badgeStorefront={badgeStorefront}
 						/>
 					</motion.div>
 				)}
@@ -453,33 +442,25 @@ export default function ProjectContent({
 }
 
 interface ProjectLinkCtaProps {
-	link: ProjectDetail["links"][number]
+	url: string
+	/** How the link renders; decided by `linkCtasFor`. */
+	cta: LinkCta
 	accent: string
-	isDiscontinued: boolean
-	/** The storefront whose badge store links render as; null keeps them on the pill. */
-	badgeStorefront: Storefront | null
 }
 
 /**
- * One project link. A storefront link on a project that may carry the Apple
- * badge renders the badge; every other link — GitHub, a website, a storefront
- * on a project that isn't an own app — renders the accent-coloured pill. Shared
- * by the hero links grid and the repeated CTA below the content so the two
- * can't disagree on which links get the badge.
+ * One project link, as the Apple badge or the accent-coloured pill. Shared by
+ * the hero links grid and the repeated CTA below the content, so the two
+ * render a link the same way.
  */
-function ProjectLinkCta({
-	link,
-	accent,
-	isDiscontinued,
-	badgeStorefront,
-}: ProjectLinkCtaProps) {
-	if (badgeStorefront && isStoreUrl(link.url)) {
+function ProjectLinkCta({ url, cta, accent }: ProjectLinkCtaProps) {
+	if (cta.kind === "badge") {
 		// `justify-self-center`: in the hero grid the anchor would otherwise
 		// stretch to the column and leave the artwork flush left.
 		return (
 			<AppStoreBadge
-				storefront={badgeStorefront}
-				href={link.url}
+				storefront={cta.storefront}
+				href={url}
 				className="justify-self-center"
 			/>
 		)
@@ -487,7 +468,7 @@ function ProjectLinkCta({
 
 	return (
 		<a
-			href={link.url}
+			href={url}
 			target="_blank"
 			rel="noopener noreferrer"
 			className={ctaPillClass}
@@ -496,45 +477,7 @@ function ProjectLinkCta({
 				borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
 			}}
 		>
-			{ctaLabel(link, isDiscontinued)}
+			{cta.label}
 		</a>
 	)
-}
-
-/**
- * Storefront links render as a call to action ("Get on Mac App Store"); other
- * links (GitHub, a project site) keep their bare label. Keyed off the URL, not
- * the label, so copy edits can't change which links get the prefix.
- *
- * A discontinued project keeps the bare label on its storefront link too — the
- * listing stays reachable, it just stops being sold.
- */
-function ctaLabel(
-	link: { label: string; url: string },
-	isDiscontinued: boolean
-): string {
-	return isStoreUrl(link.url) && !isDiscontinued
-		? `Get on ${link.label}`
-		: link.label
-}
-
-/**
- * Hostnames that count as a storefront. Apple-only because that's every
- * storefront the projects carry today; another store (Play, Setapp, a direct
- * download) renders as a plain link until its host is added here.
- * `itunes.apple.com` is the pre-2019 host: it still redirects to
- * `apps.apple.com`, and older rows link to it.
- */
-const STORE_HOSTNAMES: ReadonlySet<string> = new Set([
-	"apps.apple.com",
-	"itunes.apple.com",
-])
-
-/** True for storefront URLs; a malformed URL is treated as a non-store link. */
-function isStoreUrl(url: string): boolean {
-	try {
-		return STORE_HOSTNAMES.has(new URL(url).hostname)
-	} catch {
-		return false
-	}
 }

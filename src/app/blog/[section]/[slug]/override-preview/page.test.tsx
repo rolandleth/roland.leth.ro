@@ -46,7 +46,7 @@ const existingPost = {
 	body: "Body content.",
 	section: "tech" as const,
 	datetime: "2999-01-01-0900",
-	summary: "A short summary.",
+	description: "A short summary.",
 	imageUrl: null,
 	readingTime: null,
 	slug: "hello",

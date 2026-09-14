@@ -269,6 +269,61 @@ describe("getSectionPageCount", () => {
 
 // #endregion
 
+// #region getRecentPosts
+
+describe("getRecentPosts", () => {
+	it("shares the section tag, so a section bust refreshes llms.txt too", async () => {
+		// Built once per section at module load like `sectionPageCountCache`, so
+		// the tagging call has to be replayed on a fresh import to be observable.
+		vi.resetModules()
+		const fresh = await import("@/lib/db/posts")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+
+		await fresh.getRecentPosts("tech")
+
+		expect(unstable_cache).toHaveBeenCalledWith(
+			expect.any(Function),
+			["blog-recent-tech"],
+			{ tags: ["blog-tech"] }
+		)
+	})
+
+	it("selects only what llms.txt lists, newest first, published and live only", async () => {
+		vi.resetModules()
+		const fresh = await import("@/lib/db/posts")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+
+		await fresh.getRecentPosts("tech")
+
+		expect(prisma.post.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({ section: "tech", published: true }),
+				select: { title: true, slug: true, section: true, description: true },
+				orderBy: { datetime: "desc" },
+				take: fresh.RECENT_POSTS_LIMIT,
+			})
+		)
+	})
+
+	it("returns the rows as fetched", async () => {
+		vi.resetModules()
+		const fresh = await import("@/lib/db/posts")
+		const rows = [
+			{
+				title: "Hello",
+				slug: "hello",
+				section: "tech" as const,
+				description: "A short description.",
+			},
+		]
+		vi.mocked(prisma.post.findMany).mockResolvedValue(rows as Post[])
+
+		expect(await fresh.getRecentPosts("tech")).toEqual(rows)
+	})
+})
+
+// #endregion
+
 // #region getPostsGroupedByYear
 
 describe("getPostsGroupedByYear", () => {
@@ -365,7 +420,7 @@ describe("getPostBySlug", () => {
 		section: "tech" as const,
 		datetime: "2024-06-01-1200",
 		body: "Body content.",
-		summary: "A short summary.",
+		description: "A short summary.",
 		imageUrl: "https://example.com/image.png",
 		readingTime: "2 min read",
 	}
@@ -449,7 +504,7 @@ describe("loadPostResolution", () => {
 		section: "tech" as const,
 		datetime: "9999-12-31-2359",
 		body: "Body content.",
-		summary: "A short summary.",
+		description: "A short summary.",
 		imageUrl: null,
 		readingTime: null,
 	}
@@ -548,7 +603,7 @@ describe("loadPostRowResolution", () => {
 		section: "tech" as const,
 		datetime: "9999-12-31-2359",
 		body: "Body content.",
-		summary: "A short summary.",
+		description: "A short summary.",
 		imageUrl: null,
 		readingTime: null,
 	}

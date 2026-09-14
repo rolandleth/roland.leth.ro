@@ -46,6 +46,12 @@ const BADGES: Record<
  * `src` from React state would flash the wrong badge at dark-mode visitors
  * until hydration. The link carries the accessible name; the images are
  * marked decorative so the hidden variant can't double it.
+ *
+ * Both images load eagerly. The hero badge is above the fold, and a lazy image
+ * hidden with `display: none` isn't fetched until the theme toggle shows it,
+ * which leaves the badge blank for a moment. The cost is the other variant's
+ * SVG (~10 KB) on every first visit; the repeated CTA reuses the same URLs, so
+ * each file downloads once per page.
  */
 export default function AppStoreBadge({ storefront, href, className }: Props) {
 	const badge = BADGES[storefront]
@@ -68,6 +74,7 @@ export default function AppStoreBadge({ storefront, href, className }: Props) {
 				alt=""
 				width={badge.width}
 				height={BADGE_HEIGHT}
+				loading="eager"
 				className="h-10 w-auto dark:hidden"
 			/>
 			<Image
@@ -75,6 +82,7 @@ export default function AppStoreBadge({ storefront, href, className }: Props) {
 				alt=""
 				width={badge.width}
 				height={BADGE_HEIGHT}
+				loading="eager"
 				className="hidden h-10 w-auto dark:block"
 			/>
 		</a>

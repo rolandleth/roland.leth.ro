@@ -42,7 +42,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
-	summary: "Content",
+	description: "Content",
 	imageUrl: null,
 	readingTime: null,
 	slug: "my-post",

@@ -37,7 +37,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
-	summary: "Content",
+	description: "Content",
 	imageUrl: null,
 	readingTime: null,
 	slug: "hello",
@@ -148,7 +148,7 @@ describe("generateMetadata", () => {
 
 		expect(result.title).toBe("Hello")
 		expect(result.robots).toEqual({ index: false })
-		// The tease is title-only: no summary exists to describe, and inventing
+		// The tease is title-only: no description exists to show, and inventing
 		// one would leak more than the notice shows.
 		expect(result.description).toBeUndefined()
 	})
@@ -194,6 +194,20 @@ describe("generateMetadata", () => {
 		expect(result.alternates?.types?.["text/markdown"]).toBe(
 			"/blog/tech/hello.md"
 		)
+	})
+
+	it("emits a self-referencing canonical — posts get shared with tracking params too", async () => {
+		vi.mocked(loadPostResolution).mockResolvedValue(live())
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+		expect(result.alternates?.canonical).toBe("/blog/tech/hello")
+	})
+
+	it("omits the canonical on a scheduled post, which is noindex anyway", async () => {
+		vi.mocked(loadPostResolution).mockResolvedValue(
+			scheduled("Hello", "2999-01-01-0900")
+		)
+		const result = await generateMetadata(paramsFor("tech", "hello"))
+		expect(result.alternates?.canonical).toBeUndefined()
 	})
 
 	it("advertises the section's feed (titled) for autodiscovery from a post page", async () => {

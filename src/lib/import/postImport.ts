@@ -19,7 +19,7 @@
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { postCreateSchema } from "@/lib/api/schemas"
-import { deriveSummary } from "@/lib/content/markdown"
+import { deriveDescription } from "@/lib/content/markdown"
 import { parseFrontmatter, setFrontmatterSlug } from "@/lib/import/frontmatter"
 import {
 	calculateReadingTime,
@@ -48,6 +48,8 @@ export type ParsedPostFile = {
 	slug: string
 	datetime: string
 	body: string
+	/** The file's `description:` line, or `null` to derive one from the body. */
+	description: string | null
 	/** Non-null when the source file's `slug:` line needs writing (missing or normalized); the shell persists it. */
 	slugRewrite: SlugRewrite | null
 }
@@ -68,7 +70,7 @@ export type ExistingPost = {
 	id: number
 	title: string
 	body: string
-	summary: string
+	description: string
 	datetime: string
 	readingTime: string | null
 }
@@ -79,7 +81,7 @@ export type PlannedCreate = {
 	slug: string
 	section: Section
 	body: string
-	summary: string
+	description: string
 	datetime: string
 	readingTime: string
 	published: boolean
@@ -92,7 +94,7 @@ export type PlannedCreate = {
 export type PostUpdateData = {
 	title?: string
 	body?: string
-	summary?: string
+	description?: string
 	datetime?: string
 	readingTime?: string
 }
@@ -196,7 +198,12 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 			continue
 		}
 
-		const { title, slug: fileSlug, body } = parseFrontmatter(file.content)
+		const {
+			title,
+			slug: fileSlug,
+			description,
+			body,
+		} = parseFrontmatter(file.content)
 
 		if (title == null) {
 			skipped.push({
@@ -238,6 +245,7 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 			slug,
 			datetime: filenameResult.datetime,
 			body,
+			description,
 			slugRewrite: slugRewriteFor(file.content, fileSlug, slug),
 		})
 	}
@@ -246,25 +254,39 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 }
 
 /**
- * Summary resolution for an overwrite, mirroring the PUT route's intent with
- * no form input available: a stored summary that still equals what the OLD
- * body derives was never hand-refined, so it should track the new body;
- * anything else was authored in the admin and survives the overwrite.
- * Returns `undefined` when the summary column should be left untouched.
+ * Description resolution for an overwrite. A `description:` in the file is the
+ * content repo speaking, so it wins outright: written when it differs from the
+ * stored value, whether or not the body changed, and left alone when equal.
+ *
+ * Without one, this mirrors the PUT route's intent with no form input
+ * available: a stored description that still equals what the OLD body derives
+ * was never hand-refined, so it should track the new body; anything else was
+ * authored in the admin and survives the overwrite. Returns `undefined` when
+ * the column should be left untouched.
  */
-function resolveOverwriteSummary(
+function resolveOverwriteDescription(
 	existing: ExistingPost,
-	newBody: string
+	file: ParsedPostFile
 ): string | undefined {
-	const wasDerived = existing.summary === deriveSummary(existing.body)
+	if (file.description != null) {
+		return file.description === existing.description
+			? undefined
+			: file.description
+	}
+
+	if (file.body === existing.body) {
+		return undefined
+	}
+
+	const wasDerived = existing.description === deriveDescription(existing.body)
 
 	if (!wasDerived) {
 		return undefined
 	}
 
-	const next = deriveSummary(newBody)
+	const next = deriveDescription(file.body)
 
-	return next === existing.summary ? undefined : next
+	return next === existing.description ? undefined : next
 }
 
 function describeIssues(error: ZodError): string {
@@ -281,7 +303,9 @@ type PlanStep =
 /**
  * Validates a parsed file against `postCreateSchema` — the same contract the
  * admin API enforces — so a row the admin couldn't have written can't enter
- * through the script either. Returns the formatted issues, or null when valid.
+ * through the script either. The file's `description:` rides along, so one
+ * past the schema's cap is a skip here rather than a truncated SERP line
+ * later. Returns the formatted issues, or null when valid.
  */
 function schemaIssuesFor(
 	file: ParsedPostFile,
@@ -291,6 +315,7 @@ function schemaIssuesFor(
 		title: file.title,
 		body: file.body,
 		datetime: file.datetime,
+		description: file.description,
 		section,
 	})
 
@@ -315,7 +340,7 @@ function planCreate(
 			slug: file.slug,
 			section: options.section,
 			body: file.body,
-			summary: deriveSummary(file.body),
+			description: file.description ?? deriveDescription(file.body),
 			datetime: file.datetime,
 			readingTime: calculateReadingTime(file.body),
 			// Same rule as the bulk endpoint: future-dated files import as
@@ -355,12 +380,14 @@ function planOverwrite(
 		if (readingTime !== (existing.readingTime ?? "")) {
 			data.readingTime = readingTime
 		}
+	}
 
-		const summary = resolveOverwriteSummary(existing, file.body)
+	// Outside the body guard on purpose: a file's `description:` line can change
+	// on its own, and that edit has to land without a body change to carry it.
+	const description = resolveOverwriteDescription(existing, file)
 
-		if (summary != null) {
-			data.summary = summary
-		}
+	if (description != null) {
+		data.description = description
 	}
 
 	if (Object.keys(data).length === 0) {
@@ -394,7 +421,7 @@ function planFile(
 
 /**
  * Builds the import plan: creates for unknown slugs, updates for known ones
- * (only with `overwrite`), skips for everything else. Derived fields (summary,
+ * (only with `overwrite`), skips for everything else. Derived fields (description,
  * readingTime) are computed after schema validation, same as the bulk
  * endpoint. Updates carry only the fields that actually changed, so a re-run
  * over an unchanged folder plans zero writes.
