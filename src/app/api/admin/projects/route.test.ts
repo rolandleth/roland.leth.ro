@@ -186,6 +186,35 @@ describe("POST /api/admin/projects", () => {
 		expect(data.applicationCategory).toBeNull()
 	})
 
+	it("writes isFeatured, isDiscontinued and isOwnApp as false when they're omitted", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(makeRequest(validPayload))
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.isFeatured).toBe(false)
+		expect(data.isDiscontinued).toBe(false)
+		expect(data.isOwnApp).toBe(false)
+	})
+
+	it("stores isFeatured, isDiscontinued and isOwnApp when they're set", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(
+			makeRequest({
+				...validPayload,
+				isFeatured: true,
+				isDiscontinued: true,
+				isOwnApp: true,
+			})
+		)
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.isFeatured).toBe(true)
+		expect(data.isDiscontinued).toBe(true)
+		expect(data.isOwnApp).toBe(true)
+	})
+
 	it("appends after the last project when no sortOrder is provided", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 		vi.mocked(prisma.project.count).mockResolvedValue(5)

@@ -173,6 +173,35 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(data.slug).toBeUndefined()
 	})
 
+	it("passes isFeatured, isDiscontinued and isOwnApp through to the update", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		await PUT(
+			putRequest("1", {
+				isFeatured: true,
+				isDiscontinued: true,
+				isOwnApp: true,
+			}),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.isFeatured).toBe(true)
+		expect(data.isDiscontinued).toBe(true)
+		expect(data.isOwnApp).toBe(true)
+	})
+
+	// Prisma skips an `undefined` column, so the stored flag stays as it is; a
+	// defaulted `false` would reset it on every save that doesn't send it.
+	it("leaves the flags unchanged when they're omitted", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		await PUT(putRequest("1", { name: "Renamed App" }), params("1"))
+
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.isFeatured).toBeUndefined()
+		expect(data.isDiscontinued).toBeUndefined()
+		expect(data.isOwnApp).toBeUndefined()
+	})
+
 	it("shifts projects in [new, old) up when moving to a lower position", async () => {
 		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // sortOrder: 3
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)

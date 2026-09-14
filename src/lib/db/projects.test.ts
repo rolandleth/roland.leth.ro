@@ -549,6 +549,7 @@ describe("toProjectFormInitialData", () => {
 			heroImage: null,
 			isFeatured: false,
 			isDiscontinued: false,
+			isOwnApp: false,
 			date: null,
 			sortOrder: 0,
 			createdAt: new Date(),
@@ -610,6 +611,22 @@ describe("toProjectFormInitialData", () => {
 		expect(data.name).toBe(detail.name)
 		expect(data.slug).toBe(detail.slug)
 		expect(data.links).toEqual(detail.links)
+	})
+
+	// The form reads `initialData?.isOwnApp ?? false`, so a flag dropped here
+	// would show every own app as unticked and clear it on the next save.
+	it("carries the boolean flags through to the form data", () => {
+		const detail = {
+			...makeAdminDetail(),
+			isFeatured: true,
+			isDiscontinued: true,
+			isOwnApp: true,
+		}
+		const data = toProjectFormInitialData(detail)
+
+		expect(data.isFeatured).toBe(true)
+		expect(data.isDiscontinued).toBe(true)
+		expect(data.isOwnApp).toBe(true)
 	})
 })
 
