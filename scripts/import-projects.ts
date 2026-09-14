@@ -53,6 +53,7 @@ import {
 	syncImages,
 } from "@/lib/import/blobSync"
 import {
+	assertRequiredFlags,
 	blobKeyFor,
 	contentHashFor,
 	deriveSlug,
@@ -382,6 +383,8 @@ async function processProject(
 		if (typeof manifest.name !== "string" || manifest.name.trim() === "") {
 			throw new Error(`Manifest is missing a non-empty "name".`)
 		}
+
+		assertRequiredFlags(manifest)
 
 		const slug = deriveSlug(manifest.name, manifest.slug)
 		console.log(`\n▸ ${manifest.name}  (slug: ${slug})`)
