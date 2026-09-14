@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { personFor, safeJsonLdString } from "@/lib/content/jsonLd"
+import {
+	PERSON_SAME_AS,
+	personFor,
+	safeJsonLdString,
+} from "@/lib/content/jsonLd"
 
 const BASE = "https://roland.leth.ro"
 
@@ -56,7 +60,22 @@ describe("personFor", () => {
 			"@type": "Person",
 			name: "Roland Leth",
 			url: BASE,
+			sameAs: [...PERSON_SAME_AS],
 		})
+	})
+
+	it("links the author's profiles through sameAs, over https", () => {
+		const { sameAs } = personFor(BASE)
+
+		expect(sameAs.length).toBeGreaterThan(0)
+
+		for (const profile of sameAs) {
+			expect(profile.startsWith("https://")).toBe(true)
+		}
+	})
+
+	it("hands each caller its own sameAs array, so no two blocks alias one", () => {
+		expect(personFor(BASE).sameAs).not.toBe(personFor(BASE).sameAs)
 	})
 })
 

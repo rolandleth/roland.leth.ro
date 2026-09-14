@@ -28,7 +28,7 @@ export function buildBlogPostingJsonLd(
 		"@context": "https://schema.org",
 		"@type": "BlogPosting",
 		headline: post.title,
-		description: post.summary,
+		description: post.description,
 		url,
 		mainEntityOfPage: { "@type": "WebPage", "@id": url },
 		author: person,

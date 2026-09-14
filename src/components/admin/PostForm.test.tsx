@@ -50,7 +50,7 @@ const initialData = {
 	body: "Existing body.",
 	section: "life",
 	datetime: "2024-06-01-0900",
-	summary: "A short summary.",
+	description: "A short description.",
 	imageUrl: null,
 	published: false,
 }

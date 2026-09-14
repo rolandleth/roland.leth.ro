@@ -154,6 +154,7 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Hello world",
 			slug: null,
+			description: null,
 			body: "Body text.",
 		})
 	})
@@ -190,6 +191,7 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Hello world",
 			slug: null,
+			description: null,
 			body: "Body.",
 		})
 	})
@@ -206,6 +208,7 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw)).toEqual({
 			title: "Real title",
 			slug: null,
+			description: null,
 			body: "Body\n\n---\n\nMore body.",
 		})
 	})
@@ -216,6 +219,7 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw)).toEqual({
 			title: null,
 			slug: null,
+			description: null,
 			body: `Just a plain title\n\nBody.`,
 		})
 	})
@@ -226,6 +230,7 @@ describe("parseFrontmatter", () => {
 		expect(parseFrontmatter(raw)).toEqual({
 			title: null,
 			slug: null,
+			description: null,
 			body: "Body.",
 		})
 	})
@@ -264,6 +269,36 @@ describe("parseFrontmatter", () => {
 		const raw = `---\ntitle: "Real title"\n---\n\nThe frontmatter slug: line is nice.`
 
 		expect(parseFrontmatter(raw).slug).toBeNull()
+	})
+
+	it("reads a quoted description, colon and escaped quotes included", () => {
+		const raw = `---\ntitle: "Hello world"\ndescription: "A line: for the SERP, with \\"quotes\\"."\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).description).toBe(
+			'A line: for the SERP, with "quotes".'
+		)
+	})
+
+	it("tolerates a bare description value from a hand-edit", () => {
+		const raw = `---\ntitle: "Hello world"\ndescription: Plain text.\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).description).toBe("Plain text.")
+	})
+
+	it("returns null description when the line is absent or blank — both mean derive", () => {
+		const absent = `---\ntitle: "Hello world"\n---\n\nBody.`
+		const bare = `---\ntitle: "Hello world"\ndescription:\n---\n\nBody.`
+		const quoted = `---\ntitle: "Hello world"\ndescription: ""\n---\n\nBody.`
+
+		expect(parseFrontmatter(absent).description).toBeNull()
+		expect(parseFrontmatter(bare).description).toBeNull()
+		expect(parseFrontmatter(quoted).description).toBeNull()
+	})
+
+	it("does not read a `description:` that appears in the body", () => {
+		const raw = `---\ntitle: "Real title"\n---\n\nThe meta description: tag is nice.`
+
+		expect(parseFrontmatter(raw).description).toBeNull()
 	})
 })
 
@@ -339,6 +374,7 @@ describe("setFrontmatterSlug", () => {
 		expect(parsed).toEqual({
 			title: "Hello world",
 			slug: "hello-world",
+			description: null,
 			body: "Body text.",
 		})
 	})

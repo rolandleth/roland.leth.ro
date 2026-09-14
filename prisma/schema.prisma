@@ -11,7 +11,12 @@ model Post {
   id          Int      @id @default(autoincrement())
   title       String
   body        String
-  summary     String
+  // The meta description, the OG description, the feed `<summary>` and the
+  // BlogPosting `description`. Authored via the file's `description:`
+  // frontmatter or the admin form; derived from the body when neither sets it,
+  // so it's never blank. Nothing on the site itself renders it — the list card
+  // previews the body — which is why it's a description, not an excerpt.
+  description String
   imageUrl    String?
   section     Section  @default(tech)
   slug        String
@@ -99,7 +104,7 @@ model Guide {
   title       String
   // Load-bearing, not decorative: drives the meta description, the OG
   // description, and the preview text on both project and topic pages. Not
-  // derived from the body like `Post.summary` — a guide's description is an
+  // derived from the body like `Post.description` can be — a guide's is an
   // SEO surface, written for the search result, not an excerpt.
   description String
   body        String

@@ -241,16 +241,16 @@ export function stripMarkdown(markdown: string): string {
 	return extractText(tree).replace(/\s+/g, " ").trim()
 }
 
-// Matches the 160-char cap on `postCreateSchema.summary` (and Google's desktop
-// snippet display width). Tying derivation and the schema cap to the same
-// constant means authored and auto-derived summaries are visually consistent
-// and neither overflows the SEO meta description.
-export const SUMMARY_MAX_CHARS = 160
+// Matches the 160-char cap on `postCreateSchema.description` (and Google's
+// desktop snippet display width). Tying derivation and the schema cap to the
+// same constant means authored and auto-derived descriptions are visually
+// consistent and neither overflows the SEO meta description.
+export const DESCRIPTION_MAX_CHARS = 160
 
 /**
- * Derives a plain-text summary from a post body for use as the OG/SEO meta
+ * Derives a plain-text description from a post body for use as the OG/SEO meta
  * description and the Atom feed `<summary>`. Strips markdown, collapses
- * whitespace, then truncates at the last word boundary <= `SUMMARY_MAX_CHARS`
+ * whitespace, then truncates at the last word boundary <= `DESCRIPTION_MAX_CHARS`
  * and appends an ellipsis when the source was longer.
  *
  * Word-boundary truncation avoids mid-word cuts that look broken in search
@@ -258,14 +258,14 @@ export const SUMMARY_MAX_CHARS = 160
  * contains no whitespace at all within the cap, falls back to a hard slice
  * so callers always get a bounded string.
  */
-export function deriveSummary(markdown: string): string {
+export function deriveDescription(markdown: string): string {
 	const stripped = stripMarkdown(markdown)
 
-	if (stripped.length <= SUMMARY_MAX_CHARS) {
+	if (stripped.length <= DESCRIPTION_MAX_CHARS) {
 		return stripped
 	}
 
-	const window = stripped.slice(0, SUMMARY_MAX_CHARS)
+	const window = stripped.slice(0, DESCRIPTION_MAX_CHARS)
 	const lastSpace = window.lastIndexOf(" ")
 	const truncated = lastSpace > 0 ? window.slice(0, lastSpace) : window
 

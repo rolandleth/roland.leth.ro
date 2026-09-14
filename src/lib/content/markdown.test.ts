@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import {
-	deriveSummary,
+	deriveDescription,
+	DESCRIPTION_MAX_CHARS,
 	extractDefinitions,
 	markdownToHtml,
 	markdownToReact,
 	stripMarkdown,
-	SUMMARY_MAX_CHARS,
 	truncateBody,
 } from "@/lib/content/markdown"
 
@@ -264,13 +264,13 @@ describe("stripMarkdown", () => {
 	})
 })
 
-describe("deriveSummary", () => {
+describe("deriveDescription", () => {
 	it("returns the stripped body verbatim when it fits the cap", () => {
-		expect(deriveSummary("A short body.")).toBe("A short body.")
+		expect(deriveDescription("A short body.")).toBe("A short body.")
 	})
 
 	it("strips markdown before measuring length", () => {
-		expect(deriveSummary("# Heading\n\n**Bold body** here.")).toBe(
+		expect(deriveDescription("# Heading\n\n**Bold body** here.")).toBe(
 			"Heading Bold body here."
 		)
 	})
@@ -280,11 +280,11 @@ describe("deriveSummary", () => {
 		// 160th char lands mid-word — verify we walk back to the previous
 		// space rather than cutting the word in half.
 		const body = "alpha bravo charlie ".repeat(20).trim()
-		const result = deriveSummary(body)
+		const result = deriveDescription(body)
 
 		expect(result.endsWith("…")).toBe(true)
 		// Length excluding the ellipsis must fit inside the cap.
-		expect(result.length - 1).toBeLessThanOrEqual(SUMMARY_MAX_CHARS)
+		expect(result.length - 1).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS)
 		// No partial word at the tail — the char before "…" is a full token.
 		const beforeEllipsis = result.slice(0, -1)
 		expect(beforeEllipsis.endsWith(" ")).toBe(false)
@@ -296,15 +296,15 @@ describe("deriveSummary", () => {
 		// only sensible fallback — the alternative is returning an empty
 		// string, which violates the "never empty" invariant.
 		const body = "a".repeat(200)
-		const result = deriveSummary(body)
-		expect(result).toBe(`${"a".repeat(SUMMARY_MAX_CHARS)}…`)
+		const result = deriveDescription(body)
+		expect(result).toBe(`${"a".repeat(DESCRIPTION_MAX_CHARS)}…`)
 	})
 
 	it("strips fenced code blocks before deriving", () => {
 		// Mirrors stripMarkdown's behavior — code fences contribute no
-		// narrative content and would otherwise pad the summary with syntax.
+		// narrative content and would otherwise pad the description with syntax.
 		const body = "Intro line.\n\n```ts\nconst noise = 1\n```\n\nOutro."
-		expect(deriveSummary(body)).toBe("Intro line. Outro.")
+		expect(deriveDescription(body)).toBe("Intro line. Outro.")
 	})
 })
 

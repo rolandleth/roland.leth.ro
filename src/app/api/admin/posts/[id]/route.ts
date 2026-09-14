@@ -9,7 +9,7 @@ import {
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postUpdateSchema } from "@/lib/api/schemas"
-import { deriveSummary } from "@/lib/content/markdown"
+import { deriveDescription } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime } from "@/lib/utils/format"
@@ -73,16 +73,16 @@ export async function PUT(
 		return parsed
 	}
 
-	const { title, body: postBody, summary, ...rest } = parsed
+	const { title, body: postBody, description, ...rest } = parsed
 	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
-	// so the validated payload flows straight in. `title`/`body`/`summary` are
+	// so the validated payload flows straight in. `title`/`body`/`description` are
 	// folded back with their derived columns (`readingTime`, auto-derived
-	// summary) only when they were set or when the rules below require a re-derive.
+	// description) only when they were set or when the rules below require a re-derive.
 	// Matches the shape in `src/app/api/admin/projects/[id]/route.ts`.
 	type PostUpdatePayload = typeof rest & {
 		title?: string
 		body?: string
-		summary?: string
+		description?: string
 		readingTime?: string
 	}
 	const data: PostUpdatePayload = { ...rest }
@@ -118,39 +118,41 @@ export async function PUT(
 		// the PUT manually if it ever surfaces in practice.
 		const { previous, post } = await prisma.$transaction(
 			async (tx) => {
-				// `body` + `summary` are read inside the txn so the summary
+				// `body` + `description` are read inside the txn so the description
 				// resolution below sees the same row state as the write.
 				const previous = await tx.post.findUnique({
 					where: { id },
-					select: { section: true, slug: true, body: true, summary: true },
+					select: { section: true, slug: true, body: true, description: true },
 				})
 
-				// Summary resolution. Two effective inputs after the write:
+				// Description resolution. Two effective inputs after the write:
 				//   - `effectiveBody`  = new body if sent, else previous body.
-				//   - `summary` arrives as a non-empty string (user authored
+				//   - `description` arrives as a non-empty string (user authored
 				//     something in the form) OR `undefined` (form cleared the
-				//     field, since `state.summary || undefined` strips empties).
+				//     field, since `state.description || undefined` strips empties).
 				// Rules:
-				//   - User authored a fresh summary (differs from previous) → keep it.
-				//   - User left the summary untouched (equals previous) AND the
+				//   - User authored a fresh description (differs from previous) → keep it.
+				//   - User left the description untouched (equals previous) AND the
 				//     body changed → re-derive so the meta description tracks
 				//     the new body. Without this, an edited post keeps a stale
-				//     summary forever unless the author rewrites it by hand.
-				//   - User cleared the summary → re-derive. "Never empty" invariant.
-				//   - User left the summary untouched AND body unchanged → skip
+				//     description forever unless the author rewrites it by hand.
+				//   - User cleared the description → re-derive. "Never empty" invariant.
+				//   - User left the description untouched AND body unchanged → skip
 				//     the column entirely (Prisma treats `undefined` as no-op).
 				if (previous != null) {
 					const effectiveBody = postBody ?? previous.body
 					const bodyChanged = postBody != null && postBody !== previous.body
 					const authored =
-						summary != null && summary !== "" && summary !== previous.summary
+						description != null &&
+						description !== "" &&
+						description !== previous.description
 
 					if (authored) {
-						data.summary = summary
-					} else if (summary == null || summary === "") {
-						data.summary = deriveSummary(effectiveBody)
+						data.description = description
+					} else if (description == null || description === "") {
+						data.description = deriveDescription(effectiveBody)
 					} else if (bodyChanged) {
-						data.summary = deriveSummary(effectiveBody)
+						data.description = deriveDescription(effectiveBody)
 					}
 				}
 

@@ -40,21 +40,31 @@ function frontmatterBlock(lines: string[]): string {
 
 /**
  * Serializes a post as a self-describing markdown file: a YAML frontmatter block
- * (title, slug, section, publication date, canonical URL) followed by the raw
- * body, verbatim. This is what `/blog/:section/:slug.md` returns — a plain-text
- * form humans and AI systems can read without parsing the rendered HTML.
+ * (title, slug, section, publication date, canonical URL, description) followed
+ * by the raw body, verbatim. This is what `/blog/:section/:slug.md` returns — a
+ * plain-text form humans and AI systems can read without parsing the rendered
+ * HTML.
  *
  * The frontmatter is a strict superset of what the post importer consumes:
- * `parseFrontmatter` only reads the `title:` and `slug:` lines and ignores
- * every other key, so an exported `.md` round-trips through `db:import-posts`
- * exactly — even when the stored slug no longer matches what the title would
- * derive — and the extra keys are informational (the importer derives the
- * stored `datetime` from the filename, not from `date:`). The body is emitted
- * unchanged so `parseFrontmatter(...).body` equals `post.body` byte-for-byte for
- * any body with no leading blank lines.
+ * `parseFrontmatter` reads the `title:`, `slug:` and `description:` lines and
+ * ignores every other key, so an exported `.md` round-trips through
+ * `db:import-posts` exactly — even when the stored slug no longer matches what
+ * the title would derive, and with the description landing on the same value
+ * it left with — and the extra keys are informational (the importer derives
+ * the stored `datetime` from the filename, not from `date:`). The body is
+ * emitted unchanged so `parseFrontmatter(...).body` equals `post.body`
+ * byte-for-byte for any body with no leading blank lines.
+ *
+ * The description is a live-export field only: the scheduled stub below has
+ * nothing to describe and would leak the tease if it did.
  */
 export function buildPostMarkdownFile(post: PostDetail, base: string): string {
-	return `${frontmatterBlock(postFrontmatterLines(post, base))}\n\n${post.body}`
+	const lines = [
+		...postFrontmatterLines(post, base),
+		`description: "${escapeYamlDoubleQuoted(post.description)}"`,
+	]
+
+	return `${frontmatterBlock(lines)}\n\n${post.body}`
 }
 
 /**

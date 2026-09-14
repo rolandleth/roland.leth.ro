@@ -6,7 +6,10 @@ import GuideLinkList from "@/components/guides/GuideLinkList"
 import JsonLdScript from "@/components/JsonLdScript"
 import PageGlow from "@/components/PageGlow"
 import { getSiteUrl } from "@/lib/auth/env"
-import { buildGuideArticleJsonLd } from "@/lib/content/guideJsonLd"
+import {
+	buildGuideArticleJsonLd,
+	buildGuideBreadcrumbJsonLd,
+} from "@/lib/content/guideJsonLd"
 import { guideToLinkItem } from "@/lib/content/guideLinks"
 import { splitTopicHubBody } from "@/lib/content/guideTopicBody"
 import { buildPageMetadata } from "@/lib/content/metadata"
@@ -119,6 +122,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		modifiedTime: new Date(row.updatedAt).toISOString(),
 		type: "article",
 		image: project == null ? null : resolveOgImage(project),
+		// Guides only: the `.md` route deliberately doesn't serve topic hubs, and
+		// advertising a twin that 404s is worse than advertising none.
+		markdownPath: isGuide ? `/guides/${row.slug}.md` : undefined,
 	})
 }
 
@@ -145,15 +151,20 @@ export default async function GuidePage({ params }: Props) {
 
 async function renderGuide(guide: GuideDetail) {
 	const project = await projectFor(guide.projectSlug)
+	const base = getSiteUrl()
 	const jsonLd = buildGuideArticleJsonLd(
 		guide,
-		getSiteUrl(),
+		base,
 		project == null ? null : resolveOgImage(project)
 	)
+	// Second block, after the Article: the trail the parent link in the chrome
+	// draws, in the form a search engine reads into the result line.
+	const breadcrumbJsonLd = buildGuideBreadcrumbJsonLd(guide, base)
 
 	return (
 		<>
 			<JsonLdScript data={jsonLd} />
+			<JsonLdScript data={breadcrumbJsonLd} />
 
 			<PageGlow />
 			<GuideContent

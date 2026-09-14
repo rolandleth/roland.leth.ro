@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { buildGuideArticleJsonLd } from "@/lib/content/guideJsonLd"
+import {
+	buildGuideArticleJsonLd,
+	buildGuideBreadcrumbJsonLd,
+} from "@/lib/content/guideJsonLd"
+import { PERSON_SAME_AS } from "@/lib/content/jsonLd"
 import { defaultOgImage } from "@/lib/content/metadata"
 import type { GuideDetail } from "@/lib/db/guides"
 
@@ -58,8 +62,73 @@ describe("buildGuideArticleJsonLd", () => {
 			"@type": "Person",
 			name: "Roland Leth",
 			url: BASE,
+			sameAs: [...PERSON_SAME_AS],
 		})
 		expect(jsonLd.publisher).toEqual(jsonLd.author)
+	})
+})
+
+// #endregion
+
+// #region breadcrumbs
+
+describe("buildGuideBreadcrumbJsonLd", () => {
+	it("walks Guides → topic → guide, positions counted from 1", () => {
+		const jsonLd = buildGuideBreadcrumbJsonLd(
+			makeGuide({
+				topic: {
+					slug: "making-better-decisions",
+					title: "Making better decisions",
+				},
+			}),
+			BASE
+		)
+
+		expect(jsonLd["@type"]).toBe("BreadcrumbList")
+		expect(jsonLd.itemListElement).toEqual([
+			{
+				"@type": "ListItem",
+				position: 1,
+				name: "Guides",
+				item: `${BASE}/guides`,
+			},
+			{
+				"@type": "ListItem",
+				position: 2,
+				name: "Making better decisions",
+				item: `${BASE}/guides/making-better-decisions`,
+			},
+			{
+				"@type": "ListItem",
+				position: 3,
+				name: "How to keep a decision journal",
+				item: `${BASE}/guides/how-to-keep-a-decision-journal`,
+			},
+		])
+	})
+
+	it("drops the topic level, and renumbers, for a guide with no live topic", () => {
+		const jsonLd = buildGuideBreadcrumbJsonLd(makeGuide({ topic: null }), BASE)
+		const items = jsonLd.itemListElement as { position: number; name: string }[]
+
+		expect(items.map((item) => [item.position, item.name])).toEqual([
+			[1, "Guides"],
+			[2, "How to keep a decision journal"],
+		])
+	})
+
+	it("builds every item URL from the passed-in base", () => {
+		const jsonLd = buildGuideBreadcrumbJsonLd(
+			makeGuide(),
+			"https://preview.example.com"
+		)
+		const items = jsonLd.itemListElement as { item: string }[]
+
+		for (const entry of items) {
+			expect(entry.item.startsWith("https://preview.example.com/guides")).toBe(
+				true
+			)
+		}
 	})
 })
 

@@ -22,7 +22,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2024-01-15-0930",
 	body: "First paragraph.\n\nSecond paragraph.",
-	summary: "A short summary.",
+	description: "A short summary.",
 	imageUrl: null,
 	readingTime: null,
 	updatedAt: new Date("2024-01-15T09:30:00.000Z"),
@@ -113,6 +113,7 @@ describe("GET /api/blog/:section/:slug/md", () => {
 
 		const text = await response.text()
 		expect(text).toContain('title: "Hello World"')
+		expect(text).toContain('description: "A short summary."')
 		expect(text).toContain(
 			"canonical: https://roland.leth.ro/blog/tech/hello-world"
 		)

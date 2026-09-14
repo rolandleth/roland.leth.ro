@@ -64,7 +64,7 @@ describe("postCreateSchema", () => {
 	it("accepts a fully-populated payload", () => {
 		const result = postCreateSchema.safeParse({
 			...valid,
-			summary: "A short summary.",
+			description: "A short description.",
 			imageUrl: "https://example.com/hero.png",
 			section: "life",
 			published: false,
@@ -870,7 +870,7 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 
 // #region String length boundaries
 
-describe("postCreateSchema — title/body/summary max-length boundaries", () => {
+describe("postCreateSchema — title/body/description max-length boundaries", () => {
 	const basePost = {
 		title: "T",
 		body: "B",
@@ -893,20 +893,20 @@ describe("postCreateSchema — title/body/summary max-length boundaries", () => 
 		expect(result.success).toBe(false)
 	})
 
-	it("rejects a summary longer than 160 characters", () => {
+	it("rejects a description longer than 160 characters", () => {
 		const result = postCreateSchema.safeParse({
 			...basePost,
-			summary: "x".repeat(161),
+			description: "x".repeat(161),
 		})
 		expect(result.success).toBe(false)
 	})
 
-	it("accepts title/body/summary at exactly the configured max", () => {
+	it("accepts title/body/description at exactly the configured max", () => {
 		const result = postCreateSchema.safeParse({
 			...basePost,
 			title: "x".repeat(200),
 			body: "x".repeat(100_000),
-			summary: "x".repeat(160),
+			description: "x".repeat(160),
 		})
 		expect(result.success).toBe(true)
 	})

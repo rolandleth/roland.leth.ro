@@ -4,7 +4,7 @@ import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postBulkImportSchema } from "@/lib/api/schemas"
-import { deriveSummary } from "@/lib/content/markdown"
+import { deriveDescription } from "@/lib/content/markdown"
 import { prisma } from "@/lib/db/db"
 import { revalidatePostSection } from "@/lib/db/posts"
 import { parsePostFiles, type SkippedFile } from "@/lib/import/postImport"
@@ -22,7 +22,7 @@ interface InsertRow {
 	title: string
 	slug: string
 	body: string
-	summary: string
+	description: string
 	datetime: string
 	section: Section
 	published: boolean
@@ -56,11 +56,10 @@ function prepareBatch(
 		title: file.title,
 		slug: file.slug,
 		body: file.body,
-		// Bulk import has no per-file summary input — the frontmatter carries
-		// only the title and slug. Always derive so the OG meta description and
-		// feed `<summary>` are populated. Author can refine via the admin edit
-		// form afterwards.
-		summary: deriveSummary(file.body),
+		// The frontmatter's `description:` when the file carries one; derived from
+		// the body otherwise, so the meta description and feed `<summary>` are
+		// never blank. The author can refine it in the admin edit form afterwards.
+		description: file.description ?? deriveDescription(file.body),
 		datetime: file.datetime,
 		section,
 		// Future-dated posts are published so the existing scheduled-post

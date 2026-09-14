@@ -68,7 +68,9 @@ export const postCreateSchema = z.object({
 		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
-	summary: z.string().max(160).nullable().optional(),
+	// The meta description. Optional because the routes derive one from the body
+	// when it's absent or blank; 160 is the SERP truncation point.
+	description: z.string().max(160).nullable().optional(),
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),
@@ -118,7 +120,7 @@ const canonicalSlug = z
 
 // The meta description, the OG description, and the preview text on project and
 // topic pages all read this one field, so it's required, not optional. 160 is
-// the SERP truncation point (same reasoning as `postCreateSchema.summary`).
+// the SERP truncation point (same reasoning as `postCreateSchema.description`).
 const guideDescription = z.string().min(1).max(160)
 
 const guideFields = {

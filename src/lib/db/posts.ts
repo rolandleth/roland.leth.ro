@@ -68,10 +68,18 @@ export interface PostDetail {
 	section: Section
 	datetime: string
 	body: string
-	summary: string
+	description: string
 	imageUrl: string | null
 	readingTime: string | null
 	updatedAt: Date
+}
+
+/** What llms.txt lists per post: enough to cite it, plus its description. */
+export interface RecentPost {
+	title: string
+	slug: string
+	section: Section
+	description: string
 }
 
 /**
@@ -223,6 +231,37 @@ export async function getPostsBySection(
 	return fetchPage()
 }
 
+/** How many posts `getRecentPosts` returns, and so how many llms.txt lists. */
+export const RECENT_POSTS_LIMIT = 10
+
+/**
+ * The newest published posts in a section, for llms.txt. Its own cache entry
+ * rather than a slice of page 1: the page cache carries `body` for the card
+ * preview and deliberately not `description`, which is the one field this
+ * needs. Shares the `blog-{section}` tag, so the same bust covers both, and the
+ * `datetime <= now` filter freezes at generation time like every other
+ * prerendered surface (see `publishedWhere`).
+ */
+function makeRecentPostsCache(section: Section) {
+	return unstable_cache(
+		async (): Promise<RecentPost[]> =>
+			prisma.post.findMany({
+				where: publishedWhere(section, currentDatetimeString()),
+				select: { title: true, slug: true, section: true, description: true },
+				orderBy: { datetime: "desc" },
+				take: RECENT_POSTS_LIMIT,
+			}),
+		[`blog-recent-${section}`],
+		{ tags: [sectionTag(section)] }
+	)
+}
+
+const recentPostsCache = bySection(makeRecentPostsCache)
+
+export async function getRecentPosts(section: Section): Promise<RecentPost[]> {
+	return recentPostsCache[section]()
+}
+
 /**
  * Count-only page total for a section. One `count`, no rows.
  *
@@ -320,7 +359,7 @@ function fetchPostRow(
 					section: true,
 					datetime: true,
 					body: true,
-					summary: true,
+					description: true,
 					imageUrl: true,
 					readingTime: true,
 					updatedAt: true,

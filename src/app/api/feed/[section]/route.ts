@@ -97,7 +97,7 @@ function makeFeedPostsCache(section: Section) {
 					datetime: true,
 					updatedAt: true,
 					body: true,
-					summary: true,
+					description: true,
 				},
 				orderBy: { datetime: "desc" },
 				take: FEED_ENTRY_LIMIT + futureCount,
@@ -115,7 +115,8 @@ function makeFeedPostsCache(section: Section) {
 					section: post.section,
 					datetime: post.datetime,
 					updatedAt: post.updatedAt.toISOString(),
-					summary: post.summary,
+					// Keyed `summary` because that's the Atom element it fills below.
+					summary: post.description,
 					htmlBody: await markdownToHtml(post.body),
 				}))
 			)

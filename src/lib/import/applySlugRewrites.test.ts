@@ -25,6 +25,7 @@ function parsedWithRewrite(
 		slug,
 		datetime: "2026-07-24-0937",
 		body: "Body.",
+		description: null,
 		slugRewrite: { content, previous },
 	}
 }
@@ -91,6 +92,7 @@ describe("applySlugRewrites", () => {
 				slug: "a",
 				datetime: "2026-07-24-0937",
 				body: "Body.",
+				description: null,
 				slugRewrite: null,
 			},
 		]

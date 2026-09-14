@@ -52,7 +52,7 @@ const existingPost = {
 	section: "tech" as const,
 	datetime: "2025-01-01-1200",
 	published: true,
-	summary: "Original summary.",
+	description: "Original description.",
 	imageUrl: null,
 	readingTime: null,
 	createdAt: new Date(),
@@ -269,11 +269,11 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(putRequest("1", { title: "x" }), params("1"))
 
 		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
-		// `body` and `summary` are included so the summary-resolution rules
+		// `body` and `description` are included so the description-resolution rules
 		// can compare against pre-update state inside the same txn.
 		expect(prisma.post.findUnique).toHaveBeenCalledWith(
 			expect.objectContaining({
-				select: { section: true, slug: true, body: true, summary: true },
+				select: { section: true, slug: true, body: true, description: true },
 			})
 		)
 	})
@@ -311,45 +311,45 @@ describe("PUT /api/admin/posts/[id]", () => {
 		)
 	})
 
-	// #region summary auto-derive
+	// #region description auto-derive
 
-	it("re-derives summary from new body when body changes and summary is untouched", async () => {
-		// Form ships `summary: state.summary || undefined`, so an untouched
-		// summary field arrives as the verbatim previous string. With body
-		// changed, the summary should track the new body.
+	it("re-derives description from new body when body changes and description is untouched", async () => {
+		// Form ships `description: state.description || undefined`, so an untouched
+		// description field arrives as the verbatim previous string. With body
+		// changed, the description should track the new body.
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 
 		await PUT(
 			putRequest("1", {
 				body: "A brand new body for this post.",
-				summary: "Original summary.",
+				description: "Original description.",
 			}),
 			params("1")
 		)
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.summary).toBe("A brand new body for this post.")
+		expect(data.description).toBe("A brand new body for this post.")
 	})
 
-	it("keeps the user's summary when authored (differs from previous)", async () => {
+	it("keeps the user's description when authored (differs from previous)", async () => {
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
 
 		await PUT(
 			putRequest("1", {
 				body: "A brand new body for this post.",
-				summary: "Hand-written replacement.",
+				description: "Hand-written replacement.",
 			}),
 			params("1")
 		)
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.summary).toBe("Hand-written replacement.")
+		expect(data.description).toBe("Hand-written replacement.")
 	})
 
-	it("re-derives summary when the user clears the field (key omitted)", async () => {
-		// "Never empty" invariant — a cleared summary always falls back to a
+	it("re-derives description when the user clears the field (key omitted)", async () => {
+		// "Never empty" invariant — a cleared description always falls back to a
 		// derived one. The form omits the key entirely for empty strings.
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
@@ -360,10 +360,10 @@ describe("PUT /api/admin/posts/[id]", () => {
 		)
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.summary).toBe("A brand new body for this post.")
+		expect(data.description).toBe("A brand new body for this post.")
 	})
 
-	it("re-derives summary from previous body when only summary is cleared", async () => {
+	it("re-derives description from previous body when only description is cleared", async () => {
 		// User cleared the field without touching the body. We still refuse
 		// to store empty, so derive from the unchanged previous body.
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
@@ -372,12 +372,12 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(putRequest("1", { title: "Renamed" }), params("1"))
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.summary).toBe("Original body.")
+		expect(data.description).toBe("Original body.")
 	})
 
-	it("leaves summary untouched when body is unchanged and summary matches previous", async () => {
+	it("leaves description untouched when body is unchanged and description matches previous", async () => {
 		// Pure metadata edit (e.g. toggling published) shouldn't churn the
-		// summary column. Prisma treats `undefined` as "skip this column",
+		// description column. Prisma treats `undefined` as "skip this column",
 		// which is what we want — no write amplification.
 		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
 		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
@@ -385,18 +385,18 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(
 			putRequest("1", {
 				published: false,
-				summary: "Original summary.",
+				description: "Original description.",
 			}),
 			params("1")
 		)
 
 		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.summary).toBeUndefined()
+		expect(data.description).toBeUndefined()
 	})
 
-	it("returns 400 when summary exceeds 160 chars", async () => {
+	it("returns 400 when description exceeds 160 chars", async () => {
 		const response = await PUT(
-			putRequest("1", { summary: "a".repeat(161) }),
+			putRequest("1", { description: "a".repeat(161) }),
 			params("1")
 		)
 		expect(response.status).toBe(400)

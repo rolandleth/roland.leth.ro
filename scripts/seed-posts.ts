@@ -39,7 +39,7 @@ feels more natural. No more \`tailwind.config.js\` for basic setups.
 - Start with mobile layout first — it's easier to expand than to shrink
 - Keep components small and focused
 - Avoid \`"use client"\` unless you genuinely need interactivity`,
-		summary:
+		description:
 			"Rebuilding a personal website from scratch using Next.js 15 App Router, Tailwind CSS v4, and PostgreSQL.",
 		imageUrl: "https://picsum.photos/seed/nextjs/1200/630",
 		section: "tech",
@@ -87,7 +87,7 @@ type Readonly<T> = {
 \`\`\`
 
 These three patterns cover the vast majority of real-world type challenges.`,
-		summary:
+		description:
 			"A practical look at discriminated unions, template literal types, and mapped types in TypeScript.",
 		imageUrl: "https://picsum.photos/seed/typescript/1200/630",
 		section: "tech",
@@ -139,7 +139,7 @@ const results = await prisma.$queryRaw\`
   ORDER BY ts_rank(search_vector, plainto_tsquery('english', \${query})) DESC
   LIMIT 10
 \`\`\``,
-		summary:
+		description:
 			"Implementing full-text search in PostgreSQL using tsvector/tsquery and calling it through Prisma with $queryRaw.",
 		imageUrl: "https://picsum.photos/seed/postgres/1200/630",
 		section: "tech",
@@ -176,7 +176,7 @@ survives a refresh.
 
 Global state is still the right tool for a few things: auth session, theme, locale.
 But that's about it.`,
-		summary:
+		description:
 			"How server state, form state, URL state, and local component state replace the need for a global store in most applications.",
 		imageUrl: null,
 		section: "tech",
@@ -225,7 +225,7 @@ New in 2024, this lets you animate elements as they enter the DOM:
 - Exit animations (CSS still struggles with these)
 
 For everything else, the platform is usually enough.`,
-		summary:
+		description:
 			"Using view-transition API, @starting-style, and other modern CSS features to animate UIs without JavaScript.",
 		imageUrl: "https://picsum.photos/seed/css/1200/630",
 		section: "tech",
@@ -264,7 +264,7 @@ synced with iCloud. Zero vendor lock-in, works with any editor.
 
 Clean UI, fast, supports every database I work with. The tab-based workflow
 is underrated.`,
-		summary:
+		description:
 			"An honest look at the development tools I reach for every day: terminal, editor, git UI, notes, and database client.",
 		imageUrl: null,
 		section: "tech",
@@ -301,7 +301,7 @@ Currently halfway through *The Pragmatic Programmer* for the third time. It hold
 
 The goal isn't to read more. The goal is to spend less time feeling vaguely
 dissatisfied after scrolling, and more time feeling like I actually did something.`,
-		summary:
+		description:
 			"Trying to read more books in a world designed to make that as difficult as possible.",
 		imageUrl: null,
 		section: "life",
@@ -341,7 +341,7 @@ Trying to accelerate things. Friendship has a pace and you can't push it.
 
 A year in, I have a handful of people I'd call real friends. That used to feel
 like a failure. Now it seems about right.`,
-		summary:
+		description:
 			"Lessons from moving to a new city in my thirties: what it takes to build a social life from scratch.",
 		imageUrl: "https://picsum.photos/seed/city/1200/630",
 		section: "life",
@@ -381,7 +381,7 @@ Partially. A private account for family photos is fine. The algorithmic feed —
 the thing optimised to keep you scrolling — that's what I'm not going back to.
 
 The value was never the content. It was the habit of checking.`,
-		summary:
+		description:
 			"What a month without social media actually felt like, and what I'm taking forward from it.",
 		imageUrl: null,
 		section: "life",
@@ -420,7 +420,7 @@ The real argument for it is quality and control, not cost.
 - Fresh herbs are worth the money; dried herbs are fine in braises
 
 I'm not a good cook. But I'm a much less bad one than I was a year ago.`,
-		summary:
+		description:
 			"A year of cooking most meals at home: what I learned, what surprised me, and what I got wrong.",
 		imageUrl: "https://picsum.photos/seed/cooking/1200/630",
 		section: "life",
@@ -458,7 +458,7 @@ more interesting problems, or be honest with yourself about your tolerance for g
 It's okay for a side project to just be for you. It doesn't have to be a startup,
 a product, or a portfolio piece. The best side projects I've shipped were the ones
 I built for myself with no audience in mind.`,
-		summary:
+		description:
 			"Why most side projects die and what makes the ones that get finished different.",
 		imageUrl: null,
 		section: "life",
@@ -496,7 +496,7 @@ you're not debugging — you're hoping. Write it down. Check if your fix validat
 or invalidates it.
 
 More to add here — this is a draft.`,
-		summary: "Working notes on a systematic approach to debugging.",
+		description: "Working notes on a systematic approach to debugging.",
 		imageUrl: null,
 		section: "tech",
 		slug: "notes-on-debugging",

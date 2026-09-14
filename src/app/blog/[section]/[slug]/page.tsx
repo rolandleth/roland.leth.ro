@@ -66,8 +66,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	return buildPageMetadata({
 		title: post.title,
-		description: post.summary,
+		description: post.description,
 		path: `/blog/${post.section}/${post.slug}`,
+		// Posts get shared with tracking params attached the same way guides do,
+		// and each one is reachable from paginated lists and its `.md` twin, so
+		// the self-referencing canonical is load-bearing here too.
+		canonicalPath: `/blog/${post.section}/${post.slug}`,
 		image: post.imageUrl,
 		publishedTime: postDatetimeToISO(post.datetime),
 		type: "article",

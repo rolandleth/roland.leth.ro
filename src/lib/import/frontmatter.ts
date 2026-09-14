@@ -1,4 +1,5 @@
-// Minimal frontmatter for post files: two fields, `title` and `slug`.
+// Minimal frontmatter for post files: three fields, `title`, `slug` and an
+// optional `description`.
 // Deliberately NOT a YAML library — the format is a pair of controlled string
 // fields we both write and read, so a regex + quote-strip is more robust here
 // than a general YAML parser. The value is the LITERAL remainder of the field's
@@ -17,6 +18,12 @@ export type ParsedFrontmatter = {
 	title: string | null
 	/** `null` when the `slug:` line is absent, `""` when present but blank. */
 	slug: string | null
+	/**
+	 * The authored meta description, or `null` when the line is absent or blank.
+	 * Both mean "derive one from the body": unlike `slug`, there's no fix-up to
+	 * report for a blank line, so the two collapse.
+	 */
+	description: string | null
 	body: string
 }
 
@@ -45,7 +52,7 @@ function unquote(value: string): string {
  */
 function readField(
 	lines: string[],
-	name: "title" | "slug",
+	name: "title" | "slug" | "description",
 	emptyValue: string | null
 ): string | null {
 	const line = lines.find((candidate) => candidate.startsWith(`${name}:`))
@@ -60,7 +67,8 @@ function readField(
 }
 
 /**
- * Splits a post file into its frontmatter `title`, `slug`, and body. Returns
+ * Splits a post file into its frontmatter `title`, `slug`, `description`, and
+ * body. Returns
  * `null` for a field when there's no frontmatter block or no line for it inside
  * — the caller decides whether that's a skip (title) or a derive-and-backfill
  * (slug). A present-but-blank `slug:` comes back as `""` rather than `null`, so
@@ -73,7 +81,7 @@ export function parseFrontmatter(raw: string): ParsedFrontmatter {
 	const match = raw.match(FRONTMATTER_BLOCK)
 
 	if (!match) {
-		return { title: null, slug: null, body: raw }
+		return { title: null, slug: null, description: null, body: raw }
 	}
 
 	const body = raw.slice(match[0].length).replace(/^[\r\n]+/, "")
@@ -82,6 +90,7 @@ export function parseFrontmatter(raw: string): ParsedFrontmatter {
 	return {
 		title: readField(lines, "title", null),
 		slug: readField(lines, "slug", ""),
+		description: readField(lines, "description", null),
 		body,
 	}
 }
@@ -133,7 +142,7 @@ export type FrontmatterResult =
  * fields: reads every key into a map, and rejects anything it doesn't recognise.
  *
  * Separate from `parseFrontmatter` rather than replacing it, because the two
- * want opposite failure modes. A post has two known fields and an archive of
+ * want opposite failure modes. A post has three known fields and an archive of
  * hand-written files that may carry anything else; ignoring the rest is correct
  * there. A guide has six, they're all load-bearing (a typo'd `descriptoin:`
  * would import a page with no meta description and no complaint), and its files
