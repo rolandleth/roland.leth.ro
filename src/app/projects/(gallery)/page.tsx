@@ -14,7 +14,10 @@ type CompactProject = ProjectGalleryItem & { showPlatformCapsule: boolean }
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Projects",
-	description: "Apps and tools built or led by Roland Leth.",
+	// Names the two current apps and the author: this page ranks for "roland
+	// leth apps" and little else, and the snippet bolds the words the query has.
+	description:
+		"Reckon, a decision journal for iPhone and iPad; Continuum, private 1:1 notes for managers on Mac; and the other apps and tools Roland Leth has built or led.",
 	path: "/projects",
 })
 
