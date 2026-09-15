@@ -283,8 +283,8 @@ describe("deriveDescription", () => {
 		const result = deriveDescription(body)
 
 		expect(result.endsWith("…")).toBe(true)
-		// Length excluding the ellipsis must fit inside the cap.
-		expect(result.length - 1).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS)
+		// The ellipsis counts: the schema caps the stored value, not the text before it.
+		expect(result.length).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS)
 		// No partial word at the tail — the char before "…" is a full token.
 		const beforeEllipsis = result.slice(0, -1)
 		expect(beforeEllipsis.endsWith(" ")).toBe(false)
@@ -297,7 +297,20 @@ describe("deriveDescription", () => {
 		// string, which violates the "never empty" invariant.
 		const body = "a".repeat(200)
 		const result = deriveDescription(body)
-		expect(result).toBe(`${"a".repeat(DESCRIPTION_MAX_CHARS)}…`)
+		// One character goes to the ellipsis, so the whole string fits the cap —
+		// a 161-char result made the post unsaveable from the edit form.
+		expect(result).toBe(`${"a".repeat(DESCRIPTION_MAX_CHARS - 1)}…`)
+		expect(result).toHaveLength(DESCRIPTION_MAX_CHARS)
+	})
+
+	it("fits the cap when the last space sits right at the cap's edge", () => {
+		// The 160th character is a space: the word-boundary cut drops it, leaving
+		// 159 characters plus the ellipsis.
+		const body = `${"a".repeat(DESCRIPTION_MAX_CHARS - 1)} tail words`
+		const result = deriveDescription(body)
+
+		expect(result).toBe(`${"a".repeat(DESCRIPTION_MAX_CHARS - 1)}…`)
+		expect(result).toHaveLength(DESCRIPTION_MAX_CHARS)
 	})
 
 	it("strips fenced code blocks before deriving", () => {

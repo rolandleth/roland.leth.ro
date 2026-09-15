@@ -247,6 +247,8 @@ export function stripMarkdown(markdown: string): string {
 // consistent and neither overflows the SEO meta description.
 export const DESCRIPTION_MAX_CHARS = 160
 
+const ELLIPSIS = "…"
+
 /**
  * Derives a plain-text description from a post body for use as the OG/SEO meta
  * description and the Atom feed `<summary>`. Strips markdown, collapses
@@ -257,6 +259,12 @@ export const DESCRIPTION_MAX_CHARS = 160
  * snippets (e.g. "exploring the implementati…"). When the stripped text
  * contains no whitespace at all within the cap, falls back to a hard slice
  * so callers always get a bounded string.
+ *
+ * The result, ellipsis included, never exceeds `DESCRIPTION_MAX_CHARS`: the
+ * admin edit form sends a stored description back on every save, and one over
+ * the schema's cap would make that post unsaveable until the field is edited.
+ * The word-boundary cut already leaves room (the space it cuts at is dropped);
+ * the hard slice gives up one character for the ellipsis.
  */
 export function deriveDescription(markdown: string): string {
 	const stripped = stripMarkdown(markdown)
@@ -267,7 +275,10 @@ export function deriveDescription(markdown: string): string {
 
 	const window = stripped.slice(0, DESCRIPTION_MAX_CHARS)
 	const lastSpace = window.lastIndexOf(" ")
-	const truncated = lastSpace > 0 ? window.slice(0, lastSpace) : window
+	const truncated =
+		lastSpace > 0
+			? window.slice(0, lastSpace)
+			: window.slice(0, DESCRIPTION_MAX_CHARS - ELLIPSIS.length)
 
-	return `${truncated}…`
+	return `${truncated}${ELLIPSIS}`
 }
