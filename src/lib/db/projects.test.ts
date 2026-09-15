@@ -539,6 +539,10 @@ describe("toProjectFormInitialData", () => {
 			name: "My App",
 			slug: "my-app",
 			summary: "s",
+			metaTitle: null,
+			keywords: [],
+			offers: null,
+			applicationCategory: null,
 			bucket: PlatformBucket.iOS,
 			platformTags: [PlatformTag.iOS],
 			role: null,
@@ -588,7 +592,8 @@ describe("toProjectFormInitialData", () => {
 					sortOrder: 0,
 				},
 			],
-		} as unknown as AdminProjectDetail
+			faqs: [],
+		}
 	}
 
 	it("coerces null image captions to empty strings (form contract)", () => {
