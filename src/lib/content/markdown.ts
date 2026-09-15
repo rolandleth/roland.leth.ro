@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import remarkRehype from "remark-rehype"
 import { unified } from "unified"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -240,12 +241,6 @@ export function stripMarkdown(markdown: string): string {
 
 	return extractText(tree).replace(/\s+/g, " ").trim()
 }
-
-// Matches the 160-char cap on `postCreateSchema.description` (and Google's
-// desktop snippet display width). Tying derivation and the schema cap to the
-// same constant means authored and auto-derived descriptions are visually
-// consistent and neither overflows the SEO meta description.
-export const DESCRIPTION_MAX_CHARS = 160
 
 const ELLIPSIS = "…"
 

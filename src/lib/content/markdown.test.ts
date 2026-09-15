@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
 import {
 	deriveDescription,
-	DESCRIPTION_MAX_CHARS,
 	extractDefinitions,
 	markdownToHtml,
 	markdownToReact,

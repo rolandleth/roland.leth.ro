@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
@@ -83,7 +84,7 @@ export const postCreateSchema = z.object({
 	// when it's absent or blank — whitespace-only included, since it collapses to
 	// "". 160 is the SERP truncation point.
 	description: collapsedWhitespace
-		.pipe(z.string().max(160))
+		.pipe(z.string().max(DESCRIPTION_MAX_CHARS))
 		.nullable()
 		.optional(),
 	imageUrl: httpUrl.nullable().optional(),
@@ -136,7 +137,9 @@ const canonicalSlug = z
 // The meta description, the OG description, and the preview text on project and
 // topic pages all read this one field, so it's required, not optional. 160 is
 // the SERP truncation point (same reasoning as `postCreateSchema.description`).
-const guideDescription = collapsedWhitespace.pipe(z.string().min(1).max(160))
+const guideDescription = collapsedWhitespace.pipe(
+	z.string().min(1).max(DESCRIPTION_MAX_CHARS)
+)
 
 const guideFields = {
 	slug: canonicalSlug,

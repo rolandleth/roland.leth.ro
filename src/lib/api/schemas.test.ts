@@ -11,6 +11,8 @@ import {
 	projectCreateSchema,
 	projectUpdateSchema,
 } from "@/lib/api/schemas"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import { deriveDescription } from "@/lib/content/markdown"
 import { createSlug } from "@/lib/utils/format"
 
 // #region httpUrl (tested indirectly through schema fields that use it)
@@ -909,6 +911,17 @@ describe("postCreateSchema — description whitespace", () => {
 		const collapsesTo160 = `${"x".repeat(80)}\n\n   ${"x".repeat(79)}`
 
 		expect(parsedDescription(collapsesTo160)).toHaveLength(160)
+	})
+
+	it.each([
+		["a word-boundary cut", "word ".repeat(100)],
+		["a hard slice", "a".repeat(400)],
+	])("accepts what the derivation produces for %s", (_label, body) => {
+		// The schema cap and `deriveDescription` share `DESCRIPTION_MAX_CHARS`; a
+		// derived value the schema rejected made the edit form unable to save.
+		expect(parsedDescription(deriveDescription(body))).toHaveLength(
+			DESCRIPTION_MAX_CHARS
+		)
 	})
 
 	it("still rejects a description that is over 160 chars once collapsed", () => {
