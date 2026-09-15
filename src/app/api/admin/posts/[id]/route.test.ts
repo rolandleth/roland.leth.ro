@@ -175,6 +175,18 @@ describe("PUT /api/admin/posts/[id]", () => {
 		expect(response.status).toBe(400)
 	})
 
+	it("clears the image when the payload sends imageUrl null", async () => {
+		// The edit form sends `null` for a removed image; `undefined` would skip
+		// the column and keep the old one.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { imageUrl: null }), params("1"))
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data).toHaveProperty("imageUrl", null)
+	})
+
 	it("returns 404 when the post does not exist", async () => {
 		vi.mocked(isPrismaNotFound).mockReturnValue(true)
 		vi.mocked(prisma.post.update).mockRejectedValue({ code: "P2025" })

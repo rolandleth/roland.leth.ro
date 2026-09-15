@@ -28,7 +28,7 @@ interface PostPayload {
 	datetime: string
 	published: boolean
 	description?: string
-	imageUrl?: string
+	imageUrl: string | null
 }
 
 interface FormState {
@@ -76,7 +76,10 @@ export default function PostForm({ initialData }: Props) {
 			// tells "cleared, derive one" apart from a request that doesn't touch
 			// the description. Omitting it would keep the old value.
 			description: state.description,
-			imageUrl: state.imageUrl || undefined,
+			// `null`, not `undefined`, for an empty field: the edit route skips an
+			// omitted key, so an image removed in the form would stay on the post.
+			// (`""` isn't an option — the schema only accepts an http(s) URL or null.)
+			imageUrl: state.imageUrl || null,
 		})
 	}
 

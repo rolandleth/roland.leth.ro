@@ -14,8 +14,24 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/admin/MarkdownEditor", () => ({
 	default: () => null,
 }))
+// A plain input stands in for the upload widget, so a test can edit the URL
+// without the upload machinery.
 vi.mock("@/components/admin/ImageUpload", () => ({
-	default: () => null,
+	default: ({
+		value,
+		onChange,
+		label,
+	}: {
+		value: string
+		onChange: (value: string) => void
+		label: string
+	}) => (
+		<input
+			aria-label={label}
+			value={value}
+			onChange={(event) => onChange(event.target.value)}
+		/>
+	),
 }))
 
 // Freeze currentDatetimeString so datetime field has a predictable default.
@@ -192,6 +208,37 @@ describe("PostForm — edit mode", () => {
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
 		expect(JSON.parse(options.body).description).toBe("A short description.")
+	})
+
+	it("sends a removed image as null, so the route clears it", async () => {
+		// An omitted key is skipped by the edit route, which left the old image on
+		// the post.
+		mockRouter()
+		mockFetch(true)
+
+		render(
+			<PostForm
+				initialData={{ ...initialData, imageUrl: "https://example.com/a.png" }}
+			/>
+		)
+		await user.clear(screen.getByLabelText(/^image$/i))
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body)).toHaveProperty("imageUrl", null)
+	})
+
+	it("sends null for a post with no image", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm initialData={{ ...initialData, imageUrl: null }} />)
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body)).toHaveProperty("imageUrl", null)
 	})
 
 	it("sends an emptied description as an empty string, which the route derives from", async () => {
