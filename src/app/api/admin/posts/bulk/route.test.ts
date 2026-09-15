@@ -570,6 +570,56 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(data[0].description).toBe("Written for the search result.")
 	})
 
+	it("derives the description when the frontmatter line holds only spaces", async () => {
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-first.md",
+						content: `---\ntitle: "First"\ndescription: "   "\n---\n\nFirst post body.`,
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ description: string }>
+		expect(data[0].description).toBe("First post body.")
+	})
+
+	it("skips a file that fails the admin schema and inserts the rest", async () => {
+		// The upload used to skip the schema check the import script runs, so a
+		// description over the 160-char cap was stored, and the edit form then
+		// refused every save of that post.
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-long.md",
+						content: `---\ntitle: "Long"\ndescription: "${"x".repeat(161)}"\n---\n\nBody.`,
+					},
+					validFile,
+				],
+			})
+		)
+		const json = await response.json()
+
+		expect(json.skipped).toEqual([
+			{
+				filename: "2026-05-15-long.md",
+				reason: expect.stringContaining("description"),
+			},
+		])
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ slug: string }>
+		expect(data.map((row) => row.slug)).toEqual(["a-real-post"])
+	})
+
 	it("emits a skip-reason summary log when files are skipped", async () => {
 		await POST(
 			makeRequest({

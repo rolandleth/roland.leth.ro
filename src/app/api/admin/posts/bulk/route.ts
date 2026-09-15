@@ -4,10 +4,14 @@ import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postBulkImportSchema } from "@/lib/api/schemas"
-import { deriveDescription } from "@/lib/content/markdown"
+import { descriptionForCreate } from "@/lib/content/postDescription"
 import { prisma } from "@/lib/db/db"
 import { revalidatePostSection } from "@/lib/db/posts"
-import { parsePostFiles, type SkippedFile } from "@/lib/import/postImport"
+import {
+	parsePostFiles,
+	type SkippedFile,
+	validatePostFile,
+} from "@/lib/import/postImport"
 import {
 	calculateReadingTime,
 	currentDatetimeString,
@@ -36,11 +40,12 @@ interface PreparedBatch {
 }
 
 /**
- * Runs the batch through `parsePostFiles` — the import script's parse/gate
- * pipeline, shared so the two ingestion paths can't drift on which files
- * import and under what slug — then maps the survivors to DB-shaped insert
- * rows. `slugRewrite` is deliberately dropped: an upload can't be written
- * back, so a missing `slug:` is derived here without a file fix-up.
+ * Runs the batch through `parsePostFiles` and `validatePostFile` — the import
+ * script's parse/gate pipeline and its schema check, shared so the two
+ * ingestion paths can't drift on which files import, under what slug, or with
+ * what description — then maps the survivors to DB-shaped insert rows.
+ * `slugRewrite` is deliberately dropped: an upload can't be written back, so a
+ * missing `slug:` is derived here without a file fix-up.
  */
 function prepareBatch(
 	files: ReadonlyArray<{ filename: string; content: string }>,
@@ -48,27 +53,38 @@ function prepareBatch(
 	now: string
 ): PreparedBatch {
 	const { parsed, skipped } = parsePostFiles(files)
+	const toInsert: InsertRow[] = []
+	const slugToFilename = new Map<string, string>()
 
-	const slugToFilename = new Map(
-		parsed.map((file): [string, string] => [file.slug, file.filename])
-	)
-	const toInsert: InsertRow[] = parsed.map((file) => ({
-		title: file.title,
-		slug: file.slug,
-		body: file.body,
-		// The frontmatter's `description:` when the file carries one; derived from
-		// the body otherwise, so the meta description and feed `<summary>` are
-		// never blank. The author can refine it in the admin edit form afterwards.
-		description: file.description ?? deriveDescription(file.body),
-		datetime: file.datetime,
-		section,
-		// Future-dated posts are published so the existing scheduled-post
-		// auto-surface logic in `getPostsBySection` picks them up the moment
-		// their `datetime` passes. Past-dated posts default to draft so the
-		// admin reviews each before promoting it.
-		published: isFutureDatetime(file.datetime, now),
-		readingTime: calculateReadingTime(file.body),
-	}))
+	for (const file of parsed) {
+		// Without this, a `description:` over the 160-char cap was stored as is,
+		// and the admin edit form then refused every save of that post.
+		const validation = validatePostFile(file, section)
+
+		if (!validation.ok) {
+			skipped.push({ filename: file.filename, reason: validation.reason })
+			continue
+		}
+
+		slugToFilename.set(file.slug, file.filename)
+		toInsert.push({
+			title: file.title,
+			slug: file.slug,
+			body: file.body,
+			// The frontmatter's `description:` when the file carries one; derived
+			// from the body otherwise. The author can refine it in the admin edit
+			// form afterwards.
+			description: descriptionForCreate(file.body, validation.description),
+			datetime: file.datetime,
+			section,
+			// Future-dated posts are published so the existing scheduled-post
+			// auto-surface logic in `getPostsBySection` picks them up the moment
+			// their `datetime` passes. Past-dated posts default to draft so the
+			// admin reviews each before promoting it.
+			published: isFutureDatetime(file.datetime, now),
+			readingTime: calculateReadingTime(file.body),
+		})
+	}
 
 	return { toInsert, skipped, slugToFilename }
 }

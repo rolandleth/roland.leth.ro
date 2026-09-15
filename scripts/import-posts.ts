@@ -31,7 +31,8 @@
 // datetime, and reading time, PRESERVE `published`, and write `description`
 // only when the file carries one that differs from the stored value, or when
 // the stored one was itself derived and the body changed — a description
-// authored in the admin survives an overwrite from a file without one.
+// authored in the admin survives an overwrite from a file without one. It's the
+// admin edit route's rule too (`descriptionForUpdate`).
 // Unchanged files plan zero writes, so re-runs are idempotent.
 //
 // Direct Prisma writes: this deliberately skips the admin API, so it cannot

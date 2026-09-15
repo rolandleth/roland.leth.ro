@@ -334,6 +334,44 @@ describe("planPostImport — creates", () => {
 		expect(plan.creates[0]?.description).toBe("Written for the search result.")
 	})
 
+	it("stores the description as the schema measured it, inner whitespace collapsed", () => {
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-07-01-0900-fresh.md",
+				"Fresh post",
+				"Written  for   the search result.",
+				LONG_BODY
+			),
+		])
+
+		const plan = planPostImport(parsed, new Map(), {
+			section: "tech",
+			now: NOW,
+			overwrite: false,
+		})
+
+		expect(plan.creates[0]?.description).toBe("Written for the search result.")
+	})
+
+	it("derives the description when the file's line holds only spaces", () => {
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-07-01-0900-fresh.md",
+				"Fresh post",
+				"   ",
+				LONG_BODY
+			),
+		])
+
+		const plan = planPostImport(parsed, new Map(), {
+			section: "tech",
+			now: NOW,
+			overwrite: false,
+		})
+
+		expect(plan.creates[0]?.description).toBe(deriveDescription(LONG_BODY))
+	})
+
 	it("skips a create whose description is past the admin schema's cap", () => {
 		const { parsed } = parsePostFiles([
 			fmFileWithDescription(
@@ -519,6 +557,71 @@ describe("planPostImport — overwrite", () => {
 		expect(plan.updates[0]?.data.description).toBe(
 			"Written for the search result."
 		)
+	})
+
+	it("lets a derived description follow the new body even when the file carries it unchanged", () => {
+		// A `.md` export writes the stored description into the file. Re-importing
+		// that file after a body edit shouldn't pin the old excerpt: a description
+		// equal to the old body's derivation was never written by hand.
+		const row = existing()
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				row.description,
+				LONG_BODY
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data.description).toBe(deriveDescription(LONG_BODY))
+	})
+
+	it("keeps an authored description when the file carries it unchanged and the body changes", () => {
+		const row = existing({ description: "Written for the search result." })
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				"Written for the search result.",
+				LONG_BODY
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data.body).toBe(LONG_BODY)
+		expect(plan.updates[0]?.data.description).toBeUndefined()
+	})
+
+	it("treats a description line of only spaces as absent, so an authored one stays", () => {
+		const row = existing({ description: "Authored in the admin." })
+		const { parsed } = parsePostFiles([
+			fmFileWithDescription(
+				"2026-01-01-0900-hello.md",
+				"Hello world",
+				"   ",
+				row.body
+			),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates).toEqual([])
+		expect(plan.skipped[0]?.reason).toBe("Unchanged")
 	})
 
 	it("skips a file whose description and body both match the stored row", () => {
