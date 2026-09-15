@@ -94,6 +94,12 @@ describe("parseFrontmatterFields", () => {
 		expect(result).toEqual(expect.objectContaining({ fields: { title: "T" } }))
 	})
 
+	it("treats a quoted value of only spaces as empty, and so as absent", () => {
+		const result = parse(`---\ndescription: "   "\ntitle: T\n---\n\nBody.`)
+
+		expect(result).toEqual(expect.objectContaining({ fields: { title: "T" } }))
+	})
+
 	it("ignores blank lines inside the block", () => {
 		const result = parse(`---\nslug: a\n\ntitle: T\n---\n\nBody.`)
 
@@ -255,8 +261,17 @@ describe("parseFrontmatter", () => {
 
 	it("keeps a present-but-blank slug as an empty string, distinct from absent", () => {
 		const raw = `---\ntitle: "Hello world"\nslug:\n---\n\nBody.`
+		const quotedSpaces = `---\ntitle: "Hello world"\nslug: "   "\n---\n\nBody.`
 
 		expect(parseFrontmatter(raw).slug).toBe("")
+		expect(parseFrontmatter(quotedSpaces).slug).toBe("")
+	})
+
+	it("trims whitespace inside the quotes of a value", () => {
+		const raw = `---\ntitle: "  Hello world  "\ndescription: " Padded. "\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).title).toBe("Hello world")
+		expect(parseFrontmatter(raw).description).toBe("Padded.")
 	})
 
 	it("returns null slug when the line is absent", () => {
@@ -289,10 +304,14 @@ describe("parseFrontmatter", () => {
 		const absent = `---\ntitle: "Hello world"\n---\n\nBody.`
 		const bare = `---\ntitle: "Hello world"\ndescription:\n---\n\nBody.`
 		const quoted = `---\ntitle: "Hello world"\ndescription: ""\n---\n\nBody.`
+		// Spaces inside the quotes used to come back as the value, and the importer
+		// stored them as a blank meta description.
+		const quotedSpaces = `---\ntitle: "Hello world"\ndescription: "   "\n---\n\nBody.`
 
 		expect(parseFrontmatter(absent).description).toBeNull()
 		expect(parseFrontmatter(bare).description).toBeNull()
 		expect(parseFrontmatter(quoted).description).toBeNull()
+		expect(parseFrontmatter(quotedSpaces).description).toBeNull()
 	})
 
 	it("does not read a `description:` that appears in the body", () => {

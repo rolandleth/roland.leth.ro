@@ -41,6 +41,17 @@ function unquote(value: string): string {
 }
 
 /**
+ * A field's value from the text after its `key:`: trimmed, unquoted, then
+ * trimmed again inside the quotes. The second trim is what makes
+ * `description: "   "` read as blank, the same as `description: ""`, instead of
+ * as a value of spaces that would be stored as the meta description. Shared by
+ * both readers so they agree on what "blank" means.
+ */
+function fieldValue(remainder: string): string {
+	return unquote(remainder.trim()).trim()
+}
+
+/**
  * Reads one field's value from the block's lines: the literal remainder of the
  * `<name>:` line, unquoted and trimmed. Returns `null` when the line is absent;
  * `emptyValue` when the line is present but its value is empty — `title`
@@ -61,7 +72,7 @@ function readField(
 		return null
 	}
 
-	const value = unquote(line.slice(name.length + 1).trim())
+	const value = fieldValue(line.slice(name.length + 1))
 
 	return value === "" ? emptyValue : value
 }
@@ -205,7 +216,7 @@ export function parseFrontmatterFields(
 
 		seen.add(key)
 
-		const value = unquote(line.slice(separator + 1).trim())
+		const value = fieldValue(line.slice(separator + 1))
 
 		if (value !== "") {
 			fields[key] = value
@@ -222,7 +233,8 @@ export function parseFrontmatterFields(
 /**
  * Escapes a string for embedding inside a double-quoted YAML value: `\` → `\\`,
  * `"` → `\"`. The exact inverse of `unquote`'s double-quoted branch, so any value
- * written with this reads back byte-for-byte. Shared by every frontmatter writer
+ * written with this reads back byte-for-byte, apart from leading and trailing
+ * whitespace, which every read trims (`fieldValue`). Shared by every frontmatter writer
  * (`buildPostFile`, the `.md` export) so the write/read pair can't drift.
  */
 export function escapeYamlDoubleQuoted(value: string): string {
