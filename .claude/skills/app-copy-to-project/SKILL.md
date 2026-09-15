@@ -161,7 +161,8 @@ first. A wrong bucket or a missing store URL is worse than a question.
   website and GitHub URL if they exist. All `links` need real `https` URLs.
 - **accentColor** (hex), **date**, **role**.
 - **isFeatured**, **isDiscontinued**, **isOwnApp** (Roland's own product, not client or employer
-  work; drives the App Store badge) — all three are required, `true` or `false`: the import
+  work; drives the App Store badge, which needs exactly one App Store link — see `isOwnApp` in
+  `references/field-mapping.md`) — all three are required, `true` or `false`: the import
   replaces the row, so it rejects a manifest that leaves one out rather than resetting a flag set
   in the admin. **sortOrder** (gallery placement — the import honours this
   verbatim, so think about where it sits relative to existing projects).
