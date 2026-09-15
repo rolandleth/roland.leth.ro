@@ -106,6 +106,19 @@ describe("POST /api/admin/guides", () => {
 		expect(data.readingTime).toMatch(/min read/)
 	})
 
+	it("stores a pasted multi-line description on one line", async () => {
+		vi.mocked(prisma.guide.create).mockResolvedValue(createdGuide)
+
+		await POST(
+			makeRequest({ ...validPayload, description: "First line.\nSecond." })
+		)
+
+		const { data } = vi.mocked(prisma.guide.create).mock.calls[0][0] as {
+			data: { description: string }
+		}
+		expect(data.description).toBe("First line. Second.")
+	})
+
 	it("stamps publishedAt when the guide is created published", async () => {
 		vi.mocked(prisma.guide.create).mockResolvedValue(createdGuide)
 
