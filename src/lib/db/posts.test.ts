@@ -297,7 +297,13 @@ describe("getRecentPosts", () => {
 
 		expect(prisma.post.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: expect.objectContaining({ section: "tech", published: true }),
+				// `datetime <= now` is what keeps a scheduled post out of llms.txt;
+				// without it in the assertion, dropping the filter passed.
+				where: {
+					section: "tech",
+					published: true,
+					datetime: { lte: expect.stringMatching(/^\d{4}-\d{2}-\d{2}-\d{4}$/) },
+				},
 				select: { title: true, slug: true, section: true, description: true },
 				orderBy: { datetime: "desc" },
 				take: fresh.RECENT_POSTS_LIMIT,
