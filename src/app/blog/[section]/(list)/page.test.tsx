@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { notFound } from "next/navigation"
 import { describe, expect, it, vi } from "vitest"
-import { SECTIONS } from "@/lib/db/sections"
+import { SECTION_DESCRIPTIONS, SECTIONS } from "@/lib/db/sections"
 import { stripComments } from "@/test/sourceText"
 import BlogListPage, {
 	dynamicParams,
@@ -137,6 +137,15 @@ describe("generateMetadata", () => {
 		expect(metadata.description).toContain("Next.js")
 		expect(metadata.description).not.toBe("Thoughts on tech.")
 	})
+
+	it.each(SECTIONS)(
+		"describes the %s section with its shared line, the one page 2 onward uses too",
+		async (section) => {
+			const metadata = await generateMetadata(params(section))
+
+			expect(metadata.description).toBe(SECTION_DESCRIPTIONS[section])
+		}
+	)
 
 	it("returns empty metadata for an unknown section", async () => {
 		expect(await generateMetadata(params("nope"))).toEqual({})

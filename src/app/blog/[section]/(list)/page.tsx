@@ -5,19 +5,10 @@ import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	capitalizeSection,
 	isValidSection,
+	SECTION_DESCRIPTIONS,
 	SECTIONS,
-	type Section,
 } from "@/lib/db/sections"
 import type { Metadata } from "next"
-
-// The meta description per section, written for the search result: llms.txt
-// and the sitemap both push `/blog/tech` as the blog's front door, so a
-// placeholder there is what a searcher saw. `life` keeps its placeholder until
-// that section has a line worth writing.
-const SECTION_DESCRIPTIONS: Record<Section, string> = {
-	tech: "Posts on iOS, Next.js and building software with AI, going back to 2013.",
-	life: "Thoughts on life.",
-}
 
 // Page 1 of the blog list. Deliberately does NOT read `searchParams` — touching
 // that API is what opts a route into dynamic rendering, and it's decided at

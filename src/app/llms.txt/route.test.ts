@@ -4,6 +4,7 @@ import * as llmsRoute from "@/app/llms.txt/route"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
+import { SECTION_DESCRIPTIONS } from "@/lib/db/sections"
 import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
 import type { GuideTopicWithGuides } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
@@ -90,6 +91,14 @@ describe("llms.txt — response", () => {
 		expect(body).toContain(`${BASE}/blog/tech`)
 		expect(body).toContain(`${BASE}/about`)
 		expect(body).toContain(`${BASE}/sitemap.xml`)
+	})
+
+	it("describes the tech blog with the line its list pages use", async () => {
+		const body = await (await GET()).text()
+
+		expect(body).toContain(
+			`- [Tech blog](${BASE}/blog/tech): ${SECTION_DESCRIPTIONS.tech}`
+		)
 	})
 
 	it("omits the life blog and tools links", async () => {

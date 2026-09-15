@@ -2,6 +2,7 @@ import { getSiteUrl } from "@/lib/auth/env"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
+import { SECTION_DESCRIPTIONS } from "@/lib/db/sections"
 import type { GuidesOverview } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
 
@@ -137,7 +138,7 @@ ${projectLines}
 
 ${guidesSection(base, guides)}${postsSection(base, posts)}## Site
 
-- [Tech blog](${base}/blog/tech): posts on iOS, web, and software engineering.
+- [Tech blog](${base}/blog/tech): ${SECTION_DESCRIPTIONS.tech}
 - [About](${base}/about): background and contact.
 - [Sitemap](${base}/sitemap.xml): full list of indexable URLs.
 `
