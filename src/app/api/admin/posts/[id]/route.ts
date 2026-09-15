@@ -9,7 +9,7 @@ import {
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postUpdateSchema } from "@/lib/api/schemas"
-import { deriveDescription } from "@/lib/content/markdown"
+import { descriptionForUpdate } from "@/lib/content/postDescription"
 import { prisma } from "@/lib/db/db"
 import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime } from "@/lib/utils/format"
@@ -73,11 +73,16 @@ export async function PUT(
 		return parsed
 	}
 
-	const { title, body: postBody, description, ...rest } = parsed
+	const {
+		title,
+		body: postBody,
+		description: incomingDescription,
+		...rest
+	} = parsed
 	// Prisma treats `undefined` as "skip this column" and `null` as "set null",
 	// so the validated payload flows straight in. `title`/`body`/`description` are
 	// folded back with their derived columns (`readingTime`, auto-derived
-	// description) only when they were set or when the rules below require a re-derive.
+	// description) only when they were set or when `descriptionForUpdate` requires a re-derive.
 	// Matches the shape in `src/app/api/admin/projects/[id]/route.ts`.
 	type PostUpdatePayload = typeof rest & {
 		title?: string
@@ -122,37 +127,27 @@ export async function PUT(
 				// resolution below sees the same row state as the write.
 				const previous = await tx.post.findUnique({
 					where: { id },
-					select: { section: true, slug: true, body: true, description: true },
+					select: {
+						section: true,
+						slug: true,
+						title: true,
+						body: true,
+						description: true,
+					},
 				})
 
-				// Description resolution. Two effective inputs after the write:
-				//   - `effectiveBody`  = new body if sent, else previous body.
-				//   - `description` arrives as a non-empty string (user authored
-				//     something in the form) OR `undefined` (form cleared the
-				//     field, since `state.description || undefined` strips empties).
-				// Rules:
-				//   - User authored a fresh description (differs from previous) → keep it.
-				//   - User left the description untouched (equals previous) AND the
-				//     body changed → re-derive so the meta description tracks
-				//     the new body. Without this, an edited post keeps a stale
-				//     description forever unless the author rewrites it by hand.
-				//   - User cleared the description → re-derive. "Never empty" invariant.
-				//   - User left the description untouched AND body unchanged → skip
-				//     the column entirely (Prisma treats `undefined` as no-op).
+				// The shared rule: a request that doesn't send `description` (the
+				// Published toggle) or sends it unchanged leaves an authored one alone;
+				// `""` derives one. `undefined` means Prisma skips the column.
 				if (previous != null) {
-					const effectiveBody = postBody ?? previous.body
-					const bodyChanged = postBody != null && postBody !== previous.body
-					const authored =
-						description != null &&
-						description !== "" &&
-						description !== previous.description
+					const description = descriptionForUpdate(previous, {
+						title: title ?? previous.title,
+						body: postBody ?? previous.body,
+						description: incomingDescription,
+					})
 
-					if (authored) {
+					if (description !== undefined) {
 						data.description = description
-					} else if (description == null || description === "") {
-						data.description = deriveDescription(effectiveBody)
-					} else if (bodyChanged) {
-						data.description = deriveDescription(effectiveBody)
 					}
 				}
 

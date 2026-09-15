@@ -175,6 +175,18 @@ describe("PUT /api/admin/posts/[id]", () => {
 		expect(response.status).toBe(400)
 	})
 
+	it("clears the image when the payload sends imageUrl null", async () => {
+		// The edit form sends `null` for a removed image; `undefined` would skip
+		// the column and keep the old one.
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
+		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+
+		await PUT(putRequest("1", { imageUrl: null }), params("1"))
+
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data).toHaveProperty("imageUrl", null)
+	})
+
 	it("returns 404 when the post does not exist", async () => {
 		vi.mocked(isPrismaNotFound).mockReturnValue(true)
 		vi.mocked(prisma.post.update).mockRejectedValue({ code: "P2025" })
@@ -269,11 +281,17 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(putRequest("1", { title: "x" }), params("1"))
 
 		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
-		// `body` and `description` are included so the description-resolution rules
+		// `title`, `body` and `description` are included so `descriptionForUpdate`
 		// can compare against pre-update state inside the same txn.
 		expect(prisma.post.findUnique).toHaveBeenCalledWith(
 			expect.objectContaining({
-				select: { section: true, slug: true, body: true, description: true },
+				select: {
+					section: true,
+					slug: true,
+					title: true,
+					body: true,
+					description: true,
+				},
 			})
 		)
 	})
@@ -313,85 +331,95 @@ describe("PUT /api/admin/posts/[id]", () => {
 
 	// #region description auto-derive
 
-	it("re-derives description from new body when body changes and description is untouched", async () => {
-		// Form ships `description: state.description || undefined`, so an untouched
-		// description field arrives as the verbatim previous string. With body
-		// changed, the description should track the new body.
-		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+	// `existingPost.description` was written by hand; `derivedPost`'s is what its
+	// body derives to. The rule itself is covered in `postDescription.test.ts`;
+	// these pin that the route hands it the stored row and the effective body.
+	const derivedPost = { ...existingPost, description: "Original body." }
+	const newBody = "A brand new body for this post."
 
-		await PUT(
-			putRequest("1", {
-				body: "A brand new body for this post.",
+	async function descriptionWrittenBy(
+		stored: typeof existingPost,
+		payload: Record<string, unknown>
+	): Promise<unknown> {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue(stored)
+		vi.mocked(prisma.post.update).mockResolvedValue(stored)
+
+		await PUT(putRequest("1", payload), params("1"))
+
+		return vi.mocked(prisma.post.update).mock.calls[0][0].data.description
+	}
+
+	it("leaves an authored description alone on the Published toggle, which sends only `published`", async () => {
+		// `BooleanFlagToggle` in the posts list sends `{ published }` and nothing
+		// else. This used to replace the description with a body excerpt.
+		expect(
+			await descriptionWrittenBy(existingPost, { published: false })
+		).toBeUndefined()
+	})
+
+	it("leaves an authored description alone on any partial update that doesn't send it", async () => {
+		expect(
+			await descriptionWrittenBy(existingPost, { title: "Renamed" })
+		).toBeUndefined()
+	})
+
+	it("keeps an authored description when the body changes and the form sends it back unchanged", async () => {
+		// The edit form sends every field as loaded. A typo fix in the body used
+		// to swap the authored description for an excerpt.
+		expect(
+			await descriptionWrittenBy(existingPost, {
+				body: newBody,
 				description: "Original description.",
-			}),
-			params("1")
-		)
-
-		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.description).toBe("A brand new body for this post.")
+			})
+		).toBeUndefined()
 	})
 
-	it("keeps the user's description when authored (differs from previous)", async () => {
-		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
+	it("follows the new body when the stored description was derived", async () => {
+		expect(
+			await descriptionWrittenBy(derivedPost, {
+				body: newBody,
+				description: "Original body.",
+			})
+		).toBe(newBody)
+	})
 
-		await PUT(
-			putRequest("1", {
-				body: "A brand new body for this post.",
+	it("follows the new body when a derived description isn't sent", async () => {
+		expect(await descriptionWrittenBy(derivedPost, { body: newBody })).toBe(
+			newBody
+		)
+	})
+
+	it("stores a newly authored description", async () => {
+		expect(
+			await descriptionWrittenBy(existingPost, {
+				body: newBody,
 				description: "Hand-written replacement.",
-			}),
-			params("1")
+			})
+		).toBe("Hand-written replacement.")
+	})
+
+	it("derives from the unchanged body when the form sends the field emptied", async () => {
+		expect(await descriptionWrittenBy(existingPost, { description: "" })).toBe(
+			"Original body."
 		)
-
-		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.description).toBe("Hand-written replacement.")
 	})
 
-	it("re-derives description when the user clears the field (key omitted)", async () => {
-		// "Never empty" invariant — a cleared description always falls back to a
-		// derived one. The form omits the key entirely for empty strings.
-		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
-
-		await PUT(
-			putRequest("1", { body: "A brand new body for this post." }),
-			params("1")
-		)
-
-		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.description).toBe("A brand new body for this post.")
+	it("derives from the new body when the field is emptied in the same save", async () => {
+		expect(
+			await descriptionWrittenBy(existingPost, {
+				body: newBody,
+				description: "  ",
+			})
+		).toBe(newBody)
 	})
 
-	it("re-derives description from previous body when only description is cleared", async () => {
-		// User cleared the field without touching the body. We still refuse
-		// to store empty, so derive from the unchanged previous body.
-		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
-
-		await PUT(putRequest("1", { title: "Renamed" }), params("1"))
-
-		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.description).toBe("Original body.")
-	})
-
-	it("leaves description untouched when body is unchanged and description matches previous", async () => {
-		// Pure metadata edit (e.g. toggling published) shouldn't churn the
-		// description column. Prisma treats `undefined` as "skip this column",
-		// which is what we want — no write amplification.
-		vi.mocked(prisma.post.findUnique).mockResolvedValue(existingPost)
-		vi.mocked(prisma.post.update).mockResolvedValue(existingPost)
-
-		await PUT(
-			putRequest("1", {
+	it("writes nothing when body and description are both unchanged", async () => {
+		expect(
+			await descriptionWrittenBy(existingPost, {
 				published: false,
 				description: "Original description.",
-			}),
-			params("1")
-		)
-
-		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
-		expect(data.description).toBeUndefined()
+			})
+		).toBeUndefined()
 	})
 
 	it("returns 400 when description exceeds 160 chars", async () => {

@@ -55,5 +55,3 @@
 - **2026-08-24** — Reference-style link definitions dropped from ~700-char excerpts broke rendering on 11 tech posts; fixed by appending `extractDefinitions` to `PostCard`'s truncated preview. [source](dev-journal/2026-08-24.md)
 - **2026-09-08** — Seven dirty legacy slugs left redirecting into a 404 deliberately (zero hits in the 404 report). [source](dev-journal/2026-09-08.md)
 - **2026-09-13** — App Store / Mac App Store badge artwork added, keyed on storefront `bucket` (iOS vs Mac) since the `apps.apple.com` URL shape doesn't disclose platform. [source](dev-journal/2026-09-13.md)
-</content>
-</invoke>

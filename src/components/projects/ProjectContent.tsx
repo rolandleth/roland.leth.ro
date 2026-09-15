@@ -193,9 +193,11 @@ export default function ProjectContent({
 
 			<div className="mx-auto w-full max-w-3xl px-4 py-20">
 				{/* Identity row + links. Stacked below `sm`: the links grid is
-				    `shrink-0` and a single `Get on …` pill is ~148px, which together
-				    with the icon and the title's min-content width overflows a 375px
-				    viewport and gives the whole page a horizontal scrollbar. */}
+				    `shrink-0` and a single store pill is ~148px for `Get on App Store`
+				    and wider for an own app's `Download on …`, which together with the
+				    icon and the title's min-content width overflows a 375px viewport
+				    and gives the whole page a horizontal scrollbar. Up to two links
+				    stack in one column, so the grid is as wide as its widest pill. */}
 				<motion.div
 					className="mb-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
 					{...fadeUp(0.1)}

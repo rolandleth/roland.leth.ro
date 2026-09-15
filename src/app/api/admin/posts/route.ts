@@ -3,7 +3,7 @@ import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postCreateSchema } from "@/lib/api/schemas"
-import { deriveDescription } from "@/lib/content/markdown"
+import { descriptionForCreate } from "@/lib/content/postDescription"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime, createSlug } from "@/lib/utils/format"
@@ -36,21 +36,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} = parsed
 
 	try {
-		// `description` is required at the DB layer. An empty or omitted field
-		// from the admin form is auto-derived from the body so the meta
-		// description and feed `<summary>` are never blank. See
-		// `deriveDescription` for the truncation rules.
-		const resolvedDescription =
-			description != null && description !== ""
-				? description
-				: deriveDescription(postBody)
-
 		const post = await prisma.post.create({
 			data: {
 				title,
 				body: postBody,
 				datetime,
-				description: resolvedDescription,
+				// An empty or omitted field from the admin form derives one from the
+				// body; see `descriptionForCreate`.
+				description: descriptionForCreate(
+					{ title, body: postBody },
+					description
+				),
 				imageUrl: imageUrl ?? null,
 				section: section ?? "tech",
 				published: published ?? true,

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
 	buildPostFile,
+	frontmatterFile,
 	parseFrontmatter,
 	parseFrontmatterFields,
+	quotedFrontmatterLine,
 	setFrontmatterSlug,
 } from "./frontmatter"
 
@@ -90,6 +92,12 @@ describe("parseFrontmatterFields", () => {
 
 	it("treats an empty value as absent so a required-field check catches it", () => {
 		const result = parse(`---\nslug:\ntitle: T\n---\n\nBody.`)
+
+		expect(result).toEqual(expect.objectContaining({ fields: { title: "T" } }))
+	})
+
+	it("treats a quoted value of only spaces as empty, and so as absent", () => {
+		const result = parse(`---\ndescription: "   "\ntitle: T\n---\n\nBody.`)
 
 		expect(result).toEqual(expect.objectContaining({ fields: { title: "T" } }))
 	})
@@ -255,8 +263,17 @@ describe("parseFrontmatter", () => {
 
 	it("keeps a present-but-blank slug as an empty string, distinct from absent", () => {
 		const raw = `---\ntitle: "Hello world"\nslug:\n---\n\nBody.`
+		const quotedSpaces = `---\ntitle: "Hello world"\nslug: "   "\n---\n\nBody.`
 
 		expect(parseFrontmatter(raw).slug).toBe("")
+		expect(parseFrontmatter(quotedSpaces).slug).toBe("")
+	})
+
+	it("trims whitespace inside the quotes of a value", () => {
+		const raw = `---\ntitle: "  Hello world  "\ndescription: " Padded. "\n---\n\nBody.`
+
+		expect(parseFrontmatter(raw).title).toBe("Hello world")
+		expect(parseFrontmatter(raw).description).toBe("Padded.")
 	})
 
 	it("returns null slug when the line is absent", () => {
@@ -289,10 +306,14 @@ describe("parseFrontmatter", () => {
 		const absent = `---\ntitle: "Hello world"\n---\n\nBody.`
 		const bare = `---\ntitle: "Hello world"\ndescription:\n---\n\nBody.`
 		const quoted = `---\ntitle: "Hello world"\ndescription: ""\n---\n\nBody.`
+		// Spaces inside the quotes used to come back as the value, and the importer
+		// stored them as a blank meta description.
+		const quotedSpaces = `---\ntitle: "Hello world"\ndescription: "   "\n---\n\nBody.`
 
 		expect(parseFrontmatter(absent).description).toBeNull()
 		expect(parseFrontmatter(bare).description).toBeNull()
 		expect(parseFrontmatter(quoted).description).toBeNull()
+		expect(parseFrontmatter(quotedSpaces).description).toBeNull()
 	})
 
 	it("does not read a `description:` that appears in the body", () => {
@@ -416,6 +437,34 @@ describe("buildPostFile", () => {
 
 		expect(parsed.title).toBe(title)
 		expect(parsed.body).toBe(body)
+	})
+})
+
+describe("frontmatterFile + quotedFrontmatterLine", () => {
+	it("writes a block both readers parse back to the quoted values", () => {
+		const description = 'Has a "quote", a \\ backslash: and a colon.'
+		const raw = frontmatterFile(
+			[
+				quotedFrontmatterLine("title", "A title"),
+				"slug: a-slug",
+				quotedFrontmatterLine("description", description),
+			],
+			"Body."
+		)
+
+		expect(parseFrontmatter(raw)).toEqual({
+			title: "A title",
+			slug: "a-slug",
+			description,
+			body: "Body.",
+		})
+		expect(
+			parseFrontmatterFields(raw, ["title", "slug", "description"])
+		).toEqual({
+			ok: true,
+			fields: { title: "A title", slug: "a-slug", description },
+			body: "Body.",
+		})
 	})
 })
 

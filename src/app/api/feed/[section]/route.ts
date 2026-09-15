@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache"
+import { plainTextNotFound } from "@/lib/api/apiErrors"
 import { getSiteUrl } from "@/lib/auth/env"
 import {
 	FEED_AUTHOR_NAME,
@@ -135,7 +136,7 @@ export async function GET(
 	const { section } = await params
 
 	if (!isValidSection(section)) {
-		return new Response("Not Found", { status: 404 })
+		return plainTextNotFound()
 	}
 
 	const cached = await feedPostsCache[section]()

@@ -210,32 +210,32 @@ describe("POST /api/admin/posts", () => {
 
 	// #region description auto-derive
 
-	it("auto-derives description from body when description is omitted", async () => {
+	// `validPayload.body` is "Some content here." — fits under 160 chars, so a
+	// derived description is the stripped body verbatim.
+	it.each([
+		["derives it from the body when omitted", undefined, "Some content here."],
+		["derives it from the body when empty", "", "Some content here."],
+		[
+			"derives it from the body when whitespace only",
+			"  \n  ",
+			"Some content here.",
+		],
+		[
+			"keeps a non-empty one verbatim",
+			"Hand-written blurb",
+			"Hand-written blurb",
+		],
+		[
+			"puts a pasted multi-line one on one line",
+			"First line.\nSecond.",
+			"First line. Second.",
+		],
+	])("description: %s", async (_label, description, expected) => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(makeRequest(validPayload))
+		await POST(makeRequest({ ...validPayload, description }))
 
 		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		// `validPayload.body` is "Some content here." — fits under 160 chars,
-		// so the derived description is the stripped body verbatim.
-		expect(data.description).toBe("Some content here.")
-	})
-
-	it("auto-derives description from body when description is an empty string", async () => {
-		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(makeRequest({ ...validPayload, description: "" }))
-
-		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		expect(data.description).toBe("Some content here.")
-	})
-
-	it("uses the provided description verbatim when non-empty", async () => {
-		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(
-			makeRequest({ ...validPayload, description: "Hand-written blurb" })
-		)
-
-		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		expect(data.description).toBe("Hand-written blurb")
+		expect(data.description).toBe(expected)
 	})
 
 	it("returns 400 when description exceeds 160 chars", async () => {
@@ -243,6 +243,14 @@ describe("POST /api/admin/posts", () => {
 			makeRequest({ ...validPayload, description: "a".repeat(161) })
 		)
 		expect(response.status).toBe(400)
+	})
+
+	it("uses the title as the description for a body with no prose to excerpt", async () => {
+		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
+		await POST(makeRequest({ ...validPayload, body: "![](/cover.png)" }))
+
+		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
+		expect(data.description).toBe(validPayload.title)
 	})
 
 	// #endregion

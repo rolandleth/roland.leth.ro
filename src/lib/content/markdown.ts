@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import remarkRehype from "remark-rehype"
 import { unified } from "unified"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -241,11 +242,7 @@ export function stripMarkdown(markdown: string): string {
 	return extractText(tree).replace(/\s+/g, " ").trim()
 }
 
-// Matches the 160-char cap on `postCreateSchema.description` (and Google's
-// desktop snippet display width). Tying derivation and the schema cap to the
-// same constant means authored and auto-derived descriptions are visually
-// consistent and neither overflows the SEO meta description.
-export const DESCRIPTION_MAX_CHARS = 160
+const ELLIPSIS = "…"
 
 /**
  * Derives a plain-text description from a post body for use as the OG/SEO meta
@@ -257,6 +254,12 @@ export const DESCRIPTION_MAX_CHARS = 160
  * snippets (e.g. "exploring the implementati…"). When the stripped text
  * contains no whitespace at all within the cap, falls back to a hard slice
  * so callers always get a bounded string.
+ *
+ * The result, ellipsis included, never exceeds `DESCRIPTION_MAX_CHARS`: the
+ * admin edit form sends a stored description back on every save, and one over
+ * the schema's cap would make that post unsaveable until the field is edited.
+ * The word-boundary cut already leaves room (the space it cuts at is dropped);
+ * the hard slice gives up one character for the ellipsis.
  */
 export function deriveDescription(markdown: string): string {
 	const stripped = stripMarkdown(markdown)
@@ -267,7 +270,10 @@ export function deriveDescription(markdown: string): string {
 
 	const window = stripped.slice(0, DESCRIPTION_MAX_CHARS)
 	const lastSpace = window.lastIndexOf(" ")
-	const truncated = lastSpace > 0 ? window.slice(0, lastSpace) : window
+	const truncated =
+		lastSpace > 0
+			? window.slice(0, lastSpace)
+			: window.slice(0, DESCRIPTION_MAX_CHARS - ELLIPSIS.length)
 
-	return `${truncated}…`
+	return `${truncated}${ELLIPSIS}`
 }

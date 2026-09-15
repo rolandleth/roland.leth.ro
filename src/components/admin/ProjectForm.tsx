@@ -402,8 +402,9 @@ export default function ProjectForm({ initialData }: Props) {
 					</span>
 				</label>
 
-				{/* Own product, not client or employer work. Unlocks the App Store badge
-				    on the detail page; see `storefrontFor` for which artwork. */}
+				{/* Own product, not client or employer work. Decides the store CTAs on the
+				    detail page (`linkCtasFor`): the App Store badge with exactly one
+				    storefront link, `Download on …` pills with several. */}
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"

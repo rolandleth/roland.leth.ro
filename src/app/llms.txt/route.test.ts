@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { GET } from "@/app/llms.txt/route"
+import { dynamic, GET } from "@/app/llms.txt/route"
+import * as llmsRoute from "@/app/llms.txt/route"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
+import { SECTION_DESCRIPTIONS } from "@/lib/db/sections"
 import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
 import type { GuideTopicWithGuides } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
@@ -65,6 +67,19 @@ describe("llms.txt — response", () => {
 		)
 	})
 
+	it("sets no hand-rolled Cache-Control", async () => {
+		// Freshness is the route cache's job, via the tags the three reads put on
+		// the entry — a hand-set `s-maxage` would outlive a tag bust on the CDN.
+		const response = await GET()
+
+		expect(response.headers.get("Cache-Control")).toBeNull()
+	})
+
+	it("prerenders with no time-based revalidate", () => {
+		expect(dynamic).toBe("force-static")
+		expect(llmsRoute).not.toHaveProperty("revalidate")
+	})
+
 	it("opens with the site heading and overview", async () => {
 		const body = await (await GET()).text()
 		expect(body).toContain("# Roland Leth")
@@ -76,6 +91,14 @@ describe("llms.txt — response", () => {
 		expect(body).toContain(`${BASE}/blog/tech`)
 		expect(body).toContain(`${BASE}/about`)
 		expect(body).toContain(`${BASE}/sitemap.xml`)
+	})
+
+	it("describes the tech blog with the line its list pages use", async () => {
+		const body = await (await GET()).text()
+
+		expect(body).toContain(
+			`- [Tech blog](${BASE}/blog/tech): ${SECTION_DESCRIPTIONS.tech}`
+		)
 	})
 
 	it("omits the life blog and tools links", async () => {
@@ -146,6 +169,25 @@ describe("llms.txt — guides", () => {
 		const body = await (await GET()).text()
 		expect(body.indexOf("## Projects")).toBeLessThan(body.indexOf("## Guides"))
 		expect(body.indexOf("## Guides")).toBeLessThan(body.indexOf("## Site"))
+	})
+
+	it("tells agents that guides, not topic hubs, serve raw markdown at `.md`", async () => {
+		// The Posts intro says the same for posts; the guide `.md` route shipped
+		// without a mention here.
+		vi.mocked(getGuidesOverview).mockResolvedValue({
+			topics: [],
+			ungrouped: [makeGuideListItem()],
+		})
+
+		const body = await (await GET()).text()
+		const guidesSection = body.slice(
+			body.indexOf("## Guides"),
+			body.indexOf("## Site")
+		)
+
+		expect(guidesSection).toContain(
+			"Every guide serves its raw markdown at its URL with `.md` appended; topic hubs don't."
+		)
 	})
 
 	it("lists an ungrouped guide with its description", async () => {

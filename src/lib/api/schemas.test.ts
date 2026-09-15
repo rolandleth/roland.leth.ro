@@ -11,6 +11,8 @@ import {
 	projectCreateSchema,
 	projectUpdateSchema,
 } from "@/lib/api/schemas"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import { deriveDescription } from "@/lib/content/markdown"
 import { createSlug } from "@/lib/utils/format"
 
 // #region httpUrl (tested indirectly through schema fields that use it)
@@ -863,6 +865,113 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 			links: [{ label: "L", url: "https://example.com", sortOrder: 2.5 }],
 		})
 		expect(result.success).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region Description whitespace
+
+describe("postCreateSchema — description whitespace", () => {
+	const basePost = {
+		title: "T",
+		body: "B",
+		datetime: "2024-01-01-0900",
+	}
+
+	function parsedDescription(
+		description: string | null
+	): string | null | undefined {
+		const result = postCreateSchema.safeParse({ ...basePost, description })
+
+		if (!result.success) {
+			throw new Error(result.error.message)
+		}
+
+		return result.data.description
+	}
+
+	it("puts a pasted multi-line description on one line", () => {
+		expect(parsedDescription("First line.\nSecond line.\r\n\tThird.")).toBe(
+			"First line. Second line. Third."
+		)
+	})
+
+	it("collapses runs of spaces and trims both ends", () => {
+		expect(parsedDescription("  Two   spaces  inside.  ")).toBe(
+			"Two spaces inside."
+		)
+	})
+
+	it("turns a whitespace-only description into an empty one, which the routes derive from", () => {
+		expect(parsedDescription(" \n\t ")).toBe("")
+	})
+
+	it("measures the 160-char cap after collapsing", () => {
+		const collapsesTo160 = `${"x".repeat(80)}\n\n   ${"x".repeat(79)}`
+
+		expect(parsedDescription(collapsesTo160)).toHaveLength(160)
+	})
+
+	it.each([
+		["a word-boundary cut", "word ".repeat(100)],
+		["a hard slice", "a".repeat(400)],
+	])("accepts what the derivation produces for %s", (_label, body) => {
+		// The schema cap and `deriveDescription` share `DESCRIPTION_MAX_CHARS`; a
+		// derived value the schema rejected made the edit form unable to save.
+		expect(parsedDescription(deriveDescription(body))).toHaveLength(
+			DESCRIPTION_MAX_CHARS
+		)
+	})
+
+	it("still rejects a description that is over 160 chars once collapsed", () => {
+		const result = postCreateSchema.safeParse({
+			...basePost,
+			description: `${"x".repeat(80)}\n${"x".repeat(80)}`,
+		})
+
+		expect(result.success).toBe(false)
+	})
+
+	it("keeps null, which the routes also derive from", () => {
+		expect(parsedDescription(null)).toBeNull()
+	})
+})
+
+describe("guideCreateSchema — description whitespace", () => {
+	const baseGuide = {
+		slug: "a-guide",
+		title: "A guide",
+		body: "Body markdown.",
+	}
+
+	it("puts a pasted multi-line description on one line", () => {
+		const result = guideCreateSchema.safeParse({
+			...baseGuide,
+			description: "First line.\n\nSecond line.",
+		})
+
+		expect(result.success && result.data.description).toBe(
+			"First line. Second line."
+		)
+	})
+
+	it("rejects a whitespace-only description, since a guide's is required", () => {
+		const result = guideCreateSchema.safeParse({
+			...baseGuide,
+			description: " \n ",
+		})
+
+		expect(result.success).toBe(false)
+	})
+
+	it("measures the 160-char cap after collapsing", () => {
+		const result = guideCreateSchema.safeParse({
+			...baseGuide,
+			description: `${"x".repeat(80)}\n\n${"x".repeat(79)}`,
+		})
+
+		expect(result.success && result.data.description).toHaveLength(160)
 	})
 })
 

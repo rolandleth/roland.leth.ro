@@ -422,6 +422,21 @@ describe("linkCtasFor", () => {
 		expect(ctasFor([])).toEqual([])
 	})
 
+	it("leaves every link of an own app with no storefront link as a plain pill", () => {
+		// An own open-source project: no store to badge and nothing to prefix.
+		const website = { label: "Website", url: "https://example.com" }
+
+		expect(
+			ctasFor([github, website], {
+				isOwnApp: true,
+				bucket: PlatformBucket.OpenSource,
+			})
+		).toEqual([
+			{ kind: "plainPill", label: "GitHub" },
+			{ kind: "plainPill", label: "Website" },
+		])
+	})
+
 	it("prefixes a storefront link with 'Get on' when the project isn't an own app", () => {
 		expect(ctasFor([iosListing, github])).toEqual([
 			{ kind: "storePill", label: "Get on App Store" },

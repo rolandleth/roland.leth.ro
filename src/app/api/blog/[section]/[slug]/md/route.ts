@@ -1,3 +1,4 @@
+import { plainTextNotFound } from "@/lib/api/apiErrors"
 import { getSiteUrl } from "@/lib/auth/env"
 import {
 	buildPostMarkdownFile,
@@ -44,14 +45,6 @@ interface RouteContext {
 	params: Promise<{ section: string; slug: string }>
 }
 
-/** Plain-text 404, matching the machine-facing shape the feed route uses. */
-function notFoundResponse(): Response {
-	return new Response("Not Found", {
-		status: 404,
-		headers: { "Content-Type": "text/plain; charset=utf-8" },
-	})
-}
-
 export async function GET(
 	_request: Request,
 	{ params }: RouteContext
@@ -59,13 +52,13 @@ export async function GET(
 	const { section, slug } = await params
 
 	if (!isValidSection(section)) {
-		return notFoundResponse()
+		return plainTextNotFound()
 	}
 
 	const resolved = await loadPostResolution(section, slug)
 
 	if (resolved.status === "missing") {
-		return notFoundResponse()
+		return plainTextNotFound()
 	}
 
 	// Mirrors the HTML page's scheduled notice: a 200 with a stub body rather

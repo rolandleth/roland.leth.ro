@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
@@ -50,6 +51,17 @@ const httpUrl = z
 		message: "URL must use http or https",
 	})
 
+// A meta description is one line of text. The `.md` exports write it into a
+// single frontmatter line, where a raw newline breaks the block, and search
+// results and social cards show it on one line anyway. The admin field is a
+// textarea, so a pasted paragraph can carry line breaks: they're collapsed here
+// rather than rejected, since an error would only make the author retype the
+// same text. Callers pipe the length checks after this, so they measure the
+// value that gets stored.
+const collapsedWhitespace = z
+	.string()
+	.transform((value) => value.replace(/\s+/g, " ").trim())
+
 // Posts
 
 // `yyyy-MM-dd-HHmm` — same shape as `currentDatetimeString()` and consumed by
@@ -69,8 +81,12 @@ export const postCreateSchema = z.object({
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
 	// The meta description. Optional because the routes derive one from the body
-	// when it's absent or blank; 160 is the SERP truncation point.
-	description: z.string().max(160).nullable().optional(),
+	// when it's absent or blank — whitespace-only included, since it collapses to
+	// "". 160 is the SERP truncation point.
+	description: collapsedWhitespace
+		.pipe(z.string().max(DESCRIPTION_MAX_CHARS))
+		.nullable()
+		.optional(),
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),
@@ -121,7 +137,9 @@ const canonicalSlug = z
 // The meta description, the OG description, and the preview text on project and
 // topic pages all read this one field, so it's required, not optional. 160 is
 // the SERP truncation point (same reasoning as `postCreateSchema.description`).
-const guideDescription = z.string().min(1).max(160)
+const guideDescription = collapsedWhitespace.pipe(
+	z.string().min(1).max(DESCRIPTION_MAX_CHARS)
+)
 
 const guideFields = {
 	slug: canonicalSlug,

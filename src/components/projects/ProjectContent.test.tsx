@@ -496,6 +496,21 @@ describe("ProjectContent — store CTA", () => {
 		).not.toBeInTheDocument()
 	})
 
+	it("omits the badge and the repeated CTA for an own app with no storefront link", () => {
+		// The existing no-storefront case above isn't an own app; this one is, so
+		// the "Download on" and badge branches both have to stay off.
+		renderWithLinks(
+			[makeLink(1, "GitHub", "https://github.com/rolandleth/test")],
+			[],
+			{ isOwnApp: true }
+		)
+
+		expect(screen.getAllByRole("link", { name: "GitHub" })).toHaveLength(1)
+		expect(
+			screen.queryByRole("link", { name: /Download on|Get on/ })
+		).not.toBeInTheDocument()
+	})
+
 	// With no guides, the repeated CTA has to land above the FAQ instead — the
 	// placement assertion above only pins it against the Guides heading.
 	it("places the repeated CTA above the FAQ when the project has no guides", () => {

@@ -354,14 +354,10 @@ export async function getGuideTopicBySlug(
 	}
 
 	// The hub itself has no date to schedule against; its list still hides
-	// guides whose date hasn't arrived. Read-time, same as everywhere else.
-	//
-	// KNOWN GAP, latent: this entry is tagged `guide-topic-{slug}` + `guide-pages`,
-	// and `/api/cron/revalidate-scheduled` busts neither — it busts `GUIDES_TAG`
-	// and `guide-detail-{slug}`. So a guide coming due would reach `/guides` and
-	// its own page but not its hub. Harmless today only because no `/guides/topics`
-	// route exists: this and `revalidateGuideTopic` are exported and tested but
-	// unrouted. Routing the hub means adding a topic bust to the cron.
+	// guides whose date hasn't arrived. Read-time, same as everywhere else, so the
+	// hub page has to regenerate when one comes due: the scheduled cron busts this
+	// entry's `guide-topic-{slug}` tag for every due guide in the topic
+	// (`revalidateGuideTopicHubs`).
 	const now = new Date()
 
 	return {
@@ -524,15 +520,23 @@ export async function listGuideTopicOptions(): Promise<
 
 // #region Revalidation
 
+/** Identifies one guide that came due, for targeted detail and hub busts. */
+export interface GuideRef {
+	slug: string
+	/** The hub that lists it; null for an ungrouped guide. */
+	topicSlug: string | null
+}
+
 /**
  * Published guides whose `publishedAt` fell inside `(windowStart, now]` — guides
  * that became live during the window with no mutation to hang a revalidation
  * off. The guide-side counterpart to `findPostsBecameLive`;
  * `/api/cron/revalidate-scheduled` checks both, since the sitemap spans them.
  *
- * Returns slugs rather than a count for the same reason the post side does: the
- * length decides whether to bust, the identities let each due guide's own detail
- * tag be busted. See `revalidateGuideDetails`.
+ * Returns identities rather than a count for the same reason the post side does:
+ * the length decides whether to bust, the identities let each due guide's own
+ * detail tag and its hub's tag be busted. See `revalidateGuideDetails` and
+ * `revalidateGuideTopicHubs`.
  *
  * `publishedAt` is a real `DateTime` column here, not a post's `yyyy-MM-dd-HHmm`
  * string, so this compares `Date`s directly. Guides with a null `publishedAt`
@@ -545,26 +549,29 @@ export async function listGuideTopicOptions(): Promise<
  * asks for one row more than it will process individually and falls back to a
  * blanket bust when it gets it, so the bound never silently drops a guide.
  *
- * Selects `slug` only, where the post side selects `section` + `slug`. Not an
- * oversight: a post's detail tag is keyed by both, a guide's by slug alone
- * (`guideTag`), so each side selects exactly the identity its bust needs. If a
- * due guide ever has to bust its topic hub too, this select grows to match.
+ * Selects the slug and the topic's slug, where the post side selects `section`
+ * + `slug`: each side selects exactly the identity its busts need. A guide's
+ * detail tag is keyed by slug alone (`guideTag`), and its topic hub lists it, so
+ * the hub's tag has to go too (`revalidateGuideTopicHubs`).
  */
 export async function findGuidesBecameLive(
 	windowStart: Date,
 	now: Date,
 	limit: number
-): Promise<string[]> {
+): Promise<GuideRef[]> {
 	const guides = await prisma.guide.findMany({
 		where: {
 			published: true,
 			publishedAt: { gt: windowStart, lte: now },
 		},
-		select: { slug: true },
+		select: { slug: true, topic: { select: { slug: true } } },
 		take: limit,
 	})
 
-	return guides.map((guide) => guide.slug)
+	return guides.map((guide) => ({
+		slug: guide.slug,
+		topicSlug: guide.topic?.slug ?? null,
+	}))
 }
 
 /**
@@ -588,6 +595,26 @@ export function revalidateGuides(): void {
 export function revalidateGuideDetails(slugs: string[]): void {
 	for (const slug of slugs) {
 		revalidateTag(guideTag(slug), "max")
+	}
+}
+
+/**
+ * Invalidates the topic hubs that list guides which just came due. A hub hides
+ * scheduled guides when it renders, and its entry is tagged `guide-topic-{slug}`
+ * + `guide-pages` — neither of which `revalidateGuides` or
+ * `revalidateGuideDetails` busts — so without this a due guide reached `/guides`
+ * and its own page but stayed missing from its hub. Ungrouped guides have no
+ * hub to bust; two due guides in one topic bust it once.
+ */
+export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
+	const topicSlugs = new Set(
+		guides.flatMap((guide) =>
+			guide.topicSlug == null ? [] : [guide.topicSlug]
+		)
+	)
+
+	for (const topicSlug of topicSlugs) {
+		revalidateTag(guideTopicTag(topicSlug), "max")
 	}
 }
 

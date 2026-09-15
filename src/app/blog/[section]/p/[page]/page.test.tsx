@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { notFound } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getSectionPageCount } from "@/lib/db/posts"
+import { SECTION_DESCRIPTIONS, SECTIONS } from "@/lib/db/sections"
 import { MAX_PAGE } from "@/lib/utils/format"
 import { stripComments } from "@/test/sourceText"
 import BlogListPagedPage, {
@@ -258,6 +259,17 @@ describe("generateMetadata", () => {
 
 		expect(metadata.title).toContain("page 2")
 	})
+
+	it.each(SECTIONS)(
+		"describes the %s section with the same line as page 1",
+		async (section) => {
+			// Page 2 onward used to keep the "Thoughts on …" placeholder after page 1
+			// got a real description.
+			const metadata = await generateMetadata(params(section, "2"))
+
+			expect(metadata.description).toBe(SECTION_DESCRIPTIONS[section])
+		}
+	)
 
 	it("returns empty metadata for an unknown section", async () => {
 		expect(await generateMetadata(params("nope", "2"))).toEqual({})

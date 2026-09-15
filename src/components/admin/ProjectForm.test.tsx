@@ -137,6 +137,17 @@ const initialData = {
 
 const user = setupUser()
 
+/** Fills the fields create mode requires; the picker mock fills the platform. */
+async function fillRequiredFields() {
+	await user.type(screen.getByLabelText(/^name$/i), "New App")
+	await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
+	await user.type(screen.getByLabelText(/summary/i), "A new app.")
+}
+
+async function clickSave() {
+	await user.click(screen.getByRole("button", { name: /save project/i }))
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
 	mockPickerConfig.autoFill = "both"
@@ -183,10 +194,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -200,10 +209,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -218,10 +225,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
 	})
@@ -235,10 +240,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		expect(
 			await screen.findByText(/pick a platform bucket/i)
@@ -258,10 +261,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		expect(
 			await screen.findByText(/pick at least one platform tag/i)
@@ -274,10 +275,8 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(false, { error: "Name already taken" })
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		await waitFor(() =>
 			expect(screen.getByText(/Name already taken/)).toBeInTheDocument()
@@ -289,10 +288,8 @@ describe("ProjectForm — create mode", () => {
 		global.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await fillRequiredFields()
+		await clickSave()
 
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument()
 	})
@@ -302,9 +299,7 @@ describe("ProjectForm — create mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm />)
-		await user.type(screen.getByLabelText(/^name$/i), "New App")
-		await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-		await user.type(screen.getByLabelText(/summary/i), "A new app.")
+		await fillRequiredFields()
 
 		await user.click(screen.getByRole("button", { name: /add faq/i }))
 		await user.type(screen.getByLabelText("FAQ question"), "Is it free?")
@@ -313,7 +308,7 @@ describe("ProjectForm — create mode", () => {
 			"Yes."
 		)
 
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -356,7 +351,7 @@ describe("ProjectForm — edit mode", () => {
 
 		render(<ProjectForm initialData={initialData} />)
 		await user.click(screen.getByRole("checkbox", { name: "Own app" }))
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -374,7 +369,7 @@ describe("ProjectForm — edit mode", () => {
 		mockFetch(true)
 
 		render(<ProjectForm initialData={initialData} />)
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
@@ -420,7 +415,7 @@ describe("ProjectForm — sortOrder field", () => {
 		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
 		await user.clear(sortOrder)
 		await user.type(sortOrder, "5")
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -443,7 +438,7 @@ describe("ProjectForm — sortOrder field", () => {
 
 		expect(sortOrder.value).toBe(String(initialData.sortOrder))
 
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
 		const payload = JSON.parse(options.body)
@@ -464,7 +459,7 @@ describe("ProjectForm — sortOrder field", () => {
 		await user.clear(sortOrder)
 		await user.type(sortOrder, "5")
 		// No blur — go straight to submit.
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -488,7 +483,7 @@ describe("ProjectForm — sortOrder field", () => {
 		await user.type(sortOrder, "5")
 		await user.clear(sortOrder)
 		// No blur — go straight to submit while text is "".
-		await user.click(screen.getByRole("button", { name: /save project/i }))
+		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]

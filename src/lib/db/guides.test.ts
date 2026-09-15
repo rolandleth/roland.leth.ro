@@ -14,6 +14,7 @@ import {
 	revalidateGuide,
 	revalidateGuideDetails,
 	revalidateGuideTopic,
+	revalidateGuideTopicHubs,
 	revalidateGuides,
 	type GuideListItem,
 } from "@/lib/db/guides"
@@ -740,21 +741,26 @@ describe("findGuidesBecameLive", () => {
 	const windowStart = new Date("2026-08-15T08:00:00Z")
 	const now = new Date("2026-08-15T10:00:00Z")
 
-	it("returns the slugs of published guides inside the window", async () => {
+	it("returns each published guide inside the window with its topic's slug", async () => {
 		vi.mocked(prisma.guide.findMany).mockResolvedValue([
-			{ slug: "one" },
-			{ slug: "two" },
+			{ slug: "one", topic: { slug: "making-better-decisions" } },
+			{ slug: "two", topic: null },
 		] as never)
 
 		const result = await findGuidesBecameLive(windowStart, now, 50)
 
-		expect(result).toEqual(["one", "two"])
+		// The topic slug is what lets the cron bust the hub that lists the guide;
+		// an ungrouped guide has none.
+		expect(result).toEqual([
+			{ slug: "one", topicSlug: "making-better-decisions" },
+			{ slug: "two", topicSlug: null },
+		])
 		expect(prisma.guide.findMany).toHaveBeenCalledWith({
 			where: {
 				published: true,
 				publishedAt: { gt: windowStart, lte: now },
 			},
-			select: { slug: true },
+			select: { slug: true, topic: { select: { slug: true } } },
 			take: 50,
 		})
 	})
@@ -823,6 +829,50 @@ describe("revalidateGuideDetails", () => {
 		vi.mocked(revalidateTag).mockClear()
 
 		revalidateGuideDetails([])
+
+		expect(revalidateTag).not.toHaveBeenCalled()
+	})
+})
+
+// #endregion
+
+// #region revalidateGuideTopicHubs
+
+describe("revalidateGuideTopicHubs", () => {
+	it("busts the hub of each due guide, once per topic, and nothing else", () => {
+		// A hub hides scheduled guides when it renders; its entry has to regenerate
+		// for a guide that came due to appear in its list.
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideTopicHubs([
+			{ slug: "one", topicSlug: "making-better-decisions" },
+			{ slug: "two", topicSlug: "making-better-decisions" },
+			{ slug: "three", topicSlug: "managing-people" },
+		])
+
+		expect(vi.mocked(revalidateTag).mock.calls).toEqual([
+			["guide-topic-making-better-decisions", "max"],
+			["guide-topic-managing-people", "max"],
+		])
+	})
+
+	it("skips ungrouped guides, which no hub lists", () => {
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideTopicHubs([
+			{ slug: "one", topicSlug: null },
+			{ slug: "two", topicSlug: "managing-people" },
+		])
+
+		expect(vi.mocked(revalidateTag).mock.calls).toEqual([
+			["guide-topic-managing-people", "max"],
+		])
+	})
+
+	it("does nothing for an empty list", () => {
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideTopicHubs([])
 
 		expect(revalidateTag).not.toHaveBeenCalled()
 	})

@@ -19,7 +19,10 @@
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { postCreateSchema } from "@/lib/api/schemas"
-import { deriveDescription } from "@/lib/content/markdown"
+import {
+	descriptionForCreate,
+	descriptionForUpdate,
+} from "@/lib/content/postDescription"
 import { parseFrontmatter, setFrontmatterSlug } from "@/lib/import/frontmatter"
 import {
 	calculateReadingTime,
@@ -253,42 +256,6 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 	return { parsed, skipped }
 }
 
-/**
- * Description resolution for an overwrite. A `description:` in the file is the
- * content repo speaking, so it wins outright: written when it differs from the
- * stored value, whether or not the body changed, and left alone when equal.
- *
- * Without one, this mirrors the PUT route's intent with no form input
- * available: a stored description that still equals what the OLD body derives
- * was never hand-refined, so it should track the new body; anything else was
- * authored in the admin and survives the overwrite. Returns `undefined` when
- * the column should be left untouched.
- */
-function resolveOverwriteDescription(
-	existing: ExistingPost,
-	file: ParsedPostFile
-): string | undefined {
-	if (file.description != null) {
-		return file.description === existing.description
-			? undefined
-			: file.description
-	}
-
-	if (file.body === existing.body) {
-		return undefined
-	}
-
-	const wasDerived = existing.description === deriveDescription(existing.body)
-
-	if (!wasDerived) {
-		return undefined
-	}
-
-	const next = deriveDescription(file.body)
-
-	return next === existing.description ? undefined : next
-}
-
 function describeIssues(error: ZodError): string {
 	return error.issues
 		.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
@@ -300,36 +267,51 @@ type PlanStep =
 	| { kind: "update"; update: PlannedUpdate }
 	| { kind: "skip"; reason: string }
 
+export type PostFileValidation =
+	| {
+			ok: true
+			/** The file's description as the schema normalizes it; `undefined` when the file has none. */
+			description: string | undefined
+	  }
+	| { ok: false; reason: string }
+
 /**
  * Validates a parsed file against `postCreateSchema` — the same contract the
  * admin API enforces — so a row the admin couldn't have written can't enter
- * through the script either. The file's `description:` rides along, so one
- * past the schema's cap is a skip here rather than a truncated SERP line
- * later. Returns the formatted issues, or null when valid.
+ * through the script or the bulk upload either. The file's `description:`
+ * rides along, so one past the schema's cap is a skip rather than a row the
+ * edit form can't save.
+ *
+ * Returns the description as the schema outputs it (whitespace collapsed), so
+ * what's stored is what was measured, or the formatted issues as a skip reason.
  */
-function schemaIssuesFor(
+export function validatePostFile(
 	file: ParsedPostFile,
 	section: Section
-): string | null {
+): PostFileValidation {
 	const result = postCreateSchema.safeParse({
 		title: file.title,
 		body: file.body,
 		datetime: file.datetime,
-		description: file.description,
+		description: file.description ?? undefined,
 		section,
 	})
 
-	return result.success ? null : describeIssues(result.error)
+	if (!result.success) {
+		return { ok: false, reason: describeIssues(result.error) }
+	}
+
+	return { ok: true, description: result.data.description ?? undefined }
 }
 
 function planCreate(
 	file: ParsedPostFile,
 	options: { section: Section; now: string }
 ): PlanStep {
-	const issues = schemaIssuesFor(file, options.section)
+	const validation = validatePostFile(file, options.section)
 
-	if (issues != null) {
-		return { kind: "skip", reason: issues }
+	if (!validation.ok) {
+		return { kind: "skip", reason: validation.reason }
 	}
 
 	return {
@@ -340,7 +322,7 @@ function planCreate(
 			slug: file.slug,
 			section: options.section,
 			body: file.body,
-			description: file.description ?? deriveDescription(file.body),
+			description: descriptionForCreate(file, validation.description),
 			datetime: file.datetime,
 			readingTime: calculateReadingTime(file.body),
 			// Same rule as the bulk endpoint: future-dated files import as
@@ -356,10 +338,10 @@ function planOverwrite(
 	existing: ExistingPost,
 	section: Section
 ): PlanStep {
-	const issues = schemaIssuesFor(file, section)
+	const validation = validatePostFile(file, section)
 
-	if (issues != null) {
-		return { kind: "skip", reason: issues }
+	if (!validation.ok) {
+		return { kind: "skip", reason: validation.reason }
 	}
 
 	const data: PostUpdateData = {}
@@ -384,9 +366,17 @@ function planOverwrite(
 
 	// Outside the body guard on purpose: a file's `description:` line can change
 	// on its own, and that edit has to land without a body change to carry it.
-	const description = resolveOverwriteDescription(existing, file)
+	// The same rule as the admin edit route: a line that differs is the content
+	// repo speaking and wins, even over one authored in the admin; no line, or
+	// one equal to the stored value, keeps an authored description and lets a
+	// derived one follow the new body.
+	const description = descriptionForUpdate(existing, {
+		title: file.title,
+		body: file.body,
+		description: validation.description,
+	})
 
-	if (description != null) {
+	if (description !== undefined) {
 		data.description = description
 	}
 

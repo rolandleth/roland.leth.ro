@@ -53,6 +53,9 @@ describe("GET /api/blog/:section/:slug/md", () => {
 		vi.mocked(loadPostResolution).mockResolvedValue(MISSING)
 		const response = await GET(...makeArgs("tech", "missing"))
 		expect(response.status).toBe(404)
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/plain; charset=utf-8"
+		)
 	})
 
 	it("returns a 200 noindex stub for a scheduled post", async () => {

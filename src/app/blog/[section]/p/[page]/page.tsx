@@ -7,6 +7,7 @@ import { getSectionPageCount } from "@/lib/db/posts"
 import {
 	capitalizeSection,
 	isValidSection,
+	SECTION_DESCRIPTIONS,
 	SECTIONS,
 	type Section,
 } from "@/lib/db/sections"
@@ -144,7 +145,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	return buildPageMetadata({
 		title: `${label} blog — page ${page}`,
-		description: `Thoughts on ${section}.`,
+		description: SECTION_DESCRIPTIONS[section],
 		path: `/blog/${section}/p/${page}`,
 		feed: feedLinkForSection(section),
 	})

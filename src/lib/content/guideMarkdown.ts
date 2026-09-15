@@ -1,4 +1,7 @@
-import { escapeYamlDoubleQuoted } from "@/lib/import/frontmatter"
+import {
+	frontmatterFile,
+	quotedFrontmatterLine,
+} from "@/lib/import/frontmatter"
 import type { GuideDetail } from "@/lib/db/guides"
 
 /**
@@ -20,9 +23,9 @@ export function buildGuideMarkdownFile(
 	base: string
 ): string {
 	const lines = [
-		`title: "${escapeYamlDoubleQuoted(guide.title)}"`,
+		quotedFrontmatterLine("title", guide.title),
 		`slug: ${guide.slug}`,
-		`description: "${escapeYamlDoubleQuoted(guide.description)}"`,
+		quotedFrontmatterLine("description", guide.description),
 		...(guide.topic == null ? [] : [`topic: ${guide.topic.slug}`]),
 		...(guide.projectSlug == null ? [] : [`project: ${guide.projectSlug}`]),
 		// `unstable_cache` may hand `updatedAt` back as an ISO string, so it's
@@ -31,5 +34,5 @@ export function buildGuideMarkdownFile(
 		`canonical: ${base}/guides/${guide.slug}`,
 	]
 
-	return `---\n${lines.join("\n")}\n---\n\n${guide.body}`
+	return frontmatterFile(lines, guide.body)
 }

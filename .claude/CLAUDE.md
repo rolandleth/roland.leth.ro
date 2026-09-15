@@ -126,7 +126,7 @@ yarn run db:seed         # Seed database (if needed)
 
 The blog has two sections (`tech` and `life`), stored in a single `posts` table with a `section` field.
 
-Post fields: title, body (markdown), description (the meta description, OG description, feed `<summary>` and JSON-LD description — read from the file's `description:` frontmatter on import or the admin form, derived from the body when neither sets it; nothing on the site renders it, the list card previews the body), imageUrl, section, slug (derived from the title on creation, or read from the file's `slug:` frontmatter on import — then frozen; no write path re-derives it, so a title edit never moves the URL), datetime (original format: `yyyy-MM-dd-HHmm`), readingTime, published (boolean for draft support).
+Post fields: title, body (markdown), description (the meta description, OG description, feed `<summary>` and JSON-LD description — read from the file's `description:` frontmatter on import or the admin form, derived from the body when neither sets it (the title, for a body with no prose); every write path resolves it through `src/lib/content/postDescription.ts`; nothing on the site renders it, the list card previews the body), imageUrl, section, slug (derived from the title on creation, or read from the file's `slug:` frontmatter on import — then frozen; no write path re-derives it, so a title edit never moves the URL), datetime (original format: `yyyy-MM-dd-HHmm`), readingTime, published (boolean for draft support).
 
 ## Legacy URL handling
 
@@ -192,8 +192,9 @@ follow.
 
 ## Forcing scheduled content live
 
-The cron publishes nothing. Its only effect is `revalidatePostSection()` per
-section plus `revalidateGuides()` — three tags and one tag. The `datetime <= now`
+The cron publishes nothing. Its only effect is tag busts: `revalidatePostSection()`
+per section plus `revalidateGuides()`, then each due item's own detail tag, and
+for a due guide its topic hub's tag (`revalidateGuideTopicHubs`). The `datetime <= now`
 filter runs when the page regenerates, so **anything that forces those routes to
 regenerate has the same effect as the cron run**. Three ways, narrowest first:
 

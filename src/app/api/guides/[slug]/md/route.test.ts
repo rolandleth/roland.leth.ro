@@ -42,13 +42,19 @@ beforeEach(() => {
 })
 
 describe("GET /api/guides/:slug/md", () => {
-	it("returns 404 when the slug resolves to no guide", async () => {
+	it("404s whatever the page's own loader hides — unknown, draft, scheduled, topic hub", async () => {
+		// The route asks `loadGuide`, the loader the guide page uses, so every
+		// guard the page applies (published, past `publishedAt`, guides only) holds
+		// here too. `null` from it is the one signal for all four cases.
 		vi.mocked(loadGuide).mockResolvedValue(null)
 
-		const response = await GET(...makeArgs("missing"))
+		const response = await GET(...makeArgs("scheduled-one"))
 
+		expect(loadGuide).toHaveBeenCalledWith("scheduled-one")
 		expect(response.status).toBe(404)
-		expect(response.headers.get("Content-Type")).toContain("text/plain")
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/plain; charset=utf-8"
+		)
 	})
 
 	it("returns 200 markdown with the frontmatter + body for a live guide", async () => {
@@ -66,14 +72,6 @@ describe("GET /api/guides/:slug/md", () => {
 			"canonical: https://roland.leth.ro/guides/how-to-keep-a-decision-journal"
 		)
 		expect(text).toContain("First paragraph.\n\nSecond paragraph.")
-	})
-
-	it("resolves through the page's own loader, so a hidden guide stays hidden here", async () => {
-		vi.mocked(loadGuide).mockResolvedValue(null)
-
-		await GET(...makeArgs("scheduled-one"))
-
-		expect(loadGuide).toHaveBeenCalledWith("scheduled-one")
 	})
 
 	it("sets no hand-rolled Cache-Control", async () => {
