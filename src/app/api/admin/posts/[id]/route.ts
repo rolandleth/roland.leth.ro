@@ -127,7 +127,13 @@ export async function PUT(
 				// resolution below sees the same row state as the write.
 				const previous = await tx.post.findUnique({
 					where: { id },
-					select: { section: true, slug: true, body: true, description: true },
+					select: {
+						section: true,
+						slug: true,
+						title: true,
+						body: true,
+						description: true,
+					},
 				})
 
 				// The shared rule: a request that doesn't send `description` (the
@@ -135,6 +141,7 @@ export async function PUT(
 				// `""` derives one. `undefined` means Prisma skips the column.
 				if (previous != null) {
 					const description = descriptionForUpdate(previous, {
+						title: title ?? previous.title,
 						body: postBody ?? previous.body,
 						description: incomingDescription,
 					})

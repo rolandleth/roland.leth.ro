@@ -43,7 +43,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 				datetime,
 				// An empty or omitted field from the admin form derives one from the
 				// body; see `descriptionForCreate`.
-				description: descriptionForCreate(postBody, description),
+				description: descriptionForCreate(
+					{ title, body: postBody },
+					description
+				),
 				imageUrl: imageUrl ?? null,
 				section: section ?? "tech",
 				published: published ?? true,

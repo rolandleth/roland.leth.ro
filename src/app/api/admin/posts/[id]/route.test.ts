@@ -281,11 +281,17 @@ describe("PUT /api/admin/posts/[id]", () => {
 		await PUT(putRequest("1", { title: "x" }), params("1"))
 
 		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
-		// `body` and `description` are included so the description-resolution rules
+		// `title`, `body` and `description` are included so `descriptionForUpdate`
 		// can compare against pre-update state inside the same txn.
 		expect(prisma.post.findUnique).toHaveBeenCalledWith(
 			expect.objectContaining({
-				select: { section: true, slug: true, body: true, description: true },
+				select: {
+					section: true,
+					slug: true,
+					title: true,
+					body: true,
+					description: true,
+				},
 			})
 		)
 	})

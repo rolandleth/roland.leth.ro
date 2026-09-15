@@ -245,5 +245,13 @@ describe("POST /api/admin/posts", () => {
 		expect(response.status).toBe(400)
 	})
 
+	it("uses the title as the description for a body with no prose to excerpt", async () => {
+		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
+		await POST(makeRequest({ ...validPayload, body: "![](/cover.png)" }))
+
+		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
+		expect(data.description).toBe(validPayload.title)
+	})
+
 	// #endregion
 })

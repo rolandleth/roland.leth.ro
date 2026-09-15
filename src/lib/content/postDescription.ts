@@ -16,13 +16,31 @@ import { deriveDescription } from "@/lib/content/markdown"
 
 type IncomingDescription = string | null | undefined
 
-/** A new post's description: the authored one, or one derived from the body. */
+/** The two fields a derived description is built from. */
+interface PostText {
+	title: string
+	body: string
+}
+
+/**
+ * What a post's description derives to: the body excerpt, or the title when the
+ * body has no prose to excerpt (only a code block, or an image with no alt text).
+ * The column is the meta description, the feed `<summary>` and the llms.txt line,
+ * so a blank one would ship empty on all three.
+ */
+function derivedDescription(post: PostText): string {
+	const excerpt = deriveDescription(post.body)
+
+	return excerpt === "" ? post.title : excerpt
+}
+
+/** A new post's description: the authored one, or a derived one. */
 export function descriptionForCreate(
-	body: string,
+	post: PostText,
 	description: IncomingDescription
 ): string {
 	if (description == null || description === "") {
-		return deriveDescription(body)
+		return derivedDescription(post)
 	}
 
 	return description
@@ -32,23 +50,23 @@ export function descriptionForCreate(
  * The description to write when a post is updated, or `undefined` to leave the
  * column alone.
  *
- * - Cleared: derive one from the body.
+ * - Cleared: derive one.
  * - Authored and different from the stored one: store it.
  * - Not sent, or sent unchanged (the edit form sends the field back as it
- *   loaded it): keep the stored one, unless the body changed and the stored
- *   one was derived from the old body. Then it follows the new body: a
- *   description equal to the old body's derivation was never written by hand,
- *   so there is nothing to preserve.
+ *   loaded it): keep the stored one, unless the body or title changed and the
+ *   stored one was derived from the old ones. Then it follows the new text: a
+ *   description equal to the old derivation was never written by hand, so there
+ *   is nothing to preserve.
  *
- * `next.body` is the body after the update: the new one when sent, the stored
- * one otherwise.
+ * `next` carries the title and body after the update: the new ones when sent,
+ * the stored ones otherwise.
  */
 export function descriptionForUpdate(
-	stored: { body: string; description: string },
-	next: { body: string; description: IncomingDescription }
+	stored: PostText & { description: string },
+	next: PostText & { description: IncomingDescription }
 ): string | undefined {
 	if (next.description === null || next.description === "") {
-		return changedOrUndefined(stored.description, deriveDescription(next.body))
+		return changedOrUndefined(stored.description, derivedDescription(next))
 	}
 
 	if (
@@ -58,17 +76,17 @@ export function descriptionForUpdate(
 		return next.description
 	}
 
-	if (next.body === stored.body) {
+	if (next.body === stored.body && next.title === stored.title) {
 		return undefined
 	}
 
-	const wasDerived = stored.description === deriveDescription(stored.body)
+	const wasDerived = stored.description === derivedDescription(stored)
 
 	if (!wasDerived) {
 		return undefined
 	}
 
-	return changedOrUndefined(stored.description, deriveDescription(next.body))
+	return changedOrUndefined(stored.description, derivedDescription(next))
 }
 
 /** `next`, or `undefined` when it would rewrite the column with the same value. */

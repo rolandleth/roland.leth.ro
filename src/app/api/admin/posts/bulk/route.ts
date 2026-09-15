@@ -74,7 +74,7 @@ function prepareBatch(
 			// The frontmatter's `description:` when the file carries one; derived
 			// from the body otherwise. The author can refine it in the admin edit
 			// form afterwards.
-			description: descriptionForCreate(file.body, validation.description),
+			description: descriptionForCreate(file, validation.description),
 			datetime: file.datetime,
 			section,
 			// Future-dated posts are published so the existing scheduled-post

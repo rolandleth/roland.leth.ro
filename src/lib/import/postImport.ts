@@ -322,7 +322,7 @@ function planCreate(
 			slug: file.slug,
 			section: options.section,
 			body: file.body,
-			description: descriptionForCreate(file.body, validation.description),
+			description: descriptionForCreate(file, validation.description),
 			datetime: file.datetime,
 			readingTime: calculateReadingTime(file.body),
 			// Same rule as the bulk endpoint: future-dated files import as
@@ -371,6 +371,7 @@ function planOverwrite(
 	// one equal to the stored value, keeps an authored description and lets a
 	// derived one follow the new body.
 	const description = descriptionForUpdate(existing, {
+		title: file.title,
 		body: file.body,
 		description: validation.description,
 	})
