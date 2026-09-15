@@ -171,6 +171,25 @@ describe("llms.txt — guides", () => {
 		expect(body.indexOf("## Guides")).toBeLessThan(body.indexOf("## Site"))
 	})
 
+	it("tells agents that guides, not topic hubs, serve raw markdown at `.md`", async () => {
+		// The Posts intro says the same for posts; the guide `.md` route shipped
+		// without a mention here.
+		vi.mocked(getGuidesOverview).mockResolvedValue({
+			topics: [],
+			ungrouped: [makeGuideListItem()],
+		})
+
+		const body = await (await GET()).text()
+		const guidesSection = body.slice(
+			body.indexOf("## Guides"),
+			body.indexOf("## Site")
+		)
+
+		expect(guidesSection).toContain(
+			"Every guide serves its raw markdown at its URL with `.md` appended; topic hubs don't."
+		)
+	})
+
 	it("lists an ungrouped guide with its description", async () => {
 		vi.mocked(getGuidesOverview).mockResolvedValue({
 			topics: [],

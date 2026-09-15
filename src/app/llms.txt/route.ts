@@ -71,7 +71,7 @@ function guidesSection(base: string, overview: GuidesOverview): string {
 
 	return `## Guides
 
-Reference pages I keep up to date, on the problems these apps are built around. Topic hubs are listed with their guides nested beneath them.
+Reference pages I keep up to date, on the problems these apps are built around. Topic hubs are listed with their guides nested beneath them. Every guide serves its raw markdown at its URL with \`.md\` appended; topic hubs don't.
 
 ${lines.join("\n")}
 
