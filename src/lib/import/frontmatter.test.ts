@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
 	buildPostFile,
+	frontmatterFile,
 	parseFrontmatter,
 	parseFrontmatterFields,
+	quotedFrontmatterLine,
 	setFrontmatterSlug,
 } from "./frontmatter"
 
@@ -435,6 +437,34 @@ describe("buildPostFile", () => {
 
 		expect(parsed.title).toBe(title)
 		expect(parsed.body).toBe(body)
+	})
+})
+
+describe("frontmatterFile + quotedFrontmatterLine", () => {
+	it("writes a block both readers parse back to the quoted values", () => {
+		const description = 'Has a "quote", a \\ backslash: and a colon.'
+		const raw = frontmatterFile(
+			[
+				quotedFrontmatterLine("title", "A title"),
+				"slug: a-slug",
+				quotedFrontmatterLine("description", description),
+			],
+			"Body."
+		)
+
+		expect(parseFrontmatter(raw)).toEqual({
+			title: "A title",
+			slug: "a-slug",
+			description,
+			body: "Body.",
+		})
+		expect(
+			parseFrontmatterFields(raw, ["title", "slug", "description"])
+		).toEqual({
+			ok: true,
+			fields: { title: "A title", slug: "a-slug", description },
+			body: "Body.",
+		})
 	})
 })
 

@@ -1,4 +1,7 @@
-import { escapeYamlDoubleQuoted } from "@/lib/import/frontmatter"
+import {
+	frontmatterFile,
+	quotedFrontmatterLine,
+} from "@/lib/import/frontmatter"
 import { formatDate, postDatetimeToISO } from "@/lib/utils/format"
 import type { PostDetail, PostRef, ScheduledPost } from "@/lib/db/posts"
 
@@ -23,7 +26,7 @@ function postFrontmatterLines(
 	const publishedIso = postDatetimeToISO(post.datetime)
 
 	return [
-		`title: "${escapeYamlDoubleQuoted(post.title)}"`,
+		quotedFrontmatterLine("title", post.title),
 		`slug: ${post.slug}`,
 		`section: ${post.section}`,
 		// Omit the line entirely rather than emit `date: undefined` when a legacy
@@ -31,11 +34,6 @@ function postFrontmatterLines(
 		...(publishedIso ? [`date: ${publishedIso}`] : []),
 		`canonical: ${base}/blog/${post.section}/${post.slug}`,
 	]
-}
-
-/** Wraps frontmatter lines in the `---` fence. */
-function frontmatterBlock(lines: string[]): string {
-	return `---\n${lines.join("\n")}\n---`
 }
 
 /**
@@ -61,10 +59,10 @@ function frontmatterBlock(lines: string[]): string {
 export function buildPostMarkdownFile(post: PostDetail, base: string): string {
 	const lines = [
 		...postFrontmatterLines(post, base),
-		`description: "${escapeYamlDoubleQuoted(post.description)}"`,
+		quotedFrontmatterLine("description", post.description),
 	]
 
-	return `${frontmatterBlock(lines)}\n\n${post.body}`
+	return frontmatterFile(lines, post.body)
 }
 
 /**
@@ -93,5 +91,8 @@ export function buildScheduledPostMarkdownFile(
 		base
 	)
 
-	return `${frontmatterBlock([...lines, "scheduled: true"])}\n\n# ${scheduled.title}\n\nScheduled: this post goes live on ${formatDate(scheduled.datetime)}.\n`
+	return frontmatterFile(
+		[...lines, "scheduled: true"],
+		`# ${scheduled.title}\n\nScheduled: this post goes live on ${formatDate(scheduled.datetime)}.\n`
+	)
 }
