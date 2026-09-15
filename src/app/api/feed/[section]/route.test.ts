@@ -60,9 +60,13 @@ beforeEach(() => {
 })
 
 describe("GET /api/feed/:section", () => {
-	it("returns 404 for an invalid section", async () => {
+	it("returns a plain-text 404 for an invalid section", async () => {
 		const response = await GET(...makeRequest("invalid"))
 		expect(response.status).toBe(404)
+		// Same shape as the `.md` routes; this one used to carry no Content-Type.
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/plain; charset=utf-8"
+		)
 	})
 
 	it("returns 200 with Atom XML content type for a valid section", async () => {

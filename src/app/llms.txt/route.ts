@@ -35,13 +35,18 @@ function linkLabel(text: string): string {
 	return oneLine(text).replace(/([[\]\\])/g, "\\$1")
 }
 
+/**
+ * One list entry, `- [label](url): text`, the shape every section uses: the label
+ * escaped, both label and text on one line. `indent` nests a guide under its
+ * topic hub.
+ */
 function linkLine(
-	base: string,
-	entry: { slug: string; title: string },
-	description: string,
+	label: string,
+	url: string,
+	text: string,
 	indent = ""
 ): string {
-	return `${indent}- [${linkLabel(entry.title)}](${base}/guides/${entry.slug}): ${oneLine(description)}`
+	return `${indent}- [${linkLabel(label)}](${url}): ${oneLine(text)}`
 }
 
 /**
@@ -53,15 +58,16 @@ function linkLine(
  * omitted entirely rather than advertising a section that isn't there.
  */
 function guidesSection(base: string, overview: GuidesOverview): string {
+	const guideUrl = (slug: string) => `${base}/guides/${slug}`
 	const lines = [
 		...overview.topics.flatMap((topic) => [
-			linkLine(base, topic, topic.shortDescription),
+			linkLine(topic.title, guideUrl(topic.slug), topic.shortDescription),
 			...topic.guides.map((guide) =>
-				linkLine(base, guide, guide.description, "  ")
+				linkLine(guide.title, guideUrl(guide.slug), guide.description, "  ")
 			),
 		]),
 		...overview.ungrouped.map((guide) =>
-			linkLine(base, guide, guide.description)
+			linkLine(guide.title, guideUrl(guide.slug), guide.description)
 		),
 	]
 
@@ -93,9 +99,12 @@ function postsSection(base: string, posts: RecentPost[]): string {
 		return ""
 	}
 
-	const lines = posts.map(
-		(post) =>
-			`- [${linkLabel(post.title)}](${base}/blog/${post.section}/${post.slug}): ${oneLine(post.description)}`
+	const lines = posts.map((post) =>
+		linkLine(
+			post.title,
+			`${base}/blog/${post.section}/${post.slug}`,
+			post.description
+		)
 	)
 
 	return `## Posts
@@ -120,9 +129,12 @@ export async function GET(): Promise<Response> {
 	// a dead app as current — filter them out here.
 	const projectLines = projects
 		.filter((project) => !project.isDiscontinued)
-		.map(
-			(project) =>
-				`- [${linkLabel(project.name)}](${base}/projects/${project.slug}): ${oneLine(project.summary)}`
+		.map((project) =>
+			linkLine(
+				project.name,
+				`${base}/projects/${project.slug}`,
+				project.summary
+			)
 		)
 		.join("\n")
 

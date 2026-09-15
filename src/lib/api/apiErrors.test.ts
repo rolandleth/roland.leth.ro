@@ -5,8 +5,21 @@ import {
 	handlePrismaError,
 	parseIdParam,
 	parseJsonBody,
+	plainTextNotFound,
 	respondInternalError,
 } from "@/lib/api/apiErrors"
+
+describe("plainTextNotFound", () => {
+	it("returns a 404 with a plain-text body and content type", async () => {
+		const response = plainTextNotFound()
+
+		expect(response.status).toBe(404)
+		expect(response.headers.get("Content-Type")).toBe(
+			"text/plain; charset=utf-8"
+		)
+		expect(await response.text()).toBe("Not Found")
+	})
+})
 
 describe("handlePrismaError", () => {
 	it("returns a 404 response for a P2025 error", () => {

@@ -29,6 +29,18 @@ export function handlePrismaError(
 }
 
 /**
+ * Plain-text 404 for the machine-facing text routes — the Atom feed and the
+ * post and guide `.md` exports — whose callers are feed readers and agents, not
+ * a browser that would render the site's 404 page.
+ */
+export function plainTextNotFound(): Response {
+	return new Response("Not Found", {
+		status: 404,
+		headers: { "Content-Type": "text/plain; charset=utf-8" },
+	})
+}
+
+/**
  * Awaits a route's `{ id }` params and parses the `id` segment to a number.
  * Returns a 400 response when the id is not a valid integer.
  */

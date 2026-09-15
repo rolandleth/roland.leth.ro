@@ -1,3 +1,4 @@
+import { plainTextNotFound } from "@/lib/api/apiErrors"
 import { getSiteUrl } from "@/lib/auth/env"
 import { buildGuideMarkdownFile } from "@/lib/content/guideMarkdown"
 import { allGuides, getGuidesOverview, loadGuide } from "@/lib/db/guides"
@@ -34,14 +35,6 @@ interface RouteContext {
 	params: Promise<{ slug: string }>
 }
 
-/** Plain-text 404, matching the machine-facing shape the post route uses. */
-function notFoundResponse(): Response {
-	return new Response("Not Found", {
-		status: 404,
-		headers: { "Content-Type": "text/plain; charset=utf-8" },
-	})
-}
-
 export async function GET(
 	_request: Request,
 	{ params }: RouteContext
@@ -50,7 +43,7 @@ export async function GET(
 	const guide = await loadGuide(slug)
 
 	if (guide == null) {
-		return notFoundResponse()
+		return plainTextNotFound()
 	}
 
 	// No hand-set `Cache-Control`: the route is statically cached, so the platform
