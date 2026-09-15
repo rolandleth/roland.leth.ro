@@ -160,15 +160,18 @@ code[data-theme*=" "] span {
 	margin-inline: auto;
 }
 
-/* Text links: inside markdown (`.prose a`) and anywhere else a link sits in
-   running text (`.link`). Dark and underlined at rest, accent on hover, with
-   the underline following the text colour. Unlayered, like the other `.prose`
+/* Text links: inside markdown (`.prose a`), inside a legal page's sections
+   (`.legal-content a`, set by `PrivacySection`, so a link typed into a privacy
+   or terms page can't ship unstyled), and anywhere else a link sits in running
+   text (`.link`). Dark and underlined at rest, accent on hover, with the
+   underline following the text colour. Unlayered, like the other `.prose`
    overrides: typography's own link rule compiles into the utilities layer, so
    a rule in `@layer components` loses to it, which is what happened to the
    accent-coloured version this replaces. The flip side: a colour utility on a
    `.link` element can't override this either. */
 .link,
-.prose a {
+.prose a,
+.legal-content a {
 	color: var(--color-primary-value);
 	font-weight: 500;
 	text-decoration-line: underline;
@@ -176,7 +179,8 @@ code[data-theme*=" "] span {
 }
 
 .link:hover,
-.prose a:hover {
+.prose a:hover,
+.legal-content a:hover {
 	color: var(--color-accent-value);
 }
 

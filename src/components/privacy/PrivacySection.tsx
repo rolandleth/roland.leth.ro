@@ -20,7 +20,11 @@ export default function PrivacySection({
 	return (
 		<section>
 			<Heading className={headingClass}>{title}</Heading>
-			<div className="text-secondary space-y-4 leading-relaxed">{children}</div>
+			{/* `legal-content`: globals.css styles every link inside it as a text
+			    link, so section content needs no per-link class. */}
+			<div className="legal-content text-secondary space-y-4 leading-relaxed">
+				{children}
+			</div>
 		</section>
 	)
 }

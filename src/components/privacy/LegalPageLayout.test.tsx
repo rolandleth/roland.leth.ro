@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { render } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import LegalPageLayout from "./LegalPageLayout"
@@ -171,5 +173,47 @@ describe("LegalPageLayout — related links", () => {
 		)
 		// Standalone pages (no cluster) must not sprout an empty Related heading.
 		expect(queryByText("Related")).toBeNull()
+	})
+})
+
+describe("LegalPageLayout — text links", () => {
+	it("puts every link, page-supplied or boilerplate, inside the wrapper globals.css styles", () => {
+		const { getAllByRole } = render(
+			<LegalPageLayout
+				title="Privacy Policy"
+				sections={[
+					{
+						title: "Hosting",
+						content: (
+							<p>
+								Hosted on <a href="https://vercel.com">Vercel</a>.
+							</p>
+						),
+					},
+				]}
+				lastUpdated="Apr 7, 2026"
+				contactEmail="roland+hi@leth.ro"
+				relatedLinks={[{ label: "Terms of use", href: "/terms/continuum" }]}
+			/>
+		)
+		const links = getAllByRole("link")
+
+		// A section link, the Related link and the contact link. None carries a
+		// class of its own; the wrapper is what makes them look like links.
+		expect(links).toHaveLength(3)
+
+		for (const link of links) {
+			expect(link.closest(".legal-content")).not.toBeNull()
+		}
+	})
+
+	it("keeps the `.legal-content a` rule in globals.css, at rest and on hover", () => {
+		const css = readFileSync(
+			path.join(process.cwd(), "src", "app", "globals.css"),
+			"utf8"
+		)
+
+		expect(css).toMatch(/\.legal-content a\s*\{/)
+		expect(css).toMatch(/\.legal-content a:hover\s*\{/)
 	})
 })
