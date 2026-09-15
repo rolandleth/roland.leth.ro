@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { GET } from "@/app/llms.txt/route"
+import { dynamic, GET } from "@/app/llms.txt/route"
+import * as llmsRoute from "@/app/llms.txt/route"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
@@ -63,6 +64,19 @@ describe("llms.txt — response", () => {
 		expect(response.headers.get("Content-Type")).toBe(
 			"text/plain; charset=utf-8"
 		)
+	})
+
+	it("sets no hand-rolled Cache-Control", async () => {
+		// Freshness is the route cache's job, via the tags the three reads put on
+		// the entry — a hand-set `s-maxage` would outlive a tag bust on the CDN.
+		const response = await GET()
+
+		expect(response.headers.get("Cache-Control")).toBeNull()
+	})
+
+	it("prerenders with no time-based revalidate", () => {
+		expect(dynamic).toBe("force-static")
+		expect(llmsRoute).not.toHaveProperty("revalidate")
 	})
 
 	it("opens with the site heading and overview", async () => {

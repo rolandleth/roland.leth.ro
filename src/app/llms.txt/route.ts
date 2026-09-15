@@ -6,9 +6,11 @@ import type { GuidesOverview } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
 
 // Prerender at build instead of per-request: this handler has no dynamic
-// dependency (env origin + tag-cached project data), so it serves as a static
-// file and revalidates when the projects cache is busted on edits. Route
-// handlers are dynamic by default, hence the explicit opt-in.
+// dependency (env origin + tag-cached data), so it serves as a static file.
+// Route handlers are dynamic by default, hence the explicit opt-in. The tags of
+// all three reads ride up onto the route-cache entry — `projects`, `guides` and
+// `blog-tech` — so a project, guide or post mutation regenerates it, and so does
+// the daily cron when a scheduled post or guide comes due.
 export const dynamic = "force-static"
 
 // `/llms.txt` is the agent-facing counterpart to the sitemap: a short, plain
@@ -140,11 +142,15 @@ ${guidesSection(base, guides)}${postsSection(base, posts)}## Site
 - [Sitemap](${base}/sitemap.xml): full list of indexable URLs.
 `
 
+	// No hand-set `Cache-Control`: the route is statically cached, so the platform
+	// manages edge caching and the tag busts above govern freshness. The
+	// `s-maxage=3600` this used to carry couldn't be purged by a tag bust, so a
+	// change reached the CDN copy up to an hour late — the defect the feed and
+	// post `.md` routes dropped the same header for.
 	return new Response(body, {
 		status: 200,
 		headers: {
 			"Content-Type": "text/plain; charset=utf-8",
-			"Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
 		},
 	})
 }
