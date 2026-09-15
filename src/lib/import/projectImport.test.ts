@@ -7,6 +7,8 @@ import {
 	deriveSlug,
 	isLocalImageRef,
 	listManifestImagePaths,
+	parseManifest,
+	projectFlags,
 	type ProjectManifest,
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
@@ -124,6 +126,72 @@ describe("assertRequiredFlags", () => {
 		} as unknown as ProjectManifest
 
 		expect(() => assertRequiredFlags(manifest)).toThrow(/isDiscontinued/)
+	})
+})
+
+// #endregion
+
+// #region parseManifest
+
+describe("parseManifest", () => {
+	// The import script reads every manifest through this, so these pin that the
+	// flag check can't be skipped on the way in, dry run included.
+	it("returns a manifest that sets every flag", () => {
+		const raw = JSON.stringify({
+			name: "Reckon",
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+
+		expect(parseManifest(raw)).toEqual({
+			name: "Reckon",
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+	})
+
+	it("rejects a manifest that leaves a flag out, naming it", () => {
+		const raw = JSON.stringify({
+			name: "Reckon",
+			isFeatured: true,
+			isDiscontinued: false,
+		})
+
+		expect(() => parseManifest(raw)).toThrow(/must set isOwnApp/)
+	})
+
+	it("reports malformed JSON", () => {
+		expect(() => parseManifest('{ "name": ')).toThrow(/^Invalid JSON: /)
+	})
+
+	it.each([
+		["null", "null"],
+		["an array", "[]"],
+		["a string", '"Reckon"'],
+	])("rejects %s, which parses but isn't a manifest", (_label, raw) => {
+		expect(() => parseManifest(raw)).toThrow(
+			"The manifest must be a JSON object."
+		)
+	})
+})
+
+describe("projectFlags", () => {
+	it("keeps only the three flags", () => {
+		const manifest = {
+			name: "Reckon",
+			summary: "A summary.",
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		}
+
+		expect(projectFlags(manifest)).toEqual({
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
 	})
 })
 

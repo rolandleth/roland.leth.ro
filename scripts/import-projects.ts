@@ -53,11 +53,13 @@ import {
 	syncImages,
 } from "@/lib/import/blobSync"
 import {
-	assertRequiredFlags,
 	blobKeyFor,
 	contentHashFor,
 	deriveSlug,
 	listManifestImagePaths,
+	parseManifest,
+	type ProjectFlags,
+	projectFlags,
 	type ProjectManifest,
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
@@ -283,7 +285,10 @@ function makePrisma(): PrismaClient {
 async function writeProject(
 	prisma: PrismaClient,
 	slug: string,
-	data: ReturnType<typeof projectCreateSchema.parse>
+	// The flags come from `parseManifest`, typed as booleans: the schema leaves
+	// them optional, and a `?? false` here would read as a default the import
+	// doesn't have.
+	data: ReturnType<typeof projectCreateSchema.parse> & ProjectFlags
 ): Promise<void> {
 	// Serializable matches the API routes (`POST /api/admin/projects` and `PUT
 	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
@@ -327,9 +332,9 @@ async function writeProject(
 					// fall through to the first section image at render time, so a null
 					// hero never yields an empty card.
 					heroImage: data.heroImage ?? null,
-					isFeatured: data.isFeatured ?? false,
-					isDiscontinued: data.isDiscontinued ?? false,
-					isOwnApp: data.isOwnApp ?? false,
+					isFeatured: data.isFeatured,
+					isDiscontinued: data.isDiscontinued,
+					isOwnApp: data.isOwnApp,
 					date: data.date ?? null,
 					// Imports honour the authored `sortOrder` verbatim — unlike the
 					// admin create route, which shifts siblings to make room. The
@@ -349,7 +354,13 @@ async function writeProject(
 
 // #region per-project pipeline
 
-async function readManifest(manifestPath: string): Promise<ProjectManifest> {
+/**
+ * Reads a manifest through `parseManifest`, so the required-flags check runs
+ * before anything else in `processProject`, dry runs included.
+ */
+async function readManifest(
+	manifestPath: string
+): Promise<ProjectManifest & ProjectFlags> {
 	let raw: string
 
 	try {
@@ -361,11 +372,9 @@ async function readManifest(manifestPath: string): Promise<ProjectManifest> {
 	}
 
 	try {
-		return JSON.parse(raw) as ProjectManifest
+		return parseManifest(raw)
 	} catch (error) {
-		throw new Error(
-			`Invalid JSON in ${MANIFEST_FILENAME}: ${(error as Error).message}`
-		)
+		throw new Error(`${MANIFEST_FILENAME}: ${errorMessage(error)}`)
 	}
 }
 
@@ -383,8 +392,6 @@ async function processProject(
 		if (typeof manifest.name !== "string" || manifest.name.trim() === "") {
 			throw new Error(`Manifest is missing a non-empty "name".`)
 		}
-
-		assertRequiredFlags(manifest)
 
 		const slug = deriveSlug(manifest.name, manifest.slug)
 		console.log(`\n▸ ${manifest.name}  (slug: ${slug})`)
@@ -442,7 +449,7 @@ async function processProject(
 			throw new Error("No database client for a non-dry-run import")
 		}
 
-		await writeProject(prisma, slug, data)
+		await writeProject(prisma, slug, { ...data, ...projectFlags(manifest) })
 		console.log(`  ✓ imported "${manifest.name}"`)
 
 		if (!isPruneDisabled) {

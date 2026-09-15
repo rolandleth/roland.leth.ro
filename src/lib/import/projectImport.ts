@@ -10,6 +10,7 @@
 // untouched, so a manifest can mix freshly-staged images with already-hosted ones.
 
 import { createHash } from "node:crypto"
+import { errorMessage } from "@/lib/utils/errorMessage"
 import { createSlug } from "@/lib/utils/format"
 
 /**
@@ -59,7 +60,9 @@ export type ManifestOffer = {
 // Loosely typed on purpose: the manifest is untrusted JSON. Structural and
 // value-level validation is delegated to `projectCreateSchema` (run by the
 // script after image refs are resolved to URLs), so this type only needs to
-// describe the fields the pure helpers below touch.
+// describe the fields the pure helpers below touch. The one exception is the
+// three boolean flags, which the schema leaves optional but the import requires
+// (`assertRequiredFlags`); `parseManifest` returns them typed as booleans.
 export type ProjectManifest = {
 	name: string
 	slug?: string | null
@@ -140,6 +143,13 @@ export function deriveSlug(name: string, slug?: string | null): string {
 // lists them.
 const REQUIRED_FLAGS = ["isFeatured", "isDiscontinued", "isOwnApp"] as const
 
+/** The flags every manifest sets explicitly, as `assertRequiredFlags` guarantees them. */
+export type ProjectFlags = {
+	isFeatured: boolean
+	isDiscontinued: boolean
+	isOwnApp: boolean
+}
+
 /**
  * Throws unless the manifest sets every flag in `REQUIRED_FLAGS` to a boolean.
  * The import replaces the row wholesale (delete, then create), so a left-out
@@ -149,7 +159,9 @@ const REQUIRED_FLAGS = ["isFeatured", "isDiscontinued", "isOwnApp"] as const
  * `false` is a real answer, so a default can't tell "not a featured project"
  * from "forgot to say", while a left-out text field is just empty.
  */
-export function assertRequiredFlags(manifest: ProjectManifest): void {
+export function assertRequiredFlags(
+	manifest: ProjectManifest
+): asserts manifest is ProjectManifest & ProjectFlags {
 	const missingFlags = REQUIRED_FLAGS.filter(
 		(flag) => typeof manifest[flag] !== "boolean"
 	)
@@ -159,6 +171,49 @@ export function assertRequiredFlags(manifest: ProjectManifest): void {
 			`Manifest must set ${missingFlags.join(", ")} to true or false. ` +
 				`The import replaces the whole row, so a left-out flag would reset the value set in the admin.`
 		)
+	}
+}
+
+/**
+ * Parses a manifest file's text: the JSON, then `assertRequiredFlags`. The
+ * import script reads every manifest through this, so the flag check runs
+ * first — before the schema, any upload and the dry-run exit — and can't be
+ * dropped from the script without dropping the parse with it. The flags come
+ * back typed as booleans, which is what lets the write skip a `?? false`.
+ */
+export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
+	let parsed: unknown
+
+	try {
+		parsed = JSON.parse(raw)
+	} catch (error) {
+		throw new Error(`Invalid JSON: ${errorMessage(error)}`)
+	}
+
+	// `null` and arrays parse fine but would fail the flag check with a
+	// `TypeError` instead of a message about the manifest.
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		throw new Error("The manifest must be a JSON object.")
+	}
+
+	// Loosely typed on purpose (see `ProjectManifest`): `projectCreateSchema`
+	// validates everything but the flags later.
+	const manifest = parsed as ProjectManifest
+
+	assertRequiredFlags(manifest)
+
+	return manifest
+}
+
+/**
+ * Just the three flags. The schema's parse output types them as optional, so
+ * the write takes them from the checked manifest instead.
+ */
+export function projectFlags(manifest: ProjectFlags): ProjectFlags {
+	return {
+		isFeatured: manifest.isFeatured,
+		isDiscontinued: manifest.isDiscontinued,
+		isOwnApp: manifest.isOwnApp,
 	}
 }
 
