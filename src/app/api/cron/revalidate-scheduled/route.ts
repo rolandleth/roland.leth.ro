@@ -5,6 +5,7 @@ import {
 	revalidateAllGuides,
 	revalidateGuideDetails,
 	revalidateGuides,
+	revalidateGuideTopicHubs,
 } from "@/lib/db/guides"
 import {
 	findPostsBecameLive,
@@ -15,6 +16,7 @@ import {
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
 import { randomShortId } from "@/lib/utils/randomShortId"
+import type { GuideRef } from "@/lib/db/guides"
 import type { PostRef } from "@/lib/db/posts"
 import type { NextRequest } from "next/server"
 
@@ -102,7 +104,7 @@ function failed(requestId: string): NextResponse {
  */
 function logCheckFailure(
 	postResult: PromiseSettledResult<PostRef[]>,
-	guideResult: PromiseSettledResult<string[]>,
+	guideResult: PromiseSettledResult<GuideRef[]>,
 	windowStart: string,
 	now: string
 ): string | null {
@@ -162,9 +164,13 @@ function revalidateForDuePosts(duePosts: PostRef[], overflowed: boolean): void {
 	revalidatePostDetails(duePosts)
 }
 
-/** The guide-side counterpart, with the same overflow switch. */
+/**
+ * The guide-side counterpart, with the same overflow switch. Where a due post
+ * busts every section's list, a due guide busts the lists that can hold it: the
+ * aggregate (`/guides`, llms.txt, the sitemap) and its own topic hub.
+ */
 function revalidateForDueGuides(
-	dueGuides: string[],
+	dueGuides: GuideRef[],
 	overflowed: boolean
 ): void {
 	if (overflowed) {
@@ -174,7 +180,8 @@ function revalidateForDueGuides(
 	}
 
 	revalidateGuides()
-	revalidateGuideDetails(dueGuides)
+	revalidateGuideDetails(dueGuides.map((guide) => guide.slug))
+	revalidateGuideTopicHubs(dueGuides)
 }
 
 /**
@@ -241,7 +248,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 	const duePosts: PostRef[] =
 		postResult.status === "fulfilled" ? postResult.value : []
-	const dueGuides: string[] =
+	const dueGuides: GuideRef[] =
 		guideResult.status === "fulfilled" ? guideResult.value : []
 
 	const postsFailed = postResult.status === "rejected"
@@ -295,7 +302,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 			postsOverflowed
 		),
 		dueGuides: dueGuides.length,
-		dueGuideSlugs: slugField(dueGuides, guidesOverflowed),
+		dueGuideSlugs: slugField(
+			dueGuides.map((guide) => guide.slug),
+			guidesOverflowed
+		),
 		// Carried even on the success path: without them a half that FAILED is
 		// indistinguishable here from a half that found nothing, since both report
 		// a count of 0.

@@ -5,6 +5,7 @@ import {
 	revalidateAllGuides,
 	revalidateGuideDetails,
 	revalidateGuides,
+	revalidateGuideTopicHubs,
 } from "@/lib/db/guides"
 import {
 	findPostsBecameLive,
@@ -15,6 +16,7 @@ import {
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
 import { GET } from "./route"
+import type { GuideRef } from "@/lib/db/guides"
 
 vi.mock("@/lib/db/posts", () => ({
 	findPostsBecameLive: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock("@/lib/db/guides", () => ({
 	revalidateAllGuides: vi.fn(),
 	revalidateGuideDetails: vi.fn(),
 	revalidateGuides: vi.fn(),
+	revalidateGuideTopicHubs: vi.fn(),
 }))
 
 /**
@@ -47,6 +50,10 @@ const OVER_CAP = 201
  * both the route source and `vercel.json`.
  */
 const WINDOW_HOURS = 50
+
+function dueGuide(slug: string, topicSlug: string | null = null): GuideRef {
+	return { slug, topicSlug }
+}
 
 function postRows(count: number) {
 	return Array.from({ length: count }, (_, i) => ({
@@ -195,7 +202,10 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 	})
 
 	it("does not bust post caches when only a guide came due", async () => {
-		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a", "b"])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue([
+			dueGuide("a"),
+			dueGuide("b"),
+		])
 
 		const response = await GET(authorized())
 		const data = await response.json()
@@ -207,11 +217,24 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 		expect(revalidatePostDetails).not.toHaveBeenCalled()
 	})
 
+	it("busts the topic hub of each due guide, so the hub's list picks it up", async () => {
+		// A hub hides scheduled guides when it renders, and neither the aggregate
+		// nor the detail bust reaches its entry. Without this a due guide showed on
+		// `/guides` and its own page but stayed missing from its hub.
+		const due = [dueGuide("a", "making-better-decisions"), dueGuide("b")]
+
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(due)
+
+		await GET(authorized())
+
+		expect(revalidateGuideTopicHubs).toHaveBeenCalledWith(due)
+	})
+
 	it("busts both when a post and a guide came due in the same window", async () => {
 		vi.mocked(findPostsBecameLive).mockResolvedValue([
 			{ section: "tech", slug: "one" },
 		])
-		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a"])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue([dueGuide("a")])
 
 		await GET(authorized())
 
@@ -232,7 +255,7 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			{ section: "tech", slug: "one" },
 			{ section: "life", slug: "two" },
 		])
-		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a-guide"])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue([dueGuide("a-guide")])
 
 		await GET(authorized())
 
@@ -273,6 +296,7 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 		expect(data).toMatchObject({ revalidated: false })
 		expect(revalidatePostDetails).not.toHaveBeenCalled()
 		expect(revalidateGuideDetails).not.toHaveBeenCalled()
+		expect(revalidateGuideTopicHubs).not.toHaveBeenCalled()
 	})
 })
 
@@ -478,19 +502,22 @@ describe("GET /api/cron/revalidate-scheduled — due-row cap", () => {
 
 	it("falls back to a blanket guide bust over the cap", async () => {
 		vi.mocked(findGuidesBecameLive).mockResolvedValue(
-			Array.from({ length: OVER_CAP }, (_, i) => `guide-${i}`)
+			Array.from({ length: OVER_CAP }, (_, i) => dueGuide(`guide-${i}`))
 		)
 
 		await GET(authorized())
 
+		// `revalidateAllGuides` busts `guide-pages`, which every hub entry carries,
+		// so the targeted hub bust would be redundant.
 		expect(revalidateAllGuides).toHaveBeenCalled()
 		expect(revalidateGuideDetails).not.toHaveBeenCalled()
+		expect(revalidateGuideTopicHubs).not.toHaveBeenCalled()
 	})
 
 	it("caps each half independently", async () => {
 		// One oversized import shouldn't drag the other half onto the blunt path.
 		vi.mocked(findPostsBecameLive).mockResolvedValue(postRows(OVER_CAP))
-		vi.mocked(findGuidesBecameLive).mockResolvedValue(["a"])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue([dueGuide("a")])
 
 		await GET(authorized())
 

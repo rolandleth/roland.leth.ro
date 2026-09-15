@@ -192,8 +192,9 @@ follow.
 
 ## Forcing scheduled content live
 
-The cron publishes nothing. Its only effect is `revalidatePostSection()` per
-section plus `revalidateGuides()` — three tags and one tag. The `datetime <= now`
+The cron publishes nothing. Its only effect is tag busts: `revalidatePostSection()`
+per section plus `revalidateGuides()`, then each due item's own detail tag, and
+for a due guide its topic hub's tag (`revalidateGuideTopicHubs`). The `datetime <= now`
 filter runs when the page regenerates, so **anything that forces those routes to
 regenerate has the same effect as the cron run**. Three ways, narrowest first:
 
