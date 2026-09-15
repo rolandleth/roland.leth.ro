@@ -72,7 +72,10 @@ export default function PostForm({ initialData }: Props) {
 			section: state.section,
 			datetime: state.datetime,
 			published: state.published,
-			description: state.description || undefined,
+			// Sent as typed, `""` included: an emptied field is how the edit route
+			// tells "cleared, derive one" apart from a request that doesn't touch
+			// the description. Omitting it would keep the old value.
+			description: state.description,
 			imageUrl: state.imageUrl || undefined,
 		})
 	}

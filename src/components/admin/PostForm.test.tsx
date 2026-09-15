@@ -180,6 +180,34 @@ describe("PostForm — edit mode", () => {
 		expect(options.method).toBe("PUT")
 	})
 
+	it("sends the description back as loaded when it isn't edited", async () => {
+		// The route counts an unchanged description as untouched, so an authored
+		// one survives a body edit.
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm initialData={initialData} />)
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body).description).toBe("A short description.")
+	})
+
+	it("sends an emptied description as an empty string, which the route derives from", async () => {
+		// Omitting the key would read as "not sent" and keep the old description.
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm initialData={initialData} />)
+		await user.clear(screen.getByLabelText(/description/i))
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body)).toHaveProperty("description", "")
+	})
+
 	it("navigates to /admin after a successful delete", async () => {
 		const { push } = mockRouter()
 		mockFetch(true)
