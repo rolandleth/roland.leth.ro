@@ -431,6 +431,7 @@ describe("buildPostFile", () => {
 		'A "quoted" word',
 		"A fi programator după 40 de ani",
 		"Debuggex.com",
+		"A title ending in a backslash \\",
 	])("round-trips the title %j through build → parse", (title) => {
 		const body = "Some body text.\n\nWith paragraphs."
 		const parsed = parseFrontmatter(buildPostFile(title, body))
@@ -438,6 +439,23 @@ describe("buildPostFile", () => {
 		expect(parsed.title).toBe(title)
 		expect(parsed.body).toBe(body)
 	})
+
+	it.each([
+		["a newline", "A title\nwith a break", "A title with a break"],
+		["padding", "  Padded title  ", "Padded title"],
+		["a tab run", "A\t\ttitle", "A title"],
+	])(
+		"round-trips a title with %s to its collapsed form",
+		(_label, title, collapsed) => {
+			// A frontmatter line has no place to put a newline, so the writer
+			// collapses rather than emitting a block neither reader can read back.
+			// The schemas collapse on the way in, so only a pre-existing row differs.
+			const parsed = parseFrontmatter(buildPostFile(title, "Body."))
+
+			expect(parsed.title).toBe(collapsed)
+			expect(parsed.body).toBe("Body.")
+		}
+	)
 })
 
 describe("frontmatterFile + quotedFrontmatterLine", () => {
@@ -463,6 +481,39 @@ describe("frontmatterFile + quotedFrontmatterLine", () => {
 		).toEqual({
 			ok: true,
 			fields: { title: "A title", slug: "a-slug", description },
+			body: "Body.",
+		})
+	})
+
+	it("keeps a value with a newline on one line, so both readers still parse it", () => {
+		// Without the collapse this emitted a block `parseFrontmatter` read back as
+		// a truncated value with a stray quote, and `parseFrontmatterFields`
+		// reported malformed — a corrupt `.md` export from one pasted line break.
+		const raw = frontmatterFile(
+			[
+				quotedFrontmatterLine("title", "A title"),
+				"slug: a-slug",
+				quotedFrontmatterLine("description", "First line.\nSecond line."),
+			],
+			"Body."
+		)
+
+		expect(raw.split("\n")).toHaveLength(7)
+		expect(parseFrontmatter(raw)).toEqual({
+			title: "A title",
+			slug: "a-slug",
+			description: "First line. Second line.",
+			body: "Body.",
+		})
+		expect(
+			parseFrontmatterFields(raw, ["title", "slug", "description"])
+		).toEqual({
+			ok: true,
+			fields: {
+				title: "A title",
+				slug: "a-slug",
+				description: "First line. Second line.",
+			},
 			body: "Body.",
 		})
 	})

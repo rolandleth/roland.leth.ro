@@ -6,7 +6,10 @@ import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import remarkRehype from "remark-rehype"
 import { unified } from "unified"
-import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import {
+	capDescription,
+	collapseWhitespace,
+} from "@/lib/content/descriptionRules"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -239,41 +242,20 @@ function extractText(node: Nodes): string {
 export function stripMarkdown(markdown: string): string {
 	const tree = textOnlyProcessor.parse(markdown)
 
-	return extractText(tree).replace(/\s+/g, " ").trim()
+	return collapseWhitespace(extractText(tree))
 }
-
-const ELLIPSIS = "…"
 
 /**
  * Derives a plain-text description from a post body for use as the OG/SEO meta
- * description and the Atom feed `<summary>`. Strips markdown, collapses
- * whitespace, then truncates at the last word boundary <= `DESCRIPTION_MAX_CHARS`
- * and appends an ellipsis when the source was longer.
+ * description and the Atom feed `<summary>`: strips markdown, then caps through
+ * `capDescription`.
  *
- * Word-boundary truncation avoids mid-word cuts that look broken in search
- * snippets (e.g. "exploring the implementati…"). When the stripped text
- * contains no whitespace at all within the cap, falls back to a hard slice
- * so callers always get a bounded string.
- *
- * The result, ellipsis included, never exceeds `DESCRIPTION_MAX_CHARS`: the
- * admin edit form sends a stored description back on every save, and one over
- * the schema's cap would make that post unsaveable until the field is edited.
- * The word-boundary cut already leaves room (the space it cuts at is dropped);
- * the hard slice gives up one character for the ellipsis.
+ * Returns `""` for a body with no prose to excerpt (only a fenced code block, or
+ * an image with no alt text). Callers that need a non-blank value fall back —
+ * see `derivedDescription` in `postDescription.ts`, which uses the title and
+ * caps it through the same helper, so every stored description is bounded no
+ * matter which branch produced it.
  */
 export function deriveDescription(markdown: string): string {
-	const stripped = stripMarkdown(markdown)
-
-	if (stripped.length <= DESCRIPTION_MAX_CHARS) {
-		return stripped
-	}
-
-	const window = stripped.slice(0, DESCRIPTION_MAX_CHARS)
-	const lastSpace = window.lastIndexOf(" ")
-	const truncated =
-		lastSpace > 0
-			? window.slice(0, lastSpace)
-			: window.slice(0, DESCRIPTION_MAX_CHARS - ELLIPSIS.length)
-
-	return `${truncated}${ELLIPSIS}`
+	return capDescription(stripMarkdown(markdown))
 }

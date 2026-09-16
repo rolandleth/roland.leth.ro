@@ -1,3 +1,7 @@
+import {
+	capDescription,
+	collapseWhitespace,
+} from "@/lib/content/descriptionRules"
 import { deriveDescription } from "@/lib/content/markdown"
 
 // One rule for `Post.description` on every write path: the admin create and
@@ -27,11 +31,20 @@ interface PostText {
  * body has no prose to excerpt (only a code block, or an image with no alt text).
  * The column is the meta description, the feed `<summary>` and the llms.txt line,
  * so a blank one would ship empty on all three.
+ *
+ * The title goes through the same collapse and cap as the excerpt. It is not
+ * validated anywhere else on this path: `postCreateSchema` allows a 200-char
+ * title and caps `description` at 160, and it collapses whitespace on the
+ * description but not on the title. Without this, a prose-less body under a long
+ * title stores an over-cap description that the edit form then rejects on every
+ * save, and a title with a newline reaches the `.md` export's frontmatter.
  */
 function derivedDescription(post: PostText): string {
 	const excerpt = deriveDescription(post.body)
 
-	return excerpt === "" ? post.title : excerpt
+	return excerpt === ""
+		? capDescription(collapseWhitespace(post.title))
+		: excerpt
 }
 
 /** A new post's description: the authored one, or a derived one. */

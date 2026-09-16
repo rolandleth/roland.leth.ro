@@ -11,7 +11,7 @@ import {
 	projectCreateSchema,
 	projectUpdateSchema,
 } from "@/lib/api/schemas"
-import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { deriveDescription } from "@/lib/content/markdown"
 import { createSlug } from "@/lib/utils/format"
 
@@ -935,6 +935,99 @@ describe("postCreateSchema — description whitespace", () => {
 
 	it("keeps null, which the routes also derive from", () => {
 		expect(parsedDescription(null)).toBeNull()
+	})
+})
+
+describe("title whitespace", () => {
+	function parsedPostTitle(title: string): string {
+		const result = postCreateSchema.safeParse({
+			title,
+			body: "B",
+			datetime: "2024-01-01-0900",
+		})
+
+		if (!result.success) {
+			throw new Error(result.error.message)
+		}
+
+		return result.data.title
+	}
+
+	it("puts a post title with a newline on one line", () => {
+		// `buildPostMarkdownFile` writes the title into a frontmatter line, and
+		// `parseFrontmatter` reads line by line, so a newline breaks the block.
+		expect(parsedPostTitle("A title\nwith a break")).toBe(
+			"A title with a break"
+		)
+	})
+
+	it("trims and collapses a padded post title", () => {
+		expect(parsedPostTitle("  Spaced   out  ")).toBe("Spaced out")
+	})
+
+	it("measures the 200-char post title cap after collapsing", () => {
+		// 199 characters once collapsed, so the cap must not see the raw string.
+		const collapsesToFit = `${"x".repeat(100)}\n\n   ${"x".repeat(99)}`
+
+		expect(parsedPostTitle(collapsesToFit)).toHaveLength(200)
+	})
+
+	it("collapses a guide title too", () => {
+		const result = guideCreateSchema.safeParse({
+			slug: "a-guide",
+			title: "A guide\ntitle",
+			description: "A guide description.",
+			body: "Body markdown.",
+		})
+
+		expect(result.success && result.data.title).toBe("A guide title")
+	})
+
+	it("still rejects a whitespace-only post title", () => {
+		const result = postCreateSchema.safeParse({
+			title: " \n\t ",
+			body: "B",
+			datetime: "2024-01-01-0900",
+		})
+
+		expect(result.success).toBe(false)
+	})
+})
+
+describe("update schemas inherit the collapse", () => {
+	// The transform reaches `.partial()` through a `ZodPipe` wrapped in
+	// `.nullable().optional()`. The admin edit form is the likeliest source of a
+	// pasted line break and it goes through these, not the create schemas.
+	it("collapses a post description on a partial update", () => {
+		const result = postUpdateSchema.safeParse({
+			description: "First line.\nSecond line.",
+		})
+
+		expect(result.success && result.data.description).toBe(
+			"First line. Second line."
+		)
+	})
+
+	it("collapses a post title on a partial update", () => {
+		const result = postUpdateSchema.safeParse({ title: "A title\nbroken" })
+
+		expect(result.success && result.data.title).toBe("A title broken")
+	})
+
+	it("collapses a guide description on a partial update", () => {
+		const result = guideUpdateSchema.safeParse({
+			description: "First line.\nSecond line.",
+		})
+
+		expect(result.success && result.data.description).toBe(
+			"First line. Second line."
+		)
+	})
+
+	it("collapses a guide title on a partial update", () => {
+		const result = guideUpdateSchema.safeParse({ title: "A guide\ntitle" })
+
+		expect(result.success && result.data.title).toBe("A guide title")
 	})
 })
 

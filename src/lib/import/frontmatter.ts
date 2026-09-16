@@ -10,6 +10,8 @@
 // in an editor's frontmatter view regardless of punctuation; reads tolerate
 // quoted OR bare values so a hand-edit that drops the quotes still works.
 
+import { collapseWhitespace } from "@/lib/content/descriptionRules"
+
 // Leading `---` line, a block, then a closing `---` line. Non-greedy block so
 // the FIRST closing `---` ends it, never a `---` further down in the body.
 const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
@@ -244,9 +246,18 @@ function escapeYamlDoubleQuoted(value: string): string {
  * A `key: "value"` frontmatter line, the value escaped for a double-quoted YAML
  * string. Every writer (`buildPostFile`, the post and guide `.md` exports) quotes
  * free text through this, so the write side and `unquote` can't drift.
+ *
+ * Whitespace is collapsed first because a line is a line: `parseFrontmatter`
+ * reads frontmatter line by line, so a value carrying a newline would emit a
+ * block that neither reader can read back — `parseFrontmatter` returns a
+ * truncated value with a stray quote, `parseFrontmatterFields` reports the line
+ * malformed. `escapeYamlDoubleQuoted` handles `\` and `"`; a newline has no
+ * escape here because the format has no place to put one. The schemas collapse
+ * titles and descriptions on the way in, so this is the second line of defence
+ * for a value that reached the database before that rule existed.
  */
 export function quotedFrontmatterLine(key: string, value: string): string {
-	return `${key}: "${escapeYamlDoubleQuoted(value)}"`
+	return `${key}: "${escapeYamlDoubleQuoted(collapseWhitespace(value))}"`
 }
 
 /**
@@ -263,8 +274,10 @@ export function frontmatterFile(
 /**
  * Builds a post file from a title and body: an always-double-quoted frontmatter
  * block, a blank line, then the body. `parseFrontmatter(buildPostFile(t, b))`
- * round-trips to `{ title: t, body: b }` for any title and any body with no
- * leading blank lines.
+ * round-trips to `{ title: t, body: b }` for any body with no leading blank
+ * lines, and for any title `collapseWhitespace` leaves alone — which is every
+ * title the schemas admit, since they collapse on the way in. A title with
+ * padding or an inner newline round-trips to its collapsed form, not to itself.
  */
 export function buildPostFile(title: string, body: string): string {
 	return frontmatterFile(
