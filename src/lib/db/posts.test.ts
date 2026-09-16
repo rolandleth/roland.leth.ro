@@ -119,24 +119,31 @@ describe("getPostsBySection", () => {
 		)
 	})
 
-	it("excludes scheduled posts in SQL rather than after the query", async () => {
-		// Filtering in SQL is what keeps page boundaries at exact multiples of
-		// PAGE_SIZE. Future-dated posts sort to the head of a `datetime desc`
-		// list, so filtering after `skip` would shift every boundary by the
-		// scheduled-post count and duplicate or drop posts across pages.
-		vi.mocked(prisma.post.findMany).mockResolvedValue([])
-		vi.mocked(prisma.post.count).mockResolvedValue(0)
+	it.each([1, 2])(
+		"excludes scheduled posts in SQL rather than after the query, on page %i",
+		async (page) => {
+			// Filtering in SQL is what keeps page boundaries at exact multiples of
+			// PAGE_SIZE. Future-dated posts sort to the head of a `datetime desc`
+			// list, so filtering after `skip` would shift every boundary by the
+			// scheduled-post count and duplicate or drop posts across pages.
+			//
+			// Both pages, because page 1 used to cache a padded superset and filter
+			// at read time. It goes through `makeBlogPageCache` like every other
+			// page now, and a static page has no read time for a filter to run in.
+			vi.mocked(prisma.post.findMany).mockResolvedValue([])
+			vi.mocked(prisma.post.count).mockResolvedValue(0)
 
-		await getPostsBySection("tech", 2)
+			await getPostsBySection("tech", page)
 
-		const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
+			const where = vi.mocked(prisma.post.findMany).mock.calls[0][0]?.where
 
-		expect(where).toMatchObject({
-			section: "tech",
-			published: true,
-			datetime: { lte: expect.stringMatching(/^\d{4}-\d{2}-\d{2}-\d{4}$/) },
-		})
-	})
+			expect(where).toMatchObject({
+				section: "tech",
+				published: true,
+				datetime: { lte: expect.stringMatching(/^\d{4}-\d{2}-\d{2}-\d{4}$/) },
+			})
+		}
+	)
 
 	it("returns whatever the query returned, without post-filtering", async () => {
 		// The route renders exactly the rows SQL selected. A stray read-time
@@ -809,29 +816,6 @@ describe("bySection", () => {
 		expect(result.tech).toEqual({ counter: 0 })
 		expect(result.life).toEqual({ counter: 0 })
 		expect(result.tech).not.toBe(result.life)
-	})
-})
-
-// #endregion
-
-// #region datetime future filter
-
-describe("publishedWhere filter via getPostsBySection", () => {
-	it("includes `datetime: { lte: now }` in the where clause for page > 1", async () => {
-		// Page > 1 is uncached and queries the DB directly, so the `lte`
-		// filter belongs in the where clause. Page 1 uses a different shape
-		// (cache including future, filter at read time); covered separately.
-		vi.mocked(prisma.post.findMany).mockResolvedValue([])
-		vi.mocked(prisma.post.count).mockResolvedValue(0)
-
-		await getPostsBySection("tech", 2)
-
-		const call = vi.mocked(prisma.post.findMany).mock.calls[0][0] as {
-			where: { datetime: { lte: string }; section: string; published: boolean }
-		}
-		expect(call.where.section).toBe("tech")
-		expect(call.where.published).toBe(true)
-		expect(typeof call.where.datetime.lte).toBe("string")
 	})
 })
 

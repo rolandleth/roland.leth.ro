@@ -56,6 +56,22 @@ export function isScheduledGuide(publishedAt: Date | null, now: Date): boolean {
 }
 
 /**
+ * The live guides in a list, at one instant.
+ *
+ * Every read path that returns more than one guide filters the same way, and
+ * each used to write the predicate out itself — the obligation was documented
+ * rather than enforced, and a new read path that forgot it would leak scheduled
+ * guides onto a public surface. `now` is captured once here for the same reason
+ * `isScheduledGuide` requires it: no list may have rows disagreeing about it.
+ */
+export function liveGuides<T extends { publishedAt: Date | null }>(
+	guides: readonly T[],
+	now: Date = new Date()
+): T[] {
+	return guides.filter((guide) => !isScheduledGuide(guide.publishedAt, now))
+}
+
+/**
  * Guides sort by their authored `sortOrder` within a topic, then by title so
  * the order is total — `sortOrder` defaults to 0, so an unordered import would
  * otherwise come back in whatever order Postgres feels like, and the rendered

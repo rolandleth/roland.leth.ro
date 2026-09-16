@@ -175,7 +175,12 @@ describe("parseManifest", () => {
 })
 
 describe("projectFlags", () => {
-	it("keeps only the three flags", () => {
+	// What this guards is the projection: the write merges the result over the
+	// schema's parse output, which types the flags optional, so anything else
+	// riding along here would overwrite a validated field with a raw one. A
+	// missing flag can't reach this function — `parseManifest` rejects it first,
+	// covered above.
+	it("keeps only the three flags, `false` included", () => {
 		const manifest = {
 			name: "Reckon",
 			summary: "A summary.",

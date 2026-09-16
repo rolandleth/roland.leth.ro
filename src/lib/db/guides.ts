@@ -7,6 +7,7 @@ import {
 	compareGuides,
 	guideOrder,
 	isScheduledGuide,
+	liveGuides,
 } from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
@@ -358,13 +359,9 @@ export async function getGuideTopicBySlug(
 	// hub page has to regenerate when one comes due: the scheduled cron busts this
 	// entry's `guide-topic-{slug}` tag for every due guide in the topic
 	// (`revalidateGuideTopicHubs`).
-	const now = new Date()
-
 	return {
 		...topic,
-		guides: topic.guides.filter(
-			(guide) => !isScheduledGuide(guide.publishedAt, now)
-		),
+		guides: liveGuides(topic.guides),
 	}
 }
 

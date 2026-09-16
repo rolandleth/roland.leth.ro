@@ -1,8 +1,16 @@
 import { readFileSync } from "node:fs"
-import path from "node:path"
+import { join } from "node:path"
 import { render } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import LegalPageLayout from "./LegalPageLayout"
+
+// Resolved from this file, like `windowInvariant.test.ts` and
+// `middlewareBypass.test.ts`, rather than from the working directory.
+const REPO_ROOT = join(__dirname, "..", "..", "..")
+
+function globalsCss(): string {
+	return readFileSync(join(REPO_ROOT, "src", "app", "globals.css"), "utf8")
+}
 
 describe("LegalPageLayout — landmark structure", () => {
 	it("does not render its own <main> (root layout owns the single <main>)", () => {
@@ -198,22 +206,43 @@ describe("LegalPageLayout — text links", () => {
 		)
 		const links = getAllByRole("link")
 
-		// A section link, the Related link and the contact link. None carries a
-		// class of its own; the wrapper is what makes them look like links.
-		expect(links).toHaveLength(3)
+		// A section link, the Related link and the contact link. The count isn't
+		// the contract — that every link is inside the wrapper is, so boilerplate
+		// gaining one doesn't fail this.
+		expect(links.length).toBeGreaterThanOrEqual(3)
 
 		for (const link of links) {
 			expect(link.closest(".legal-content")).not.toBeNull()
+			// The wrapper is what styles them. A link carrying its own class would
+			// be the per-anchor approach this rule replaced, and would silently opt
+			// out of the hover colour.
+			expect(link.className).toBe("")
 		}
 	})
 
 	it("keeps the `.legal-content a` rule in globals.css, at rest and on hover", () => {
-		const css = readFileSync(
-			path.join(process.cwd(), "src", "app", "globals.css"),
-			"utf8"
-		)
+		const css = globalsCss()
 
 		expect(css).toMatch(/\.legal-content a\s*\{/)
 		expect(css).toMatch(/\.legal-content a:hover\s*\{/)
+	})
+
+	it("keeps that rule unlayered, which is what makes it beat typography's", () => {
+		// The selector's presence isn't the contract — its cascade position is.
+		// Inside `@layer components` (or any layer) Tailwind typography's
+		// utilities-layer link rule wins and every legal-page link goes back to
+		// inheriting body colour, with this file's other test still passing.
+		const css = globalsCss()
+		const ruleIndex = css.search(/\.legal-content a\s*\{/)
+
+		expect(ruleIndex).toBeGreaterThan(-1)
+
+		// Walk the braces before the rule: a non-zero depth means it sits inside
+		// an `@layer`, `@media` or other at-rule block.
+		const before = css.slice(0, ruleIndex)
+		const depth =
+			(before.match(/\{/g)?.length ?? 0) - (before.match(/\}/g)?.length ?? 0)
+
+		expect(depth).toBe(0)
 	})
 })
