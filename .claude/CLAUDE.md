@@ -137,8 +137,7 @@ first; `blob:prune-uploads` deletes permanently.
 There are no migrations. Schema changes go through `db:push`, and there is no
 `prisma/migrations` folder. `db:push` can't tell a rename from a drop plus an add,
 so it would drop a renamed column's data: rename by hand with `ALTER TABLE … RENAME
-COLUMN` before deploying the schema change. `db:migrate` is still in `package.json`
-but unused.
+COLUMN` before deploying the schema change.
 
 ## Database schema (posts)
 

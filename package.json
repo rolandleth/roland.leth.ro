@@ -9,7 +9,6 @@
 		"lint": "eslint",
 		"test": "vitest",
 		"db:push": "prisma db push",
-		"db:migrate": "prisma migrate dev",
 		"db:import-projects": "tsx scripts/import-projects.ts",
 		"db:import-posts": "tsx scripts/import-posts.ts",
 		"db:import-guides": "tsx scripts/import-guides.ts",
