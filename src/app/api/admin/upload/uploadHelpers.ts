@@ -1,9 +1,11 @@
 // Helpers for the upload route. They live here rather than in `route.ts`
 // because the App Router only permits HTTP-method handlers and route-segment
-// config as exports from a `route.ts` file — any other export (these three are
+// config as exports from a `route.ts` file — any other export (these are
 // exported for unit testing) fails Next's route-type validation at build with
 // "is not a valid Route export field". Keeping them in a sibling module lets the
 // tests import them directly while `route.ts` stays a valid route file.
+
+import { randomUUID } from "node:crypto"
 
 /**
  * Strips path separators and control/space characters from a filename so it
@@ -11,6 +13,20 @@
  */
 export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/\0\s]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "")
+}
+
+/**
+ * The blob key for an admin upload: `<uuid>-<sanitized name>` at the store root.
+ * The random prefix prevents collisions and guessable URLs. If the name strips
+ * entirely, the key ends with a trailing `-`; acceptable.
+ *
+ * `isAdminUploadKey` in `src/lib/import/uploadPrune.ts` recognizes exactly this
+ * shape, and `scripts/prune-uploads.ts` deletes the unreferenced ones. Change
+ * one and the other has to follow — `uploadPrune.test.ts` feeds keys made here
+ * through it, so a drift fails there first.
+ */
+export function adminUploadKey(filename: string): string {
+	return `${randomUUID()}-${sanitizeFilename(filename)}`
 }
 
 /**

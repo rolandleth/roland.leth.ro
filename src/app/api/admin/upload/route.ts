@@ -4,8 +4,8 @@ import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
+	adminUploadKey,
 	detectImageMime,
-	sanitizeFilename,
 	sanitizeLogString,
 } from "./uploadHelpers"
 
@@ -146,19 +146,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 		)
 	}
 
-	// Random prefix prevents collisions and guessable URLs for user-uploaded assets.
-	// If `file.name` strips entirely, the key ends with a trailing `-`; acceptable.
-	//
-	// simplified: nothing ever deletes these. Replacing or removing a post image
-	// orphans the old blob — the key lives at the store root under a bare UUID,
-	// and `pruneOrphans` only sweeps `projects/<slug>/`, keyed off the manifest
-	// that names each file. A post image has no such manifest: the only reference
-	// is `Post.imageUrl`, and by the time the form sends the new value the old URL
-	// is gone. The ceiling is the 1GB free tier, reached at a few thousand
-	// uploads. Upgrade path: read the previous `imageUrl` in the PUT and `del()`
-	// it after the row is written, which needs care not to drop a blob a draft
-	// still points at.
-	const key = `${randomUUID()}-${sanitizeFilename(file.name)}`
+	// Nothing deletes an upload when its image is replaced or removed, or its row
+	// deleted. `yarn blob:prune-uploads` sweeps the unreferenced ones; it relies on
+	// the key shape `adminUploadKey` writes.
+	const key = adminUploadKey(file.name)
 
 	try {
 		const blob = await put(key, file, { access: "public" })

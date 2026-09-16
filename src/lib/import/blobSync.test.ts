@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest"
 import {
 	type BlobListPage,
 	type BlobStore,
+	deleteBlobs,
 	formatBytes,
+	listBlobs,
+	type ListedBlob,
 	listProjectBlobs,
 	type LoadedImage,
 	pruneOrphans,
@@ -47,7 +50,99 @@ function image(key: string, size = 4): LoadedImage {
 	return { buffer: new Uint8Array(size), size, key }
 }
 
+/** A listing entry. `uploadedAt` is irrelevant to every path tested here. */
+function listed(pathname: string, url: string, size = 1): ListedBlob {
+	return { pathname, url, size, uploadedAt: new Date("2026-01-01T00:00:00Z") }
+}
+
 const noopLog = (): void => undefined
+
+// #region listBlobs
+
+describe("listBlobs", () => {
+	it("lists the whole store for an empty prefix and keeps each blob's upload time", async () => {
+		// The upload sweep lists from the root and reads `uploadedAt` for its grace
+		// period, so the full listing entry has to come back, not a reduced one.
+		const blob = listed("0b1c-name.png", "https://s/0b1c-name.png", 3)
+		const store = makeStore({
+			list: vi.fn(async () => ({ blobs: [blob], hasMore: false })),
+		})
+
+		const result = await listBlobs(store, "")
+
+		expect(result).toEqual([blob])
+		expect(store.list).toHaveBeenCalledWith({ prefix: "", cursor: undefined })
+	})
+
+	it("collects every page in order", async () => {
+		const pages: BlobListPage[] = [
+			{ blobs: [listed("a", "https://s/a")], cursor: "2", hasMore: true },
+			{ blobs: [listed("b", "https://s/b")], hasMore: false },
+		]
+		let call = 0
+		const store = makeStore({ list: vi.fn(async () => pages[call++]) })
+
+		const result = await listBlobs(store, "")
+
+		expect(result.map((blob) => blob.pathname)).toEqual(["a", "b"])
+	})
+})
+
+// #endregion
+
+// #region deleteBlobs
+
+describe("deleteBlobs", () => {
+	it("deletes in batches of 50 and logs each blob with the note", async () => {
+		const blobs = Array.from({ length: 51 }, (_, index) =>
+			listed(`blob-${index}`, `https://s/blob-${index}`)
+		)
+		const store = makeStore()
+		const log = vi.fn()
+
+		await deleteBlobs(store, blobs, log, "deleted")
+
+		expect(store.del).toHaveBeenCalledTimes(2)
+		expect(vi.mocked(store.del).mock.calls[1][0]).toEqual(["https://s/blob-50"])
+		expect(log).toHaveBeenCalledTimes(51)
+		expect(log).toHaveBeenCalledWith("  × blob-0 (deleted)")
+	})
+
+	it("logs nothing for a batch that failed, so the log matches what went", async () => {
+		// A permanent delete's log is the only record of what it removed. A line
+		// for a blob that's still there would misreport the store.
+		const blobs = Array.from({ length: 60 }, (_, index) =>
+			listed(`blob-${index}`, `https://s/blob-${index}`)
+		)
+		let call = 0
+		const store = makeStore({
+			del: vi.fn(async () => {
+				if (call++ === 1) {
+					throw new Error("del down")
+				}
+			}),
+		})
+		const log = vi.fn()
+
+		await expect(deleteBlobs(store, blobs, log, "deleted")).rejects.toThrow(
+			"del down"
+		)
+
+		// The first batch of 50 went and is logged; the failed second batch isn't.
+		expect(log).toHaveBeenCalledTimes(50)
+		expect(log).not.toHaveBeenCalledWith("  × blob-50 (deleted)")
+	})
+
+	it("makes no call for an empty list", async () => {
+		const store = makeStore()
+
+		await deleteBlobs(store, [], noopLog, "deleted")
+
+		expect(store.del).not.toHaveBeenCalled()
+	})
+})
+
+// #endregion
 
 // #region listProjectBlobs
 
@@ -55,12 +150,12 @@ describe("listProjectBlobs", () => {
 	it("walks every page of a paginated listing", async () => {
 		const pages: BlobListPage[] = [
 			{
-				blobs: [{ pathname: "projects/reckon/a", url: "https://s/a", size: 1 }],
+				blobs: [listed("projects/reckon/a", "https://s/a", 1)],
 				cursor: "page-2",
 				hasMore: true,
 			},
 			{
-				blobs: [{ pathname: "projects/reckon/b", url: "https://s/b", size: 2 }],
+				blobs: [listed("projects/reckon/b", "https://s/b", 2)],
 				hasMore: false,
 			},
 		]
@@ -267,8 +362,8 @@ describe("pruneOrphans", () => {
 		const store = makeStore({
 			list: vi.fn(async () => ({
 				blobs: [
-					{ pathname: "projects/r/keep", url: "https://s/keep", size: 1 },
-					{ pathname: "projects/r/orphan", url: "https://s/orphan", size: 1 },
+					listed("projects/r/keep", "https://s/keep"),
+					listed("projects/r/orphan", "https://s/orphan"),
 				],
 				hasMore: false,
 			})),
@@ -294,9 +389,7 @@ describe("pruneOrphans", () => {
 	it("makes no delete call when nothing is orphaned", async () => {
 		const store = makeStore({
 			list: vi.fn(async () => ({
-				blobs: [
-					{ pathname: "projects/r/keep", url: "https://s/keep", size: 1 },
-				],
+				blobs: [listed("projects/r/keep", "https://s/keep")],
 				hasMore: false,
 			})),
 		})
@@ -313,11 +406,9 @@ describe("pruneOrphans", () => {
 	})
 
 	it("deletes large sweeps in batches", async () => {
-		const blobs = Array.from({ length: 120 }, (_, index) => ({
-			pathname: `projects/r/orphan-${index}`,
-			url: `https://s/orphan-${index}`,
-			size: 1,
-		}))
+		const blobs = Array.from({ length: 120 }, (_, index) =>
+			listed(`projects/r/orphan-${index}`, `https://s/orphan-${index}`)
+		)
 		const store = makeStore({
 			list: vi.fn(async () => ({ blobs, hasMore: false })),
 		})

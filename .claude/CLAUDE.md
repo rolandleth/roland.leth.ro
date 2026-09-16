@@ -120,6 +120,8 @@ yarn run lint            # ESLint + Prettier check
 yarn run db:push         # Push Prisma schema to database
 yarn run db:migrate      # Run Prisma migrations
 yarn run db:seed         # Seed database (if needed)
+yarn run blob:prune-uploads          # Dry run: list admin uploads nothing references
+yarn run blob:prune-uploads --apply  # Delete them (permanent; dry run first)
 ```
 
 ## Database schema (posts)

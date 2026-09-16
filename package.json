@@ -13,6 +13,7 @@
 		"db:import-projects": "tsx scripts/import-projects.ts",
 		"db:import-posts": "tsx scripts/import-posts.ts",
 		"db:import-guides": "tsx scripts/import-guides.ts",
+		"blob:prune-uploads": "tsx scripts/prune-uploads.ts",
 		"og:card": "tsx scripts/generate-og-card.tsx"
 	},
 	"dependencies": {
