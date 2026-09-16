@@ -73,6 +73,19 @@ export function descriptionForCreate(
  *
  * `next` carries the title and body after the update: the new ones when sent,
  * the stored ones otherwise.
+ *
+ * Authorship is inferred, not recorded: `wasDerived` re-runs the *current*
+ * derivation against the stored row. So a change to `deriveDescription` silently
+ * reclassifies rows derived under the old rule as authored, and they stop
+ * following body edits. That already happened once — the 2026-09-15 cap fix left
+ * descriptions stored at 161 characters by the old hard slice reading as
+ * authored, and over the schema's cap, so the edit form rejects them until the
+ * field is cleared by hand.
+ *
+ * A stored `descriptionIsAuthored` flag would remove the inference and this
+ * whole branch. It's a column, so it waits for a reason bigger than tidiness.
+ * Until then: changing `deriveDescription` means deciding what happens to the
+ * rows it reclassifies, and there is no backfill.
  */
 export function descriptionForUpdate(
 	stored: PostText & { description: string },
