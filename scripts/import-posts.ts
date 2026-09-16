@@ -45,8 +45,8 @@
 import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
-import { PrismaPg } from "@prisma/adapter-pg"
-import { Prisma, PrismaClient } from "@/generated/prisma/client"
+import { Prisma } from "@/generated/prisma/client"
+import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import {
 	applySlugRewrites,
@@ -91,18 +91,6 @@ const unknownFlags = argv.filter(
 // #endregion
 
 // #region helpers
-
-function makePrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
-
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials before importing (e.g. `vercel env pull`)."
-		)
-	}
-
-	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
-}
 
 /**
  * Resolves the target section: the explicit `--section=` value when present,
@@ -287,7 +275,7 @@ async function main(): Promise<void> {
 		process.exitCode = 1
 	}
 
-	const prisma = makePrisma()
+	const prisma = makeScriptPrisma()
 
 	try {
 		const existingRows = await prisma.post.findMany({

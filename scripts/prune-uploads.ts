@@ -24,9 +24,9 @@
 // `projects/<slug>/` blobs are never touched here; it prunes those itself.
 
 import "dotenv/config"
-import { PrismaPg } from "@prisma/adapter-pg"
 import { del, list } from "@vercel/blob"
 import { type Prisma, PrismaClient } from "@/generated/prisma/client"
+import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import {
 	type BlobStore,
 	deleteBlobs,
@@ -59,18 +59,6 @@ const unknownArgs = argv.filter((arg) => !KNOWN_FLAGS.has(arg))
 const blobStore: Pick<BlobStore, "list" | "del"> = {
 	list: (options) => list(options),
 	del: (urls) => del(urls),
-}
-
-function makePrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
-
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials before pruning (e.g. `vercel env pull`)."
-		)
-	}
-
-	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 }
 
 /**
@@ -153,7 +141,7 @@ async function main(): Promise<void> {
 	)
 
 	const blobs = await listBlobs(blobStore, "")
-	const prisma = makePrisma()
+	const prisma = makeScriptPrisma()
 	let rows: object[]
 
 	try {

@@ -25,8 +25,8 @@
 import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
-import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@/generated/prisma/client"
+import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import { isValidSection, type Section } from "@/lib/db/sections"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
@@ -49,21 +49,9 @@ const unknownFlags = argv.filter(
 		!arg.startsWith(SECTION_FLAG_PREFIX)
 )
 
-// simplified: `makePrisma`/`resolveSection` are copied from `import-posts.ts`
-// rather than extracted — not worth a shared module for a rarely-run resync
-// tool; if a third script ever needs them, extract then.
-function makePrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
-
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials first (e.g. `vercel env pull`)."
-		)
-	}
-
-	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
-}
-
+// simplified: `resolveSection` is copied from `import-posts.ts` rather than
+// extracted — not worth a shared module for a rarely-run resync tool; if a
+// third script ever needs it, extract then.
 function resolveSection(folder: string, flag: string | undefined): Section {
 	const candidate = flag ?? path.basename(path.resolve(folder))
 
@@ -239,7 +227,7 @@ async function main(): Promise<void> {
 			`${path.relative(process.cwd(), path.resolve(folder)) || "."} with DB slugs for "${section}"`
 	)
 
-	const prisma = makePrisma()
+	const prisma = makeScriptPrisma()
 
 	try {
 		const { written, unchanged, problems, titleMismatches } = await initFolder(

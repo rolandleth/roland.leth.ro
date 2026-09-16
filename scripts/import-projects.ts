@@ -26,7 +26,6 @@ import "dotenv/config"
 import { readdir, readFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { PrismaPg } from "@prisma/adapter-pg"
 import {
 	BlobAccessError,
 	BlobStoreNotFoundError,
@@ -43,6 +42,7 @@ import {
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projectMappers"
+import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import {
 	type BlobStore,
 	formatBytes,
@@ -263,18 +263,6 @@ function referencedImageUrls(
 // #endregion
 
 // #region DB
-
-function makePrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
-
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials before importing (e.g. `vercel env pull`)."
-		)
-	}
-
-	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
-}
 
 /**
  * Replaces the project at `slug` wholesale: delete-then-create inside a
@@ -611,7 +599,7 @@ async function main(): Promise<void> {
 		return
 	}
 
-	const prisma = isDryRun ? null : makePrisma()
+	const prisma = isDryRun ? null : makeScriptPrisma()
 	const results: ProjectResult[] = []
 
 	try {
