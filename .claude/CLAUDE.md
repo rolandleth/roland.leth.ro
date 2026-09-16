@@ -114,15 +114,31 @@ not anonymous.
 ## Commands
 
 ```bash
-yarn run dev             # Start dev server
-yarn run build           # Production build
-yarn run lint            # ESLint + Prettier check
-yarn run db:push         # Push Prisma schema to database
-yarn run db:migrate      # Run Prisma migrations
-yarn run db:seed         # Seed database (if needed)
-yarn run blob:prune-uploads          # Dry run: list admin uploads nothing references
-yarn run blob:prune-uploads --apply  # Delete them (permanent; dry run first)
+yarn run dev                # Start dev server
+yarn run build              # Production build
+yarn run start              # Serve the production build
+yarn run lint               # ESLint, with Prettier running as a lint rule
+yarn test                   # Vitest in watch mode; `yarn test run` for a single pass
+yarn tsc --noEmit           # Type-check, scripts/ included
+yarn run db:push            # Push schema.prisma to the database (see below)
+
+yarn run db:import-posts <folder> [--dry-run] [--overwrite] [--verbose] [--section=tech|life]
+yarn run db:import-guides <folder> [--dry-run] [--overwrite]
+yarn run db:import-projects [name…] [--dry-run] [--cleanup] [--reupload] [--no-prune]
+yarn tsx scripts/init-post-slugs.ts <folder> [--dry-run] [--section=tech|life]   # Stamp post files with their DB slugs
+yarn run blob:prune-uploads [--apply]   # Delete admin uploads nothing references; dry run without --apply
+yarn run og:card [--check]  # Render public/images/og-card.png; --check exits 1 on drift, writes nothing
 ```
+
+The import, resync and prune scripts act on whatever `DATABASE_URL` and
+`BLOB_READ_WRITE_TOKEN` point at — production, with `vercel env pull`. Dry run
+first; `blob:prune-uploads` deletes permanently.
+
+There are no migrations. Schema changes go through `db:push`, and there is no
+`prisma/migrations` folder. `db:push` can't tell a rename from a drop plus an add,
+so it would drop a renamed column's data: rename by hand with `ALTER TABLE … RENAME
+COLUMN` before deploying the schema change. `db:migrate` is still in `package.json`
+but unused.
 
 ## Database schema (posts)
 
