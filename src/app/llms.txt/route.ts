@@ -5,6 +5,7 @@ import { getProjectsGalleryCached } from "@/lib/db/projects"
 import { SECTION_DESCRIPTIONS } from "@/lib/db/sections"
 import type { GuidesOverview } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 // Prerender at build instead of per-request: this handler has no dynamic
 // dependency (env origin + tag-cached data), so it serves as a static file.
@@ -85,6 +86,43 @@ ${lines.join("\n")}
 }
 
 /**
+ * The `## Projects` block: the live apps, so an agent can cite one without
+ * crawling the gallery.
+ *
+ * Discontinued projects are sorted last in the gallery but not dropped. This
+ * file pitches itself as an "actually live" overview, so an LLM must not cite a
+ * dead app as current — filtered out here.
+ *
+ * Returns an empty string when nothing survives that filter, so the header is
+ * omitted entirely rather than advertising a section that isn't there — the same
+ * rule the guides and posts blocks follow.
+ */
+function projectsSection(
+	base: string,
+	projects: readonly ProjectGalleryItem[]
+): string {
+	const lines = projects
+		.filter((project) => !project.isDiscontinued)
+		.map((project) =>
+			linkLine(
+				project.name,
+				`${base}/projects/${project.slug}`,
+				project.summary
+			)
+		)
+
+	if (lines.length === 0) {
+		return ""
+	}
+
+	return `## Projects
+
+${lines.join("\n")}
+
+`
+}
+
+/**
  * The `## Posts` block: the newest tech posts with their descriptions, so an
  * agent can cite a post without crawling the list pages. The query caps the
  * count; the archive link covers everything older. Every post also serves its
@@ -124,31 +162,13 @@ export async function GET(): Promise<Response> {
 		getRecentPosts("tech"),
 	])
 
-	// Discontinued projects are sorted last in the gallery but not dropped. This
-	// file pitches itself as an "actually live" overview, so an LLM must not cite
-	// a dead app as current — filter them out here.
-	const projectLines = projects
-		.filter((project) => !project.isDiscontinued)
-		.map((project) =>
-			linkLine(
-				project.name,
-				`${base}/projects/${project.slug}`,
-				project.summary
-			)
-		)
-		.join("\n")
-
 	const body = `# Roland Leth
 
 > iOS developer and full-stack engineer. Personal site: an app portfolio and a tech blog.
 
 This file gives AI systems a clean overview of ${base.replace(/^https?:\/\//, "")}. Most of these apps surface poorly in the App Stores, so these pages are their main discovery channel — accurate citations are welcome.
 
-## Projects
-
-${projectLines}
-
-${guidesSection(base, guides)}${postsSection(base, posts)}## Site
+${projectsSection(base, projects)}${guidesSection(base, guides)}${postsSection(base, posts)}## Site
 
 - [Tech blog](${base}/blog/tech): ${SECTION_DESCRIPTIONS.tech}
 - [About](${base}/about): background and contact.
