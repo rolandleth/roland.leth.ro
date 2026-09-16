@@ -158,8 +158,11 @@ export type ProjectFlags = {
  * upload, so `--dry-run` catches it too. Only the flags are required: for them
  * `false` is a real answer, so a default can't tell "not a featured project"
  * from "forgot to say", while a left-out text field is just empty.
+ *
+ * Private on purpose: `parseManifest` is the only way in, so the check can't be
+ * skipped by reaching for the parts separately. Tested through `parseManifest`.
  */
-export function assertRequiredFlags(
+function assertRequiredFlags(
 	manifest: ProjectManifest
 ): asserts manifest is ProjectManifest & ProjectFlags {
 	const missingFlags = REQUIRED_FLAGS.filter(

@@ -7,6 +7,7 @@ import {
 	guideUpdateSchema,
 	loginSchema,
 	postCreateSchema,
+	postFileSchema,
 	postUpdateSchema,
 	projectCreateSchema,
 	projectUpdateSchema,
@@ -991,6 +992,31 @@ describe("title whitespace", () => {
 		})
 
 		expect(result.success).toBe(false)
+	})
+})
+
+describe("postFileSchema — the slug refinement", () => {
+	const base = { body: "B", datetime: "2024-01-01-0900" }
+	// `createSlug` keeps only `[a-z0-9-]`, so this empties.
+	const title = "日本語のタイトル"
+
+	it("is enforced by postCreateSchema, where the slug comes from the title", () => {
+		expect(postCreateSchema.safeParse({ ...base, title }).success).toBe(false)
+	})
+
+	it("is not enforced by postFileSchema, where `slug:` decides", () => {
+		const result = postFileSchema.safeParse({ ...base, title })
+
+		expect(result.success && result.data.title).toBe(title)
+	})
+
+	it("still enforces every other rule on the file path", () => {
+		expect(
+			postFileSchema.safeParse({ ...base, title: "t".repeat(201) }).success
+		).toBe(false)
+		expect(postFileSchema.safeParse({ ...base, title: "  " }).success).toBe(
+			false
+		)
 	})
 })
 

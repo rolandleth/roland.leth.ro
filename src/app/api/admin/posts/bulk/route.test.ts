@@ -620,6 +620,59 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(data.map((row) => row.slug)).toEqual(["a-real-post"])
 	})
 
+	it("skips a file whose title is over the 200-char cap", async () => {
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-long-title.md",
+						content: `---\ntitle: "${"t".repeat(201)}"\n---\n\nBody.`,
+					},
+					validFile,
+				],
+			})
+		)
+		const json = await response.json()
+
+		expect(json.skipped).toEqual([
+			{
+				filename: "2026-05-15-long-title.md",
+				reason: expect.stringContaining("title"),
+			},
+		])
+	})
+
+	it("keeps a file whose explicit slug is good but whose title makes no slug", async () => {
+		// The gate used to run the admin form's slug refinement against the title,
+		// which the slug never came from here. A CJK title was skipped with a
+		// message blaming punctuation, although `slug:` resolved perfectly well.
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-cjk.md",
+						content: `---\ntitle: "日本語のタイトル"\nslug: "a-japanese-post"\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+		const json = await response.json()
+
+		expect(json.skipped).toEqual([])
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ slug: string; title: string }>
+		expect(data).toEqual([
+			expect.objectContaining({
+				slug: "a-japanese-post",
+				title: "日本語のタイトル",
+			}),
+		])
+	})
+
 	it("emits a skip-reason summary log when files are skipped", async () => {
 		await POST(
 			makeRequest({

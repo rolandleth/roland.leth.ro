@@ -18,7 +18,7 @@
 // silently move a post's URL.
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
-import { postCreateSchema } from "@/lib/api/schemas"
+import { postFileSchema } from "@/lib/api/schemas"
 import {
 	descriptionForCreate,
 	descriptionForUpdate,
@@ -276,11 +276,11 @@ export type PostFileValidation =
 	| { ok: false; reason: string }
 
 /**
- * Validates a parsed file against `postCreateSchema` — the same contract the
- * admin API enforces — so a row the admin couldn't have written can't enter
- * through the script or the bulk upload either. The file's `description:`
- * rides along, so one past the schema's cap is a skip rather than a row the
- * edit form can't save.
+ * Validates a parsed file against `postFileSchema` — the admin API's contract
+ * minus the title's slug refinement, which `resolveSlug` has already settled on
+ * this path — so a row the admin couldn't have written can't enter through the
+ * script or the bulk upload either. The file's `description:` rides along, so
+ * one past the schema's cap is a skip rather than a row the edit form can't save.
  *
  * Returns the description as the schema outputs it (whitespace collapsed), so
  * what's stored is what was measured, or the formatted issues as a skip reason.
@@ -289,7 +289,7 @@ export function validatePostFile(
 	file: ParsedPostFile,
 	section: Section
 ): PostFileValidation {
-	const result = postCreateSchema.safeParse({
+	const result = postFileSchema.safeParse({
 		title: file.title,
 		body: file.body,
 		datetime: file.datetime,
