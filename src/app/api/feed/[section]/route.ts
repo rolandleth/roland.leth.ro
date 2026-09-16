@@ -36,6 +36,13 @@ export function generateStaticParams() {
 // catch up, small enough to keep the cached payload bounded.
 const FEED_ENTRY_LIMIT = 20
 
+// Ceiling on the scheduled-post padding described on `makeFeedPostsCache`. Every
+// padded row is a markdown render on each regeneration, and `futureCount` has no
+// natural bound — a bulk import of backdated content is exactly why the cron
+// carries its own `DUE_ROW_CAP`. 200 is the same number for the same reason: far
+// past any real publishing schedule, near enough to keep the work bounded.
+const FEED_FUTURE_PADDING_CAP = 200
+
 // Per-section feed subtitle. Explicit rather than derived from the section name
 // so each reads as a real sentence in a subscriber's reader, preserving the
 // wording the pre-Next feed shipped for years.
@@ -71,12 +78,20 @@ function escapeCdata(html: string): string {
  *
  * The cached payload is padded by the current scheduled-post count: we take
  * `FEED_ENTRY_LIMIT + futureCount` rows so that the handler can filter
- * `datetime <= now` and still emit a full feed. Scheduled posts therefore
- * live inside the cache and auto-surface at the first route regeneration
- * after their `datetime` passes (bounded by the route-level `revalidate`
- * backstop), without waiting for a cache bust. Markdown rendering is
- * done for the future rows too — small wasted compute traded for a simpler
- * cache shape.
+ * `datetime <= now` and still emit a full feed. Scheduled posts therefore live
+ * inside the cache and surface at the first regeneration after their `datetime`
+ * passes — which the daily `revalidate-scheduled` cron's `feed-{section}` bust
+ * is what triggers. There is no route-level `revalidate` backstop any more; the
+ * tests pin its absence.
+ *
+ * simplified: markdown is rendered for the future rows too, trading compute for
+ * a simpler cache shape. The padding is capped because `futureCount` is not
+ * otherwise bounded — a bulk import of future-dated posts (`/admin/posts/bulk`
+ * exists) would otherwise render hundreds of bodies on every regeneration to
+ * emit 20 entries. At the cap the feed is still correct, just no longer padded
+ * enough to guarantee a full page of entries, which is the right trade at a
+ * backlog size no real schedule reaches. Upgrade path: filter in SQL instead,
+ * which needs `datetime` compared as a string against `currentDatetimeString()`.
  */
 function makeFeedPostsCache(section: Section) {
 	return unstable_cache(
@@ -101,7 +116,7 @@ function makeFeedPostsCache(section: Section) {
 					description: true,
 				},
 				orderBy: { datetime: "desc" },
-				take: FEED_ENTRY_LIMIT + futureCount,
+				take: FEED_ENTRY_LIMIT + Math.min(futureCount, FEED_FUTURE_PADDING_CAP),
 			})
 
 			// Pre-render markdown here so the handler is pure template work. The
@@ -229,7 +244,10 @@ ${entriesXml}
 </feed>`
 
 	// No hand-set `Cache-Control`: the route is statically cached, so the
-	// platform manages edge caching and `revalidate` above governs freshness.
+	// platform manages edge caching and the `feed-{section}` tag bust above
+	// governs freshness. A hand-set header would survive the bust on the CDN copy
+	// and serve a stale feed until it expired — the same fix the post `.md` and
+	// llms.txt routes carry.
 	return new Response(feed, {
 		status: 200,
 		headers: {

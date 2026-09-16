@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import {
-	assertRequiredFlags,
 	blobKeyFor,
 	blobPrefixFor,
 	contentHashFor,
@@ -70,9 +69,11 @@ describe("deriveSlug", () => {
 
 // #endregion
 
-// #region assertRequiredFlags
+// #region required flags, through parseManifest
 
-describe("assertRequiredFlags", () => {
+// The check is private to the module: `parseManifest` is the only way to read a
+// manifest, which is what stops the script from skipping it.
+describe("parseManifest — required flags", () => {
 	const allFlags = {
 		name: "Reckon",
 		isFeatured: true,
@@ -81,14 +82,16 @@ describe("assertRequiredFlags", () => {
 	} satisfies ProjectManifest
 
 	it("accepts a manifest that sets every flag, false included", () => {
-		expect(() => assertRequiredFlags(allFlags)).not.toThrow()
+		expect(() => parseManifest(JSON.stringify(allFlags))).not.toThrow()
 		expect(() =>
-			assertRequiredFlags({
-				name: "Old client app",
-				isFeatured: false,
-				isDiscontinued: false,
-				isOwnApp: false,
-			})
+			parseManifest(
+				JSON.stringify({
+					name: "Old client app",
+					isFeatured: false,
+					isDiscontinued: false,
+					isOwnApp: false,
+				})
+			)
 		).not.toThrow()
 	})
 
@@ -97,35 +100,29 @@ describe("assertRequiredFlags", () => {
 	it("names the flag a manifest leaves out", () => {
 		const { isOwnApp: _omitted, ...withoutOwnApp } = allFlags
 
-		expect(() => assertRequiredFlags(withoutOwnApp)).toThrow(
+		expect(() => parseManifest(JSON.stringify(withoutOwnApp))).toThrow(
 			/must set isOwnApp to true or false/
 		)
 	})
 
 	it("names every missing flag at once", () => {
-		expect(() => assertRequiredFlags({ name: "Reckon" })).toThrow(
+		expect(() => parseManifest(JSON.stringify({ name: "Reckon" }))).toThrow(
 			/isFeatured, isDiscontinued, isOwnApp/
 		)
 	})
 
-	// The manifest is untrusted JSON cast to the type, so a string can arrive
-	// where the type says boolean.
+	// The manifest is untrusted JSON, so a string can arrive where the type says
+	// boolean.
 	it("rejects a flag that isn't a boolean", () => {
-		const manifest = {
-			...allFlags,
-			isFeatured: "yes",
-		} as unknown as ProjectManifest
+		const raw = JSON.stringify({ ...allFlags, isFeatured: "yes" })
 
-		expect(() => assertRequiredFlags(manifest)).toThrow(/isFeatured/)
+		expect(() => parseManifest(raw)).toThrow(/isFeatured/)
 	})
 
 	it("rejects a null flag", () => {
-		const manifest = {
-			...allFlags,
-			isDiscontinued: null,
-		} as unknown as ProjectManifest
+		const raw = JSON.stringify({ ...allFlags, isDiscontinued: null })
 
-		expect(() => assertRequiredFlags(manifest)).toThrow(/isDiscontinued/)
+		expect(() => parseManifest(raw)).toThrow(/isDiscontinued/)
 	})
 })
 
@@ -178,7 +175,12 @@ describe("parseManifest", () => {
 })
 
 describe("projectFlags", () => {
-	it("keeps only the three flags", () => {
+	// What this guards is the projection: the write merges the result over the
+	// schema's parse output, which types the flags optional, so anything else
+	// riding along here would overwrite a validated field with a raw one. A
+	// missing flag can't reach this function — `parseManifest` rejects it first,
+	// covered above.
+	it("keeps only the three flags, `false` included", () => {
 		const manifest = {
 			name: "Reckon",
 			summary: "A summary.",

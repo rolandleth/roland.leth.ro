@@ -7,6 +7,7 @@ import {
 	compareGuides,
 	guideOrder,
 	isScheduledGuide,
+	liveGuides,
 } from "@/lib/db/guideMappers"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 
@@ -358,13 +359,9 @@ export async function getGuideTopicBySlug(
 	// hub page has to regenerate when one comes due: the scheduled cron busts this
 	// entry's `guide-topic-{slug}` tag for every due guide in the topic
 	// (`revalidateGuideTopicHubs`).
-	const now = new Date()
-
 	return {
 		...topic,
-		guides: topic.guides.filter(
-			(guide) => !isScheduledGuide(guide.publishedAt, now)
-		),
+		guides: liveGuides(topic.guides),
 	}
 }
 
@@ -564,13 +561,20 @@ export async function findGuidesBecameLive(
 			published: true,
 			publishedAt: { gt: windowStart, lte: now },
 		},
-		select: { slug: true, topic: { select: { slug: true } } },
+		select: {
+			slug: true,
+			topic: { select: { slug: true, published: true } },
+		},
 		take: limit,
 	})
 
 	return guides.map((guide) => ({
 		slug: guide.slug,
-		topicSlug: guide.topic?.slug ?? null,
+		// An unpublished topic has no hub page to refresh — `/guides/:topicSlug`
+		// 404s — so reporting its slug would only bust a tag nothing renders. The
+		// guide itself still surfaces: `getGuidesOverview` lists a guide under an
+		// unpublished topic as ungrouped, which `GUIDES_TAG` covers.
+		topicSlug: guide.topic?.published === true ? guide.topic.slug : null,
 	}))
 }
 
@@ -592,9 +596,9 @@ export function revalidateGuides(): void {
  * busts. The guide then stayed 404 on its own URL after coming due, while the
  * aggregates that `GUIDES_TAG` covers listed it correctly.
  */
-export function revalidateGuideDetails(slugs: string[]): void {
-	for (const slug of slugs) {
-		revalidateTag(guideTag(slug), "max")
+export function revalidateGuideDetails(guides: readonly GuideRef[]): void {
+	for (const guide of guides) {
+		revalidateTag(guideTag(guide.slug), "max")
 	}
 }
 
@@ -605,6 +609,13 @@ export function revalidateGuideDetails(slugs: string[]): void {
  * `revalidateGuideDetails` busts — so without this a due guide reached `/guides`
  * and its own page but stayed missing from its hub. Ungrouped guides have no
  * hub to bust; two due guides in one topic bust it once.
+ *
+ * Hubs only, despite the plural: this is NOT `revalidateGuideTopic` in a loop.
+ * That one also busts the aggregates and the topic's guide detail pages, which
+ * a caller here has already covered — the cron busts `GUIDES_TAG` itself and
+ * passes the same guides to `revalidateGuideDetails`. Reach for
+ * `revalidateGuideTopic` when a topic's own publish state changed, and for this
+ * when only its listing needs to catch up.
  */
 export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
 	const topicSlugs = new Set(
@@ -630,6 +641,9 @@ export function revalidateGuide(slug: string): void {
  * with the topic's publish state, so they have to be busted alongside the hub.
  * Callers pass the topic's current guide slugs; an empty list is correct for a
  * topic with none.
+ *
+ * For a topic whose own state changed. When only its listing is stale because a
+ * guide inside it came due, `revalidateGuideTopicHubs` is the narrower one.
  */
 export function revalidateGuideTopic(
 	slug: string,

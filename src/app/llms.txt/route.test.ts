@@ -5,9 +5,14 @@ import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 import { SECTION_DESCRIPTIONS } from "@/lib/db/sections"
-import { makeGuideListItem, makeGuideTopicSummary } from "@/test/fixtures"
+import {
+	makeGuideListItem,
+	makeGuideTopicSummary,
+	makeProjectGalleryItem,
+} from "@/test/fixtures"
 import type { GuideTopicWithGuides } from "@/lib/db/guides"
 import type { RecentPost } from "@/lib/db/posts"
+import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 vi.mock("@/lib/db/projects", () => ({
 	getProjectsGalleryCached: vi.fn(),
@@ -29,15 +34,17 @@ function topicStub(
 	return { ...makeGuideTopicSummary(), guides }
 }
 
+// The shared fixture rather than a local cast: `as never` let the stub omit
+// `isDiscontinued`, which is why the filter below had no coverage.
 function projectStub(
-	overrides: { name?: string; slug?: string; summary?: string } = {}
-) {
-	return {
+	overrides: Partial<ProjectGalleryItem> = {}
+): ProjectGalleryItem {
+	return makeProjectGalleryItem({
 		name: "Continuum",
 		slug: "continuum",
 		summary: "A habit tracker.",
 		...overrides,
-	}
+	})
 }
 
 function postStub(overrides: Partial<RecentPost> = {}): RecentPost {
@@ -119,7 +126,7 @@ describe("llms.txt — projects", () => {
 				name: "Reckon",
 				slug: "reckon",
 				summary: "A calorie tracker.",
-			}) as never,
+			}),
 		])
 
 		const body = await (await GET()).text()
@@ -130,7 +137,7 @@ describe("llms.txt — projects", () => {
 
 	it("collapses multi-line summaries onto a single line", async () => {
 		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
-			projectStub({ summary: "Line one.\n\nLine two." }) as never,
+			projectStub({ summary: "Line one.\n\nLine two." }),
 		])
 
 		const body = await (await GET()).text()
@@ -141,12 +148,44 @@ describe("llms.txt — projects", () => {
 
 	it("uses NEXT_PUBLIC_SITE_URL for project links", async () => {
 		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://preview.example.com")
-		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
-			projectStub() as never,
-		])
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([projectStub()])
 
 		const body = await (await GET()).text()
 		expect(body).toContain("https://preview.example.com/projects/continuum")
+	})
+
+	it("leaves out a discontinued project", async () => {
+		// The route's own comment makes this a correctness rule: an LLM must not
+		// cite a dead app as current.
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
+			projectStub({ name: "Live", slug: "live" }),
+			projectStub({ name: "Dead", slug: "dead", isDiscontinued: true }),
+		])
+
+		const body = await (await GET()).text()
+
+		expect(body).toContain(`- [Live](${BASE}/projects/live)`)
+		expect(body).not.toContain("Dead")
+	})
+
+	it("omits the whole section when every project is discontinued", async () => {
+		// Matching the guides and posts blocks: a bare header advertises a section
+		// that isn't there.
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
+			projectStub({ isDiscontinued: true }),
+		])
+
+		const body = await (await GET()).text()
+
+		expect(body).not.toContain("## Projects")
+	})
+
+	it("omits the whole section when there are no projects at all", async () => {
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([])
+
+		const body = await (await GET()).text()
+
+		expect(body).not.toContain("## Projects")
 	})
 })
 

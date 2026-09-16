@@ -1,3 +1,7 @@
+import {
+	capDescription,
+	collapseWhitespace,
+} from "@/lib/content/descriptionRules"
 import { deriveDescription } from "@/lib/content/markdown"
 
 // One rule for `Post.description` on every write path: the admin create and
@@ -27,11 +31,20 @@ interface PostText {
  * body has no prose to excerpt (only a code block, or an image with no alt text).
  * The column is the meta description, the feed `<summary>` and the llms.txt line,
  * so a blank one would ship empty on all three.
+ *
+ * The title goes through the same collapse and cap as the excerpt. It is not
+ * validated anywhere else on this path: `postCreateSchema` allows a 200-char
+ * title and caps `description` at 160, and it collapses whitespace on the
+ * description but not on the title. Without this, a prose-less body under a long
+ * title stores an over-cap description that the edit form then rejects on every
+ * save, and a title with a newline reaches the `.md` export's frontmatter.
  */
 function derivedDescription(post: PostText): string {
 	const excerpt = deriveDescription(post.body)
 
-	return excerpt === "" ? post.title : excerpt
+	return excerpt === ""
+		? capDescription(collapseWhitespace(post.title))
+		: excerpt
 }
 
 /** A new post's description: the authored one, or a derived one. */
@@ -60,6 +73,19 @@ export function descriptionForCreate(
  *
  * `next` carries the title and body after the update: the new ones when sent,
  * the stored ones otherwise.
+ *
+ * Authorship is inferred, not recorded: `wasDerived` re-runs the *current*
+ * derivation against the stored row. So a change to `deriveDescription` silently
+ * reclassifies rows derived under the old rule as authored, and they stop
+ * following body edits. That already happened once — the 2026-09-15 cap fix left
+ * descriptions stored at 161 characters by the old hard slice reading as
+ * authored, and over the schema's cap, so the edit form rejects them until the
+ * field is cleared by hand.
+ *
+ * A stored `descriptionIsAuthored` flag would remove the inference and this
+ * whole branch. It's a column, so it waits for a reason bigger than tidiness.
+ * Until then: changing `deriveDescription` means deciding what happens to the
+ * rows it reclassifies, and there is no backfill.
  */
 export function descriptionForUpdate(
 	stored: PostText & { description: string },

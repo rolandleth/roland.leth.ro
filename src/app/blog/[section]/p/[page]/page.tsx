@@ -145,7 +145,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 	return buildPageMetadata({
 		title: `${label} blog — page ${page}`,
-		description: SECTION_DESCRIPTIONS[section],
+		// The page number keeps each paginated URL's description distinct. Without
+		// it every page in a section shipped page 1's line verbatim, which is a
+		// duplicate-description signal across as many URLs as the section has pages.
+		description: `${SECTION_DESCRIPTIONS[section]} Page ${page}.`,
 		path: `/blog/${section}/p/${page}`,
 		feed: feedLinkForSection(section),
 	})

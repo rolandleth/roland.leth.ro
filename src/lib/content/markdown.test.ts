@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
-import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import {
 	deriveDescription,
 	extractDefinitions,
@@ -301,6 +301,28 @@ describe("deriveDescription", () => {
 		// a 161-char result made the post unsaveable from the edit form.
 		expect(result).toBe(`${"a".repeat(DESCRIPTION_MAX_CHARS - 1)}…`)
 		expect(result).toHaveLength(DESCRIPTION_MAX_CHARS)
+	})
+
+	it("cuts the hard slice on a code point, never mid surrogate pair", () => {
+		// The space-free branch is where astral characters cluster (emoji runs,
+		// CJK). A UTF-16 slice can land between a pair's halves and emit a lone
+		// surrogate, which is invalid once the string is serialized.
+		const body = "😀".repeat(200)
+		const result = deriveDescription(body)
+
+		expect(result).toHaveLength(DESCRIPTION_MAX_CHARS - 1)
+		expect(result.endsWith("…")).toBe(true)
+		// A lone surrogate survives a round trip through UTF-8 as U+FFFD.
+		expect(Buffer.from(result, "utf8").toString("utf8")).toBe(result)
+		expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(result)).toBe(false)
+	})
+
+	it("hard-slices space-free CJK prose within the cap", () => {
+		const body = "工程".repeat(200)
+		const result = deriveDescription(body)
+
+		expect(result.length).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS)
+		expect(result.endsWith("…")).toBe(true)
 	})
 
 	it("fits the cap when the last space sits right at the cap's edge", () => {

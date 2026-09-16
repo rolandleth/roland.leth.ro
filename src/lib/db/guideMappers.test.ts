@@ -3,6 +3,7 @@ import {
 	compareGuides,
 	guideOrder,
 	isScheduledGuide,
+	liveGuides,
 	resolvePublishedAt,
 } from "@/lib/db/guideMappers"
 
@@ -44,6 +45,36 @@ describe("isScheduledGuide", () => {
 		expect(
 			isScheduledGuide(EARLIER.toISOString() as unknown as Date, NOW)
 		).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region liveGuides
+
+describe("liveGuides", () => {
+	const scheduled = { slug: "scheduled", publishedAt: LATER }
+	const live = { slug: "live", publishedAt: EARLIER }
+	const undated = { slug: "undated", publishedAt: null }
+
+	it("drops scheduled guides and keeps the rest, in order", () => {
+		expect(liveGuides([live, scheduled, undated], NOW)).toEqual([live, undated])
+	})
+
+	it("returns an empty list when every guide is scheduled", () => {
+		expect(liveGuides([scheduled], NOW)).toEqual([])
+	})
+
+	it("judges every guide against one instant", () => {
+		// A list must not have rows disagreeing about "now". Two guides either
+		// side of the boundary resolve against the same argument.
+		const boundary = { slug: "boundary", publishedAt: new Date(NOW) }
+		const justAfter = {
+			slug: "just-after",
+			publishedAt: new Date(NOW.getTime() + 1),
+		}
+
+		expect(liveGuides([boundary, justAfter], NOW)).toEqual([boundary])
 	})
 })
 

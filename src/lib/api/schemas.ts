@@ -1,6 +1,9 @@
 import { z } from "zod"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
-import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionLength"
+import {
+	collapseWhitespace,
+	DESCRIPTION_MAX_CHARS,
+} from "@/lib/content/descriptionRules"
 import { SECTIONS } from "@/lib/db/sections"
 import { createSlug } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
@@ -51,16 +54,14 @@ const httpUrl = z
 		message: "URL must use http or https",
 	})
 
-// A meta description is one line of text. The `.md` exports write it into a
-// single frontmatter line, where a raw newline breaks the block, and search
-// results and social cards show it on one line anyway. The admin field is a
-// textarea, so a pasted paragraph can carry line breaks: they're collapsed here
-// rather than rejected, since an error would only make the author retype the
-// same text. Callers pipe the length checks after this, so they measure the
-// value that gets stored.
-const collapsedWhitespace = z
-	.string()
-	.transform((value) => value.replace(/\s+/g, " ").trim())
+// Titles and meta descriptions are one line of text. The `.md` exports write
+// each into a single frontmatter line, where a raw newline breaks the block, and
+// search results and social cards show them on one line anyway. The admin
+// description field is a textarea, so a pasted paragraph can carry line breaks:
+// they're collapsed here rather than rejected, since an error would only make
+// the author retype the same text. Callers pipe the length checks after this, so
+// they measure the value that gets stored.
+const collapsedWhitespace = z.string().transform(collapseWhitespace)
 
 // Posts
 
@@ -72,12 +73,18 @@ const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
 	message: "datetime must be `yyyy-MM-dd-HHmm`",
 })
 
+// Collapsed for the same reason as the description: `buildPostMarkdownFile`
+// writes the title into a frontmatter line that a newline would break, and
+// `derivedDescription` falls back to it for a body with no prose.
+const postTitle = collapsedWhitespace.pipe(z.string().min(1).max(200))
+
 export const postCreateSchema = z.object({
-	title: z
-		.string()
-		.min(1)
-		.max(200)
-		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
+	// The admin form derives the slug from the title, so a title `createSlug`
+	// empties has to be caught here. The import and bulk paths don't use this
+	// schema — see `postFileSchema`.
+	title: postTitle.pipe(
+		z.string().refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE })
+	),
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
 	// The meta description. Optional because the routes derive one from the body
@@ -93,6 +100,18 @@ export const postCreateSchema = z.object({
 })
 
 export const postUpdateSchema = postCreateSchema.partial()
+
+/**
+ * `postCreateSchema` minus the title's slug refinement, for the import script
+ * and the admin bulk upload.
+ *
+ * Both resolve the slug from the file's `slug:` line and fall back to the title
+ * only when that line is absent — `resolveSlug` decides, and reports an empty
+ * result through `emptySlugReason`, which says which of the two was at fault.
+ * Refining the title here as well rejected a file whose explicit slug was
+ * perfectly good, with a message blaming a title the slug never came from.
+ */
+export const postFileSchema = postCreateSchema.extend({ title: postTitle })
 
 // Per-file payload mirrors the strictest body limit from `postCreateSchema`,
 // so a malformed file is rejected at the parser before it ever reaches the
@@ -143,7 +162,9 @@ const guideDescription = collapsedWhitespace.pipe(
 
 const guideFields = {
 	slug: canonicalSlug,
-	title: z.string().min(1).max(200),
+	// Collapsed for the same reason as the description: `buildGuideMarkdownFile`
+	// writes the title into a frontmatter line that a newline would break.
+	title: collapsedWhitespace.pipe(z.string().min(1).max(200)),
 	description: guideDescription,
 	body: z.string().min(1).max(100_000),
 	// Slug reference, not an id — see the `projectSlug` note in schema.prisma.

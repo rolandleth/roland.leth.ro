@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { deriveDescription } from "@/lib/content/markdown"
 import {
 	descriptionForCreate,
@@ -52,6 +53,32 @@ describe("descriptionForCreate", () => {
 		// llms.txt line help nobody.
 		expect(deriveDescription(body)).toBe("")
 		expect(descriptionForCreate({ title: TITLE, body }, undefined)).toBe(TITLE)
+	})
+
+	it("caps the title fallback at the description limit", () => {
+		// `postCreateSchema` allows a 200-char title and caps `description` at 160,
+		// and nothing validates a derived value. Storing the title verbatim made
+		// every later save of that post 400 from the edit form.
+		const title = "word ".repeat(60).trim()
+		const result = descriptionForCreate(
+			{ title, body: CODE_ONLY_BODY },
+			undefined
+		)
+
+		expect(title.length).toBeGreaterThan(DESCRIPTION_MAX_CHARS)
+		expect(result.length).toBeLessThanOrEqual(DESCRIPTION_MAX_CHARS)
+		expect(result.endsWith("…")).toBe(true)
+	})
+
+	it("collapses whitespace in the title fallback", () => {
+		// `postCreateSchema` collapses the description but not the title, so an
+		// uncollapsed fallback is a newline's way into the `.md` frontmatter.
+		const result = descriptionForCreate(
+			{ title: "A title\nwith  breaks", body: CODE_ONLY_BODY },
+			undefined
+		)
+
+		expect(result).toBe("A title with breaks")
 	})
 })
 

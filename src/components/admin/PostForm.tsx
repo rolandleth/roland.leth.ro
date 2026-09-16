@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -27,7 +29,12 @@ interface PostPayload {
 	section: string
 	datetime: string
 	published: boolean
-	description?: string
+	/**
+	 * Always sent, never omitted: the edit route reads an absent key as "leave the
+	 * column" and `""` as "cleared, derive one". Required here so the type carries
+	 * that contract rather than the comment at the send alone.
+	 */
+	description: string
 	imageUrl: string | null
 }
 
@@ -62,6 +69,9 @@ export default function PostForm({ initialData }: Props) {
 		imageUrl: initialData?.imageUrl ?? "",
 		body: initialData?.body ?? "",
 	})
+	// Saving mid-upload would persist the row without the image and navigate
+	// away, aborting the request — the picked file lost with nothing shown.
+	const [isUploading, setIsUploading] = useState(false)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
@@ -165,15 +175,25 @@ export default function PostForm({ initialData }: Props) {
 					value={state.description}
 					onChange={(e) => setField("description", e.target.value)}
 					rows={3}
+					// The schema's cap. Without it the only feedback is a 400 after a
+					// save round-trip, which is also how an over-cap value derived
+					// before the cap existed stayed invisible.
+					maxLength={DESCRIPTION_MAX_CHARS}
 					placeholder="Optional. The meta description for search, social cards and the feed; derived from the body when empty."
 					className="admin-input"
 				/>
+				<span className="text-secondary self-end text-xs">
+					{state.description.length}/{DESCRIPTION_MAX_CHARS}
+				</span>
 			</div>
 
 			<ImageUpload
 				value={state.imageUrl}
 				onChange={(v) => setField("imageUrl", v)}
 				label="Image"
+				// `useState`'s setter is identity-stable, so this doesn't re-fire
+				// `ImageUpload`'s effect on every render of this form.
+				onUploadingChange={setIsUploading}
 			/>
 
 			<div className="flex flex-col gap-1.5">
@@ -193,7 +213,7 @@ export default function PostForm({ initialData }: Props) {
 			<div className="flex items-center justify-between">
 				<button
 					type="submit"
-					disabled={isSubmitting}
+					disabled={isSubmitting || isUploading}
 					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save post"}

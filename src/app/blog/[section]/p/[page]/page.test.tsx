@@ -261,15 +261,26 @@ describe("generateMetadata", () => {
 	})
 
 	it.each(SECTIONS)(
-		"describes the %s section with the same line as page 1",
+		"describes the %s section with page 1's line plus the page number",
 		async (section) => {
 			// Page 2 onward used to keep the "Thoughts on …" placeholder after page 1
-			// got a real description.
+			// got a real description. It carries the real line now — and the page
+			// number with it, so a section's pages don't all ship one description.
 			const metadata = await generateMetadata(params(section, "2"))
 
-			expect(metadata.description).toBe(SECTION_DESCRIPTIONS[section])
+			expect(metadata.description).toContain(SECTION_DESCRIPTIONS[section])
+			expect(metadata.description).toContain("Page 2")
 		}
 	)
+
+	it("gives two pages of one section different descriptions", async () => {
+		const [second, third] = await Promise.all([
+			generateMetadata(params("tech", "2")),
+			generateMetadata(params("tech", "3")),
+		])
+
+		expect(second.description).not.toBe(third.description)
+	})
 
 	it("returns empty metadata for an unknown section", async () => {
 		expect(await generateMetadata(params("nope", "2"))).toEqual({})

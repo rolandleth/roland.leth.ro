@@ -743,7 +743,10 @@ describe("findGuidesBecameLive", () => {
 
 	it("returns each published guide inside the window with its topic's slug", async () => {
 		vi.mocked(prisma.guide.findMany).mockResolvedValue([
-			{ slug: "one", topic: { slug: "making-better-decisions" } },
+			{
+				slug: "one",
+				topic: { slug: "making-better-decisions", published: true },
+			},
 			{ slug: "two", topic: null },
 		] as never)
 
@@ -760,9 +763,25 @@ describe("findGuidesBecameLive", () => {
 				published: true,
 				publishedAt: { gt: windowStart, lte: now },
 			},
-			select: { slug: true, topic: { select: { slug: true } } },
+			select: {
+				slug: true,
+				topic: { select: { slug: true, published: true } },
+			},
 			take: 50,
 		})
+	})
+
+	it("reports no topic for a guide under an unpublished one", async () => {
+		// `/guides/:topicSlug` 404s while the topic is unpublished, so busting its
+		// tag is work with nothing to regenerate. The guide still surfaces:
+		// `getGuidesOverview` lists it as ungrouped, which `GUIDES_TAG` covers.
+		vi.mocked(prisma.guide.findMany).mockResolvedValue([
+			{ slug: "one", topic: { slug: "a-draft-topic", published: false } },
+		] as never)
+
+		const result = await findGuidesBecameLive(windowStart, now, 50)
+
+		expect(result).toEqual([{ slug: "one", topicSlug: null }])
 	})
 
 	it("bounds the result with the caller's limit", async () => {
@@ -815,8 +834,13 @@ describe("revalidateGuideDetails", () => {
 
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideDetails(["one", "two"])
+		revalidateGuideDetails([
+			{ slug: "one", topicSlug: "a-topic" },
+			{ slug: "two", topicSlug: null },
+		])
 
+		// The topic slug rides along for `revalidateGuideTopicHubs`; this helper
+		// must ignore it.
 		expect(vi.mocked(revalidateTag).mock.calls.map((call) => call[0])).toEqual([
 			"guide-detail-one",
 			"guide-detail-two",
@@ -875,6 +899,21 @@ describe("revalidateGuideTopicHubs", () => {
 		revalidateGuideTopicHubs([])
 
 		expect(revalidateTag).not.toHaveBeenCalled()
+	})
+
+	it("leaves the aggregate alone, unlike revalidateGuideTopic", () => {
+		// The name reads as "revalidateGuideTopic, N times", and it deliberately
+		// isn't: the cron busts GUIDES_TAG itself. A caller that swapped one for
+		// the other would silently double-bust, or under-bust the other way.
+		vi.mocked(revalidateTag).mockClear()
+
+		revalidateGuideTopicHubs([
+			{ slug: "one", topicSlug: "making-better-decisions" },
+		])
+
+		expect(
+			vi.mocked(revalidateTag).mock.calls.map((call) => call[0])
+		).not.toContain("guides")
 	})
 })
 

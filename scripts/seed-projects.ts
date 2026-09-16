@@ -1,14 +1,8 @@
 import "dotenv/config"
-import { PrismaPg } from "@prisma/adapter-pg"
-import {
-	PlatformBucket,
-	PlatformTag,
-	PrismaClient,
-} from "../src/generated/prisma/client"
+import { PlatformBucket, PlatformTag } from "../src/generated/prisma/client"
+import { makeScriptPrisma } from "../src/lib/db/scriptPrisma"
 
-const prisma = new PrismaClient({
-	adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
-})
+const prisma = makeScriptPrisma()
 
 type ProjectInput = {
 	name: string

@@ -31,8 +31,8 @@
 import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
-import { PrismaPg } from "@prisma/adapter-pg"
-import { Prisma, PrismaClient } from "@/generated/prisma/client"
+import { Prisma } from "@/generated/prisma/client"
+import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import {
 	DRAFTS_FOLDER,
 	type ExistingGuide,
@@ -62,18 +62,6 @@ const unknownFlags = argv.filter(
 // #endregion
 
 // #region helpers
-
-function makePrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
-
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials before importing (e.g. `vercel env pull`)."
-		)
-	}
-
-	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
-}
 
 /**
  * Walks the guides root one level deep: root `*.md` files are ungrouped guides,
@@ -190,7 +178,7 @@ async function main(): Promise<void> {
 	)
 
 	const parsed = parseGuideFiles(files)
-	const prisma = makePrisma()
+	const prisma = makeScriptPrisma()
 
 	try {
 		const topicSlugs = parsed.topics.map((topic) => topic.slug)

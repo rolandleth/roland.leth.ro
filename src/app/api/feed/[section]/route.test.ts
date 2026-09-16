@@ -289,3 +289,45 @@ describe("GET /api/feed/:section", () => {
 		expect(text).not.toContain("<published>undefined</published>")
 	})
 })
+
+// #region scheduled posts
+
+describe("GET /api/feed/:section — scheduled posts", () => {
+	/** A `datetime` far enough ahead that no clock in a test run reaches it. */
+	const FUTURE = "2099-01-01-0900"
+
+	it("omits a future-dated post from the entries", async () => {
+		// The cached payload deliberately holds scheduled rows so the route can
+		// surface them at the next regeneration without a fresh query. The
+		// read-time filter is what keeps them out of the XML until then.
+		vi.mocked(prisma.post.count).mockResolvedValue(1)
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			{ ...basePost, slug: "scheduled", title: "Scheduled", datetime: FUTURE },
+			basePost,
+		])
+
+		const text = await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(text).toContain("<title>Test Post</title>")
+		expect(text).not.toContain("<title>Scheduled</title>")
+	})
+
+	it("pads `take` by the scheduled-post count, so filtering still fills a page", async () => {
+		vi.mocked(prisma.post.count).mockResolvedValue(5)
+
+		await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(vi.mocked(prisma.post.findMany).mock.calls[0]?.[0]?.take).toBe(25)
+	})
+
+	it("caps the padding, so a bulk import of future posts can't unbound the render", async () => {
+		// Every padded row is a markdown render on each regeneration.
+		vi.mocked(prisma.post.count).mockResolvedValue(10_000)
+
+		await GET(...makeRequest("tech")).then((r) => r.text())
+
+		expect(vi.mocked(prisma.post.findMany).mock.calls[0]?.[0]?.take).toBe(220)
+	})
+})
+
+// #endregion

@@ -1,8 +1,9 @@
-// Blob-store synchronisation for the project importer: which images to reuse,
-// which to upload, and which stored blobs are orphans to prune. All I/O goes
-// through the injected `BlobStore`, so every branch here is unit-testable with
-// in-memory fakes; `scripts/import-projects.ts` wires in the real
-// `@vercel/blob` SDK (and owns its SDK-specific knobs like `allowOverwrite`).
+// Blob-store synchronisation: which images the project importer reuses or
+// uploads, which stored blobs are orphans to prune, and the listing and batched
+// delete primitives the admin-upload sweep (`uploadPrune.ts`) shares. All I/O
+// goes through the injected `BlobStore`, so every branch here is unit-testable
+// with in-memory fakes; the scripts wire in the real `@vercel/blob` SDK (and own
+// SDK-specific knobs like `allowOverwrite`).
 
 import { blobPrefixFor } from "@/lib/import/projectImport"
 
@@ -12,7 +13,11 @@ export type StoredBlob = {
 	size: number
 }
 
-export type ListedBlob = StoredBlob & { pathname: string }
+export type ListedBlob = StoredBlob & {
+	pathname: string
+	/** When the blob was written. The upload sweep's grace period reads it. */
+	uploadedAt: Date
+}
 
 export type BlobListPage = {
 	blobs: ListedBlob[]
@@ -49,32 +54,64 @@ const UPLOAD_CONCURRENCY = 4
 const DELETE_BATCH_SIZE = 50
 
 /**
- * Lists every blob under `projects/<slug>/`, keyed by pathname. Walks the
+ * Lists every blob under `prefix` (`""` for the whole store). Walks the
  * paginated `list` to the last page — reading only page one would hide later
- * blobs from the reuse path (spurious re-uploads) and from the prune path
- * (orphans that never get deleted). Errors propagate raw; the caller decides
- * which are fatal.
+ * blobs from every caller: spurious re-uploads on the reuse path, orphans that
+ * never get deleted on both prune paths. Errors propagate raw; the caller
+ * decides which are fatal.
  */
-export async function listProjectBlobs(
-	store: BlobStore,
-	slug: string
-): Promise<Map<string, StoredBlob>> {
-	const byPathname = new Map<string, StoredBlob>()
+export async function listBlobs(
+	store: Pick<BlobStore, "list">,
+	prefix: string
+): Promise<ListedBlob[]> {
+	const blobs: ListedBlob[] = []
 	let cursor: string | undefined
 
 	do {
-		const page = await store.list({ prefix: blobPrefixFor(slug), cursor })
+		const page = await store.list({ prefix, cursor })
 
-		for (const blob of page.blobs) {
-			byPathname.set(blob.pathname, { url: blob.url, size: blob.size })
-		}
+		blobs.push(...page.blobs)
 
 		// A page claiming more results without a cursor would otherwise loop
 		// forever; treat it as the last page.
 		cursor = page.hasMore ? page.cursor : undefined
 	} while (cursor != null)
 
-	return byPathname
+	return blobs
+}
+
+/** Every blob under `projects/<slug>/`, keyed by pathname. */
+export async function listProjectBlobs(
+	store: Pick<BlobStore, "list">,
+	slug: string
+): Promise<Map<string, StoredBlob>> {
+	const blobs = await listBlobs(store, blobPrefixFor(slug))
+
+	return new Map(
+		blobs.map((blob) => [blob.pathname, { url: blob.url, size: blob.size }])
+	)
+}
+
+/**
+ * Deletes `blobs` `DELETE_BATCH_SIZE` at a time, logging each pathname with
+ * `note` once its batch succeeds — so a failure mid-sweep leaves a log of
+ * exactly what went, never a line for a blob that didn't. Errors propagate raw.
+ */
+export async function deleteBlobs(
+	store: Pick<BlobStore, "del">,
+	blobs: readonly Pick<ListedBlob, "url" | "pathname">[],
+	log: Logger,
+	note: string
+): Promise<void> {
+	for (let start = 0; start < blobs.length; start += DELETE_BATCH_SIZE) {
+		const batch = blobs.slice(start, start + DELETE_BATCH_SIZE)
+
+		await store.del(batch.map((blob) => blob.url))
+
+		for (const blob of batch) {
+			log(`  × ${blob.pathname} (${note})`)
+		}
+	}
 }
 
 /**
@@ -173,24 +210,10 @@ export async function pruneOrphans(
 	referencedUrls: ReadonlySet<string>,
 	log: Logger
 ): Promise<number> {
-	const stored = await listProjectBlobs(store, slug)
-	const orphans: ListedBlob[] = []
+	const stored = await listBlobs(store, blobPrefixFor(slug))
+	const orphans = stored.filter((blob) => !referencedUrls.has(blob.url))
 
-	for (const [pathname, blob] of stored) {
-		if (!referencedUrls.has(blob.url)) {
-			orphans.push({ pathname, ...blob })
-		}
-	}
-
-	for (let start = 0; start < orphans.length; start += DELETE_BATCH_SIZE) {
-		const batch = orphans.slice(start, start + DELETE_BATCH_SIZE)
-
-		await store.del(batch.map((orphan) => orphan.url))
-
-		for (const orphan of batch) {
-			log(`  × ${orphan.pathname} (pruned)`)
-		}
-	}
+	await deleteBlobs(store, orphans, log, "pruned")
 
 	return orphans.length
 }
