@@ -212,7 +212,10 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 
 		expect(data).toMatchObject({ revalidated: true, dueGuides: 2 })
 		expect(revalidateGuides).toHaveBeenCalled()
-		expect(revalidateGuideDetails).toHaveBeenCalledWith(["a", "b"])
+		expect(revalidateGuideDetails).toHaveBeenCalledWith([
+			dueGuide("a"),
+			dueGuide("b"),
+		])
 		expect(revalidatePostSection).not.toHaveBeenCalled()
 		expect(revalidatePostDetails).not.toHaveBeenCalled()
 	})
@@ -231,10 +234,12 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 	})
 
 	it("busts both when a post and a guide came due in the same window", async () => {
+		const due = [dueGuide("a", "making-better-decisions")]
+
 		vi.mocked(findPostsBecameLive).mockResolvedValue([
 			{ section: "tech", slug: "one" },
 		])
-		vi.mocked(findGuidesBecameLive).mockResolvedValue([dueGuide("a")])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(due)
 
 		await GET(authorized())
 
@@ -242,6 +247,9 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 		expect(revalidatePostDetails).toHaveBeenCalled()
 		expect(revalidateGuides).toHaveBeenCalled()
 		expect(revalidateGuideDetails).toHaveBeenCalled()
+		// Asserted here too: a regression that dropped the hub bust only on the
+		// combined path would otherwise be caught by a single test.
+		expect(revalidateGuideTopicHubs).toHaveBeenCalledWith(due)
 	})
 
 	it("logs the slugs, not just the counts", async () => {
@@ -255,7 +263,11 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			{ section: "tech", slug: "one" },
 			{ section: "life", slug: "two" },
 		])
-		vi.mocked(findGuidesBecameLive).mockResolvedValue([dueGuide("a-guide")])
+		vi.mocked(findGuidesBecameLive).mockResolvedValue([
+			dueGuide("a-guide", "making-better-decisions"),
+			dueGuide("another", "making-better-decisions"),
+			dueGuide("ungrouped"),
+		])
 
 		await GET(authorized())
 
@@ -263,7 +275,11 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			expect.stringContaining("revalidated for due content"),
 			expect.objectContaining({
 				duePostSlugs: ["tech/one", "life/two"],
-				dueGuideSlugs: ["a-guide"],
+				dueGuideSlugs: ["a-guide", "another", "ungrouped"],
+				// Deduped, and ungrouped guides contribute none. Without this a hub
+				// reported stale after a run can't be told apart from one that never
+				// had a bust issued for it.
+				dueGuideTopicSlugs: ["making-better-decisions"],
 			})
 		)
 	})
@@ -523,7 +539,7 @@ describe("GET /api/cron/revalidate-scheduled — due-row cap", () => {
 
 		expect(revalidateAllPosts).toHaveBeenCalled()
 		expect(revalidateAllGuides).not.toHaveBeenCalled()
-		expect(revalidateGuideDetails).toHaveBeenCalledWith(["a"])
+		expect(revalidateGuideDetails).toHaveBeenCalledWith([dueGuide("a")])
 	})
 
 	it("asks for one row more than it will process individually", async () => {

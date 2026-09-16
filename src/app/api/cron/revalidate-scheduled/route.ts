@@ -180,8 +180,26 @@ function revalidateForDueGuides(
 	}
 
 	revalidateGuides()
-	revalidateGuideDetails(dueGuides.map((guide) => guide.slug))
+	revalidateGuideDetails(dueGuides)
 	revalidateGuideTopicHubs(dueGuides)
+}
+
+/**
+ * The topic hubs `revalidateGuideTopicHubs` will bust for this run, deduped, for
+ * the log.
+ *
+ * Logged because a hub reported stale afterwards has two possible causes that
+ * the slug list alone can't tell apart: no bust was issued (every due guide is
+ * ungrouped, or sits under an unpublished topic) or one was and didn't take.
+ */
+function dueTopicSlugs(dueGuides: GuideRef[]): string[] {
+	return [
+		...new Set(
+			dueGuides.flatMap((guide) =>
+				guide.topicSlug == null ? [] : [guide.topicSlug]
+			)
+		),
+	]
 }
 
 /**
@@ -306,6 +324,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 			dueGuides.map((guide) => guide.slug),
 			guidesOverflowed
 		),
+		dueGuideTopicSlugs: slugField(dueTopicSlugs(dueGuides), guidesOverflowed),
 		// Carried even on the success path: without them a half that FAILED is
 		// indistinguishable here from a half that found nothing, since both report
 		// a count of 0.
