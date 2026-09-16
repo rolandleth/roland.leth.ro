@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { setupUser } from "@/test/user"
 import PostForm from "./PostForm"
 
@@ -16,21 +17,30 @@ vi.mock("@/components/admin/MarkdownEditor", () => ({
 }))
 // A plain input stands in for the upload widget, so a test can edit the URL
 // without the upload machinery.
+// The extra button lets a test drive `onUploadingChange` without the upload
+// machinery, since that is what gates Save.
 vi.mock("@/components/admin/ImageUpload", () => ({
 	default: ({
 		value,
 		onChange,
 		label,
+		onUploadingChange,
 	}: {
 		value: string
 		onChange: (value: string) => void
 		label: string
+		onUploadingChange?: (isUploading: boolean) => void
 	}) => (
-		<input
-			aria-label={label}
-			value={value}
-			onChange={(event) => onChange(event.target.value)}
-		/>
+		<>
+			<input
+				aria-label={label}
+				value={value}
+				onChange={(event) => onChange(event.target.value)}
+			/>
+			<button type="button" onClick={() => onUploadingChange?.(true)}>
+				Start upload
+			</button>
+		</>
 	),
 }))
 
@@ -152,6 +162,66 @@ describe("PostForm — create mode", () => {
 		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		expect(screen.getByRole("button", { name: /saving/i })).toBeInTheDocument()
+	})
+
+	it("sends an empty description and a null image when neither is filled in", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm />)
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+
+		// `""` is "derive one", not "leave the column"; `null` is a cleared image.
+		expect(JSON.parse(options.body)).toMatchObject({
+			description: "",
+			imageUrl: null,
+		})
+	})
+
+	it("sends an image URL that was set in the widget", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm />)
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+		await user.type(
+			screen.getByLabelText("Image"),
+			"https://example.com/cover.png"
+		)
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+
+		expect(JSON.parse(options.body).imageUrl).toBe(
+			"https://example.com/cover.png"
+		)
+	})
+
+	it("caps the description field at the schema's limit", () => {
+		mockRouter()
+		render(<PostForm />)
+
+		expect(screen.getByLabelText(/description/i)).toHaveAttribute(
+			"maxlength",
+			String(DESCRIPTION_MAX_CHARS)
+		)
+	})
+
+	it("disables Save while an image is uploading", async () => {
+		// Saving mid-upload persisted the row without the image and navigated
+		// away, aborting the request: the picked file was lost with nothing shown.
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /start upload/i }))
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
 	})
 })
 

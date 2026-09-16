@@ -139,6 +139,14 @@ export async function PUT(
 				// The shared rule: a request that doesn't send `description` (the
 				// Published toggle) or sends it unchanged leaves an authored one alone;
 				// `""` derives one. `undefined` means Prisma skips the column.
+				//
+				// Resolved into a per-attempt copy rather than onto `data`: the
+				// callback must not mutate state that outlives it, or a second run
+				// would start from the first run's description. Prisma doesn't retry
+				// serialization failures today, so this can't bite yet — but it would
+				// be the kind of bug a retry loop introduces silently.
+				const attemptData = { ...data }
+
 				if (previous != null) {
 					const description = descriptionForUpdate(previous, {
 						title: title ?? previous.title,
@@ -147,13 +155,13 @@ export async function PUT(
 					})
 
 					if (description !== undefined) {
-						data.description = description
+						attemptData.description = description
 					}
 				}
 
 				const post = await tx.post.update({
 					where: { id },
-					data,
+					data: attemptData,
 				})
 
 				return { previous, post }

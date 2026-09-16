@@ -9,12 +9,19 @@ interface Props {
 	value: string
 	onChange: (url: string) => void
 	label?: string
+	/**
+	 * Reports the in-flight upload so a parent form can disable Save. Submitting
+	 * mid-upload persists the row without the image and then navigates away, which
+	 * aborts the request: the picked file is lost with nothing shown.
+	 */
+	onUploadingChange?: (isUploading: boolean) => void
 }
 
 export default function ImageUpload({
 	value,
 	onChange,
 	label = "Image URL",
+	onUploadingChange,
 }: Props) {
 	const inputId = useId()
 	const inputRef = useRef<HTMLInputElement>(null)
@@ -29,6 +36,12 @@ export default function ImageUpload({
 	useEffect(() => {
 		return () => abortRef.current?.abort()
 	}, [])
+
+	// Mirrored to the parent in an effect rather than from `setIsUploading`'s call
+	// sites, so every path that flips it — success, failure, abort — reports.
+	useEffect(() => {
+		onUploadingChange?.(isUploading)
+	}, [isUploading, onUploadingChange])
 
 	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0]
