@@ -162,6 +162,24 @@ describe("PUT /api/admin/posts/[id]", () => {
 		expect(data.slug).toBeUndefined()
 	})
 
+	it("saves a post whose title `createSlug` empties", async () => {
+		// The import and bulk paths store such a title when the file carries a
+		// `slug:` line. The edit form sends the title on every save, so rejecting
+		// it here would make that post unsaveable from its first edit.
+		const title = "日本語のタイトル"
+		vi.mocked(prisma.post.update).mockResolvedValue({
+			...existingPost,
+			title,
+			slug: "japanese-title",
+		})
+
+		const response = await PUT(putRequest("1", { title }), params("1"))
+
+		expect(response.status).toBe(200)
+		const { data } = vi.mocked(prisma.post.update).mock.calls[0][0]
+		expect(data.title).toBe(title)
+	})
+
 	it("returns 400 for a non-numeric id", async () => {
 		const response = await PUT(putRequest("abc", { title: "T" }), params("abc"))
 		expect(response.status).toBe(400)

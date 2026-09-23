@@ -339,6 +339,10 @@ function parseGuideFile(
 	return {
 		relativePath: file.relativePath,
 		...candidate,
+		// The schema's output, not the raw fields: the schema collapses whitespace
+		// in both, and the parser trims only the ends.
+		title: validation.data.title,
+		description: validation.data.description,
 		topicFolder: file.topicFolder,
 		readingTime: calculateReadingTime(body),
 		publishedAt,

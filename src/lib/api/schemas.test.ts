@@ -967,7 +967,8 @@ describe("title whitespace", () => {
 	})
 
 	it("measures the 200-char post title cap after collapsing", () => {
-		// 199 characters once collapsed, so the cap must not see the raw string.
+		// Exactly the cap once collapsed, 204 raw, so the cap must not see the raw
+		// string.
 		const collapsesToFit = `${"x".repeat(100)}\n\n   ${"x".repeat(99)}`
 
 		expect(parsedPostTitle(collapsesToFit)).toHaveLength(200)
@@ -995,7 +996,7 @@ describe("title whitespace", () => {
 	})
 })
 
-describe("postFileSchema — the slug refinement", () => {
+describe("the title's slug refinement", () => {
 	const base = { body: "B", datetime: "2024-01-01-0900" }
 	// `createSlug` keeps only `[a-z0-9-]`, so this empties.
 	const title = "日本語のタイトル"
@@ -1008,6 +1009,18 @@ describe("postFileSchema — the slug refinement", () => {
 		const result = postFileSchema.safeParse({ ...base, title })
 
 		expect(result.success && result.data.title).toBe(title)
+	})
+
+	it("is not enforced by postUpdateSchema, which never derives a slug", () => {
+		// The edit form sends the title on every save, so a post imported under
+		// this title would otherwise fail its first edit.
+		const result = postUpdateSchema.safeParse({ title })
+
+		expect(result.success && result.data.title).toBe(title)
+	})
+
+	it("still rejects an empty title on update", () => {
+		expect(postUpdateSchema.safeParse({ title: "  " }).success).toBe(false)
 	})
 
 	it("still enforces every other rule on the file path", () => {

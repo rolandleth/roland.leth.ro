@@ -270,6 +270,8 @@ type PlanStep =
 export type PostFileValidation =
 	| {
 			ok: true
+			/** The file's title as the schema normalizes it. */
+			title: string
 			/** The file's description as the schema normalizes it; `undefined` when the file has none. */
 			description: string | undefined
 	  }
@@ -282,8 +284,10 @@ export type PostFileValidation =
  * script or the bulk upload either. The file's `description:` rides along, so
  * one past the schema's cap is a skip rather than a row the edit form can't save.
  *
- * Returns the description as the schema outputs it (whitespace collapsed), so
- * what's stored is what was measured, or the formatted issues as a skip reason.
+ * Returns the title and description as the schema outputs them (whitespace
+ * collapsed), or the formatted issues as a skip reason. Callers store these, not
+ * the parsed file's fields: the parser trims only the ends, so a raw title keeps
+ * any inner run of spaces or tabs the schema measured without.
  */
 export function validatePostFile(
 	file: ParsedPostFile,
@@ -301,7 +305,11 @@ export function validatePostFile(
 		return { ok: false, reason: describeIssues(result.error) }
 	}
 
-	return { ok: true, description: result.data.description ?? undefined }
+	return {
+		ok: true,
+		title: result.data.title,
+		description: result.data.description ?? undefined,
+	}
 }
 
 function planCreate(
@@ -318,11 +326,14 @@ function planCreate(
 		kind: "create",
 		create: {
 			filename: file.filename,
-			title: file.title,
+			title: validation.title,
 			slug: file.slug,
 			section: options.section,
 			body: file.body,
-			description: descriptionForCreate(file, validation.description),
+			description: descriptionForCreate(
+				{ title: validation.title, body: file.body },
+				validation.description
+			),
 			datetime: file.datetime,
 			readingTime: calculateReadingTime(file.body),
 			// Same rule as the bulk endpoint: future-dated files import as
@@ -346,8 +357,11 @@ function planOverwrite(
 
 	const data: PostUpdateData = {}
 
-	if (file.title !== existing.title) {
-		data.title = file.title
+	// The normalized title on both sides of the comparison: a file title that
+	// differs from the stored one only by a whitespace run plans no update, and a
+	// stored title from before the collapse rule is rewritten to its collapsed form.
+	if (validation.title !== existing.title) {
+		data.title = validation.title
 	}
 
 	if (file.datetime !== existing.datetime) {
@@ -371,7 +385,7 @@ function planOverwrite(
 	// one equal to the stored value, keeps an authored description and lets a
 	// derived one follow the new body.
 	const description = descriptionForUpdate(existing, {
-		title: file.title,
+		title: validation.title,
 		body: file.body,
 		description: validation.description,
 	})

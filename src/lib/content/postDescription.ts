@@ -15,7 +15,7 @@ import { deriveDescription } from "@/lib/content/markdown"
 //    `published`), or a file with no `description:` line;
 //  - `""` or `null`: cleared. The admin form sends `""` for an emptied field;
 //  - any other string: authored.
-// Callers pass it after `postCreateSchema` has collapsed its whitespace, so a
+// Callers pass it after a post schema has collapsed its whitespace, so a
 // description of only spaces arrives as `""`.
 
 type IncomingDescription = string | null | undefined
@@ -32,12 +32,13 @@ interface PostText {
  * The column is the meta description, the feed `<summary>` and the llms.txt line,
  * so a blank one would ship empty on all three.
  *
- * The title goes through the same collapse and cap as the excerpt. It is not
- * validated anywhere else on this path: `postCreateSchema` allows a 200-char
- * title and caps `description` at 160, and it collapses whitespace on the
- * description but not on the title. Without this, a prose-less body under a long
- * title stores an over-cap description that the edit form then rejects on every
- * save, and a title with a newline reaches the `.md` export's frontmatter.
+ * The title goes through the same collapse and cap as the excerpt. The cap is
+ * load-bearing: the post schemas allow a 200-char title and cap `description` at
+ * 160, and nothing validates a derived value, so a prose-less body under a long
+ * title would store an over-cap description that the edit form then rejects on
+ * every save. The collapse is a second line of defence: every caller passes a
+ * title a post schema has already collapsed, and this keeps a newline out of the
+ * `.md` export's frontmatter even if one stops doing so.
  */
 function derivedDescription(post: PostText): string {
 	const excerpt = deriveDescription(post.body)

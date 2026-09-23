@@ -461,6 +461,26 @@ Body.
 		expect(skipped[0].reason).toContain("slug")
 	})
 
+	it("stores the title and description as the schema measured them, inner whitespace collapsed", () => {
+		// The parser trims only the ends. The schema collapses both fields before
+		// it measures them, so storing the raw values let the runs reach the row.
+		const { guides } = parseGuideFiles([
+			rootGuideFile({
+				content: `---
+slug: g
+title: A  spaced \ttitle
+description: A   spaced description.
+---
+
+Body.
+`,
+			}),
+		])
+
+		expect(guides[0]?.title).toBe("A spaced title")
+		expect(guides[0]?.description).toBe("A spaced description.")
+	})
+
 	it("skips a description over the 160-char cap", () => {
 		const { skipped } = parseGuideFiles([
 			rootGuideFile({
@@ -675,6 +695,38 @@ describe("planGuideImport", () => {
 		expect(
 			result.skipped.every((skip) => skip.reason === UNCHANGED_SKIP_REASON)
 		).toBe(true)
+	})
+
+	it("plans no update when the file differs only by inner whitespace runs", () => {
+		// Comparing the raw fields planned an update here, and applying it wrote
+		// the runs back over values an admin save had collapsed.
+		const spaced = parseGuideFiles([
+			topicFile(),
+			guideFile({
+				content: `---
+slug: how-to-keep-a-decision-journal
+title: How to  keep a decision journal
+description: What to write down \tbefore an outcome exists, and why.
+sortOrder: 1
+---
+
+Guide body.
+`,
+			}),
+		])
+
+		const result = planGuideImport(
+			spaced,
+			{
+				topicsBySlug: new Map([["making-better-decisions", existingTopic]]),
+				guidesBySlug: new Map([
+					["how-to-keep-a-decision-journal", existingGuide],
+				]),
+			},
+			{ overwrite: true }
+		)
+
+		expect(result.guideUpdates).toEqual([])
 	})
 
 	it("plans an update carrying only the changed fields", () => {

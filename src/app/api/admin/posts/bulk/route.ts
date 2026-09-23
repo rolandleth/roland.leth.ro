@@ -68,13 +68,17 @@ function prepareBatch(
 
 		slugToFilename.set(file.slug, file.filename)
 		toInsert.push({
-			title: file.title,
+			// The schema's output, not `file.title`: the parser trims only the ends.
+			title: validation.title,
 			slug: file.slug,
 			body: file.body,
 			// The frontmatter's `description:` when the file carries one; derived
 			// from the body otherwise. The author can refine it in the admin edit
 			// form afterwards.
-			description: descriptionForCreate(file, validation.description),
+			description: descriptionForCreate(
+				{ title: validation.title, body: file.body },
+				validation.description
+			),
 			datetime: file.datetime,
 			section,
 			// Future-dated posts are published so the existing scheduled-post
