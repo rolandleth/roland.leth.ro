@@ -165,14 +165,8 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
 	const byTopicId = new Map<number, GuideListItem[]>()
 	const ungrouped: GuideListItem[] = []
-	// Captured once so a long list can't have rows disagreeing about "now".
-	const now = new Date()
 
-	for (const { topicId, ...guide } of guides) {
-		if (isScheduledGuide(guide.publishedAt, now)) {
-			continue
-		}
-
+	for (const { topicId, ...guide } of liveGuides(guides)) {
 		// No topic, or a topic that didn't come back published (unpublished between
 		// the guide's write and now) → ungrouped, so it stays listed somewhere
 		// rather than vanishing from every listing at once.
