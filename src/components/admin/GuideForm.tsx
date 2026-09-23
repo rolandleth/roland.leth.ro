@@ -1,6 +1,9 @@
 "use client"
 
 import { useCallback } from "react"
+import DescriptionField, {
+	isDescriptionOverCap,
+} from "@/components/admin/DescriptionField"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import {
 	type GuideFormProjectOption,
@@ -145,25 +148,12 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<label
-					htmlFor="description"
-					className="text-secondary text-sm font-medium"
-				>
-					Description
-				</label>
-				<textarea
-					id="description"
-					required
-					maxLength={160}
-					value={state.description}
-					onChange={(e) => setField("description", e.target.value)}
-					rows={3}
-					placeholder="150–160 characters. Meta description, OG description, and preview text."
-					className="admin-input"
-				/>
-				<p className="text-secondary text-xs">{state.description.length}/160</p>
-			</div>
+			<DescriptionField
+				value={state.description}
+				onChange={(v) => setField("description", v)}
+				placeholder="150–160 characters. Meta description, OG description, and preview text."
+				isRequired
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<label htmlFor="topicId" className="text-secondary text-sm font-medium">
@@ -265,7 +255,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 			<div className="flex items-center justify-between">
 				<button
 					type="submit"
-					disabled={isSubmitting}
+					disabled={isSubmitting || isDescriptionOverCap(state.description)}
 					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save guide"}

@@ -202,14 +202,27 @@ describe("PostForm — create mode", () => {
 		)
 	})
 
-	it("caps the description field at the schema's limit", () => {
+	it("disables Save while the description is past the schema's cap", async () => {
+		// The save would only come back as a 400.
 		mockRouter()
 		render(<PostForm />)
 
-		expect(screen.getByLabelText(/description/i)).toHaveAttribute(
-			"maxlength",
-			String(DESCRIPTION_MAX_CHARS)
-		)
+		await user.click(screen.getByLabelText(/description/i))
+		await user.paste("x".repeat(DESCRIPTION_MAX_CHARS + 1))
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
+	})
+
+	it("keeps Save enabled for a pasted description that fits once collapsed", async () => {
+		// 162 raw characters, 160 stored. The schema collapses before it measures,
+		// so the gate has to as well.
+		mockRouter()
+		render(<PostForm />)
+
+		await user.click(screen.getByLabelText(/description/i))
+		await user.paste(`${"x".repeat(80)}\n\n\n${"x".repeat(79)}`)
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeEnabled()
 	})
 
 	it("disables Save while an image is uploading", async () => {
