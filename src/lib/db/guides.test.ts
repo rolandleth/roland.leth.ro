@@ -870,7 +870,7 @@ describe("revalidateGuideTopicHubs", () => {
 		// for a guide that came due to appear in its list.
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([
+		const busted = revalidateGuideTopicHubs([
 			{ slug: "one", topicSlug: "making-better-decisions" },
 			{ slug: "two", topicSlug: "making-better-decisions" },
 			{ slug: "three", topicSlug: "managing-people" },
@@ -880,12 +880,14 @@ describe("revalidateGuideTopicHubs", () => {
 			["guide-topic-making-better-decisions", "max"],
 			["guide-topic-managing-people", "max"],
 		])
+		// The cron logs this return value, so it must match the busts exactly.
+		expect(busted).toEqual(["making-better-decisions", "managing-people"])
 	})
 
 	it("skips ungrouped guides, which no hub lists", () => {
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([
+		const busted = revalidateGuideTopicHubs([
 			{ slug: "one", topicSlug: null },
 			{ slug: "two", topicSlug: "managing-people" },
 		])
@@ -893,14 +895,16 @@ describe("revalidateGuideTopicHubs", () => {
 		expect(vi.mocked(revalidateTag).mock.calls).toEqual([
 			["guide-topic-managing-people", "max"],
 		])
+		expect(busted).toEqual(["managing-people"])
 	})
 
 	it("does nothing for an empty list", () => {
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([])
+		const busted = revalidateGuideTopicHubs([])
 
 		expect(revalidateTag).not.toHaveBeenCalled()
+		expect(busted).toEqual([])
 	})
 
 	it("leaves the aggregate alone, unlike revalidateGuideTopic", () => {

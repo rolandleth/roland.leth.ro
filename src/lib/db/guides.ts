@@ -617,8 +617,13 @@ export function revalidateGuideDetails(guides: readonly GuideRef[]): void {
  * passes the same guides to `revalidateGuideDetails`. Reach for
  * `revalidateGuideTopic` when a topic's own publish state changed, and for this
  * when only its listing needs to catch up.
+ *
+ * Returns the hub slugs it busted, so a caller that logs them reports exactly
+ * this set rather than working it out a second time.
  */
-export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
+export function revalidateGuideTopicHubs(
+	guides: readonly GuideRef[]
+): string[] {
 	const topicSlugs = new Set(
 		guides.flatMap((guide) =>
 			guide.topicSlug == null ? [] : [guide.topicSlug]
@@ -628,6 +633,8 @@ export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
 	for (const topicSlug of topicSlugs) {
 		revalidateTag(guideTopicTag(topicSlug), "max")
 	}
+
+	return [...topicSlugs]
 }
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */

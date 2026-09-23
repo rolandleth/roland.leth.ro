@@ -30,7 +30,7 @@ vi.mock("@/lib/db/guides", () => ({
 	revalidateAllGuides: vi.fn(),
 	revalidateGuideDetails: vi.fn(),
 	revalidateGuides: vi.fn(),
-	revalidateGuideTopicHubs: vi.fn(),
+	revalidateGuideTopicHubs: vi.fn(() => []),
 }))
 
 /**
@@ -268,6 +268,12 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			dueGuide("another", "making-better-decisions"),
 			dueGuide("ungrouped"),
 		])
+		// The dedupe and the ungrouped skip are the helper's, tested with it. What
+		// this pins is that the log carries the helper's answer, not a copy of its
+		// logic that could drift and name hubs that were never busted.
+		vi.mocked(revalidateGuideTopicHubs).mockReturnValueOnce([
+			"making-better-decisions",
+		])
 
 		await GET(authorized())
 
@@ -276,15 +282,14 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			expect.objectContaining({
 				duePostSlugs: ["tech/one", "life/two"],
 				dueGuideSlugs: ["a-guide", "another", "ungrouped"],
-				// Deduped, and ungrouped guides contribute none. Without this a hub
-				// reported stale after a run can't be told apart from one that never
-				// had a bust issued for it.
+				// Without this a hub reported stale after a run can't be told apart
+				// from one that never had a bust issued for it.
 				dueGuideTopicSlugs: ["making-better-decisions"],
 			})
 		)
 	})
 
-	it("replaces the slug lists with a marker when a half overflowed", async () => {
+	it("replaces the slug list with a marker when the post half overflowed", async () => {
 		// Hundreds of slugs would bury the line, and the blanket bust makes
 		// "which ones" moot — but the line must say that is what happened rather
 		// than silently reporting an empty list.
@@ -299,6 +304,30 @@ describe("GET /api/cron/revalidate-scheduled — content came due", () => {
 			expect.objectContaining({
 				duePostSlugs: expect.stringContaining("over cap"),
 				duePosts: OVER_CAP,
+			})
+		)
+	})
+
+	it("replaces both guide slug lists with a marker when the guide half overflowed", async () => {
+		// The overflow branch busts no hub by name, so without the marker the hub
+		// field would read as an empty list: "no hub needed a bust", the opposite
+		// of what happened.
+		const info = vi.spyOn(console, "info").mockImplementation(() => {})
+
+		vi.mocked(findGuidesBecameLive).mockResolvedValue(
+			Array.from({ length: OVER_CAP }, (_, i) =>
+				dueGuide(`guide-${i}`, "making-better-decisions")
+			)
+		)
+
+		await GET(authorized())
+
+		expect(info).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				dueGuideSlugs: expect.stringContaining("over cap"),
+				dueGuideTopicSlugs: expect.stringContaining("over cap"),
+				dueGuides: OVER_CAP,
 			})
 		)
 	})
