@@ -23,10 +23,15 @@ import { PAGE_SIZE } from "@/lib/utils/pagination"
 // Scheduling works exactly as it does for posts: `published: true` with a future
 // `publishedAt` means "in the database, not yet live". The filter is applied at
 // READ time, on rows the cache already holds, never inside the cached function —
-// so a scheduled guide surfaces on the first request after its date passes, with
-// no cron and no manual revalidate. Capturing `now` inside the cache would
-// freeze the comparison at fill time and strand the guide until something else
-// evicted the entry.
+// so the date is checked again on every render, including one an unrelated tag
+// bust triggers. Capturing `now` inside the cache would freeze the comparison at
+// fill time, and such a render would keep hiding the guide.
+//
+// A render is still what surfaces it, and nothing renders at the moment the date
+// passes: every public guide route is static. The daily cron
+// (`/api/cron/revalidate-scheduled`) busts the aggregate, the due guide's detail
+// page and its topic hub. The read-time filter does not make those busts
+// optional.
 //
 // Topics don't schedule: they have no `publishedAt` (a hub is a landing page,
 // not a dated piece), so a published topic is live immediately. Its guide list
@@ -150,8 +155,9 @@ const guidesOverviewCache = unstable_cache(
  * Published topics (each with its published guides) plus the ungrouped
  * remainder — guides with no topic, or whose topic is unpublished (see the
  * publish-state note at the top of this file). Scheduled guides are filtered
- * out here, at read time, so they surface the first request after their date
- * passes.
+ * out here, at read time, so every render checks the date again; the render
+ * after a guide comes due is the cron's `GUIDES_TAG` bust (see the scheduling
+ * note at the top of this file).
  *
  * simplified: groups the full guide set in memory rather than querying per
  * topic. Correct and cheap at tens of guides; if this grows into the hundreds,
@@ -165,14 +171,8 @@ export async function getGuidesOverview(): Promise<GuidesOverview> {
 	const publishedTopicIds = new Set(topics.map((topic) => topic.id))
 	const byTopicId = new Map<number, GuideListItem[]>()
 	const ungrouped: GuideListItem[] = []
-	// Captured once so a long list can't have rows disagreeing about "now".
-	const now = new Date()
 
-	for (const { topicId, ...guide } of guides) {
-		if (isScheduledGuide(guide.publishedAt, now)) {
-			continue
-		}
-
+	for (const { topicId, ...guide } of liveGuides(guides)) {
 		// No topic, or a topic that didn't come back published (unpublished between
 		// the guide's write and now) → ungrouped, so it stays listed somewhere
 		// rather than vanishing from every listing at once.
@@ -312,10 +312,11 @@ export async function getGuideBySlug(
 		return null
 	}
 
-	// Applied to the cached row rather than in the query, so a scheduled guide
-	// starts resolving the first request after its date passes without waiting
-	// for a cache bust — and 404s until then, so the canonical URL never serves
-	// a page ahead of its date.
+	// Applied to the cached row rather than in the query, so every render checks
+	// the date again, and the canonical URL 404s until it passes — never a page
+	// ahead of its date. The route is static and pins that 404, so the render
+	// that lets the guide through is the cron's detail bust
+	// (`revalidateGuideDetails`), not the date passing.
 	return isScheduledGuide(guide.publishedAt, new Date()) ? null : guide
 }
 
@@ -616,8 +617,13 @@ export function revalidateGuideDetails(guides: readonly GuideRef[]): void {
  * passes the same guides to `revalidateGuideDetails`. Reach for
  * `revalidateGuideTopic` when a topic's own publish state changed, and for this
  * when only its listing needs to catch up.
+ *
+ * Returns the hub slugs it busted, so a caller that logs them reports exactly
+ * this set rather than working it out a second time.
  */
-export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
+export function revalidateGuideTopicHubs(
+	guides: readonly GuideRef[]
+): string[] {
 	const topicSlugs = new Set(
 		guides.flatMap((guide) =>
 			guide.topicSlug == null ? [] : [guide.topicSlug]
@@ -627,6 +633,8 @@ export function revalidateGuideTopicHubs(guides: readonly GuideRef[]): void {
 	for (const topicSlug of topicSlugs) {
 		revalidateTag(guideTopicTag(topicSlug), "max")
 	}
+
+	return [...topicSlugs]
 }
 
 /** One guide's detail page plus the aggregates. Leaves sibling guide pages alone. */

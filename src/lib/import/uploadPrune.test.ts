@@ -204,10 +204,13 @@ describe("reasonToRefuseApply", () => {
 		expect(reasonToRefuseApply(emptyPlan())).toBeNull()
 	})
 
-	it("allows deleting orphans when the database references other uploads", () => {
+	it("allows deleting orphans when the database references more uploads", () => {
 		const plan: UploadPrunePlan = {
 			...emptyPlan(),
-			referenced: [upload(`${ID_A}-kept.png`)],
+			referenced: [
+				upload(`${ID_A}-kept.png`),
+				upload(`${ID_A.replace("0f8e", "1f1e")}-kept.png`),
+			],
 			unreferenced: [upload(`${ID_B}-orphan.png`)],
 		}
 
@@ -227,6 +230,50 @@ describe("reasonToRefuseApply", () => {
 		expect(reason).toContain("DATABASE_URL")
 		expect(reason).toContain("BLOB_READ_WRITE_TOKEN")
 		expect(reason).toContain("2 uploads")
+	})
+
+	it("refuses when orphans outnumber the uploads the database references", () => {
+		// A dev database that saved one image to the shared store, or a stale copy
+		// of production: it references some uploads, so the zero check alone let
+		// `--apply` delete every image it didn't know.
+		const plan: UploadPrunePlan = {
+			...emptyPlan(),
+			referenced: [upload(`${ID_A}-kept.png`)],
+			unreferenced: [
+				upload(`${ID_B}-b.png`),
+				upload(`${ID_B.replace("9a8b", "1a1b")}-c.png`),
+			],
+		}
+
+		const reason = reasonToRefuseApply(plan)
+
+		expect(reason).toContain("would delete 2 uploads")
+		expect(reason).toContain("references only 1")
+	})
+
+	it("allows as many orphans as referenced uploads, the boundary", () => {
+		const plan: UploadPrunePlan = {
+			...emptyPlan(),
+			referenced: [upload(`${ID_A}-kept.png`)],
+			unreferenced: [upload(`${ID_B}-orphan.png`)],
+		}
+
+		expect(reasonToRefuseApply(plan)).toBeNull()
+	})
+
+	it("doesn't count recent uploads on either side", () => {
+		// Recent ones are kept whatever the database says, so they are neither
+		// evidence of a match nor something the sweep would delete.
+		const plan: UploadPrunePlan = {
+			referenced: [upload(`${ID_A}-kept.png`)],
+			recent: [
+				upload(`${ID_B}-fresh.png`, NOW),
+				upload(`${ID_B.replace("9a8b", "2a2b")}-fresh.png`, NOW),
+			],
+			unreferenced: [upload(`${ID_B.replace("9a8b", "3a3b")}-orphan.png`)],
+		}
+
+		expect(reasonToRefuseApply(plan)).toBeNull()
 	})
 
 	it("allows a plan whose only unreferenced uploads are still recent", () => {

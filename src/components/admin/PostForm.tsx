@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import DescriptionField, {
+	isDescriptionOverCap,
+} from "@/components/admin/DescriptionField"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
-import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -163,29 +165,11 @@ export default function PostForm({ initialData }: Props) {
 				</label>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<label
-					htmlFor="description"
-					className="text-secondary text-sm font-medium"
-				>
-					Description
-				</label>
-				<textarea
-					id="description"
-					value={state.description}
-					onChange={(e) => setField("description", e.target.value)}
-					rows={3}
-					// The schema's cap. Without it the only feedback is a 400 after a
-					// save round-trip, which is also how an over-cap value derived
-					// before the cap existed stayed invisible.
-					maxLength={DESCRIPTION_MAX_CHARS}
-					placeholder="Optional. The meta description for search, social cards and the feed; derived from the body when empty."
-					className="admin-input"
-				/>
-				<span className="text-secondary self-end text-xs">
-					{state.description.length}/{DESCRIPTION_MAX_CHARS}
-				</span>
-			</div>
+			<DescriptionField
+				value={state.description}
+				onChange={(v) => setField("description", v)}
+				placeholder="Optional. The meta description for search, social cards and the feed; derived from the body when empty."
+			/>
 
 			<ImageUpload
 				value={state.imageUrl}
@@ -213,7 +197,11 @@ export default function PostForm({ initialData }: Props) {
 			<div className="flex items-center justify-between">
 				<button
 					type="submit"
-					disabled={isSubmitting || isUploading}
+					disabled={
+						isSubmitting ||
+						isUploading ||
+						isDescriptionOverCap(state.description)
+					}
 					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save post"}

@@ -78,13 +78,10 @@ const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
 // `derivedDescription` falls back to it for a body with no prose.
 const postTitle = collapsedWhitespace.pipe(z.string().min(1).max(200))
 
-export const postCreateSchema = z.object({
-	// The admin form derives the slug from the title, so a title `createSlug`
-	// empties has to be caught here. The import and bulk paths don't use this
-	// schema — see `postFileSchema`.
-	title: postTitle.pipe(
-		z.string().refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE })
-	),
+// Every post write path's rules, minus the one that only holds where the slug is
+// derived from the title. Only `postCreateSchema` adds it back.
+const postFields = {
+	title: postTitle,
 	body: z.string().min(1).max(100_000),
 	datetime: postDatetime,
 	// The meta description. Optional because the routes derive one from the body
@@ -97,13 +94,30 @@ export const postCreateSchema = z.object({
 	imageUrl: httpUrl.nullable().optional(),
 	section: z.enum(SECTIONS).optional(),
 	published: z.boolean().optional(),
+}
+
+export const postCreateSchema = z.object({
+	...postFields,
+	// The admin form derives the slug from the title, so a title `createSlug`
+	// empties has to be caught here. No other write path derives a slug from the
+	// title — see `postFileSchema` and `postUpdateSchema`.
+	title: postTitle.pipe(
+		z.string().refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE })
+	),
 })
 
-export const postUpdateSchema = postCreateSchema.partial()
+/**
+ * The admin edit route's contract. No slug refinement on the title: the route
+ * never re-derives the slug, so a title `createSlug` empties is harmless here.
+ * Keeping the refinement made a post imported with such a title (and an explicit
+ * `slug:`) fail on its first save, because the edit form sends the title every
+ * time.
+ */
+export const postUpdateSchema = z.object(postFields).partial()
 
 /**
- * `postCreateSchema` minus the title's slug refinement, for the import script
- * and the admin bulk upload.
+ * The import script's and the admin bulk upload's contract. No slug refinement
+ * on the title.
  *
  * Both resolve the slug from the file's `slug:` line and fall back to the title
  * only when that line is absent — `resolveSlug` decides, and reports an empty
@@ -111,7 +125,7 @@ export const postUpdateSchema = postCreateSchema.partial()
  * Refining the title here as well rejected a file whose explicit slug was
  * perfectly good, with a message blaming a title the slug never came from.
  */
-export const postFileSchema = postCreateSchema.extend({ title: postTitle })
+export const postFileSchema = z.object(postFields)
 
 // Per-file payload mirrors the strictest body limit from `postCreateSchema`,
 // so a malformed file is rejected at the parser before it ever reaches the

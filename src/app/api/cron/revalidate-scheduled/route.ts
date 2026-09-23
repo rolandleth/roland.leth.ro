@@ -168,38 +168,28 @@ function revalidateForDuePosts(duePosts: PostRef[], overflowed: boolean): void {
  * The guide-side counterpart, with the same overflow switch. Where a due post
  * busts every section's list, a due guide busts the lists that can hold it: the
  * aggregate (`/guides`, llms.txt, the sitemap) and its own topic hub.
+ *
+ * Returns the topic hubs it busted, for the log, taken from
+ * `revalidateGuideTopicHubs` itself so the log can't name a hub that was never
+ * busted. Empty on the overflow branch, whose blanket bust covers every hub.
+ * Logged because a hub reported stale afterwards has two possible causes that
+ * the guide slugs alone can't tell apart: no bust was issued (every due guide is
+ * ungrouped, or sits under an unpublished topic) or one was and didn't take.
  */
 function revalidateForDueGuides(
 	dueGuides: GuideRef[],
 	overflowed: boolean
-): void {
+): string[] {
 	if (overflowed) {
 		revalidateAllGuides()
 
-		return
+		return []
 	}
 
 	revalidateGuides()
 	revalidateGuideDetails(dueGuides)
-	revalidateGuideTopicHubs(dueGuides)
-}
 
-/**
- * The topic hubs `revalidateGuideTopicHubs` will bust for this run, deduped, for
- * the log.
- *
- * Logged because a hub reported stale afterwards has two possible causes that
- * the slug list alone can't tell apart: no bust was issued (every due guide is
- * ungrouped, or sits under an unpublished topic) or one was and didn't take.
- */
-function dueTopicSlugs(dueGuides: GuideRef[]): string[] {
-	return [
-		...new Set(
-			dueGuides.flatMap((guide) =>
-				guide.topicSlug == null ? [] : [guide.topicSlug]
-			)
-		),
-	]
+	return revalidateGuideTopicHubs(dueGuides)
 }
 
 /**
@@ -305,9 +295,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 		revalidateForDuePosts(duePosts, postsOverflowed)
 	}
 
-	if (dueGuides.length > 0) {
-		revalidateForDueGuides(dueGuides, guidesOverflowed)
-	}
+	const bustedTopicSlugs =
+		dueGuides.length > 0
+			? revalidateForDueGuides(dueGuides, guidesOverflowed)
+			: []
 
 	// The slugs, not just the counts: this run is the only thing standing between
 	// scheduled content and a pinned 404 on its detail URL, so a failure to
@@ -324,7 +315,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 			dueGuides.map((guide) => guide.slug),
 			guidesOverflowed
 		),
-		dueGuideTopicSlugs: slugField(dueTopicSlugs(dueGuides), guidesOverflowed),
+		dueGuideTopicSlugs: slugField(bustedTopicSlugs, guidesOverflowed),
 		// Carried even on the success path: without them a half that FAILED is
 		// indistinguishable here from a half that found nothing, since both report
 		// a count of 0.

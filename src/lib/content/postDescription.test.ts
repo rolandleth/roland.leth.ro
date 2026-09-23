@@ -56,7 +56,7 @@ describe("descriptionForCreate", () => {
 	})
 
 	it("caps the title fallback at the description limit", () => {
-		// `postCreateSchema` allows a 200-char title and caps `description` at 160,
+		// The post schemas allow a 200-char title and cap `description` at 160,
 		// and nothing validates a derived value. Storing the title verbatim made
 		// every later save of that post 400 from the edit form.
 		const title = "word ".repeat(60).trim()
@@ -71,8 +71,9 @@ describe("descriptionForCreate", () => {
 	})
 
 	it("collapses whitespace in the title fallback", () => {
-		// `postCreateSchema` collapses the description but not the title, so an
-		// uncollapsed fallback is a newline's way into the `.md` frontmatter.
+		// Every caller passes a collapsed title today. This pins the second line of
+		// defence: an uncollapsed fallback would be a newline's way into the `.md`
+		// frontmatter.
 		const result = descriptionForCreate(
 			{ title: "A title\nwith  breaks", body: CODE_ONLY_BODY },
 			undefined

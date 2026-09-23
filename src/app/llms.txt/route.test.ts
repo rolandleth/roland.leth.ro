@@ -200,14 +200,35 @@ describe("llms.txt — guides", () => {
 	})
 
 	it("slots the section between Projects and Site", async () => {
+		// A project is mocked so `## Projects` exists. Without one, its index is
+		// -1, and the first comparison passes whatever the order.
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([projectStub()])
 		vi.mocked(getGuidesOverview).mockResolvedValue({
 			topics: [],
 			ungrouped: [makeGuideListItem()],
 		})
 
 		const body = await (await GET()).text()
-		expect(body.indexOf("## Projects")).toBeLessThan(body.indexOf("## Guides"))
-		expect(body.indexOf("## Guides")).toBeLessThan(body.indexOf("## Site"))
+		const projects = body.indexOf("## Projects")
+		const guides = body.indexOf("## Guides")
+
+		expect(projects).toBeGreaterThan(-1)
+		expect(projects).toBeLessThan(guides)
+		expect(guides).toBeLessThan(body.indexOf("## Site"))
+	})
+
+	it("lists a published hub whose guides are all still scheduled", async () => {
+		// Topics don't schedule, so the hub page is live even with nothing to list.
+		const topic = topicStub([])
+		vi.mocked(getGuidesOverview).mockResolvedValue({
+			topics: [topic],
+			ungrouped: [],
+		})
+
+		const body = await (await GET()).text()
+
+		expect(body).toContain("## Guides")
+		expect(body).toContain(`- [${topic.title}](${BASE}/guides/${topic.slug})`)
 	})
 
 	it("tells agents that guides, not topic hubs, serve raw markdown at `.md`", async () => {

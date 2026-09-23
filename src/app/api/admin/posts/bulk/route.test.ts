@@ -339,6 +339,27 @@ describe("POST /api/admin/posts/bulk frontmatter", () => {
 		expect(data[0].description).toBe("Actual body text.")
 	})
 
+	it("stores the title as the schema measured it, inner whitespace collapsed", async () => {
+		// Written by hand: `buildPostFile` collapses the title, so `file()` can't
+		// carry the run a hand-edited file can.
+		await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					{
+						filename: "2026-05-15-spaced.md",
+						content: `---\ntitle: "A \t  real   post"\n---\n\nBody.`,
+					},
+				],
+			})
+		)
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ title: string }>
+		expect(data[0].title).toBe("A real post")
+	})
+
 	it("derives the slug from a title the filename can't hold", async () => {
 		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
 			{ id: 1, slug: "debuggex-com", section: "tech" } as never,

@@ -252,9 +252,10 @@ function escapeYamlDoubleQuoted(value: string): string {
  * block that neither reader can read back — `parseFrontmatter` returns a
  * truncated value with a stray quote, `parseFrontmatterFields` reports the line
  * malformed. `escapeYamlDoubleQuoted` handles `\` and `"`; a newline has no
- * escape here because the format has no place to put one. The schemas collapse
- * titles and descriptions on the way in, so this is the second line of defence
- * for a value that reached the database before that rule existed.
+ * escape here because the format has no place to put one. Every write path
+ * stores titles and descriptions as the schemas collapse them, so this is the
+ * second line of defence for a value that reached the database before that rule
+ * existed.
  */
 export function quotedFrontmatterLine(key: string, value: string): string {
 	return `${key}: "${escapeYamlDoubleQuoted(collapseWhitespace(value))}"`
@@ -276,8 +277,9 @@ export function frontmatterFile(
  * block, a blank line, then the body. `parseFrontmatter(buildPostFile(t, b))`
  * round-trips to `{ title: t, body: b }` for any body with no leading blank
  * lines, and for any title `collapseWhitespace` leaves alone — which is every
- * title the schemas admit, since they collapse on the way in. A title with
- * padding or an inner newline round-trips to its collapsed form, not to itself.
+ * title a write path stores, since each stores the schema's collapsed output. A
+ * title with padding or an inner whitespace run round-trips to its collapsed
+ * form, not to itself.
  */
 export function buildPostFile(title: string, body: string): string {
 	return frontmatterFile(

@@ -1,4 +1,5 @@
 import { getSiteUrl } from "@/lib/auth/env"
+import { collapseWhitespace } from "@/lib/content/descriptionRules"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
@@ -21,11 +22,6 @@ export const dynamic = "force-static"
 // generated from the same cached data the gallery, the guides and the blog
 // list use, so it can't drift from what's actually live.
 
-/** Collapses runtime whitespace (newlines, doubled spaces) so a summary fits on one line. */
-function oneLine(text: string): string {
-	return text.replace(/\s+/g, " ").trim()
-}
-
 /**
  * A markdown link label safe to drop into `[...]`. Titles are author-freeform, so
  * an unescaped `]` (or `[`) would close the label early and corrupt the link in
@@ -33,7 +29,7 @@ function oneLine(text: string): string {
  * itself) so the label survives verbatim.
  */
 function linkLabel(text: string): string {
-	return oneLine(text).replace(/([[\]\\])/g, "\\$1")
+	return collapseWhitespace(text).replace(/([[\]\\])/g, "\\$1")
 }
 
 /**
@@ -47,7 +43,7 @@ function linkLine(
 	text: string,
 	indent = ""
 ): string {
-	return `${indent}- [${linkLabel(label)}](${url}): ${oneLine(text)}`
+	return `${indent}- [${linkLabel(label)}](${url}): ${collapseWhitespace(text)}`
 }
 
 /**
@@ -55,8 +51,11 @@ function linkLine(
  * ungrouped guides. The nesting is the point — it's the only place the grouping
  * is expressed to an agent, since every URL in here is flat.
  *
- * Returns an empty string when there are no guides, so the section header is
- * omitted entirely rather than advertising a section that isn't there.
+ * Returns an empty string when there are no topics and no guides, so the
+ * section header is omitted entirely rather than advertising a section that isn't
+ * there. A published topic whose guides are all still scheduled keeps its hub
+ * line with nothing nested under it: topics don't schedule, so the hub page is
+ * live and lists nothing yet, and this says the same.
  */
 function guidesSection(base: string, overview: GuidesOverview): string {
 	const guideUrl = (slug: string) => `${base}/guides/${slug}`

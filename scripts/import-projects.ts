@@ -16,8 +16,9 @@
 // project's prefix that the new rows no longer reference (old keys of edited
 // images, strays from failed runs) are pruned unless `--no-prune` is passed.
 //
-// Targets prod by running with prod credentials in the environment (DATABASE_URL
-// + BLOB_READ_WRITE_TOKEN, e.g. via `vercel env pull`). Always `--dry-run` first.
+// Targets prod by running with prod credentials (DATABASE_URL +
+// BLOB_READ_WRITE_TOKEN) in `.env`, the one file the scripts load; see
+// `SCRIPT_CREDENTIALS_HINT`. Always `--dry-run` first.
 //
 // The mechanical half only: it transforms whatever the manifest says. Authoring
 // the manifest from marketing copy is the `app-copy-to-project` skill's job.
@@ -64,6 +65,7 @@ import {
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
+import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { errorMessage } from "@/lib/utils/errorMessage"
 
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -575,10 +577,10 @@ async function main(): Promise<void> {
 		return
 	}
 
-	if (!isDryRun && process.env.BLOB_READ_WRITE_TOKEN == null) {
+	if (!isDryRun && readScriptEnv("BLOB_READ_WRITE_TOKEN") == null) {
 		console.error(
 			"BLOB_READ_WRITE_TOKEN is not set — image upload would fail. " +
-				"Provide credentials (e.g. `vercel env pull`), or use --dry-run."
+				`${SCRIPT_CREDENTIALS_HINT} Or use --dry-run.`
 		)
 		process.exitCode = 1
 

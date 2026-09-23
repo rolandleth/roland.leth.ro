@@ -19,6 +19,18 @@ function fmFile(filename: string, title: string, body: string): ImportFile {
 	return { filename, content: buildPostFile(title, body) }
 }
 
+/**
+ * A post file whose title line is written verbatim. `buildPostFile` collapses
+ * the title, so it can't carry the inner whitespace run a hand-edited file can.
+ */
+function rawTitleFile(
+	filename: string,
+	title: string,
+	body: string
+): ImportFile {
+	return { filename, content: `---\ntitle: "${title}"\n---\n\n${body}` }
+}
+
 /** A post file that also carries an authored `description:` line. */
 function fmFileWithDescription(
 	filename: string,
@@ -353,6 +365,22 @@ describe("planPostImport — creates", () => {
 		expect(plan.creates[0]?.description).toBe("Written for the search result.")
 	})
 
+	it("stores the title as the schema measured it, inner whitespace collapsed", () => {
+		// The parser trims only the ends. Storing its value let a tab or a doubled
+		// space reach the row, although the schema measured the title without it.
+		const { parsed } = parsePostFiles([
+			rawTitleFile("2026-07-01-0900-fresh.md", "Fresh \t  post", LONG_BODY),
+		])
+
+		const plan = planPostImport(parsed, new Map(), {
+			section: "tech",
+			now: NOW,
+			overwrite: false,
+		})
+
+		expect(plan.creates[0]?.title).toBe("Fresh post")
+	})
+
 	it("derives the description when the file's line holds only spaces", () => {
 		const { parsed } = parsePostFiles([
 			fmFileWithDescription(
@@ -460,6 +488,39 @@ describe("planPostImport — overwrite", () => {
 
 		expect(plan.updates).toEqual([])
 		expect(plan.skipped[0]?.reason).toBe("Unchanged")
+	})
+
+	it("plans no title update when the file's title differs only by an inner whitespace run", () => {
+		// Comparing the raw title planned an update here, and applying it wrote the
+		// doubled spaces back over a title an admin save had collapsed.
+		const row = existing()
+		const { parsed } = parsePostFiles([
+			rawTitleFile("2026-01-01-0900-hello.md", "Hello   world", row.body),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates).toEqual([])
+		expect(plan.skipped[0]?.reason).toBe("Unchanged")
+	})
+
+	it("rewrites a stored title from before the collapse rule to its collapsed form", () => {
+		const row = existing({ title: "Hello  world" })
+		const { parsed } = parsePostFiles([
+			fmFile("2026-01-01-0900-hello.md", "Hello world", row.body),
+		])
+
+		const plan = planPostImport(parsed, existingMap(row), {
+			section: "tech",
+			now: NOW,
+			overwrite: true,
+		})
+
+		expect(plan.updates[0]?.data).toEqual({ title: "Hello world" })
 	})
 
 	it("updates body, reading time, and a derived description on body change", () => {

@@ -249,9 +249,10 @@ describe("getGuidesOverview — scheduling", () => {
 	})
 
 	// The load-bearing bit: the query must NOT filter on the date. The cache
-	// holds scheduled rows so they surface on the first request after their date
-	// passes — no cron, no manual revalidate. Filtering in the query (or
-	// capturing `now` inside the cached fn) would strand them until a bust.
+	// holds scheduled rows so every render checks the date again, including one
+	// an unrelated tag bust triggers. Filtering in the query (or capturing `now`
+	// inside the cached fn) would tie visibility to the entry's fill time. The
+	// cron's bust is still what renders the page after the date passes.
 	it("keeps scheduled rows in the query so they can auto-surface later", async () => {
 		mockOverview([], [])
 
@@ -446,8 +447,9 @@ describe("getGuideBySlug", () => {
 		expect(await getGuideBySlug("live")).not.toBeNull()
 	})
 
-	// Read-time, not in the query: the cache holds the row so it starts
-	// resolving the first request after its date passes, with no bust.
+	// Read-time, not in the query: the cache holds the row so every render
+	// checks the date again. The static page still needs the cron's detail bust
+	// to render once the date passes.
 	it("does not filter on the date in the query", async () => {
 		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
 
@@ -868,7 +870,7 @@ describe("revalidateGuideTopicHubs", () => {
 		// for a guide that came due to appear in its list.
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([
+		const busted = revalidateGuideTopicHubs([
 			{ slug: "one", topicSlug: "making-better-decisions" },
 			{ slug: "two", topicSlug: "making-better-decisions" },
 			{ slug: "three", topicSlug: "managing-people" },
@@ -878,12 +880,14 @@ describe("revalidateGuideTopicHubs", () => {
 			["guide-topic-making-better-decisions", "max"],
 			["guide-topic-managing-people", "max"],
 		])
+		// The cron logs this return value, so it must match the busts exactly.
+		expect(busted).toEqual(["making-better-decisions", "managing-people"])
 	})
 
 	it("skips ungrouped guides, which no hub lists", () => {
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([
+		const busted = revalidateGuideTopicHubs([
 			{ slug: "one", topicSlug: null },
 			{ slug: "two", topicSlug: "managing-people" },
 		])
@@ -891,14 +895,16 @@ describe("revalidateGuideTopicHubs", () => {
 		expect(vi.mocked(revalidateTag).mock.calls).toEqual([
 			["guide-topic-managing-people", "max"],
 		])
+		expect(busted).toEqual(["managing-people"])
 	})
 
 	it("does nothing for an empty list", () => {
 		vi.mocked(revalidateTag).mockClear()
 
-		revalidateGuideTopicHubs([])
+		const busted = revalidateGuideTopicHubs([])
 
 		expect(revalidateTag).not.toHaveBeenCalled()
+		expect(busted).toEqual([])
 	})
 
 	it("leaves the aggregate alone, unlike revalidateGuideTopic", () => {

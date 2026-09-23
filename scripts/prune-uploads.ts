@@ -8,38 +8,33 @@
 // This sweeps them: it lists the store's admin uploads (`<uuid>-<name>` at the
 // root), reads every row of every model, and deletes the uploads whose UUID
 // appears nowhere and that are older than the grace period. The rules live in
-// `src/lib/import/uploadPrune.ts`.
+// `src/lib/import/uploadPrune.ts`, the steps in `src/lib/import/uploadPruneRun.ts`.
 //
-// Deletes are permanent. Always run the dry run first and read the list. `--apply`
-// refuses outright when the database references none of the store's uploads,
-// which is what a mismatched DATABASE_URL and BLOB_READ_WRITE_TOKEN look like.
+// Deletes are permanent. Always run the dry run first and read the list, and the
+// database and blob store it prints first. `--apply` refuses outright when the
+// uploads it would delete outnumber the ones the database references, which is
+// what a mismatched DATABASE_URL and BLOB_READ_WRITE_TOKEN look like.
 //
 // It only knows what the database knows. An upload URL pasted into a file that
 // hasn't been imported yet looks unreferenced and goes once it's past the grace
 // period. Today nothing does that — the content repo's images are static files
 // under `public/images/`, not uploads — but import first if that ever changes.
 //
-// Targets prod by running with prod credentials in the environment
-// (`vercel env pull`), same as the importers. The project importer's own
+// Targets prod by running with prod credentials in `.env`, same as the
+// importers (see `SCRIPT_CREDENTIALS_HINT`). The project importer's own
 // `projects/<slug>/` blobs are never touched here; it prunes those itself.
 
 import "dotenv/config"
 import { del, list } from "@vercel/blob"
 import { type Prisma, PrismaClient } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
+import { type BlobStore } from "@/lib/import/blobSync"
 import {
-	type BlobStore,
-	deleteBlobs,
-	formatBytes,
-	type ListedBlob,
-	listBlobs,
-} from "@/lib/import/blobSync"
-import {
-	collectReferencedUploadIds,
-	planUploadPrune,
-	reasonToRefuseApply,
-	UPLOAD_GRACE_PERIOD_HOURS,
-} from "@/lib/import/uploadPrune"
+	describeDatabaseUrl,
+	readScriptEnv,
+	SCRIPT_CREDENTIALS_HINT,
+} from "@/lib/import/scriptEnv"
+import { runUploadPrune } from "@/lib/import/uploadPruneRun"
 import { errorMessage } from "@/lib/utils/errorMessage"
 
 // #region CLI
@@ -100,20 +95,6 @@ async function readAllRows(prisma: PrismaClient): Promise<object[]> {
 
 // #endregion
 
-// #region report
-
-function totalSize(blobs: readonly ListedBlob[]): string {
-	return formatBytes(blobs.reduce((sum, blob) => sum + blob.size, 0))
-}
-
-function describeBlob(blob: ListedBlob): string {
-	const uploaded = blob.uploadedAt.toISOString().slice(0, 10)
-
-	return `  - ${blob.pathname}  ${formatBytes(blob.size)}, uploaded ${uploaded}`
-}
-
-// #endregion
-
 // #region main
 
 async function main(): Promise<void> {
@@ -127,84 +108,41 @@ async function main(): Promise<void> {
 	}
 
 	// Needed for the dry run too: listing the store is how it knows what exists.
-	if (process.env.BLOB_READ_WRITE_TOKEN == null) {
+	if (readScriptEnv("BLOB_READ_WRITE_TOKEN") == null) {
 		console.error(
-			"BLOB_READ_WRITE_TOKEN is not set. Provide credentials (e.g. `vercel env pull`)."
+			`BLOB_READ_WRITE_TOKEN is not set. ${SCRIPT_CREDENTIALS_HINT}`
 		)
 		process.exitCode = 1
 
 		return
 	}
 
-	console.log(
-		`${isApply ? "" : "DRY RUN — "}pruning unreferenced admin uploads older than ${UPLOAD_GRACE_PERIOD_HOURS}h`
-	)
-
-	const blobs = await listBlobs(blobStore, "")
+	// Built before the store is listed, so a missing DATABASE_URL stops the run
+	// before any work rather than after a full listing. It throws when unset.
 	const prisma = makeScriptPrisma()
-	let rows: object[]
+	const databaseTarget =
+		describeDatabaseUrl(readScriptEnv("DATABASE_URL") ?? "") ??
+		"(DATABASE_URL isn't a URL)"
 
 	try {
-		rows = await readAllRows(prisma)
+		const outcome = await runUploadPrune(
+			{
+				store: blobStore,
+				readRows: () => readAllRows(prisma),
+				log: console.log,
+				error: console.error,
+			},
+			{ isApply, now: new Date(), databaseTarget }
+		)
+
+		// A refusal on a dry run fails the exit code too, so it can't read as a
+		// clean run.
+		if (outcome === "refused") {
+			process.exitCode = 1
+		}
 	} finally {
 		await prisma.$disconnect()
 	}
-
-	const plan = planUploadPrune(
-		blobs,
-		collectReferencedUploadIds(rows),
-		new Date()
-	)
-	const uploadCount =
-		plan.referenced.length + plan.recent.length + plan.unreferenced.length
-
-	console.log(
-		`\nListed ${blobs.length} blobs, ${uploadCount} of them admin uploads; read ${rows.length} rows.`
-	)
-	console.log(`  referenced, kept:        ${plan.referenced.length}`)
-	console.log(
-		`  under ${UPLOAD_GRACE_PERIOD_HOURS}h old, kept:     ${plan.recent.length}`
-	)
-	console.log(
-		`  unreferenced, to delete: ${plan.unreferenced.length} (${totalSize(plan.unreferenced)})`
-	)
-
-	if (plan.unreferenced.length === 0) {
-		console.log("\nNothing to delete.")
-
-		return
-	}
-
-	console.log("")
-
-	for (const blob of plan.unreferenced) {
-		console.log(describeBlob(blob))
-	}
-
-	const refusal = reasonToRefuseApply(plan)
-
-	if (refusal != null) {
-		console.error(`\n${refusal}`)
-		// A dry run reports it too, so the mismatch shows up before anyone reaches
-		// for `--apply`. Failing the exit code keeps it from reading as a clean run.
-		process.exitCode = 1
-
-		return
-	}
-
-	if (!isApply) {
-		console.log(
-			"\nNothing deleted. Run again with --apply to delete the uploads above."
-		)
-
-		return
-	}
-
-	console.log("")
-	await deleteBlobs(blobStore, plan.unreferenced, console.log, "deleted")
-	console.log(
-		`\nDeleted ${plan.unreferenced.length} uploads, freeing ${totalSize(plan.unreferenced)}.`
-	)
 }
 
 main().catch((error) => {

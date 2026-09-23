@@ -117,24 +117,32 @@ export function planUploadPrune(
 /**
  * Why `--apply` must not delete this plan, or `null` when it may.
  *
- * It refuses when there is something to delete but the database references none
- * of the store's uploads. A live site always references some — post images,
- * project icons — so that combination almost always means the database and the
- * blob token point at different environments: a local or empty `DATABASE_URL`
- * with the production `BLOB_READ_WRITE_TOKEN`. Applying it would delete every
- * image on the site. The rare legitimate case, a store whose every upload really
- * is orphaned, is better cleared from the Vercel dashboard by hand.
+ * It refuses when the uploads it would delete outnumber the ones the database
+ * references. A live site references most of its uploads, and orphans pile up
+ * one replaced image at a time, so a majority of orphans almost always means the
+ * database and the blob token point at different environments: a local or empty
+ * `DATABASE_URL`, a dev database that saved one image to the shared store, or a
+ * stale copy of production, each with the production `BLOB_READ_WRITE_TOKEN`.
+ * Applying would delete every image that database doesn't know. A database that
+ * references none of the uploads is the extreme case of the same mismatch.
+ *
+ * simplified: a count, not proof. A store that really is mostly orphans (many
+ * replaced images and no sweep for a long time) is refused too, and is better
+ * cleared from the Vercel dashboard by hand. A mismatched database that happens
+ * to reference more uploads than it orphans still passes; the script prints both
+ * targets before it acts so the operator can catch that. Proof would need the
+ * database to record which store it belongs to.
  */
 export function reasonToRefuseApply(plan: UploadPrunePlan): string | null {
-	if (plan.unreferenced.length === 0 || plan.referenced.length > 0) {
+	if (plan.unreferenced.length <= plan.referenced.length) {
 		return null
 	}
 
 	return (
-		`The database references none of the store's ${plan.unreferenced.length + plan.recent.length} uploads. ` +
-		"That usually means DATABASE_URL and BLOB_READ_WRITE_TOKEN point at different environments " +
-		"(or the database is empty), and applying would delete every image on the site. " +
-		"Check both credentials. If every upload really is orphaned, delete them from the Vercel dashboard."
+		`The sweep would delete ${plan.unreferenced.length} uploads, but the database references only ${plan.referenced.length}. ` +
+		"More orphans than live images usually means DATABASE_URL and BLOB_READ_WRITE_TOKEN point at different environments " +
+		"(or at a stale or empty database), and applying would delete every image that database doesn't know. " +
+		"Check the database and blob store printed above. If most uploads really are orphaned, delete them from the Vercel dashboard."
 	)
 }
 
