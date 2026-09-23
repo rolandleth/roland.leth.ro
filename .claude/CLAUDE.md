@@ -30,37 +30,50 @@ Log paths: Use your scratchpad to store and read logs, if you need.
 src/
   app/
     page.tsx                    # Landing page (/)
+    sitemap.ts, robots.ts       # Sitemap and robots.txt
     blog/
-      [section]/                # Blog list (/blog/tech, /blog/life)
+      [section]/
+        (list)/                 # Blog list, page 1 (/blog/tech); the group scopes its loading.tsx to this page
+        p/[page]/               # Blog list, page 2 onward (/blog/tech/p/2)
         [slug]/                 # Single post (/blog/tech/my-post)
+          override-preview/     # Public preview of a scheduled post's body
         archive/                # Archive per section (/blog/tech/archive)
         search/                 # Search per section (/blog/tech/search)
-    projects/                   # Projects portfolio (/projects, /projects/[slug])
+    guides/                     # Guides index (/guides)
+      [slug]/                   # A guide or a topic hub, one flat namespace (/guides/my-guide)
+    projects/
+      (gallery)/                # Projects gallery (/projects); the group scopes its loading.tsx to this page
+      [slug]/                   # Single project (/projects/my-app)
     tools/
       loan-calculator/          # Loan calculator tool (/tools/loan-calculator)
     about/                      # About page (/about)
-    admin/                      # Post/project creation/editing (protected)
-    api/                        # API routes (posts CRUD, feed, upload)
+    privacy/, terms/            # Legal pages, per app
+    llms.txt/, indexnow-key.txt/  # Plain-text routes; the folder name is the URL
+    admin/
+      login/                    # Login page
+      (protected)/              # Dashboard and the post/project/guide/topic editors
+    api/
+      admin/                    # Session-gated writes: CRUD, upload, revalidate, keepalive, IndexNow
+      auth/                     # Login, logout
+      cron/                     # Vercel Cron: keepalive ping, scheduled-content revalidation
+      feed/[section]/           # Atom feed, served at /blog/:section/feed.xml
+      blog/, guides/            # Raw-markdown views, served at the *.md URLs
   proxy.ts                      # Middleware: admin auth gate only (matcher is /admin* + /api/admin*)
-  components/                   # Shared UI components
-    blog/                       # Blog-specific components
-    projects/                   # Project-specific components
-    admin/                      # Admin-specific components
-    loan-calculator/            # Loan calculator components
-    Header.tsx, Footer.tsx, ...  # Top-level shared components
-  lib/                          # Utilities, database client, helpers
-    db.ts                       # Prisma client
-    auth.ts                     # JWT session helpers
-    posts.ts                    # Post query helpers
-    projects.ts                 # Project query helpers
-    sections.ts                 # Blog section helpers
+  components/                   # Grouped by feature: about/, admin/, blog/, guides/, home/, loan-calculator/, privacy/, projects/
+    ui/                         # Generic primitives and hooks reused across features
+    Header.tsx, Footer.tsx, ...  # Top-level shared chrome
+  lib/
+    api/                        # Route helpers: auth guards, error responses, audit log, Zod schemas (schemas.ts)
+    auth/                       # JWT session (auth.ts), admin page guards, typed env accessors (env.ts)
+    client/                     # Browser-side helpers and hooks: Framer Motion variants (motion.ts), theme, nav links
+    content/                    # Rendering: markdown.ts, page metadata, JSON-LD, feed identity, .md exports, IndexNow
+    db/                         # Prisma client (db.ts), cached queries and tag busts (posts.ts, projects.ts, guides.ts), sections.ts
+    import/                     # Pure cores for the scripts/ importers and the admin bulk upload
     routing/legacyRoutes.ts     # Legacy redirect + rewrite rules, consumed by next.config.ts
-    markdown.ts                 # Markdown processing
-    schemas.ts                  # Zod validation schemas
-    format.ts                   # Formatting utilities
-    motion.ts                   # Framer Motion variants
+    utils/                      # Pure functions (format.ts, pagination.ts, platforms.ts); reaches the client bundle
   generated/prisma/             # Generated Prisma client output
   test/                         # Vitest setup files
+scripts/                        # tsx scripts behind the db:*, blob:* and og:card commands
 prisma/
   schema.prisma                 # Database schema
 public/
