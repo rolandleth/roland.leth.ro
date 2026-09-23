@@ -9,6 +9,7 @@
 
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@/generated/prisma/client"
+import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 
 /**
  * A client on `DATABASE_URL`, or an error saying how to provide it when it's
@@ -17,12 +18,10 @@ import { PrismaClient } from "@/generated/prisma/client"
  * `$disconnect()` when done.
  */
 export function makeScriptPrisma(): PrismaClient {
-	const connectionString = process.env.DATABASE_URL
+	const connectionString = readScriptEnv("DATABASE_URL")
 
-	if (connectionString == null || connectionString === "") {
-		throw new Error(
-			"DATABASE_URL is not set. Provide DB credentials first (e.g. `vercel env pull`)."
-		)
+	if (connectionString == null) {
+		throw new Error(`DATABASE_URL is not set. ${SCRIPT_CREDENTIALS_HINT}`)
 	}
 
 	return new PrismaClient({ adapter: new PrismaPg({ connectionString }) })

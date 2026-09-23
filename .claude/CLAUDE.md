@@ -143,9 +143,18 @@ yarn run blob:prune-uploads [--apply]   # Delete admin uploads nothing reference
 yarn run og:card [--check]  # Render public/images/og-card.png; --check exits 1 on drift, writes nothing
 ```
 
-The import, resync and prune scripts act on whatever `DATABASE_URL` and
-`BLOB_READ_WRITE_TOKEN` point at — production, with `vercel env pull`. Dry run
-first; `blob:prune-uploads` deletes permanently.
+The import, resync and prune scripts load `.env` through `dotenv/config`, never
+`.env.local`, and act on whatever `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` it
+holds. Production credentials go there: `vercel env pull .env
+--environment=production` (it asks before overwriting). A bare `vercel env pull`
+writes the Development values to `.env.local`, which no script reads. A variable
+marked Sensitive on Vercel can't be read back, so the pull can't fill it; copy
+that one in by hand. Next.js loads `.env.local` over `.env`, so keep a development
+`DATABASE_URL` in `.env.local`, or `yarn dev` runs against production.
+
+Dry run first; `blob:prune-uploads` deletes permanently. It prints the database
+and blob store it targets before anything else, and `--apply` refuses when the
+uploads it would delete outnumber the ones the database references.
 
 There are no migrations. Schema changes go through `db:push`, and there is no
 `prisma/migrations` folder. `db:push` can't tell a rename from a drop plus an add,

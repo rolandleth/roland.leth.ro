@@ -20,7 +20,8 @@
 // plan no rewrites. Writes are atomic; one file's failure is reported and the
 // run continues.
 //
-// Needs DATABASE_URL (e.g. `vercel env pull`). Always `--dry-run` first.
+// Needs DATABASE_URL in `.env`, the one file the scripts load; see
+// `SCRIPT_CREDENTIALS_HINT`. Always `--dry-run` first.
 
 import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"

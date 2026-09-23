@@ -38,11 +38,12 @@ describe("makeScriptPrisma", () => {
 	it.each([
 		["unset", undefined],
 		["blank", ""],
+		["whitespace only", "  "],
 	])("says how to provide DATABASE_URL when it's %s", (_label, value) => {
 		vi.stubEnv("DATABASE_URL", value)
 
 		expect(() => makeScriptPrisma()).toThrow(
-			/DATABASE_URL is not set.*vercel env pull/
+			/DATABASE_URL is not set.*`\.env`.*vercel env pull \.env --environment=production/
 		)
 		expect(PrismaClient).not.toHaveBeenCalled()
 	})

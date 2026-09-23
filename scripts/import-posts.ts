@@ -39,8 +39,9 @@
 // bust the site's caches. After a run with writes, hit "Revalidate caches" in
 // the admin nav so the changes surface.
 //
-// Targets prod by running with prod credentials in the environment
-// (DATABASE_URL, e.g. via `vercel env pull`). Always `--dry-run` first.
+// Targets prod by running with prod credentials (DATABASE_URL) in `.env`, the
+// one file the scripts load; see `SCRIPT_CREDENTIALS_HINT`. Always `--dry-run`
+// first.
 
 import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"
