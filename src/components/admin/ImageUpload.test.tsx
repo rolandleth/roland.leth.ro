@@ -9,8 +9,8 @@ function pngFile(name: string) {
 	return new File(["x"], name, { type: "image/png" })
 }
 
-function mockFetchJson(ok: boolean, body: object, status = ok ? 200 : 500) {
-	global.fetch = vi.fn().mockResolvedValue({
+function jsonResponse(ok: boolean, body: object, status = ok ? 200 : 500) {
+	return {
 		ok,
 		status,
 		// `readErrorMessage` (now shared with `IsFeaturedToggle`) gates JSON
@@ -20,7 +20,50 @@ function mockFetchJson(ok: boolean, body: object, status = ok ? 200 : 500) {
 				name === "content-type" ? "application/json" : null,
 		},
 		json: () => Promise.resolve(body),
-	})
+	}
+}
+
+function mockFetchJson(ok: boolean, body: object, status = ok ? 200 : 500) {
+	global.fetch = vi.fn().mockResolvedValue(jsonResponse(ok, body, status))
+}
+
+/**
+ * Uploads that stay in flight until the test settles them, one settler per
+ * request in order, so a test can look at the state mid-upload. Each aborts the
+ * way `fetch` does when its signal fires.
+ */
+function mockPendingFetches(): Array<(ok: boolean) => void> {
+	const settlers: Array<(ok: boolean) => void> = []
+
+	global.fetch = vi.fn((_url, init) => {
+		const signal = (init as RequestInit).signal as AbortSignal
+
+		return new Promise((resolve, reject) => {
+			signal.addEventListener("abort", () =>
+				reject(Object.assign(new Error("aborted"), { name: "AbortError" }))
+			)
+			settlers.push((ok) =>
+				resolve(
+					jsonResponse(
+						ok,
+						ok ? { url: "https://cdn.example.com/x.png" } : { error: "Nope" }
+					)
+				)
+			)
+		})
+	}) as unknown as typeof fetch
+
+	return settlers
+}
+
+function fileInput(): HTMLInputElement {
+	const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+
+	if (input == null) {
+		throw new Error("No file input rendered")
+	}
+
+	return input
 }
 
 beforeEach(() => {
@@ -59,11 +102,8 @@ describe("ImageUpload upload", () => {
 		const onChange = vi.fn()
 
 		render(<ImageUpload value="" onChange={onChange} />)
-		const fileInput = document.querySelector(
-			'input[type="file"]'
-		) as HTMLInputElement
 
-		await user.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput(), pngFile("a.png"))
 
 		await waitFor(() =>
 			expect(onChange).toHaveBeenCalledWith("https://cdn.example.com/x.png")
@@ -76,13 +116,94 @@ describe("ImageUpload upload", () => {
 		mockFetchJson(false, { error: "File too large" }, 413)
 
 		render(<ImageUpload value="" onChange={vi.fn()} />)
-		const fileInput = document.querySelector(
-			'input[type="file"]'
-		) as HTMLInputElement
-		await user.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput(), pngFile("a.png"))
 
 		await waitFor(() =>
 			expect(screen.getByText("File too large (HTTP 413)")).toBeInTheDocument()
+		)
+	})
+})
+
+// #endregion
+
+// #region Upload reporting
+
+describe("ImageUpload onUploadingChange", () => {
+	// A parent form disables Save on this report. The effect behind it had no
+	// test driving the real component: `PostForm.test.tsx` mocks `ImageUpload`
+	// and only ever sends `true`.
+
+	it("reports true while an upload is in flight and false once it succeeds", async () => {
+		const settlers = mockPendingFetches()
+		const onUploadingChange = vi.fn()
+
+		render(
+			<ImageUpload
+				value=""
+				onChange={vi.fn()}
+				onUploadingChange={onUploadingChange}
+			/>
+		)
+		await user.upload(fileInput(), pngFile("a.png"))
+
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(true)
+		)
+
+		settlers[0](true)
+
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+		)
+	})
+
+	it("reports false after a failed upload, so the form's Save unlocks", async () => {
+		// Without the `false`, Save stayed disabled after an upload error until
+		// the page was reloaded.
+		const settlers = mockPendingFetches()
+		const onUploadingChange = vi.fn()
+
+		render(
+			<ImageUpload
+				value=""
+				onChange={vi.fn()}
+				onUploadingChange={onUploadingChange}
+			/>
+		)
+		await user.upload(fileInput(), pngFile("a.png"))
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(true)
+		)
+
+		settlers[0](false)
+
+		await waitFor(() => expect(screen.getByText(/Nope/)).toBeInTheDocument())
+		expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+	})
+
+	it("keeps reporting true while a newer upload is still in flight", async () => {
+		// Picking a second file aborts the first. The aborted request must not
+		// report `false`, or Save unlocks while the second upload is still running.
+		const settlers = mockPendingFetches()
+		const onUploadingChange = vi.fn()
+
+		render(
+			<ImageUpload
+				value=""
+				onChange={vi.fn()}
+				onUploadingChange={onUploadingChange}
+			/>
+		)
+		await user.upload(fileInput(), pngFile("a.png"))
+		await user.upload(fileInput(), pngFile("b.png"))
+		await waitFor(() => expect(settlers).toHaveLength(2))
+
+		expect(onUploadingChange).toHaveBeenLastCalledWith(true)
+
+		settlers[1](true)
+
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(false)
 		)
 	})
 })
@@ -110,12 +231,9 @@ describe("ImageUpload race handling", () => {
 		}) as unknown as typeof fetch
 
 		render(<ImageUpload value="" onChange={vi.fn()} />)
-		const fileInput = document.querySelector(
-			'input[type="file"]'
-		) as HTMLInputElement
 
-		await user.upload(fileInput, pngFile("a.png"))
-		await user.upload(fileInput, pngFile("b.png"))
+		await user.upload(fileInput(), pngFile("a.png"))
+		await user.upload(fileInput(), pngFile("b.png"))
 
 		await waitFor(() => expect(signals.length).toBe(2))
 		await waitFor(() => expect(signals[0].aborted).toBe(true))
@@ -137,11 +255,8 @@ describe("ImageUpload race handling", () => {
 		}) as unknown as typeof fetch
 
 		const { unmount } = render(<ImageUpload value="" onChange={vi.fn()} />)
-		const fileInput = document.querySelector(
-			'input[type="file"]'
-		) as HTMLInputElement
 
-		await user.upload(fileInput, pngFile("a.png"))
+		await user.upload(fileInput(), pngFile("a.png"))
 		await waitFor(() => expect(signals.length).toBe(1))
 
 		unmount()

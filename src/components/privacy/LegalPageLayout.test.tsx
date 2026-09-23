@@ -227,22 +227,28 @@ describe("LegalPageLayout — text links", () => {
 		expect(css).toMatch(/\.legal-content a:hover\s*\{/)
 	})
 
-	it("keeps that rule unlayered, which is what makes it beat typography's", () => {
+	it("keeps both rules unlayered, which is what makes them beat typography's", () => {
 		// The selector's presence isn't the contract — its cascade position is.
 		// Inside `@layer components` (or any layer) Tailwind typography's
 		// utilities-layer link rule wins and every legal-page link goes back to
 		// inheriting body colour, with this file's other test still passing.
+		// Every rule is checked: checking only the first let the `:hover` rule
+		// move into a layer and lose its colour with this test still green.
 		const css = globalsCss()
-		const ruleIndex = css.search(/\.legal-content a\s*\{/)
+		const rules = [...css.matchAll(/\.legal-content a(:hover)?\s*\{/g)]
 
-		expect(ruleIndex).toBeGreaterThan(-1)
+		expect(rules.map((rule) => rule[1] ?? "")).toEqual(
+			expect.arrayContaining(["", ":hover"])
+		)
 
-		// Walk the braces before the rule: a non-zero depth means it sits inside
-		// an `@layer`, `@media` or other at-rule block.
-		const before = css.slice(0, ruleIndex)
-		const depth =
-			(before.match(/\{/g)?.length ?? 0) - (before.match(/\}/g)?.length ?? 0)
+		for (const rule of rules) {
+			// Walk the braces before the rule: a non-zero depth means it sits inside
+			// an `@layer`, `@media` or other at-rule block.
+			const before = css.slice(0, rule.index)
+			const depth =
+				(before.match(/\{/g)?.length ?? 0) - (before.match(/\}/g)?.length ?? 0)
 
-		expect(depth).toBe(0)
+			expect(depth, `${rule[0]} is nested`).toBe(0)
+		}
 	})
 })
