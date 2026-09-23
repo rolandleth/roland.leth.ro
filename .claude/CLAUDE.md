@@ -179,13 +179,12 @@ Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **rem
 ## Scheduled content and revalidation
 
 A post (`datetime`) or guide (`publishedAt`) with a future date is written to the
-database but held out of every public surface by a **read-time** filter. Two
-different mechanisms surface it, and which one applies depends on whether the
-route renders per request:
+database but held out of every public surface by a filter that runs outside the
+data cache, when a page renders.
 
-Every public content route is now static, so they all take the same path: the
-`datetime <= now` / `publishedAt` filter runs when the page is generated and then
-freezes. `/api/cron/revalidate-scheduled` runs daily, counts posts and guides
+Every public content route is static, so that render happens when the page is
+generated, and the result then freezes: nothing runs the filter again when the
+date passes. `/api/cron/revalidate-scheduled` runs daily, counts posts and guides
 that came due in a 50h lookback window, and busts the tags only when one did.
 
 Daily is the ceiling on Hobby: those accounts reject any cron expression that
@@ -230,9 +229,13 @@ regenerate has the same effect as the cron run**. Three ways, narrowest first:
 
 1. `GET /api/cron/revalidate-scheduled` with `Authorization: Bearer $CRON_SECRET`
    — the same code path, same tags, and it logs the same lines.
-2. Save any post in the admin. `revalidatePost` busts `feed-{section}`,
-   `blog-{section}`, and `posts`. Covers posts only: `guides` is a separate tag,
-   so a scheduled **guide** needs a guide mutation or option 1.
+2. The dashboard's Revalidate panel, with the due post as `section/slug` or the
+   due guide's slug. A post gets its detail page, `feed-{section}`,
+   `blog-{section}` and `posts` busted; a guide gets its detail page, its topic
+   hub and `guides`. Saving the due post or guide itself in the admin does the
+   same. Saving a *different* post does not: `revalidatePost` busts only the
+   saved post's own detail tag, so the due post's page keeps the 404 it pinned
+   while it was future-dated, even where the regenerated lists now link to it.
 3. Purge the cache or redeploy from the Vercel dashboard. Works, but drops every
    unrelated cached page too, so the whole site cold-renders on next hit.
 

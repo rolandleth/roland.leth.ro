@@ -457,8 +457,8 @@ describe("getPostBySlug", () => {
 	it("filters drafts at the query boundary via `published: true`", async () => {
 		// Drafts are server-side filtered so the canonical URL never serves an
 		// unpublished row. Future-dated posts are NOT filtered here; the
-		// boundary is enforced at read time so scheduled posts auto-surface
-		// the first request after their `datetime` passes.
+		// boundary is enforced at read time, on every render. The page is static,
+		// so the cron's detail bust is what renders it once `datetime` passes.
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 
 		await getPostBySlug("life", "some-slug")

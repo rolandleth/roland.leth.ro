@@ -249,9 +249,10 @@ describe("getGuidesOverview — scheduling", () => {
 	})
 
 	// The load-bearing bit: the query must NOT filter on the date. The cache
-	// holds scheduled rows so they surface on the first request after their date
-	// passes — no cron, no manual revalidate. Filtering in the query (or
-	// capturing `now` inside the cached fn) would strand them until a bust.
+	// holds scheduled rows so every render checks the date again, including one
+	// an unrelated tag bust triggers. Filtering in the query (or capturing `now`
+	// inside the cached fn) would tie visibility to the entry's fill time. The
+	// cron's bust is still what renders the page after the date passes.
 	it("keeps scheduled rows in the query so they can auto-surface later", async () => {
 		mockOverview([], [])
 
@@ -446,8 +447,9 @@ describe("getGuideBySlug", () => {
 		expect(await getGuideBySlug("live")).not.toBeNull()
 	})
 
-	// Read-time, not in the query: the cache holds the row so it starts
-	// resolving the first request after its date passes, with no bust.
+	// Read-time, not in the query: the cache holds the row so every render
+	// checks the date again. The static page still needs the cron's detail bust
+	// to render once the date passes.
 	it("does not filter on the date in the query", async () => {
 		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
 
