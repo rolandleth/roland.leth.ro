@@ -17,7 +17,7 @@ function parsedWithRewrite(
 	filename: string,
 	slug: string,
 	content: string,
-	previous: string | null
+	previous: string
 ): ParsedPostFile {
 	return {
 		filename,
@@ -44,12 +44,12 @@ describe("applySlugRewrites", () => {
 	it("describes but does not write on a dry run", async () => {
 		const filename = "2026-07-24-0937-a.md"
 		await writeFile(path.join(folder, filename), "original", "utf8")
-		const parsed = [parsedWithRewrite(filename, "a", "rewritten", null)]
+		const parsed = [parsedWithRewrite(filename, "a", "rewritten", "A")]
 
 		const outcomes = await applySlugRewrites(folder, parsed, true)
 
 		expect(outcomes).toEqual([
-			{ filename, change: "slug: a (from title)", result: "planned" },
+			{ filename, change: 'slug: "A" → a', result: "planned" },
 		])
 		expect(await readFile(path.join(folder, filename), "utf8")).toBe("original")
 	})
@@ -68,20 +68,6 @@ describe("applySlugRewrites", () => {
 			"rewritten"
 		)
 		expect(await readdir(folder)).toEqual([filename])
-	})
-
-	// A blank prior value (`""`) is a real previous slug, distinct from `null`
-	// ("derived from title"), so the log must read `slug: "" → x`, not "(from title)".
-	it("distinguishes a blank previous slug from a title-derived one", async () => {
-		const filename = "2026-07-24-0937-a.md"
-		await writeFile(path.join(folder, filename), "original", "utf8")
-		const parsed = [parsedWithRewrite(filename, "a", "rewritten", "")]
-
-		const outcomes = await applySlugRewrites(folder, parsed, false)
-
-		expect(outcomes).toEqual([
-			{ filename, change: 'slug: "" → a', result: "written" },
-		])
 	})
 
 	it("skips files with no pending rewrite", async () => {
@@ -110,8 +96,8 @@ describe("applySlugRewrites", () => {
 		await writeFile(path.join(folder, failName, "keep"), "x", "utf8")
 
 		const parsed = [
-			parsedWithRewrite(failName, "fail", "rewritten", null),
-			parsedWithRewrite(okName, "ok", "rewritten", null),
+			parsedWithRewrite(failName, "fail", "rewritten", "Fail"),
+			parsedWithRewrite(okName, "ok", "rewritten", "OK"),
 		]
 
 		const outcomes = await applySlugRewrites(folder, parsed, false)

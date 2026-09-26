@@ -8,7 +8,6 @@ import { SECTIONS } from "@/lib/db/sections"
 import {
 	CANONICAL_SLUG_MESSAGE,
 	CANONICAL_SLUG_PATTERN,
-	createSlug,
 	SLUG_MAX_LENGTH,
 } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
@@ -40,16 +39,6 @@ const BUCKET_SUGGESTED_SETS: Record<
 	OpenSource: new Set(BUCKET_SUGGESTED_TAGS.OpenSource),
 }
 
-// Rejects titles/names that pass `min(1)` but `createSlug` reduces to "" (all
-// punctuation, soft hyphens, U+2212 minus runs). Without this gate, the DB
-// insert blows up with a unique-constraint or empty-slug error far from the
-// admin form, surfacing as a 409/500 that hides the real cause.
-function producesNonEmptySlug(value: string): boolean {
-	return createSlug(value) !== ""
-}
-const SLUG_EMPTY_MESSAGE =
-	"Must produce a non-empty slug (try fewer punctuation marks)"
-
 // Only http/https allowed — prevents javascript: or data: XSS vectors.
 // Add rel="noopener noreferrer" to any <a> rendering these on public pages.
 const httpUrl = z
@@ -68,6 +57,20 @@ const httpUrl = z
 // they measure the value that gets stored.
 const collapsedWhitespace = z.string().transform(collapseWhitespace)
 
+// Canonical slug form — exactly what `createSlug` emits: lowercase
+// alphanumerics joined by single hyphens, no leading or trailing hyphen.
+//
+// Slugs are validated, never normalized. A slug is authored (a guide's to match
+// the search query it targets) and is permanent the moment it's indexed or
+// shared — so a malformed one is a loud error, not something to quietly
+// rewrite. Silently rewriting the author's chosen slug is exactly how a URL
+// moves without anyone noticing.
+const canonicalSlug = z
+	.string()
+	.min(1)
+	.max(SLUG_MAX_LENGTH)
+	.regex(CANONICAL_SLUG_PATTERN, { message: CANONICAL_SLUG_MESSAGE })
+
 // Posts
 
 // `yyyy-MM-dd-HHmm` — same shape as `currentDatetimeString()` and consumed by
@@ -83,8 +86,9 @@ const postDatetime = z.string().regex(/^\d{4}-\d{2}-\d{2}-\d{4}$/, {
 // `derivedDescription` falls back to it for a body with no prose.
 const postTitle = collapsedWhitespace.pipe(z.string().min(1).max(200))
 
-// Every post write path's rules, minus the one that only holds where the slug is
-// derived from the title. Only `postCreateSchema` adds it back.
+// Every post write path's rules. No path derives a slug from the title: the
+// admin form sends an authored slug on create, and a file carries one in its
+// `slug:` line.
 const postFields = {
 	title: postTitle,
 	body: z.string().min(1).max(100_000),
@@ -101,34 +105,24 @@ const postFields = {
 	published: z.boolean().optional(),
 }
 
-export const postCreateSchema = z.object({
-	...postFields,
-	// The admin form derives the slug from the title, so a title `createSlug`
-	// empties has to be caught here. No other write path derives a slug from the
-	// title — see `postFileSchema` and `postUpdateSchema`.
-	title: postTitle.pipe(
-		z.string().refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE })
-	),
-})
+/**
+ * The admin create route's contract. The slug is authored and set once: the
+ * form fills it from the title as a suggestion, and the author sees it before
+ * the first save. A title with no letters or digits (an all-CJK one, say) is
+ * fine, since nothing derives a slug from it.
+ */
+export const postCreateSchema = z.object({ ...postFields, slug: canonicalSlug })
 
 /**
- * The admin edit route's contract. No slug refinement on the title: the route
- * never re-derives the slug, so a title `createSlug` empties is harmless here.
- * Keeping the refinement made a post imported with such a title (and an explicit
- * `slug:`) fail on its first save, because the edit form sends the title every
- * time.
+ * The admin edit route's contract. No `slug` key, so zod strips one if sent:
+ * a post's URL never moves after creation.
  */
 export const postUpdateSchema = z.object(postFields).partial()
 
 /**
- * The import script's and the admin bulk upload's contract. No slug refinement
- * on the title.
- *
- * Both resolve the slug from the file's `slug:` line and fall back to the title
- * only when that line is absent — `resolveSlug` decides, and reports an empty
- * result through `emptySlugReason`, which says which of the two was at fault.
- * Refining the title here as well rejected a file whose explicit slug was
- * perfectly good, with a message blaming a title the slug never came from.
+ * The import script's and the admin bulk upload's contract. The slug is not
+ * part of it: both read it from the file's `slug:` line, which `resolveSlug`
+ * requires before this schema runs.
  */
 export const postFileSchema = z.object(postFields)
 
@@ -154,20 +148,6 @@ export const postBulkImportSchema = z.object({
 })
 
 // Guides
-
-// Canonical slug form — exactly what `createSlug` emits: lowercase
-// alphanumerics joined by single hyphens, no leading or trailing hyphen.
-//
-// Slugs are validated, never normalized. A slug is authored (a guide's to match
-// the search query it targets) and is permanent the moment it's indexed or
-// shared — so a malformed one is a loud error, not something to quietly
-// rewrite. Silently rewriting the author's chosen slug is exactly how a URL
-// moves without anyone noticing.
-const canonicalSlug = z
-	.string()
-	.min(1)
-	.max(SLUG_MAX_LENGTH)
-	.regex(CANONICAL_SLUG_PATTERN, { message: CANONICAL_SLUG_MESSAGE })
 
 // The meta description, the OG description, and the preview text on project and
 // topic pages all read this one field, so it's required, not optional. 160 is

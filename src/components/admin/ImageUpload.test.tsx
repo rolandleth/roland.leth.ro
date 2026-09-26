@@ -178,7 +178,11 @@ describe("ImageUpload onUploadingChange", () => {
 		settlers[0](false)
 
 		await waitFor(() => expect(screen.getByText(/Nope/)).toBeInTheDocument())
-		expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+		// The report comes from a passive effect, which runs after the commit
+		// that shows the error, so it can land a tick later under load.
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+		)
 	})
 
 	it("keeps reporting true while a newer upload is still in flight", async () => {

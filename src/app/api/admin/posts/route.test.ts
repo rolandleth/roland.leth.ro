@@ -34,6 +34,7 @@ function makeRequest(body: unknown) {
 
 const validPayload = {
 	title: "My New Post",
+	slug: "my-new-post",
 	body: "Some content here.",
 	datetime: "2025-06-01-0900",
 }
@@ -41,7 +42,6 @@ const validPayload = {
 const createdPost = {
 	id: 1,
 	...validPayload,
-	slug: "my-new-post",
 	section: "tech" as const,
 	published: true,
 	description: "Some content here.",
@@ -88,12 +88,38 @@ describe("POST /api/admin/posts", () => {
 		)
 	})
 
-	it("generates a slug from the title", async () => {
+	it("stores the authored slug as sent, not one derived from the title", async () => {
 		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
-		await POST(makeRequest(validPayload))
+		await POST(
+			makeRequest({ ...validPayload, title: "Weekly links", slug: "links-42" })
+		)
 
 		const { data } = vi.mocked(prisma.post.create).mock.calls[0][0]
-		expect(data.slug).toBe("my-new-post")
+		expect(data.slug).toBe("links-42")
+	})
+
+	it("returns 400 when the slug is missing", async () => {
+		const { slug: _, ...rest } = validPayload
+		const response = await POST(makeRequest(rest))
+		expect(response.status).toBe(400)
+	})
+
+	it.each(["My New Post", "my--post", "-post", "post-", "my_post"])(
+		"returns 400 for the non-canonical slug %j instead of rewriting it",
+		async (slug) => {
+			const response = await POST(makeRequest({ ...validPayload, slug }))
+			expect(response.status).toBe(400)
+		}
+	)
+
+	it("creates a post whose title has no letters or digits", async () => {
+		// Used to fail: the slug came from the title, and an all-CJK title
+		// produced none.
+		vi.mocked(prisma.post.create).mockResolvedValue(createdPost)
+		const response = await POST(
+			makeRequest({ ...validPayload, title: "日本語", slug: "nihongo" })
+		)
+		expect(response.status).toBe(201)
 	})
 
 	it("defaults section to 'tech' when omitted", async () => {
@@ -169,9 +195,9 @@ describe("POST /api/admin/posts", () => {
 	})
 
 	it("returns 409 when the slug collides with an existing post", async () => {
-		// Two titles that slug-collide produce a Prisma unique-constraint error
-		// (P2002). Surface as 409 so the admin UI can show 'A post with this
-		// slug already exists' instead of a generic 500.
+		// A slug another post already has produces a Prisma unique-constraint
+		// error (P2002). Surface as 409 so the admin UI can show 'A post with
+		// this slug already exists' instead of a generic 500.
 		vi.mocked(prisma.post.create).mockRejectedValue({ code: "P2002" })
 		vi.mocked(isPrismaUniqueConstraint).mockReturnValue(true)
 
@@ -183,7 +209,7 @@ describe("POST /api/admin/posts", () => {
 		// without this log, the path is invisible in production.
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[api:admin:posts:POST] slug already exists",
-			expect.objectContaining({ slug: expect.any(String) })
+			{ slug: "my-new-post" }
 		)
 	})
 

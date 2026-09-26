@@ -73,6 +73,7 @@ function mockFetch(ok: boolean, body: object = {}) {
 const initialData = {
 	id: 7,
 	title: "Existing Title",
+	slug: "existing-title",
 	body: "Existing body.",
 	section: "life",
 	datetime: "2024-06-01-0900",
@@ -127,6 +128,48 @@ describe("PostForm — create mode", () => {
 			.calls[0]
 		expect(url).toBe("/api/admin/posts")
 		expect(options.method).toBe("POST")
+	})
+
+	it("fills the slug from the title and sends it", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm />)
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+
+		expect(screen.getByLabelText("Slug")).toHaveValue("a-new-post")
+
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body).slug).toBe("a-new-post")
+	})
+
+	it("keeps a typed slug when the title changes afterwards", async () => {
+		mockRouter()
+		render(<PostForm />)
+		const title = screen.getByLabelText(/title/i)
+		const slug = screen.getByLabelText("Slug")
+
+		await user.type(title, "Weekly links")
+		await user.clear(slug)
+		await user.type(slug, "weekly-links-42")
+		await user.type(title, " #42")
+
+		expect(slug).toHaveValue("weekly-links-42")
+	})
+
+	it("leaves the slug empty and required for a title with no letters or digits", async () => {
+		// An all-CJK title used to fail on Save with a message about
+		// punctuation; now the author types the slug instead.
+		mockRouter()
+		render(<PostForm />)
+
+		await user.type(screen.getByLabelText(/title/i), "日本語")
+
+		const slug = screen.getByLabelText("Slug")
+		expect(slug).toHaveValue("")
+		expect(slug).toBeRequired()
 	})
 
 	it("navigates to /admin after a successful save", async () => {
@@ -277,6 +320,29 @@ describe("PostForm — edit mode", () => {
 			.calls[0]
 		expect(url).toBe(`/api/admin/posts/${initialData.id}`)
 		expect(options.method).toBe("PUT")
+	})
+
+	it("shows the slug read-only and leaves it alone when the title changes", async () => {
+		mockRouter()
+		render(<PostForm initialData={initialData} />)
+		const slug = screen.getByLabelText("Slug")
+
+		await user.type(screen.getByLabelText(/title/i), " v2")
+
+		expect(slug).toHaveAttribute("readonly")
+		expect(slug).toHaveValue("existing-title")
+	})
+
+	it("does not send a slug on update", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<PostForm initialData={initialData} />)
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body)).not.toHaveProperty("slug")
 	})
 
 	it("sends the description back as loaded when it isn't edited", async () => {

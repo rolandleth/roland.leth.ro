@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { deriveDescription } from "@/lib/content/markdown"
-import { calculateReadingTime } from "@/lib/utils/format"
-import { buildPostFile, parseFrontmatter } from "./frontmatter"
+import { calculateReadingTime, createSlug } from "@/lib/utils/format"
+import {
+	buildPostFile,
+	parseFrontmatter,
+	setFrontmatterSlug,
+} from "./frontmatter"
 import {
 	diffBodyLines,
 	type ExistingPost,
@@ -14,9 +18,21 @@ const NOW = "2026-07-04-1200"
 
 const LONG_BODY = Array.from({ length: 300 }, (_, i) => `word${i}`).join(" ")
 
-/** A well-formed post file: frontmatter title + body. Filename is decorative. */
-function fmFile(filename: string, title: string, body: string): ImportFile {
-	return { filename, content: buildPostFile(title, body) }
+/**
+ * A well-formed post file: frontmatter title, an explicit `slug:` line and a
+ * body. Filename is decorative. The slug defaults to the title's slug only as
+ * a fixture convenience; the importer itself never derives one.
+ */
+function fmFile(
+	filename: string,
+	title: string,
+	body: string,
+	slug = createSlug(title)
+): ImportFile {
+	return {
+		filename,
+		content: setFrontmatterSlug(buildPostFile(title, body), slug),
+	}
 }
 
 /**
@@ -28,7 +44,10 @@ function rawTitleFile(
 	title: string,
 	body: string
 ): ImportFile {
-	return { filename, content: `---\ntitle: "${title}"\n---\n\n${body}` }
+	return {
+		filename,
+		content: `---\ntitle: "${title}"\nslug: ${createSlug(title)}\n---\n\n${body}`,
+	}
 }
 
 /** A post file that also carries an authored `description:` line. */
@@ -40,7 +59,7 @@ function fmFileWithDescription(
 ): ImportFile {
 	return {
 		filename,
-		content: `---\ntitle: "${title}"\ndescription: "${description}"\n---\n\n${body}`,
+		content: `---\ntitle: "${title}"\nslug: ${createSlug(title)}\ndescription: "${description}"\n---\n\n${body}`,
 	}
 }
 
@@ -79,23 +98,42 @@ describe("parsePostFiles", () => {
 				datetime: "2026-07-24-0937",
 				body: "Body text",
 				description: null,
-				slugRewrite: {
-					content: `---\ntitle: "The tools"\nslug: the-tools\n---\n\nBody text`,
-					previous: null,
-				},
+				slugRewrite: null,
 			},
 		])
 	})
 
-	it("derives the slug from the title even when the filename label diverges", () => {
-		// The filename can't hold the real title, so a missing `slug:` derives
-		// from the title, not the label.
+	it("skips a file without a `slug:` line instead of deriving one from the title", () => {
+		// A title-derived slug could match an older post's, and the plan then
+		// treated the new file as that post re-dated: `--overwrite` replaced it.
+		const { parsed, skipped } = parsePostFiles([
+			{
+				filename: "2026-07-24-0937-weekly-links.md",
+				content: buildPostFile("Weekly links", "Body"),
+			},
+		])
+
+		expect(parsed).toEqual([])
+		expect(skipped).toEqual([
+			{
+				filename: "2026-07-24-0937-weekly-links.md",
+				reason: "Missing `slug:` frontmatter",
+			},
+		])
+	})
+
+	it("takes the slug from `slug:`, not from the filename label", () => {
 		const { parsed } = parsePostFiles([
-			fmFile("2013-10-18-0313-debuggex-dot-com.md", "Debuggex.com", "Body"),
+			fmFile(
+				"2013-10-18-0313-debuggex-dot-com.md",
+				"Debuggex.com",
+				"Body",
+				"debuggex"
+			),
 		])
 
 		expect(parsed[0]?.title).toBe("Debuggex.com")
-		expect(parsed[0]?.slug).toBe("debuggex-com")
+		expect(parsed[0]?.slug).toBe("debuggex")
 	})
 
 	it("uses an explicit `slug:` over the title and plans no rewrite", () => {
@@ -127,7 +165,12 @@ describe("parsePostFiles", () => {
 
 	it("parses the rewrite content back to the resolved slug", () => {
 		const { parsed } = parsePostFiles([
-			fmFile("2026-07-24-0937-the-tools.md", "The tools", "Body text"),
+			fmFile(
+				"2026-07-24-0937-the-tools.md",
+				"The tools",
+				"Body text",
+				"The Tools"
+			),
 		])
 
 		const rewritten = parseFrontmatter(parsed[0]?.slugRewrite?.content ?? "")
@@ -148,7 +191,7 @@ describe("parsePostFiles", () => {
 		expect(skipped[0]?.reason).toMatch(/`slug:` normalizes to an empty slug/)
 	})
 
-	it("detects a duplicate between an explicit slug and a derived one", () => {
+	it("detects a duplicate slug across files with different titles", () => {
 		const { parsed, skipped } = parsePostFiles([
 			fmFile("2026-07-24-a.md", "The tools", "Body one"),
 			{
@@ -190,12 +233,14 @@ describe("parsePostFiles", () => {
 		expect(skipped[0]?.reason).toMatch(/Missing `title:` frontmatter/)
 	})
 
-	it("skips a title that produces an empty slug", () => {
-		const { skipped } = parsePostFiles([
-			fmFile("2026-07-24-punct.md", "!!!", "Body"),
+	it("imports a title with no letters or digits when the slug is explicit", () => {
+		// Nothing is derived from the title, so a title like this is just a title.
+		const { parsed, skipped } = parsePostFiles([
+			fmFile("2026-07-24-punct.md", "!!!", "Body", "exclamations"),
 		])
 
-		expect(skipped[0]?.reason).toMatch(/empty slug/)
+		expect(skipped).toEqual([])
+		expect(parsed[0]?.slug).toBe("exclamations")
 	})
 
 	it("skips the second file with a duplicate slug", () => {
@@ -216,7 +261,9 @@ describe("parsePostFiles", () => {
 		expect(skipped[0]?.reason).toMatch(/Body is empty/)
 	})
 
-	it('treats a blank `slug:` like a missing one: derives from the title, rewrite carries `previous: ""`', () => {
+	it("skips a blank `slug:` instead of deriving one from the title", () => {
+		// Reported apart from a missing line, so the author learns the field
+		// was seen and left empty.
 		const { parsed, skipped } = parsePostFiles([
 			{
 				filename: "2026-07-24-0937-blank.md",
@@ -224,20 +271,10 @@ describe("parsePostFiles", () => {
 			},
 		])
 
-		expect(skipped).toEqual([])
-		expect(parsed[0]?.slug).toBe("the-tools")
-		expect(parsed[0]?.slugRewrite?.previous).toBe("")
-	})
-
-	it("reports a blank `slug:` distinctly from a missing line when the title is also empty", () => {
-		const { skipped } = parsePostFiles([
-			{
-				filename: "2026-07-24-0937-blank.md",
-				content: `---\ntitle: "!!!"\nslug:\n---\n\nBody.`,
-			},
+		expect(parsed).toEqual([])
+		expect(skipped).toEqual([
+			{ filename: "2026-07-24-0937-blank.md", reason: "`slug:` is blank" },
 		])
-
-		expect(skipped[0]?.reason).toMatch(/`slug:` is blank/)
 	})
 
 	// The parsed value trims to the resolved slug, so the old parsed-vs-resolved
@@ -260,7 +297,7 @@ describe("parsePostFiles", () => {
 		const { parsed } = parsePostFiles([
 			{
 				filename: "2026-07-24-0937-crlf.md",
-				content: `---\r\ntitle: "The tools"\r\n---\r\n\r\nBody.`,
+				content: `---\r\ntitle: "The tools"\r\nslug: The Tools\r\n---\r\n\r\nBody.`,
 			},
 		])
 

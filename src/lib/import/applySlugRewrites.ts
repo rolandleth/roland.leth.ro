@@ -15,14 +15,10 @@ export type SlugRewriteOutcome = {
 /**
  * How the resolved slug is being written, phrased for the operator's log. Takes
  * the resolved values directly (not the file) so it can't be called without a
- * pending rewrite — the caller guards on `slugRewrite != null` first. A blank
- * `previous` (`""`) is a real prior value, distinct from `null` ("from title"),
- * so it renders as `slug: "" → x`.
+ * pending rewrite — the caller guards on `slugRewrite != null` first.
  */
-function describeChange(slug: string, previous: string | null): string {
-	return previous == null
-		? `slug: ${slug} (from title)`
-		: `slug: "${previous}" → ${slug}`
+function describeChange(slug: string, previous: string): string {
+	return `slug: "${previous}" → ${slug}`
 }
 
 /**

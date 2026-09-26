@@ -1,8 +1,8 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/db/db"
-import { buildPostFile } from "@/lib/import/frontmatter"
-import { currentDatetimeString } from "@/lib/utils/format"
+import { buildPostFile, setFrontmatterSlug } from "@/lib/import/frontmatter"
+import { createSlug, currentDatetimeString } from "@/lib/utils/format"
 import { POST } from "./route"
 
 vi.mock("@/lib/api/requireAdmin", async () => {
@@ -48,9 +48,21 @@ function makeRequest(body: unknown) {
 	})
 }
 
-/** A well-formed upload file: valid filename + frontmatter title + body. */
-function file(filename: string, title: string, body: string) {
-	return { filename, content: buildPostFile(title, body) }
+/**
+ * A well-formed upload file: valid filename + frontmatter title, an explicit
+ * `slug:` line and a body. The slug defaults to the title's only as a fixture
+ * convenience; the route never derives one.
+ */
+function file(
+	filename: string,
+	title: string,
+	body: string,
+	slug = createSlug(title)
+) {
+	return {
+		filename,
+		content: setFrontmatterSlug(buildPostFile(title, body), slug),
+	}
 }
 
 const validFile = file(
@@ -218,14 +230,16 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
 	})
 
-	it("skips a file whose title sanitizes to an empty slug", async () => {
-		// Frontmatter title `!!!`; `createSlug("!!!")` returns "" because every
-		// char is in the punctuation-strip class. Route must surface this as a
-		// skip rather than attempting an empty-slug insert.
+	it("skips a file without a `slug:` line instead of deriving one from the title", async () => {
 		const response = await POST(
 			makeRequest({
 				section: "tech",
-				files: [file("2026-05-15-punct.md", "!!!", "body")],
+				files: [
+					{
+						filename: "2026-05-15-no-slug.md",
+						content: buildPostFile("A real post", "body"),
+					},
+				],
 			})
 		)
 
@@ -234,8 +248,8 @@ describe("POST /api/admin/posts/bulk per-file outcomes", () => {
 		expect(data.created).toBe(0)
 		expect(data.skipped).toEqual([
 			{
-				filename: "2026-05-15-punct.md",
-				reason: expect.stringMatching(/empty slug/i),
+				filename: "2026-05-15-no-slug.md",
+				reason: "Missing `slug:` frontmatter",
 			},
 		])
 		expect(prisma.post.createManyAndReturn).not.toHaveBeenCalled()
@@ -348,7 +362,7 @@ describe("POST /api/admin/posts/bulk frontmatter", () => {
 				files: [
 					{
 						filename: "2026-05-15-spaced.md",
-						content: `---\ntitle: "A \t  real   post"\n---\n\nBody.`,
+						content: `---\ntitle: "A \t  real   post"\nslug: a-real-post\n---\n\nBody.`,
 					},
 				],
 			})
@@ -579,7 +593,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 				files: [
 					{
 						filename: "2026-05-15-first.md",
-						content: `---\ntitle: "First"\ndescription: "Written for the search result."\n---\n\nFirst post body.`,
+						content: `---\ntitle: "First"\nslug: first\ndescription: "Written for the search result."\n---\n\nFirst post body.`,
 					},
 				],
 			})
@@ -598,7 +612,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 				files: [
 					{
 						filename: "2026-05-15-first.md",
-						content: `---\ntitle: "First"\ndescription: "   "\n---\n\nFirst post body.`,
+						content: `---\ntitle: "First"\nslug: first\ndescription: "   "\n---\n\nFirst post body.`,
 					},
 				],
 			})
@@ -620,7 +634,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 				files: [
 					{
 						filename: "2026-05-15-long.md",
-						content: `---\ntitle: "Long"\ndescription: "${"x".repeat(161)}"\n---\n\nBody.`,
+						content: `---\ntitle: "Long"\nslug: long\ndescription: "${"x".repeat(161)}"\n---\n\nBody.`,
 					},
 					validFile,
 				],
@@ -648,7 +662,7 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 				files: [
 					{
 						filename: "2026-05-15-long-title.md",
-						content: `---\ntitle: "${"t".repeat(201)}"\n---\n\nBody.`,
+						content: `---\ntitle: "${"t".repeat(201)}"\nslug: long-title\n---\n\nBody.`,
 					},
 					validFile,
 				],

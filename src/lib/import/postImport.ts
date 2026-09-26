@@ -10,12 +10,11 @@
 // datetime; its text label is decorative (it can't hold `:`/`/`/accents that
 // real titles do).
 //
-// Slug source of truth is the file's `slug:` frontmatter. When it's absent
-// (derive from the title) or non-canonical (normalize the value itself), the
-// parse resolves it through `createSlug` and carries the rewritten file
-// content so the shell can write the fix back into the source file — the
-// content repo converges to explicit slugs, and a later title edit can never
-// silently move a post's URL.
+// Slug source of truth is the file's `slug:` frontmatter, and it is required:
+// a file without one is skipped, never given a slug derived from its title.
+// A non-canonical value is normalized through `createSlug`, and the parse
+// carries the rewritten file content so the shell can write the fix back into
+// the source file.
 
 import { parseBulkImportFilename } from "@/lib/api/bulkImportParser"
 import { postFileSchema } from "@/lib/api/schemas"
@@ -41,8 +40,8 @@ export type ImportFile = {
 export type SlugRewrite = {
 	/** The full file content with the resolved `slug:` line in place. */
 	content: string
-	/** The non-canonical value being replaced, or `null` when the file had no `slug:` line. */
-	previous: string | null
+	/** The `slug:` value being replaced, as the file wrote it. */
+	previous: string
 }
 
 export type ParsedPostFile = {
@@ -53,7 +52,7 @@ export type ParsedPostFile = {
 	body: string
 	/** The file's `description:` line, or `null` to derive one from the body. */
 	description: string | null
-	/** Non-null when the source file's `slug:` line needs writing (missing or normalized); the shell persists it. */
+	/** Non-null when the source file's `slug:` line needs rewriting (normalized); the shell persists it. */
 	slugRewrite: SlugRewrite | null
 }
 
@@ -116,56 +115,46 @@ export type ImportPlan = {
 }
 
 /**
- * Resolves a file's slug: the explicit `slug:` value when canonical, otherwise
- * `createSlug` applied to the value itself (non-canonical) or to the title
- * (absent) — `createSlug` is idempotent on a well-formed slug, so it doubles
- * as the canonical-shape check. Returns a skip reason instead when the
- * resolution comes out empty.
+ * Resolves a file's slug from its `slug:` line: the value itself when
+ * canonical, otherwise `createSlug` applied to it — `createSlug` is idempotent
+ * on a well-formed slug, so it doubles as the canonical-shape check. Returns a
+ * skip reason instead when the line is missing, blank, or normalizes to "".
+ *
+ * Never falls back to the title. A title-derived slug could match an older
+ * post's, and the plan, which matches rows by slug, then treated the new file
+ * as that post re-dated: `--overwrite` replaced the older post's title, body
+ * and date.
  */
 function resolveSlug(
-	fileSlug: string | null,
-	title: string
-): { slug: string } | { skipReason: string } {
-	// `||` (not `??`): a blank `slug:` is an empty string, and it falls back to
-	// the title exactly like an absent line does.
-	const slug = createSlug(fileSlug || title)
-
-	if (slug === "") {
-		return { skipReason: emptySlugSkipReason(fileSlug) }
-	}
-
-	return { slug }
-}
-
-/**
- * Why a file resolved to an empty slug, branched so a blank `slug:` field reads
- * differently from a missing one: the author who left it blank learns the field
- * was seen and the title fallback came up empty too, instead of the generic
- * title message a slug-less file gets.
- */
-function emptySlugSkipReason(fileSlug: string | null): string {
+	fileSlug: string | null
+): { slug: string; written: string } | { skipReason: string } {
 	if (fileSlug == null) {
-		return "Title produces an empty slug"
+		return { skipReason: "Missing `slug:` frontmatter" }
 	}
 
 	if (fileSlug === "") {
-		return "`slug:` is blank and the title produces an empty slug"
+		return { skipReason: "`slug:` is blank" }
 	}
 
-	return "`slug:` normalizes to an empty slug"
+	const slug = createSlug(fileSlug)
+
+	if (slug === "") {
+		return { skipReason: "`slug:` normalizes to an empty slug" }
+	}
+
+	return { slug, written: fileSlug }
 }
 
 /**
  * The pending `slug:` write-back for a file, or `null` when the file is already
  * byte-for-byte canonical. Comparing the rewritten content against the original
  * — rather than the parsed slug against the resolved one — catches drift that
- * parses equal but differs on disk (a quoted value, trailing whitespace, a
- * missing line), so the "converge to explicit slugs" pass actually heals it
- * instead of leaving it in place.
+ * parses equal but differs on disk (a quoted value, trailing whitespace), so
+ * the pass actually heals it instead of leaving it in place.
  */
 function slugRewriteFor(
 	content: string,
-	fileSlug: string | null,
+	written: string,
 	slug: string
 ): SlugRewrite | null {
 	const rewritten = setFrontmatterSlug(content, slug)
@@ -174,15 +163,15 @@ function slugRewriteFor(
 		return null
 	}
 
-	return { content: rewritten, previous: fileSlug }
+	return { content: rewritten, previous: written }
 }
 
 /**
  * Parses each file into a title (from frontmatter), slug (from frontmatter,
  * resolved through `createSlug`), datetime (from the filename), and body,
  * partitioning out per-file skips: malformed filename, missing frontmatter
- * title, empty slug, in-batch duplicate, empty body. A file whose `slug:` was
- * absent or non-canonical carries a `slugRewrite` with the corrected file
+ * title, missing or empty slug, in-batch duplicate, empty body. A file whose
+ * `slug:` was non-canonical carries a `slugRewrite` with the corrected file
  * content for the shell to persist.
  */
 export function parsePostFiles(files: readonly ImportFile[]): {
@@ -216,14 +205,14 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 			continue
 		}
 
-		const resolution = resolveSlug(fileSlug, title)
+		const resolution = resolveSlug(fileSlug)
 
 		if ("skipReason" in resolution) {
 			skipped.push({ filename: file.filename, reason: resolution.skipReason })
 			continue
 		}
 
-		const { slug } = resolution
+		const { slug, written } = resolution
 
 		if (seenSlugs.has(slug)) {
 			skipped.push({
@@ -249,7 +238,7 @@ export function parsePostFiles(files: readonly ImportFile[]): {
 			datetime: filenameResult.datetime,
 			body,
 			description,
-			slugRewrite: slugRewriteFor(file.content, fileSlug, slug),
+			slugRewrite: slugRewriteFor(file.content, written, slug),
 		})
 	}
 
@@ -279,9 +268,9 @@ export type PostFileValidation =
 
 /**
  * Validates a parsed file against `postFileSchema` — the admin API's contract
- * minus the title's slug refinement, which `resolveSlug` has already settled on
- * this path — so a row the admin couldn't have written can't enter through the
- * script or the bulk upload either. The file's `description:` rides along, so
+ * minus the slug, which `resolveSlug` has already settled on this path — so a
+ * row the admin couldn't have written can't enter through the script or the
+ * bulk upload either. The file's `description:` rides along, so
  * one past the schema's cap is a skip rather than a row the edit form can't save.
  *
  * Returns the title and description as the schema outputs them (whitespace

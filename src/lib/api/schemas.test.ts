@@ -19,7 +19,12 @@ import { createSlug } from "@/lib/utils/format"
 // #region httpUrl (tested indirectly through schema fields that use it)
 
 describe("httpUrl validator (via imageUrl)", () => {
-	const base = { title: "T", body: "B", datetime: "2025-01-01-1200" }
+	const base = {
+		title: "T",
+		slug: "t",
+		body: "B",
+		datetime: "2025-01-01-1200",
+	}
 
 	it("accepts http:// URLs", () => {
 		const result = postCreateSchema.safeParse({
@@ -56,6 +61,7 @@ describe("httpUrl validator (via imageUrl)", () => {
 describe("postCreateSchema", () => {
 	const valid = {
 		title: "My Post",
+		slug: "my-post",
 		body: "Some content here.",
 		datetime: "2025-06-01-0900",
 	}
@@ -113,28 +119,32 @@ describe("postCreateSchema", () => {
 		)
 	})
 
-	it.each([
-		// All-punctuation titles pass `min(1)` but `createSlug` reduces them to
-		// "", which would either fail the DB insert (unique-empty-slug) or
-		// produce an unreachable post URL. The refine rejects them at the form
-		// boundary so the admin sees a clean 400 with a helpful message.
-		["all punctuation", "!!!???"],
-		["U+2212 minus run", "−−−"],
-		// `createSlug` normalises NFKD + strips combining marks; soft hyphens
-		// collapse to nothing.
-		["soft hyphen run", "­­­"],
-		["whitespace only", "   "],
-	])("rejects titles that produce an empty slug (%s)", (_label, title) => {
-		expect(postCreateSchema.safeParse({ ...valid, title }).success).toBe(false)
+	it("rejects a title of only whitespace", () => {
+		expect(postCreateSchema.safeParse({ ...valid, title: "   " }).success).toBe(
+			false
+		)
 	})
 
-	it("accepts a title with punctuation as long as it slugs to something", () => {
-		// Mixed punctuation + letters is fine — `createSlug` strips the
-		// punctuation but the letters survive.
-		expect(
-			postCreateSchema.safeParse({ ...valid, title: "!!!Hello???" }).success
-		).toBe(true)
+	it.each([
+		// The slug is authored, so a title no longer has to produce one. An
+		// all-CJK title used to fail here with a message about punctuation.
+		["all punctuation", "!!!???"],
+		["CJK", "日本語のタイトル"],
+	])("accepts a title that slugs to nothing (%s)", (_label, title) => {
+		expect(postCreateSchema.safeParse({ ...valid, title }).success).toBe(true)
 	})
+
+	it("rejects when slug is missing", () => {
+		const { slug: _, ...rest } = valid
+		expect(postCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it.each(["My Post", "my--post", "-post", "my_post"])(
+		"rejects the non-canonical slug %j instead of rewriting it",
+		(slug) => {
+			expect(postCreateSchema.safeParse({ ...valid, slug }).success).toBe(false)
+		}
+	)
 
 	it("rejects an empty body", () => {
 		expect(postCreateSchema.safeParse({ ...valid, body: "" }).success).toBe(
@@ -168,6 +178,16 @@ describe("postUpdateSchema", () => {
 		expect(postUpdateSchema.safeParse({ title: "New title" }).success).toBe(
 			true
 		)
+	})
+
+	it("strips a slug, so an update can't move the post's URL", () => {
+		const result = postUpdateSchema.safeParse({
+			title: "New title",
+			slug: "new-title",
+		})
+
+		expect(result.success).toBe(true)
+		expect(result.data).not.toHaveProperty("slug")
 	})
 
 	it("still rejects an invalid imageUrl in a partial update", () => {
@@ -902,6 +922,7 @@ describe("projectCreateSchema — sortOrder boundaries", () => {
 describe("postCreateSchema — description whitespace", () => {
 	const basePost = {
 		title: "T",
+		slug: "t",
 		body: "B",
 		datetime: "2024-01-01-0900",
 	}
@@ -969,6 +990,7 @@ describe("title whitespace", () => {
 	function parsedPostTitle(title: string): string {
 		const result = postCreateSchema.safeParse({
 			title,
+			slug: "t",
 			body: "B",
 			datetime: "2024-01-01-0900",
 		})
@@ -1014,6 +1036,7 @@ describe("title whitespace", () => {
 	it("still rejects a whitespace-only post title", () => {
 		const result = postCreateSchema.safeParse({
 			title: " \n\t ",
+			slug: "t",
 			body: "B",
 			datetime: "2024-01-01-0900",
 		})
@@ -1022,24 +1045,31 @@ describe("title whitespace", () => {
 	})
 })
 
-describe("the title's slug refinement", () => {
+describe("a title that slugs to nothing", () => {
 	const base = { body: "B", datetime: "2024-01-01-0900" }
-	// `createSlug` keeps only `[a-z0-9-]`, so this empties.
+	// `createSlug` keeps only `[a-z0-9-]`, so this empties. No schema derives
+	// a slug from the title, so none of them may reject it.
 	const title = "日本語のタイトル"
 
-	it("is enforced by postCreateSchema, where the slug comes from the title", () => {
-		expect(postCreateSchema.safeParse({ ...base, title }).success).toBe(false)
+	it("is accepted by postCreateSchema, where the slug is authored", () => {
+		const result = postCreateSchema.safeParse({
+			...base,
+			title,
+			slug: "a-japanese-post",
+		})
+
+		expect(result.success && result.data.title).toBe(title)
 	})
 
-	it("is not enforced by postFileSchema, where `slug:` decides", () => {
+	it("is accepted by postFileSchema, where `slug:` decides", () => {
 		const result = postFileSchema.safeParse({ ...base, title })
 
 		expect(result.success && result.data.title).toBe(title)
 	})
 
-	it("is not enforced by postUpdateSchema, which never derives a slug", () => {
-		// The edit form sends the title on every save, so a post imported under
-		// this title would otherwise fail its first edit.
+	it("is accepted by postUpdateSchema, which never touches the slug", () => {
+		// The edit form sends the title on every save, so a post with this title
+		// would otherwise fail its first edit.
 		const result = postUpdateSchema.safeParse({ title })
 
 		expect(result.success && result.data.title).toBe(title)
@@ -1140,6 +1170,7 @@ describe("guideCreateSchema — description whitespace", () => {
 describe("postCreateSchema — title/body/description max-length boundaries", () => {
 	const basePost = {
 		title: "T",
+		slug: "t",
 		body: "B",
 		datetime: "2024-01-01-0900",
 	}
