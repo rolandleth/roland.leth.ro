@@ -133,6 +133,7 @@ function mockFetch(ok: boolean, body: object = {}) {
 const initialData = {
 	id: 3,
 	name: "Existing App",
+	slug: "existing-app",
 	summary: "An existing app.",
 	bucket: PlatformBucket.Mac,
 	platformTags: [PlatformTag.macOS],
@@ -219,6 +220,48 @@ describe("ProjectForm — create mode", () => {
 			.calls[0]
 		expect(url).toBe("/api/admin/projects")
 		expect(options.method).toBe("POST")
+	})
+
+	it("fills the slug from the name and sends it", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await fillRequiredFields()
+
+		expect(screen.getByLabelText("Slug")).toHaveValue("new-app")
+
+		await clickSave()
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body).slug).toBe("new-app")
+	})
+
+	it("keeps a typed slug when the name changes afterwards", async () => {
+		mockRouter()
+		render(<ProjectForm />)
+		const name = screen.getByLabelText(/^name$/i)
+		const slug = screen.getByLabelText("Slug")
+
+		await user.type(name, "Reckon")
+		await user.clear(slug)
+		await user.type(slug, "reckon-app")
+		await user.type(name, " Time Tracker")
+
+		expect(slug).toHaveValue("reckon-app")
+	})
+
+	it("leaves the slug empty for a name with no letters or digits", async () => {
+		// Nothing to derive; `required` then makes the author type one, where
+		// the old derived slug failed as a 400 after Save.
+		mockRouter()
+		render(<ProjectForm />)
+
+		await user.type(screen.getByLabelText(/^name$/i), "計算機")
+
+		const slug = screen.getByLabelText("Slug")
+		expect(slug).toHaveValue("")
+		expect(slug).toBeRequired()
 	})
 
 	it("sends isFeatured, isDiscontinued and isOwnApp as false when left unticked", async () => {
@@ -449,6 +492,29 @@ describe("ProjectForm — edit mode", () => {
 			.calls[0]
 		expect(url).toBe(`/api/admin/projects/${initialData.id}`)
 		expect(options.method).toBe("PUT")
+	})
+
+	it("shows the slug read-only and leaves it alone when the name changes", async () => {
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+		const slug = screen.getByLabelText("Slug")
+
+		await user.type(screen.getByLabelText(/^name$/i), " Pro")
+
+		expect(slug).toHaveAttribute("readonly")
+		expect(slug).toHaveValue("existing-app")
+	})
+
+	it("does not send a slug on update", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm initialData={initialData} />)
+		await clickSave()
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		expect(JSON.parse(options.body)).not.toHaveProperty("slug")
 	})
 
 	it("navigates to /admin after a successful delete", async () => {

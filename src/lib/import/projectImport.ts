@@ -11,7 +11,10 @@
 
 import { createHash } from "node:crypto"
 import { errorMessage } from "@/lib/utils/errorMessage"
-import { createSlug } from "@/lib/utils/format"
+import {
+	CANONICAL_SLUG_MESSAGE,
+	CANONICAL_SLUG_PATTERN,
+} from "@/lib/utils/format"
 
 /**
  * Sanitises one path segment for a blob key: collapses separators and
@@ -101,10 +104,6 @@ const BLOB_KEY_PREFIX = "projects"
 // the importer's reuse path additionally asserts byte size as a backstop.
 const CONTENT_HASH_LENGTH = 16
 
-// A clean URL slug: lowercase alphanumeric segments joined by single hyphens.
-// Matches what `createSlug` produces and what the DB's unique `slug` expects.
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-
 /**
  * True when `value` is a local image reference that must be uploaded — a
  * non-empty string that isn't already an absolute `http(s)` URL. `null`,
@@ -120,23 +119,28 @@ export function isLocalImageRef(value: unknown): value is string {
 }
 
 /**
- * Resolves the final slug: the manifest's explicit `slug` when present,
- * otherwise derived from `name` via `createSlug`. Throws on an empty name or a
- * slug that doesn't match `SLUG_PATTERN`, so a malformed slug fails before any
- * upload or DB write rather than surfacing as an opaque unique-constraint error.
+ * The manifest's authored slug. Required, and checked as written, never
+ * trimmed or derived: a slug that fell back to `name` changed whenever the
+ * manifest renamed the project, and the import then created a second project
+ * next to the old one, which stayed live. Checked before any upload, since the
+ * blob keys are built from it, so a bad slug fails before anything is written.
  */
-export function deriveSlug(name: string, slug?: string | null): string {
-	const explicit = typeof slug === "string" ? slug.trim() : ""
-	const candidate = explicit !== "" ? explicit : createSlug(name ?? "")
+export function requireManifestSlug(manifest: ProjectManifest): string {
+	const { slug } = manifest
 
-	if (candidate === "" || !SLUG_PATTERN.test(candidate)) {
+	if (typeof slug !== "string" || slug === "") {
 		throw new Error(
-			`Cannot derive a valid slug (got "${candidate}") from name "${name}" / slug "${slug ?? ""}". ` +
-				`A slug must be lowercase alphanumeric segments separated by single hyphens.`
+			`Manifest for "${manifest.name}" has no slug. Add "slug": the project's URL is /projects/<slug>, and it must not change once published.`
 		)
 	}
 
-	return candidate
+	if (!CANONICAL_SLUG_PATTERN.test(slug)) {
+		throw new Error(
+			`Manifest for "${manifest.name}" has an invalid slug "${slug}". ${CANONICAL_SLUG_MESSAGE}.`
+		)
+	}
+
+	return slug
 }
 
 // The boolean flags a manifest has to set explicitly, in the order an error

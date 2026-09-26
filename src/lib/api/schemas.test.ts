@@ -447,6 +447,7 @@ describe("guideTopicUpdateSchema", () => {
 describe("projectCreateSchema", () => {
 	const valid = {
 		name: "My App",
+		slug: "my-app",
 		summary: "An app that does things.",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
@@ -619,19 +620,33 @@ describe("projectCreateSchema", () => {
 		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
 	})
 
-	it.each([
-		// Mirrors `postCreateSchema`: names that pass `min(1)` but slug to ""
-		// can't produce a valid URL and would surface the failure deep in the
-		// DB layer. Reject at the form boundary instead.
-		["all punctuation", "!!!???"],
-		["U+2212 minus run", "−−−"],
-		["soft hyphen run", "­­­"],
-		["whitespace only", "   "],
-	])("rejects names that produce an empty slug (%s)", (_label, name) => {
-		expect(projectCreateSchema.safeParse({ ...valid, name }).success).toBe(
-			false
-		)
+	it("rejects a name of only whitespace", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, name: "   " }).success
+		).toBe(false)
 	})
+
+	it.each([
+		// The slug is authored, so a name no longer has to produce one.
+		["all punctuation", "!!!???"],
+		["CJK", "計算機"],
+	])("accepts a name that slugs to nothing (%s)", (_label, name) => {
+		expect(projectCreateSchema.safeParse({ ...valid, name }).success).toBe(true)
+	})
+
+	it("rejects when slug is missing", () => {
+		const { slug: _, ...rest } = valid
+		expect(projectCreateSchema.safeParse(rest).success).toBe(false)
+	})
+
+	it.each(["My App", "my--app", "-my-app", "my_app", "x".repeat(101)])(
+		"rejects the non-canonical slug %j instead of rewriting it",
+		(slug) => {
+			expect(projectCreateSchema.safeParse({ ...valid, slug }).success).toBe(
+				false
+			)
+		}
+	)
 
 	it("rejects when summary is missing", () => {
 		const { summary: _, ...rest } = valid
@@ -766,6 +781,16 @@ describe("projectUpdateSchema", () => {
 		)
 	})
 
+	it("strips a slug, so an update can't move the project's URL", () => {
+		const result = projectUpdateSchema.safeParse({
+			name: "Renamed App",
+			slug: "renamed-app",
+		})
+
+		expect(result.success).toBe(true)
+		expect(result.data).not.toHaveProperty("slug")
+	})
+
 	it("still rejects an invalid icon URL in a partial update", () => {
 		expect(
 			projectUpdateSchema.safeParse({ icon: "javascript:evil()" }).success
@@ -826,6 +851,7 @@ describe("projectUpdateSchema", () => {
 describe("projectCreateSchema — sortOrder boundaries", () => {
 	const valid = {
 		name: "My App",
+		slug: "my-app",
 		summary: "An app that does things.",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
@@ -1156,6 +1182,7 @@ describe("postCreateSchema — title/body/description max-length boundaries", ()
 describe("projectCreateSchema — name/summary max-length boundaries", () => {
 	const baseProject = {
 		name: "N",
+		slug: "n",
 		summary: "S",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
@@ -1190,6 +1217,7 @@ describe("projectCreateSchema — name/summary max-length boundaries", () => {
 describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 	const baseProject = {
 		name: "N",
+		slug: "n",
 		summary: "S",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
@@ -1247,6 +1275,7 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 describe("projectCreateSchema — accentColor hex validation", () => {
 	const baseProject = {
 		name: "N",
+		slug: "n",
 		summary: "S",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],

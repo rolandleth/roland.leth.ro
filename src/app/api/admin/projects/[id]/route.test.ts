@@ -25,6 +25,8 @@ vi.mock("@/lib/db/db", () => ({
 			delete: vi.fn(),
 			updateMany: vi.fn(),
 		},
+		guide: { count: vi.fn() },
+		guideTopic: { count: vi.fn() },
 		$transaction: vi.fn(),
 	},
 	isPrismaNotFound: vi.fn(),
@@ -134,11 +136,7 @@ describe("PUT /api/admin/projects/[id]", () => {
 	})
 
 	it("returns 200 with the updated project", async () => {
-		const updated = {
-			...existingProject,
-			name: "Renamed App",
-			slug: "renamed-app",
-		}
+		const updated = { ...existingProject, name: "Renamed App" }
 		vi.mocked(prisma.project.update).mockResolvedValue(updated)
 
 		const response = await PUT(
@@ -151,26 +149,39 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(data.name).toBe("Renamed App")
 	})
 
-	it("regenerates the slug when name changes", async () => {
+	it("keeps the slug when the name changes", async () => {
+		// Guides and topics name a project by slug with no foreign key, so a
+		// slug that moved with the name orphaned them and moved the public URL.
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
 		await PUT(putRequest("1", { name: "Brand New Name" }), params("1"))
 
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
-		expect(data.slug).toBe("brand-new-name")
+		expect(data.name).toBe("Brand New Name")
+		expect(data.slug).toBeUndefined()
 	})
 
-	it("does not include slug when name is not changed", async () => {
+	it("ignores a slug sent in the body", async () => {
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
-		await PUT(
-			putRequest("1", {
-				bucket: PlatformBucket.Mac,
-				platformTags: [PlatformTag.macOS],
-			}),
+		const response = await PUT(
+			putRequest("1", { name: "My App", slug: "hijacked" }),
 			params("1")
 		)
 
+		expect(response.status).toBe(200)
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
 		expect(data.slug).toBeUndefined()
+	})
+
+	it("busts only the project's own slug tag on a rename", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue({
+			...existingProject,
+			name: "Brand New Name",
+		})
+		await PUT(putRequest("1", { name: "Brand New Name" }), params("1"))
+
+		const bustedTags = vi.mocked(revalidateTag).mock.calls.map(([tag]) => tag)
+		expect(bustedTags).toContain("project-my-app")
+		expect(bustedTags.some((tag) => tag.includes("brand-new-name"))).toBe(false)
 	})
 
 	it("passes isFeatured, isDiscontinued and isOwnApp through to the update", async () => {
@@ -358,67 +369,27 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(response.status).toBe(500)
 	})
 
-	it("invalidates both old and new slug tags when a name change produces a new slug", async () => {
-		// The previous-slug read happens inside the same Serializable txn as
-		// the update; the transaction returns a project with the new slug. Both
-		// per-slug tags must be busted so cached lookups on the old URL also
-		// clear immediately.
-		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
-		const renamed = { ...existingProject, name: "New Name", slug: "new-name" }
-		vi.mocked(prisma.project.update).mockResolvedValue(renamed)
-
-		await PUT(putRequest("1", { name: "New Name" }), params("1"))
-
-		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
-			"project-my-app",
-			"max"
-		)
-		expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(
-			"project-new-name",
-			"max"
-		)
-	})
-
-	it("emits an info-level audit log on successful update including previousSlug", async () => {
-		// Renames vs in-place edits are indistinguishable in the access log;
-		// the audit line is the only signal that separates them.
-		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
-		const renamed = { ...existingProject, name: "New Name", slug: "new-name" }
-		vi.mocked(prisma.project.update).mockResolvedValue(renamed)
+	it("emits an info-level audit log on successful update", async () => {
+		// `previousSlug` stays null: the slug can't change on update, so the
+		// field only ever carries a value on the post routes.
+		vi.mocked(prisma.project.update).mockResolvedValue({
+			...existingProject,
+			name: "New Name",
+		})
 
 		await PUT(putRequest("1", { name: "New Name" }), params("1"))
 
 		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
 			"[api:admin:projects:PUT] success",
 			{
-				id: renamed.id,
-				slug: "new-name",
+				id: existingProject.id,
+				slug: "my-app",
 				section: null,
-				sortOrder: renamed.sortOrder,
+				sortOrder: existingProject.sortOrder,
 				previousSection: null,
-				previousSlug: "my-app",
+				previousSlug: null,
 				batchId: null,
 			}
-		)
-	})
-
-	it("audits previousSlug as null when the name is updated but the slug stays identical", async () => {
-		// Aligns with the posts PUT contract: `previousSlug` semantically means
-		// "the slug renamed, here's what it was", not "name was edited". A
-		// no-op rename whose normalized slug stays identical doesn't surface.
-		// Pre-fix: projects PUT emitted `previousSlug = "my-app"` even when the
-		// slug didn't change, which crowded the audit log with non-events.
-		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject) // slug: "my-app"
-		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
-
-		// New name normalizes to the same slug — the schema/route don't enforce
-		// equality, but the test mock keeps `slug: "my-app"` so we control the
-		// branch.
-		await PUT(putRequest("1", { name: "My App" }), params("1"))
-
-		expect(vi.mocked(console.info)).toHaveBeenCalledWith(
-			"[api:admin:projects:PUT] success",
-			expect.objectContaining({ previousSlug: null })
 		)
 	})
 
@@ -438,21 +409,6 @@ describe("PUT /api/admin/projects/[id]", () => {
 			expect.objectContaining({ sortOrder: 7 })
 		)
 	})
-
-	it("reads the previous slug inside the same Serializable transaction as the update", async () => {
-		// Without the in-txn read, two concurrent rename PUTs could both see
-		// the same `previousSlug` and skip one of the per-slug tag busts. The
-		// transaction is the load-bearing fix.
-		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
-		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
-
-		await PUT(putRequest("1", { name: "Other Name" }), params("1"))
-
-		expect(prisma.$transaction).toHaveBeenCalledTimes(1)
-		expect(prisma.project.findUnique).toHaveBeenCalledWith(
-			expect.objectContaining({ select: { slug: true } })
-		)
-	})
 })
 
 // ---------------------------------------------------------------------------
@@ -465,11 +421,80 @@ describe("DELETE /api/admin/projects/[id]", () => {
 			async (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
 				fn({
 					project: {
+						findUnique: vi.mocked(prisma.project.findUnique),
 						delete: vi.mocked(prisma.project.delete),
 						updateMany: vi.mocked(prisma.project.updateMany),
 					},
+					guide: { count: vi.mocked(prisma.guide.count) },
+					guideTopic: { count: vi.mocked(prisma.guideTopic.count) },
 				} as unknown as Prisma.TransactionClient)
 		)
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(existingProject)
+		vi.mocked(prisma.guide.count).mockResolvedValue(0)
+		vi.mocked(prisma.guideTopic.count).mockResolvedValue(0)
+	})
+
+	it("counts guides and topics by the project's slug", async () => {
+		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject)
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(prisma.guide.count).toHaveBeenCalledWith({
+			where: { projectSlug: "my-app" },
+		})
+		expect(prisma.guideTopic.count).toHaveBeenCalledWith({
+			where: { projectSlug: "my-app" },
+		})
+	})
+
+	it("returns 409 and deletes nothing while guides or topics still name the project", async () => {
+		vi.mocked(prisma.guide.count).mockResolvedValue(2)
+		vi.mocked(prisma.guideTopic.count).mockResolvedValue(1)
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(response.status).toBe(409)
+		const data = await response.json()
+		expect(data.error).toBe(
+			"This project still has 2 guides and 1 topic. Move them to another project or clear their project first."
+		)
+		expect(prisma.project.delete).not.toHaveBeenCalled()
+		expect(prisma.project.updateMany).not.toHaveBeenCalled()
+		expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled()
+		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
+			"[api:admin:projects:DELETE] project still referenced",
+			{ id: 1, guides: 2, topics: 1 }
+		)
+	})
+
+	it.each([
+		[1, 0, "This project still has 1 guide."],
+		[0, 3, "This project still has 3 topics."],
+	])(
+		"names only the kinds that still reference it (%i guides, %i topics)",
+		async (guides, topics, lead) => {
+			vi.mocked(prisma.guide.count).mockResolvedValue(guides)
+			vi.mocked(prisma.guideTopic.count).mockResolvedValue(topics)
+
+			const response = await DELETE(
+				new Request("http://localhost"),
+				params("1")
+			)
+
+			const data = await response.json()
+			expect(data.error.startsWith(lead)).toBe(true)
+		}
+	)
+
+	it("reaches the delete, and its 404, when the project doesn't exist", async () => {
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(null)
+		vi.mocked(isPrismaNotFound).mockReturnValue(true)
+		vi.mocked(prisma.project.delete).mockRejectedValue({ code: "P2025" })
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(response.status).toBe(404)
+		expect(prisma.guide.count).not.toHaveBeenCalled()
 	})
 
 	it("returns 204 on successful deletion", async () => {

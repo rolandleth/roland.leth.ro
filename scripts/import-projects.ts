@@ -56,12 +56,12 @@ import {
 import {
 	blobKeyFor,
 	contentHashFor,
-	deriveSlug,
 	listManifestImagePaths,
 	parseManifest,
 	type ProjectFlags,
 	projectFlags,
 	type ProjectManifest,
+	requireManifestSlug,
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
@@ -82,8 +82,8 @@ type ProjectResult = {
 	name: string
 	status: "imported" | "validated" | "failed"
 	detail?: string
-	// The derived slug (= the `/projects/<slug>` last path component). Absent
-	// when a run fails before the slug is derived. Used to print the paste-ready
+	// The manifest's slug (= the `/projects/<slug>` last path component). Absent
+	// when a run fails before the slug is checked. Used to print the paste-ready
 	// revalidation list.
 	slug?: string
 }
@@ -383,7 +383,7 @@ async function processProject(
 			throw new Error(`Manifest is missing a non-empty "name".`)
 		}
 
-		const slug = deriveSlug(manifest.name, manifest.slug)
+		const slug = requireManifestSlug(manifest)
 		console.log(`\n▸ ${manifest.name}  (slug: ${slug})`)
 
 		// Validate the full manifest against the real schema BEFORE any upload,

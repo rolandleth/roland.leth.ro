@@ -11,6 +11,7 @@ import {
 	NONE,
 } from "@/components/admin/guideFormOptions"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
 
@@ -127,26 +128,15 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 				/>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<label htmlFor="slug" className="text-secondary text-sm font-medium">
-					Slug
-				</label>
-				<input
-					id="slug"
-					type="text"
-					required
-					value={state.slug}
-					onChange={(e) => setField("slug", e.target.value)}
-					placeholder="how-to-keep-a-decision-journal"
-					className="admin-input font-mono"
-				/>
-				{/* Not derived from the title, unlike a post's: a guide's slug is
-				    phrased to match the search query it targets, and it's permanent
-				    the moment it's indexed or shared. */}
-				<p className="text-secondary text-xs">
-					Permanent once shared or indexed. Phrase it like the search query.
-				</p>
-			</div>
+			{/* Not filled from the title, unlike a post's or a project's: a guide's
+			    slug is phrased to match the search query it targets, and it's
+			    permanent the moment it's indexed or shared. */}
+			<SlugField
+				value={state.slug}
+				onChange={(slug) => setField("slug", slug)}
+				placeholder="how-to-keep-a-decision-journal"
+				hint="Permanent once shared or indexed. Phrase it like the search query."
+			/>
 
 			<DescriptionField
 				value={state.description}

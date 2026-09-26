@@ -6,6 +6,7 @@ import {
 	NONE,
 } from "@/components/admin/guideFormOptions"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
 
@@ -92,23 +93,12 @@ export default function GuideTopicForm({
 				/>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<label htmlFor="slug" className="text-secondary text-sm font-medium">
-					Slug
-				</label>
-				<input
-					id="slug"
-					type="text"
-					required
-					value={state.slug}
-					onChange={(e) => setField("slug", e.target.value)}
-					placeholder="making-better-decisions"
-					className="admin-input font-mono"
-				/>
-				<p className="text-secondary text-xs">
-					Shares one namespace with guide slugs. Permanent once shared.
-				</p>
-			</div>
+			<SlugField
+				value={state.slug}
+				onChange={(slug) => setField("slug", slug)}
+				placeholder="making-better-decisions"
+				hint="Shares one namespace with guide slugs. Permanent once shared."
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<label

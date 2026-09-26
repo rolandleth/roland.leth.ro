@@ -5,7 +5,12 @@ import {
 	DESCRIPTION_MAX_CHARS,
 } from "@/lib/content/descriptionRules"
 import { SECTIONS } from "@/lib/db/sections"
-import { createSlug } from "@/lib/utils/format"
+import {
+	CANONICAL_SLUG_MESSAGE,
+	CANONICAL_SLUG_PATTERN,
+	createSlug,
+	SLUG_MAX_LENGTH,
+} from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
 
 // `z.enum` in Zod 4 wants a const string tuple, but Prisma generates each
@@ -153,19 +158,16 @@ export const postBulkImportSchema = z.object({
 // Canonical slug form — exactly what `createSlug` emits: lowercase
 // alphanumerics joined by single hyphens, no leading or trailing hyphen.
 //
-// Guide slugs are validated, never normalized. Unlike a post's (derived from
-// the title), a guide's slug is authored to match the search query it targets
-// and is permanent the moment it's indexed or shared — so a malformed one is a
-// loud error, not something to quietly rewrite. Silently rewriting the author's
-// chosen slug is exactly how a URL moves without anyone noticing.
+// Slugs are validated, never normalized. A slug is authored (a guide's to match
+// the search query it targets) and is permanent the moment it's indexed or
+// shared — so a malformed one is a loud error, not something to quietly
+// rewrite. Silently rewriting the author's chosen slug is exactly how a URL
+// moves without anyone noticing.
 const canonicalSlug = z
 	.string()
 	.min(1)
-	.max(100)
-	.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-		message:
-			"Must be lowercase letters/digits separated by single hyphens, with no leading or trailing hyphen",
-	})
+	.max(SLUG_MAX_LENGTH)
+	.regex(CANONICAL_SLUG_PATTERN, { message: CANONICAL_SLUG_MESSAGE })
 
 // The meta description, the OG description, and the preview text on project and
 // topic pages all read this one field, so it's required, not optional. 160 is
@@ -309,11 +311,9 @@ function refineBucketTagCoherence(
 }
 
 const projectFields = {
-	name: z
-		.string()
-		.min(1)
-		.max(80)
-		.refine(producesNonEmptySlug, { message: SLUG_EMPTY_MESSAGE }),
+	// Trimmed so a name of only spaces still fails `min(1)`, as it did when the
+	// name had to produce a non-empty slug.
+	name: z.string().trim().min(1).max(80),
 	summary: z.string().min(1).max(300),
 	// Drives the `<title>` tag instead of the brand-word default (`name`).
 	// Capped at 60 so it doesn't truncate in SERPs.
@@ -345,8 +345,12 @@ const projectFields = {
 // the same `.partial()` behavior — the resulting ZodEffects can't be
 // `.partial()`'d further, so we build create/update from the shared field
 // map.
+//
+// The slug is authored and set once. Create requires it; update has no `slug`
+// key, so zod strips one if sent and the project's URL — and every guide and
+// topic that names the project by slug — never moves.
 export const projectCreateSchema = z
-	.object(projectFields)
+	.object({ ...projectFields, slug: canonicalSlug })
 	.superRefine(refineBucketTagCoherence)
 
 export const projectUpdateSchema = z

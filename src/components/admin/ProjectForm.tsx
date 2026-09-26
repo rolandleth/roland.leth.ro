@@ -10,15 +10,18 @@ import SectionManager, {
 	type SectionImage,
 	type SectionItem,
 } from "@/components/admin/SectionManager"
+import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
 import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { followTitleSlug } from "@/lib/utils/format"
 
 interface InitialData {
 	id: number
 	name: string
+	slug: string
 	summary: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
@@ -47,6 +50,8 @@ interface Props {
 
 interface ProjectPayload {
 	name: string
+	/** Sent on create only; the update schema has no slug. */
+	slug?: string
 	summary: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
@@ -82,6 +87,7 @@ const ROLE_OPTIONS = [
 
 interface FormState {
 	name: string
+	slug: string
 	bucket: PlatformBucket | null
 	platformTags: PlatformTag[]
 	role: string
@@ -125,6 +131,7 @@ export default function ProjectForm({ initialData }: Props) {
 	// otherwise put back the sections as they were when the file was picked.
 	const { state, setField, updateField, setState } = useFormState<FormState>({
 		name: initialData?.name ?? "",
+		slug: initialData?.slug ?? "",
 		bucket: initialData?.bucket ?? null,
 		platformTags: initialData?.platformTags ?? [],
 		role: initialData?.role ?? "",
@@ -168,6 +175,16 @@ export default function ProjectForm({ initialData }: Props) {
 		String(initialData?.sortOrder ?? 0)
 	)
 
+	// On create, the slug follows the name until the author types their own. On
+	// edit it is fixed, so the name changes alone.
+	function handleNameChange(name: string) {
+		setState((prev) => ({
+			...prev,
+			name,
+			slug: isEditing ? prev.slug : followTitleSlug(prev.slug, prev.name, name),
+		}))
+	}
+
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
 		e.preventDefault()
 
@@ -204,6 +221,7 @@ export default function ProjectForm({ initialData }: Props) {
 
 		await save({
 			name: state.name,
+			...(isEditing ? {} : { slug: state.slug }),
 			summary: state.summary,
 			bucket: state.bucket,
 			platformTags: state.platformTags,
@@ -239,11 +257,23 @@ export default function ProjectForm({ initialData }: Props) {
 					id="name"
 					type="text"
 					value={state.name}
-					onChange={(e) => setField("name", e.target.value)}
+					onChange={(e) => handleNameChange(e.target.value)}
 					required
 					className="admin-input"
 				/>
 			</div>
+
+			<SlugField
+				value={state.slug}
+				onChange={(slug) => setField("slug", slug)}
+				isLocked={isEditing}
+				placeholder="reckon"
+				hint={
+					isEditing
+						? "Fixed after creation, so the project's URL and the guides that name it never break."
+						: "Fills from the name until you edit it. Sets the URL, /projects/<slug>, and can't change after the first save."
+				}
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<span className="text-secondary text-sm font-medium">Platform</span>

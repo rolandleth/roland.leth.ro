@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest"
 import {
 	blankToNull,
 	calculateReadingTime,
+	CANONICAL_SLUG_PATTERN,
+	CANONICAL_SLUG_SOURCE,
 	createSlug,
 	currentDatetimeString,
 	datetimeToUtcDate,
+	followTitleSlug,
 	formatDate,
 	formatDateValue,
 	formatDayMonth,
@@ -565,6 +568,67 @@ describe("createSlug", () => {
 		const once = createSlug(input)
 
 		expect(createSlug(once)).toBe(once)
+	})
+})
+
+// #endregion
+
+// #region Canonical slug pattern
+
+describe("CANONICAL_SLUG_PATTERN", () => {
+	it.each(["reckon", "my-cool-app", "2024-recap", "a1-b2"])(
+		"accepts %j",
+		(slug) => {
+			expect(CANONICAL_SLUG_PATTERN.test(slug)).toBe(true)
+		}
+	)
+
+	it.each(["", "My-App", "my--app", "-app", "app-", "my_app", "my app", "é"])(
+		"rejects %j",
+		(slug) => {
+			expect(CANONICAL_SLUG_PATTERN.test(slug)).toBe(false)
+		}
+	)
+
+	it("matches every non-empty createSlug output", () => {
+		for (const title of ["Hello, World!", "Ça va — très bien", "A & B"]) {
+			expect(CANONICAL_SLUG_PATTERN.test(createSlug(title))).toBe(true)
+		}
+	})
+
+	it("serves as an HTML pattern once the browser anchors it", () => {
+		const anchored = new RegExp(`^(?:${CANONICAL_SLUG_SOURCE})$`)
+
+		expect(anchored.test("my-app")).toBe(true)
+		expect(anchored.test("my-app!")).toBe(false)
+	})
+})
+
+// #endregion
+
+// #region followTitleSlug
+
+describe("followTitleSlug", () => {
+	it("follows the title while the slug is still the derived one", () => {
+		expect(followTitleSlug("reckon", "Reckon", "Reckon App")).toBe("reckon-app")
+	})
+
+	it("follows from an empty form", () => {
+		expect(followTitleSlug("", "", "R")).toBe("r")
+	})
+
+	it("keeps a slug the author typed", () => {
+		expect(followTitleSlug("reckon", "Reckon App", "Reckon App 2")).toBe(
+			"reckon"
+		)
+	})
+
+	it("keeps an empty slug the author cleared", () => {
+		expect(followTitleSlug("", "Reckon", "Reckon App")).toBe("")
+	})
+
+	it("empties when the title has nothing to derive from", () => {
+		expect(followTitleSlug("r", "R", "計")).toBe("")
 	})
 })
 
