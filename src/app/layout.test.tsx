@@ -2,6 +2,7 @@ import { isValidElement } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import MotionPreferences from "@/components/MotionPreferences"
 import ThemeProvider from "@/components/ThemeProvider"
+import { NO_SCRIPT_FADE_RULE } from "@/lib/client/motion"
 import {
 	defaultOgImage,
 	ogImageEntry,
@@ -150,5 +151,18 @@ describe("root layout providers", () => {
 			: null
 
 		expect(nested).not.toBeNull()
+	})
+})
+
+describe("root layout without JavaScript", () => {
+	it("shows the fadeUp content from its noscript style", () => {
+		const tree = RootLayout({ children: <div /> })
+		const noscript = findElement(tree, "noscript")
+		const style = noscript ? findElement(childrenOf(noscript), "style") : null
+		const css = style
+			? (style.props as { children?: unknown }).children
+			: undefined
+
+		expect(css).toEqual(expect.stringContaining(NO_SCRIPT_FADE_RULE))
 	})
 })

@@ -356,6 +356,41 @@ export function createSlug(title: string): string {
 }
 
 /**
+ * The canonical slug form, without anchors: lowercase alphanumerics joined by
+ * single hyphens, no leading or trailing hyphen. What `createSlug` emits for
+ * any title with a letter or digit in it. Unanchored so it can also serve as
+ * an HTML `pattern` attribute, which the browser anchors itself.
+ */
+export const CANONICAL_SLUG_SOURCE = "[a-z0-9]+(?:-[a-z0-9]+)*"
+
+/** `CANONICAL_SLUG_SOURCE`, anchored. Every stored slug matches it. */
+export const CANONICAL_SLUG_PATTERN = new RegExp(`^${CANONICAL_SLUG_SOURCE}$`)
+
+/** The longest slug any write path accepts. */
+export const SLUG_MAX_LENGTH = 100
+
+export const CANONICAL_SLUG_MESSAGE =
+	"Must be lowercase letters/digits separated by single hyphens, with no leading or trailing hyphen"
+
+/**
+ * The slug a create form shows after its title changes. The slug follows the
+ * title for as long as it still equals the slug derived from the previous
+ * title; once the author has typed a slug of their own, it stays.
+ *
+ * Suggestion only: no write path derives a slug on the server. The author
+ * sees the slug before the first save, and it can't change after that.
+ */
+export function followTitleSlug(
+	currentSlug: string,
+	previousTitle: string,
+	nextTitle: string
+): string {
+	return currentSlug === createSlug(previousTitle)
+		? createSlug(nextTitle)
+		: currentSlug
+}
+
+/**
  * Computes a human-readable reading time string from raw markdown body.
  * Ported from `timeToRead()` in the old blog.
  */

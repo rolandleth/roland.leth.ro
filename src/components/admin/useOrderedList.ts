@@ -8,74 +8,109 @@ export interface OrderedItem {
 	sortOrder: number
 }
 
+/**
+ * How a list reports a change: as a function of the latest list, never as a
+ * finished array. A finished array is built from the list the caller saw when
+ * it rendered, so a change that lands later (an image upload finishing) would
+ * put back that old list and undo every edit made in the meantime.
+ */
+export type OrderedListChange<T> = (update: (previous: T[]) => T[]) => void
+
+/** The fields a caller may patch: everything but the hook-owned identity and order. */
+export type OrderedItemPatch<T> = Partial<Omit<T, "_key" | "sortOrder">>
+
 export interface OrderedListActions<T> {
 	add: (factory: () => Omit<T, "_key" | "sortOrder">) => void
+	/**
+	 * Merges a patch into the item with `key`. A function patch reads that
+	 * item's latest state, for a nested list inside the item.
+	 */
 	update: (
-		index: number,
-		updates: Partial<Omit<T, "_key" | "sortOrder">>
+		key: string,
+		patch: OrderedItemPatch<T> | ((item: T) => OrderedItemPatch<T>)
 	) => void
-	remove: (index: number) => void
-	move: (index: number, direction: Direction) => void
+	remove: (key: string) => void
+	move: (key: string, direction: Direction) => void
 }
 
 /**
  * Hook for controlled lists of `{ _key, sortOrder, ... }` items where the parent
- * owns `value` and receives every change through `onChange`. Callers (`LinkManager`,
- * `SectionManager`, the per-section image list) all need the same four operations
- * with consistent `_key` (stable React identity) and `sortOrder` (0..n-1) handling.
+ * owns the list and applies every change through `onChange`. Callers
+ * (`LinkManager`, `SectionManager`, the per-section image list) all need the
+ * same four operations with consistent `_key` (stable React identity) and
+ * `sortOrder` (0..n-1) handling.
+ *
+ * Items are addressed by `_key`, not index, and every operation is applied to
+ * the latest list. Together these make a stale callback safe: a handler
+ * captured before a reorder or a removal still reaches the right item, and an
+ * item that is gone by then is left alone instead of being written back.
  *
  * `add` accepts a factory so the caller controls the new item's domain fields
- * while the hook supplies the `_key` (via `crypto.randomUUID`) and the trailing
- * `sortOrder`. `update` merges a partial patch into the targeted index. `remove`
- * compacts `sortOrder` after deletion. `move` defers to `moveAndReorder`.
- *
- * Returned callbacks are stable across renders (`useCallback` over the value/
- * onChange refs) so memoized child rows don't re-render on unrelated state
- * changes.
+ * while the hook supplies the `_key` (via `crypto.randomUUID`, outside the
+ * updater so a re-run updater doesn't mint a second key) and the trailing
+ * `sortOrder`. `remove` compacts `sortOrder` after deletion. `move` defers to
+ * `moveAndReorder`.
  */
 export function useOrderedList<T extends OrderedItem>(
-	value: T[],
-	onChange: (next: T[]) => void
+	onChange: OrderedListChange<T>
 ): OrderedListActions<T> {
 	const add = useCallback(
 		(factory: () => Omit<T, "_key" | "sortOrder">) => {
 			const fields = factory()
-			const next: T = {
-				...fields,
-				_key: crypto.randomUUID(),
-				sortOrder: value.length,
-			} as T
+			const key = crypto.randomUUID()
 
-			onChange([...value, next])
+			onChange((previous) => [
+				...previous,
+				{ ...fields, _key: key, sortOrder: previous.length } as T,
+			])
 		},
-		[value, onChange]
+		[onChange]
 	)
 
 	const update = useCallback(
-		(index: number, updates: Partial<Omit<T, "_key" | "sortOrder">>) => {
-			onChange(
-				value.map((item, i) => (i === index ? { ...item, ...updates } : item))
+		(
+			key: string,
+			patch: OrderedItemPatch<T> | ((item: T) => OrderedItemPatch<T>)
+		) => {
+			onChange((previous) =>
+				previous.map((item) => {
+					if (item._key !== key) {
+						return item
+					}
+
+					const fields = typeof patch === "function" ? patch(item) : patch
+
+					return { ...item, ...fields }
+				})
 			)
 		},
-		[value, onChange]
+		[onChange]
 	)
 
 	const remove = useCallback(
-		(index: number) => {
-			const next = value
-				.filter((_, i) => i !== index)
-				.map((item, i) => ({ ...item, sortOrder: i }))
-
-			onChange(next)
+		(key: string) => {
+			onChange((previous) =>
+				previous
+					.filter((item) => item._key !== key)
+					.map((item, i) => ({ ...item, sortOrder: i }))
+			)
 		},
-		[value, onChange]
+		[onChange]
 	)
 
 	const move = useCallback(
-		(index: number, direction: Direction) => {
-			onChange(moveAndReorder(value, index, direction))
+		(key: string, direction: Direction) => {
+			onChange((previous) => {
+				const index = previous.findIndex((item) => item._key === key)
+
+				if (index === -1) {
+					return previous
+				}
+
+				return moveAndReorder(previous, index, direction)
+			})
 		},
-		[value, onChange]
+		[onChange]
 	)
 
 	return { add, update, remove, move }

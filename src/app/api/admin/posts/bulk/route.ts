@@ -45,7 +45,8 @@ interface PreparedBatch {
  * ingestion paths can't drift on which files import, under what slug, or with
  * what description — then maps the survivors to DB-shaped insert rows.
  * `slugRewrite` is deliberately dropped: an upload can't be written back, so a
- * missing `slug:` is derived here without a file fix-up.
+ * non-canonical `slug:` is normalized here without a file fix-up. A file with
+ * no `slug:` is skipped, as it is in the import script.
  */
 function prepareBatch(
 	files: ReadonlyArray<{ filename: string; content: string }>,

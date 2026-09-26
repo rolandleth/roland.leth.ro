@@ -12,7 +12,6 @@ import {
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
-import { createSlug } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
 	const unauthorized = await requireAdmin("[api:admin:projects:POST]")
@@ -33,6 +32,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	const {
 		name,
+		slug,
 		summary,
 		metaTitle,
 		keywords,
@@ -87,7 +87,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 				return tx.project.create({
 					data: {
 						name,
-						slug: createSlug(name),
+						slug,
 						summary,
 						metaTitle: metaTitle ?? null,
 						keywords: keywords ?? [],
@@ -137,12 +137,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} catch (error) {
 		if (isPrismaUniqueConstraint(error)) {
 			// Surfaces a flapping admin form submitting the same draft twice, or
-			// an attempt to publish two names that slug-collide. Without this,
-			// the 409 path is invisible in logs.
+			// a slug another project already has. Without this, the 409 path is
+			// invisible in logs.
 			// eslint-disable-next-line no-console
-			console.warn("[api:admin:projects:POST] slug already exists", {
-				slug: createSlug(name),
-			})
+			console.warn("[api:admin:projects:POST] slug already exists", { slug })
 
 			return NextResponse.json(
 				{ error: "A project with this slug already exists" },

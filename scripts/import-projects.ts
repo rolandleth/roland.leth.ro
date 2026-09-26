@@ -53,15 +53,16 @@ import {
 	type StoredBlob,
 	syncImages,
 } from "@/lib/import/blobSync"
+import { parseCliArgs } from "@/lib/import/cliArgs"
 import {
 	blobKeyFor,
 	contentHashFor,
-	deriveSlug,
 	listManifestImagePaths,
 	parseManifest,
 	type ProjectFlags,
 	projectFlags,
 	type ProjectManifest,
+	requireManifestSlug,
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
@@ -82,23 +83,23 @@ type ProjectResult = {
 	name: string
 	status: "imported" | "validated" | "failed"
 	detail?: string
-	// The derived slug (= the `/projects/<slug>` last path component). Absent
-	// when a run fails before the slug is derived. Used to print the paste-ready
+	// The manifest's slug (= the `/projects/<slug>` last path component). Absent
+	// when a run fails before the slug is checked. Used to print the paste-ready
 	// revalidation list.
 	slug?: string
 }
 
 // #region CLI
 
-const argv = process.argv.slice(2)
-const isDryRun = argv.includes("--dry-run")
-const shouldCleanup = argv.includes("--cleanup")
-const isReupload = argv.includes("--reupload")
-const isPruneDisabled = argv.includes("--no-prune")
-const slugFilters = argv.filter((arg) => !arg.startsWith("--"))
-const unknownFlags = argv.filter(
-	(arg) => arg.startsWith("--") && !KNOWN_FLAGS.has(arg)
-)
+const {
+	flags,
+	positionals: slugFilters,
+	unknownFlags,
+} = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
+const isDryRun = flags.has("--dry-run")
+const shouldCleanup = flags.has("--cleanup")
+const isReupload = flags.has("--reupload")
+const isPruneDisabled = flags.has("--no-prune")
 
 // #endregion
 
@@ -383,7 +384,7 @@ async function processProject(
 			throw new Error(`Manifest is missing a non-empty "name".`)
 		}
 
-		const slug = deriveSlug(manifest.name, manifest.slug)
+		const slug = requireManifestSlug(manifest)
 		console.log(`\n▸ ${manifest.name}  (slug: ${slug})`)
 
 		// Validate the full manifest against the real schema BEFORE any upload,
@@ -511,10 +512,13 @@ function toFailureResult(folderName: string, error: unknown): ProjectResult {
 
 /**
  * Lists the project folders to process: every direct subdirectory of
- * `scripts/imports/` that the optional name filters allow. Warns about a filter
- * that matches nothing so a typo doesn't look like a silent no-op.
+ * `scripts/imports/` that the optional name filters allow. Returns `null`, after
+ * naming the culprits, when any filter matches no folder: a typo must stop the
+ * run, not import the folders that did match and exit 0.
  */
-async function discoverProjectDirs(filters: string[]): Promise<string[]> {
+async function discoverProjectDirs(
+	filters: string[]
+): Promise<string[] | null> {
 	let entries
 
 	try {
@@ -525,17 +529,21 @@ async function discoverProjectDirs(filters: string[]): Promise<string[]> {
 				`Create scripts/imports/<name>/ with a ${MANIFEST_FILENAME}.`
 		)
 
-		return []
+		return null
 	}
 
 	const folderNames = entries
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name)
+	const missing = filters.filter((filter) => !folderNames.includes(filter))
 
-	for (const filter of filters) {
-		if (!folderNames.includes(filter)) {
-			console.warn(`No import folder named "${filter}" under scripts/imports/.`)
-		}
+	if (missing.length > 0) {
+		const quoted = missing.map((name) => JSON.stringify(name)).join(", ")
+		console.error(
+			`No import folder named ${quoted} under scripts/imports/. Nothing was imported.`
+		)
+
+		return null
 	}
 
 	const selected =
@@ -593,6 +601,12 @@ async function main(): Promise<void> {
 	)
 
 	const projectDirs = await discoverProjectDirs(slugFilters)
+
+	if (projectDirs == null) {
+		process.exitCode = 1
+
+		return
+	}
 
 	if (projectDirs.length === 0) {
 		console.error("Nothing to import.")

@@ -10,14 +10,18 @@ import SectionManager, {
 	type SectionImage,
 	type SectionItem,
 } from "@/components/admin/SectionManager"
+import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { followTitleSlug } from "@/lib/utils/format"
 
 interface InitialData {
 	id: number
 	name: string
+	slug: string
 	summary: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
@@ -46,6 +50,8 @@ interface Props {
 
 interface ProjectPayload {
 	name: string
+	/** Sent on create only; the update schema has no slug. */
+	slug?: string
 	summary: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
@@ -81,6 +87,7 @@ const ROLE_OPTIONS = [
 
 interface FormState {
 	name: string
+	slug: string
 	bucket: PlatformBucket | null
 	platformTags: PlatformTag[]
 	role: string
@@ -115,15 +122,16 @@ export default function ProjectForm({ initialData }: Props) {
 	// tooltip pointed at nothing visible. Surfacing through `<ErrorMessage>`
 	// keeps the gate visible and announced.
 	const [validationError, setValidationError] = useState<string | null>(null)
+	const { isUploading, reportUploading } = useUploadTracker()
 
 	// Single state object so a partial-update setter (`setField`) can stand in
 	// for the thirteen individual `useState` setters this form used to carry.
-	// The callback identity is stable across renders so `SectionManager`,
-	// `LinkManager`, and `ImageUpload` get the same `onChange` reference each
-	// render — combine that with future `React.memo` on those children to skip
-	// re-renders triggered by unrelated field edits.
-	const { state, setField, setState } = useFormState<FormState>({
+	// The list managers get `updateField`, which applies each change to the
+	// latest list: an image upload that finishes after other edits would
+	// otherwise put back the sections as they were when the file was picked.
+	const { state, setField, updateField, setState } = useFormState<FormState>({
 		name: initialData?.name ?? "",
+		slug: initialData?.slug ?? "",
 		bucket: initialData?.bucket ?? null,
 		platformTags: initialData?.platformTags ?? [],
 		role: initialData?.role ?? "",
@@ -167,6 +175,16 @@ export default function ProjectForm({ initialData }: Props) {
 		String(initialData?.sortOrder ?? 0)
 	)
 
+	// On create, the slug follows the name until the author types their own. On
+	// edit it is fixed, so the name changes alone.
+	function handleNameChange(name: string) {
+		setState((prev) => ({
+			...prev,
+			name,
+			slug: isEditing ? prev.slug : followTitleSlug(prev.slug, prev.name, name),
+		}))
+	}
+
 	async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
 		e.preventDefault()
 
@@ -203,6 +221,7 @@ export default function ProjectForm({ initialData }: Props) {
 
 		await save({
 			name: state.name,
+			...(isEditing ? {} : { slug: state.slug }),
 			summary: state.summary,
 			bucket: state.bucket,
 			platformTags: state.platformTags,
@@ -238,11 +257,23 @@ export default function ProjectForm({ initialData }: Props) {
 					id="name"
 					type="text"
 					value={state.name}
-					onChange={(e) => setField("name", e.target.value)}
+					onChange={(e) => handleNameChange(e.target.value)}
 					required
 					className="admin-input"
 				/>
 			</div>
+
+			<SlugField
+				value={state.slug}
+				onChange={(slug) => setField("slug", slug)}
+				isLocked={isEditing}
+				placeholder="reckon"
+				hint={
+					isEditing
+						? "Fixed after creation, so the project's URL and the guides that name it never break."
+						: "Fills from the name until you edit it. Sets the URL, /projects/<slug>, and can't change after the first save."
+				}
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<span className="text-secondary text-sm font-medium">Platform</span>
@@ -362,21 +393,25 @@ export default function ProjectForm({ initialData }: Props) {
 				value={state.icon}
 				onChange={(v) => setField("icon", v)}
 				label="Icon URL"
+				onUploadingChange={(v) => reportUploading("icon", v)}
 			/>
 			<ImageUpload
 				value={state.cardImage}
 				onChange={(v) => setField("cardImage", v)}
 				label="Card image URL"
+				onUploadingChange={(v) => reportUploading("cardImage", v)}
 			/>
 			<ImageUpload
 				value={state.ogImage}
 				onChange={(v) => setField("ogImage", v)}
 				label="OG / social image URL"
+				onUploadingChange={(v) => reportUploading("ogImage", v)}
 			/>
 			<ImageUpload
 				value={state.heroImage}
 				onChange={(v) => setField("heroImage", v)}
 				label="Hero image URL"
+				onUploadingChange={(v) => reportUploading("heroImage", v)}
 			/>
 
 			<div className="flex gap-6">
@@ -423,7 +458,8 @@ export default function ProjectForm({ initialData }: Props) {
 				<span className="text-secondary text-sm font-medium">Sections</span>
 				<SectionManager
 					value={state.sections}
-					onChange={(v) => setField("sections", v)}
+					onChange={(update) => updateField("sections", update)}
+					onUploadingChange={reportUploading}
 				/>
 			</div>
 
@@ -431,13 +467,16 @@ export default function ProjectForm({ initialData }: Props) {
 				<span className="text-secondary text-sm font-medium">Links</span>
 				<LinkManager
 					value={state.links}
-					onChange={(v) => setField("links", v)}
+					onChange={(update) => updateField("links", update)}
 				/>
 			</div>
 
 			<div className="flex flex-col gap-1.5">
 				<span className="text-secondary text-sm font-medium">FAQ</span>
-				<FaqManager value={state.faqs} onChange={(v) => setField("faqs", v)} />
+				<FaqManager
+					value={state.faqs}
+					onChange={(update) => updateField("faqs", update)}
+				/>
 			</div>
 
 			{(validationError ?? error) && (
@@ -447,7 +486,7 @@ export default function ProjectForm({ initialData }: Props) {
 			<div className="flex items-center gap-4">
 				<button
 					type="submit"
-					disabled={isSubmitting}
+					disabled={isSubmitting || isUploading}
 					className="admin-submit-btn"
 				>
 					{isSubmitting ? "Saving…" : "Save project"}

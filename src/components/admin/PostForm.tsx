@@ -7,15 +7,17 @@ import DescriptionField, {
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
+import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
 import { SECTIONS } from "@/lib/db/sections"
-import { currentDatetimeString } from "@/lib/utils/format"
+import { currentDatetimeString, followTitleSlug } from "@/lib/utils/format"
 
 interface Props {
 	initialData?: {
 		id: number
 		title: string
+		slug: string
 		body: string
 		section: string
 		datetime: string
@@ -27,6 +29,8 @@ interface Props {
 
 interface PostPayload {
 	title: string
+	/** Sent on create only; the update schema has no slug. */
+	slug?: string
 	body: string
 	section: string
 	datetime: string
@@ -42,6 +46,7 @@ interface PostPayload {
 
 interface FormState {
 	title: string
+	slug: string
 	section: string
 	datetime: string
 	published: boolean
@@ -62,8 +67,9 @@ export default function PostForm({ initialData }: Props) {
 	// callback identity is stable across renders (no value/closure dependency)
 	// so the heavy children — `MarkdownEditor`, `ImageUpload` — get the same
 	// `onChange` reference on every render.
-	const { state, setField } = useFormState<FormState>({
+	const { state, setField, setState } = useFormState<FormState>({
 		title: initialData?.title ?? "",
+		slug: initialData?.slug ?? "",
 		section: initialData?.section ?? "tech",
 		datetime: initialData?.datetime ?? currentDatetimeString(),
 		published: initialData?.published ?? true,
@@ -75,11 +81,24 @@ export default function PostForm({ initialData }: Props) {
 	// away, aborting the request — the picked file lost with nothing shown.
 	const [isUploading, setIsUploading] = useState(false)
 
+	// On create, the slug follows the title until the author types their own. On
+	// edit it is fixed, so the title changes alone.
+	function handleTitleChange(title: string) {
+		setState((prev) => ({
+			...prev,
+			title,
+			slug: isEditing
+				? prev.slug
+				: followTitleSlug(prev.slug, prev.title, title),
+		}))
+	}
+
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()
 
 		await save({
 			title: state.title,
+			...(isEditing ? {} : { slug: state.slug }),
 			body: state.body,
 			section: state.section,
 			datetime: state.datetime,
@@ -106,10 +125,22 @@ export default function PostForm({ initialData }: Props) {
 					type="text"
 					required
 					value={state.title}
-					onChange={(e) => setField("title", e.target.value)}
+					onChange={(e) => handleTitleChange(e.target.value)}
 					className="admin-input"
 				/>
 			</div>
+
+			<SlugField
+				value={state.slug}
+				onChange={(slug) => setField("slug", slug)}
+				isLocked={isEditing}
+				placeholder="my-first-post"
+				hint={
+					isEditing
+						? "Fixed after creation, so the post's URL never moves."
+						: "Fills from the title until you edit it. Sets the URL, and can't change after the first save."
+				}
+			/>
 
 			<div className="flex flex-col gap-1.5">
 				<label htmlFor="section" className="text-secondary text-sm font-medium">

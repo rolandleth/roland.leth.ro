@@ -3,12 +3,12 @@ import {
 	blobKeyFor,
 	blobPrefixFor,
 	contentHashFor,
-	deriveSlug,
 	isLocalImageRef,
 	listManifestImagePaths,
 	parseManifest,
 	projectFlags,
 	type ProjectManifest,
+	requireManifestSlug,
 	resolveManifestImageRefs,
 	syntheticBlobUrl,
 } from "./projectImport"
@@ -39,32 +39,35 @@ describe("isLocalImageRef", () => {
 
 // #endregion
 
-// #region deriveSlug
+// #region requireManifestSlug
 
-describe("deriveSlug", () => {
-	it("derives from the name when no explicit slug is given", () => {
-		expect(deriveSlug("Reckon")).toBe("reckon")
-		expect(deriveSlug("My Cool App")).toBe("my-cool-app")
+describe("requireManifestSlug", () => {
+	it("returns the manifest's slug, not one derived from the name", () => {
+		expect(
+			requireManifestSlug({ name: "Reckon — Time Tracker", slug: "reckon" })
+		).toBe("reckon")
 	})
 
-	it("prefers an explicit, valid slug over the name", () => {
-		expect(deriveSlug("Reckon — Time Tracker", "reckon")).toBe("reckon")
+	it.each([
+		["missing", undefined],
+		["null", null],
+		["empty", ""],
+	])("throws when the slug is %s, instead of deriving one", (_label, slug) => {
+		// A name-derived slug moved with every manifest rename and created a
+		// second project beside the old one.
+		expect(() => requireManifestSlug({ name: "Reckon", slug })).toThrow(
+			/has no slug/
+		)
 	})
 
-	it("trims surrounding whitespace on an explicit slug", () => {
-		expect(deriveSlug("Whatever", "  continuum  ")).toBe("continuum")
-	})
-
-	it("throws when an explicit slug isn't a clean slug", () => {
-		// Uppercase + space would otherwise reach the DB and surface as an
-		// opaque unique-constraint or routing bug far from here.
-		expect(() => deriveSlug("Whatever", "Bad Slug")).toThrow(/slug/i)
-	})
-
-	it("throws when neither an explicit slug nor the name yields a slug", () => {
-		expect(() => deriveSlug("!!!")).toThrow(/slug/i)
-		expect(() => deriveSlug("", "")).toThrow(/slug/i)
-	})
+	it.each(["Bad Slug", "  continuum  ", "my--app", "-app"])(
+		"throws on the non-canonical slug %j instead of rewriting it",
+		(slug) => {
+			expect(() => requireManifestSlug({ name: "Whatever", slug })).toThrow(
+				/invalid slug/
+			)
+		}
+	)
 })
 
 // #endregion

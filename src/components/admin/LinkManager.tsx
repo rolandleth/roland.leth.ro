@@ -1,6 +1,9 @@
 "use client"
 
-import { useOrderedList } from "@/components/admin/useOrderedList"
+import {
+	type OrderedListChange,
+	useOrderedList,
+} from "@/components/admin/useOrderedList"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import ReorderControls from "@/components/ui/ReorderControls"
 
@@ -75,11 +78,11 @@ function LinkRow({
 
 interface Props {
 	value: LinkItem[]
-	onChange: (links: LinkItem[]) => void
+	onChange: OrderedListChange<LinkItem>
 }
 
 export default function LinkManager({ value, onChange }: Props) {
-	const list = useOrderedList(value, onChange)
+	const list = useOrderedList(onChange)
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -89,11 +92,11 @@ export default function LinkManager({ value, onChange }: Props) {
 					link={link}
 					index={index}
 					total={value.length}
-					onLabelChange={(label) => list.update(index, { label })}
-					onUrlChange={(url) => list.update(index, { url })}
-					onMoveUp={() => list.move(index, "up")}
-					onMoveDown={() => list.move(index, "down")}
-					onRemove={() => list.remove(index)}
+					onLabelChange={(label) => list.update(link._key, { label })}
+					onUrlChange={(url) => list.update(link._key, { url })}
+					onMoveUp={() => list.move(link._key, "up")}
+					onMoveDown={() => list.move(link._key, "down")}
+					onRemove={() => list.remove(link._key)}
 				/>
 			))}
 

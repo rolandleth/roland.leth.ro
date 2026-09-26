@@ -38,6 +38,7 @@ function makeRequest(body: unknown) {
 
 const validPayload = {
 	name: "My App",
+	slug: "my-app",
 	summary: "An iOS app that does things.",
 	bucket: PlatformBucket.iOS,
 	platformTags: [PlatformTag.iOS],
@@ -126,12 +127,38 @@ describe("POST /api/admin/projects", () => {
 		)
 	})
 
-	it("generates a slug from the project name", async () => {
+	it("stores the authored slug as sent, not one derived from the name", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
-		await POST(makeRequest(validPayload))
+		await POST(
+			makeRequest({ ...validPayload, name: "Reckon — Time", slug: "reckon" })
+		)
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.slug).toBe("my-app")
+		expect(data.slug).toBe("reckon")
+	})
+
+	it("returns 400 when the slug is missing", async () => {
+		const { slug: _, ...rest } = validPayload
+		const response = await POST(makeRequest(rest))
+		expect(response.status).toBe(400)
+	})
+
+	it.each(["My App", "my--app", "-my-app", "my-app-", "my_app", ""])(
+		"returns 400 for the non-canonical slug %j instead of rewriting it",
+		async (slug) => {
+			const response = await POST(makeRequest({ ...validPayload, slug }))
+			expect(response.status).toBe(400)
+		}
+	)
+
+	it("accepts a name that has no letters or digits, since the slug is authored", async () => {
+		// The name used to be refined for producing a non-empty slug. With the
+		// slug authored, a name like this is just a name.
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		const response = await POST(
+			makeRequest({ ...validPayload, name: "計算機", slug: "calculator" })
+		)
+		expect(response.status).toBe(201)
 	})
 
 	it("passes FAQs through to the nested create with defaulted sortOrder", async () => {
@@ -372,7 +399,7 @@ describe("POST /api/admin/projects", () => {
 		// without this log, the path is invisible in production.
 		expect(vi.mocked(console.warn)).toHaveBeenCalledWith(
 			"[api:admin:projects:POST] slug already exists",
-			expect.objectContaining({ slug: expect.any(String) })
+			{ slug: "my-app" }
 		)
 	})
 

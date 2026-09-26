@@ -1,7 +1,10 @@
 "use client"
 
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
-import { useOrderedList } from "@/components/admin/useOrderedList"
+import {
+	type OrderedListChange,
+	useOrderedList,
+} from "@/components/admin/useOrderedList"
 import ReorderControls from "@/components/ui/ReorderControls"
 
 export interface FaqItem {
@@ -67,11 +70,11 @@ function FaqCard({
 
 interface Props {
 	value: FaqItem[]
-	onChange: (faqs: FaqItem[]) => void
+	onChange: OrderedListChange<FaqItem>
 }
 
 export default function FaqManager({ value, onChange }: Props) {
-	const list = useOrderedList<FaqItem>(value, onChange)
+	const list = useOrderedList<FaqItem>(onChange)
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -81,11 +84,11 @@ export default function FaqManager({ value, onChange }: Props) {
 					faq={faq}
 					index={index}
 					total={value.length}
-					onQuestionChange={(question) => list.update(index, { question })}
-					onAnswerChange={(answer) => list.update(index, { answer })}
-					onMoveUp={() => list.move(index, "up")}
-					onMoveDown={() => list.move(index, "down")}
-					onRemove={() => list.remove(index)}
+					onQuestionChange={(question) => list.update(faq._key, { question })}
+					onAnswerChange={(answer) => list.update(faq._key, { answer })}
+					onMoveUp={() => list.move(faq._key, "up")}
+					onMoveDown={() => list.move(faq._key, "down")}
+					onRemove={() => list.remove(faq._key)}
 				/>
 			))}
 

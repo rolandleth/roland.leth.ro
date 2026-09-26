@@ -486,9 +486,10 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
 
 /**
  * Invalidates one project's detail page (`project-${slug}`) plus the gallery,
- * `llms.txt`, and sitemap (`projects`). Pass the current OR previous slug on a
- * slug-changing PUT. Does NOT touch other project detail pages — those carry
- * the separate `project-pages` tag, busted only by `revalidateAllProjects`.
+ * `llms.txt`, and sitemap (`projects`). A project's slug never changes after
+ * creation, so one call per write covers it. Does NOT touch other project
+ * detail pages — those carry the separate `project-pages` tag, busted only by
+ * `revalidateAllProjects`.
  */
 export function revalidateProject(slug: string): void {
 	revalidateTag(PROJECTS_TAG, "max")

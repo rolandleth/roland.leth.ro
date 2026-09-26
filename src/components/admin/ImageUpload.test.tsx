@@ -178,7 +178,11 @@ describe("ImageUpload onUploadingChange", () => {
 		settlers[0](false)
 
 		await waitFor(() => expect(screen.getByText(/Nope/)).toBeInTheDocument())
-		expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+		// The report comes from a passive effect, which runs after the commit
+		// that shows the error, so it can land a tick later under load.
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+		)
 	})
 
 	it("keeps reporting true while a newer upload is still in flight", async () => {
@@ -205,6 +209,59 @@ describe("ImageUpload onUploadingChange", () => {
 		await waitFor(() =>
 			expect(onUploadingChange).toHaveBeenLastCalledWith(false)
 		)
+	})
+
+	it("reports false when unmounted mid-upload, so the form's Save unlocks", async () => {
+		// Removing the section or image that holds the input unmounts it. The
+		// abort's `finally` can't flip state on an unmounted component, so the
+		// report has to come from the unmount itself.
+		mockPendingFetches()
+		const onUploadingChange = vi.fn()
+
+		const { unmount } = render(
+			<ImageUpload
+				value=""
+				onChange={vi.fn()}
+				onUploadingChange={onUploadingChange}
+			/>
+		)
+		await user.upload(fileInput(), pngFile("a.png"))
+		await waitFor(() =>
+			expect(onUploadingChange).toHaveBeenLastCalledWith(true)
+		)
+
+		unmount()
+
+		expect(onUploadingChange).toHaveBeenLastCalledWith(false)
+	})
+
+	it("reports to the latest callback without re-reporting when only its identity changes", async () => {
+		// Forms pass inline arrows. With the callback as an effect dependency,
+		// each render re-ran the report and its cleanup, which churned the
+		// parent's upload tracker in a loop.
+		const settlers = mockPendingFetches()
+		const first = vi.fn()
+		const second = vi.fn()
+
+		const { rerender } = render(
+			<ImageUpload value="" onChange={vi.fn()} onUploadingChange={first} />
+		)
+		await user.upload(fileInput(), pngFile("a.png"))
+		await waitFor(() => expect(first).toHaveBeenLastCalledWith(true))
+		const firstCallCount = first.mock.calls.length
+
+		rerender(
+			<ImageUpload value="" onChange={vi.fn()} onUploadingChange={second} />
+		)
+		expect(second).not.toHaveBeenCalled()
+
+		settlers[0](true)
+
+		await waitFor(() => expect(second).toHaveBeenLastCalledWith(false))
+		// The end of an upload reports `false` from both the cleanup and the
+		// effect body; receivers treat a repeat as a no-op.
+		expect(second.mock.calls.every(([value]) => value === false)).toBe(true)
+		expect(first).toHaveBeenCalledTimes(firstCallCount)
 	})
 })
 

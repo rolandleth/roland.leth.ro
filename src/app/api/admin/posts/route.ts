@@ -6,7 +6,7 @@ import { postCreateSchema } from "@/lib/api/schemas"
 import { descriptionForCreate } from "@/lib/content/postDescription"
 import { isPrismaUniqueConstraint, prisma } from "@/lib/db/db"
 import { revalidatePost } from "@/lib/db/posts"
-import { calculateReadingTime, createSlug } from "@/lib/utils/format"
+import { calculateReadingTime } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
 	const unauthorized = await requireAdmin("[api:admin:posts:POST]")
@@ -27,6 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 	const {
 		title,
+		slug,
 		body: postBody,
 		datetime,
 		description,
@@ -50,7 +51,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 				imageUrl: imageUrl ?? null,
 				section: section ?? "tech",
 				published: published ?? true,
-				slug: createSlug(title),
+				slug,
 				readingTime: calculateReadingTime(postBody),
 			},
 		})
@@ -73,12 +74,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 	} catch (error) {
 		if (isPrismaUniqueConstraint(error)) {
 			// Surfaces a flapping admin form submitting the same draft twice, or
-			// an attempt to publish two titles that slug-collide. Without this,
-			// the 409 path is invisible in logs.
+			// a slug another post already has. Without this, the 409 path is
+			// invisible in logs.
 			// eslint-disable-next-line no-console
-			console.warn("[api:admin:posts:POST] slug already exists", {
-				slug: createSlug(title),
-			})
+			console.warn("[api:admin:posts:POST] slug already exists", { slug })
 
 			return NextResponse.json(
 				{ error: "A post with this slug already exists" },

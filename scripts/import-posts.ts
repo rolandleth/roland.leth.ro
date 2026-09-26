@@ -11,11 +11,11 @@
 // bulk picker); a first line equal to the title is stripped from the body (the
 // content repo keeps the title as the file's first line).
 //
-// The slug comes from `slug:` frontmatter. A file missing it (or carrying a
-// non-canonical value) gets the resolved slug written back into the source
-// file (atomically) before any DB work — the one write this script does
-// outside the DB — so the content repo converges to explicit slugs. Dry runs
-// report the pending write-backs without touching anything.
+// The slug comes from `slug:` frontmatter, and a file without one is skipped:
+// no slug is derived from the title. A non-canonical value gets the normalized
+// slug written back into the source file (atomically) before any DB work — the
+// one write this script does outside the DB. Dry runs report the pending
+// write-backs without touching anything.
 //
 // The slug write-back runs BEFORE the plan decides what to import, so a file
 // whose body the plan later skips (schema-invalid: oversized, empty section)
