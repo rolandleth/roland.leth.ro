@@ -38,6 +38,84 @@ export type ComputeReturn = {
 	repayDurationDifference: number
 }
 
+/**
+ * The longest duration the calculator accepts: 100 years. The amortization loop
+ * in `computeLoan` runs once per month, so an unbounded duration freezes the tab.
+ */
+export const MAX_PERIOD_MONTHS = 1200
+
+/**
+ * The highest annual rate the calculator accepts. Past roughly 960%, the
+ * compounding factor in `PMT` overflows to `Infinity` over a long duration and
+ * every result turns into `NaN`; 100% is far above any real loan.
+ */
+export const MAX_ANNUAL_INTEREST_RATE = 100
+
+/** The bounds one calculator input must satisfy before `computeLoan` sees it. */
+export type LoanFieldRule = {
+	min: number
+	max?: number
+	isWholeNumber?: boolean
+}
+
+/**
+ * Per-input rules, mirroring `computeLoan`'s preconditions. The form validates
+ * against these so an out-of-range value shows a message under its field
+ * instead of reaching `computeLoan` and throwing during render.
+ */
+export const LOAN_FIELD_RULES = {
+	loan: { min: 0 },
+	period: { min: 1, max: MAX_PERIOD_MONTHS, isWholeNumber: true },
+	annualInterestRate: { min: 0, max: MAX_ANNUAL_INTEREST_RATE },
+	additionalCosts: { min: 0 },
+	additionalMonthlyPayment: { min: 0 },
+	extraPaymentValue: { min: 0 },
+	extraPaymentFrequency: { min: 1, isWholeNumber: true },
+	extraPaymentLimit: { min: 0, isWholeNumber: true },
+} satisfies Record<string, LoanFieldRule>
+
+export type LoanFieldResult =
+	{ value: number; error: null } | { value: null; error: string }
+
+/**
+ * Parses one input's raw text against its rule. Returns either the number or
+ * the message to show under the field — never both.
+ *
+ * `Number`, not `parseFloat`: `parseFloat("12abc")` is `12`, which would accept
+ * text the field doesn't show as a number. An empty field is its own error, not
+ * `0`, so clearing a field to retype it doesn't briefly compute with zero.
+ */
+export function parseLoanField(
+	raw: string,
+	rule: LoanFieldRule
+): LoanFieldResult {
+	const trimmed = raw.trim()
+
+	if (trimmed === "") {
+		return { value: null, error: "Enter a number." }
+	}
+
+	const value = Number(trimmed)
+
+	if (!Number.isFinite(value)) {
+		return { value: null, error: "Enter a number." }
+	}
+
+	if (rule.isWholeNumber && !Number.isInteger(value)) {
+		return { value: null, error: "Use a whole number." }
+	}
+
+	if (value < rule.min) {
+		return { value: null, error: `Use ${rule.min} or more.` }
+	}
+
+	if (rule.max != null && value > rule.max) {
+		return { value: null, error: `Use ${rule.max} or less.` }
+	}
+
+	return { value, error: null }
+}
+
 // Pinned locale so server-rendered numbers don't disagree with the client's
 // runtime locale on hydration (different thousands separators trip React).
 export function formatNumber(value: number, digits: number = 2): string {
@@ -106,6 +184,10 @@ export default function computeLoan({
 
 	if (period < 1) {
 		throw new Error(`period must be >= 1, got ${period}`)
+	}
+
+	if (period > MAX_PERIOD_MONTHS) {
+		throw new Error(`period must be <= ${MAX_PERIOD_MONTHS}, got ${period}`)
 	}
 
 	const monthlyInterestRate = (annualInterestRate * 0.01) / 12

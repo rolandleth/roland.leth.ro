@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MAX_PERIOD_MONTHS } from "@/lib/utils/loanCalculator"
 import { setupUser } from "@/test/user"
 import LoanCalculatorClient from "./LoanCalculatorClient"
 
@@ -74,6 +75,141 @@ describe("LoanCalculatorClient extra payments", () => {
 
 		await user.click(toggle)
 		expect(screen.queryByText("Value")).not.toBeInTheDocument()
+	})
+
+	it("opens the comparison calculator's extra payments when it copies some", async () => {
+		render(<LoanCalculatorClient />)
+		await user.click(screen.getByRole("checkbox"))
+		await replaceValue(field("Value"), "1000")
+
+		await user.click(screen.getByRole("button", { name: /add comparison/i }))
+
+		const toggles = screen.getAllByRole("checkbox")
+		expect(toggles).toHaveLength(2)
+		expect(toggles[1]).toBeChecked()
+		const valueFields = screen.getAllByRole("spinbutton", { name: "Value" })
+		expect(valueFields).toHaveLength(2)
+		expect(valueFields[1]).toHaveValue(1000)
+	})
+
+	it("keeps the comparison calculator's extra payments closed when there are none", async () => {
+		render(<LoanCalculatorClient />)
+		await user.click(screen.getByRole("button", { name: /add comparison/i }))
+
+		for (const toggle of screen.getAllByRole("checkbox")) {
+			expect(toggle).not.toBeChecked()
+		}
+	})
+})
+
+// #endregion
+
+// #region Input validation
+
+function field(name: string): HTMLInputElement {
+	return screen.getByRole("spinbutton", { name })
+}
+
+function summaryValue(label: string): string | null {
+	return screen.getByText(label).nextElementSibling?.textContent ?? null
+}
+
+async function replaceValue(input: HTMLInputElement, text: string) {
+	await user.clear(input)
+
+	if (text !== "") {
+		await user.type(input, text)
+	}
+}
+
+describe("LoanCalculatorClient input validation", () => {
+	it("shows an error instead of crashing when Duration is 0", async () => {
+		render(<LoanCalculatorClient />)
+		const before = summaryValue("Monthly rate")
+
+		await replaceValue(field("Duration (months)"), "0")
+
+		expect(screen.getByText("Use 1 or more.")).toBeInTheDocument()
+		expect(field("Duration (months)")).toHaveAttribute("aria-invalid", "true")
+		expect(summaryValue("Monthly rate")).toBe(before)
+	})
+
+	it("shows an error for a negative interest rate", async () => {
+		render(<LoanCalculatorClient />)
+		const before = summaryValue("Monthly rate")
+
+		await replaceValue(field("Annual interest rate (%)"), "-1")
+
+		expect(screen.getByText("Use 0 or more.")).toBeInTheDocument()
+		expect(summaryValue("Monthly rate")).toBe(before)
+	})
+
+	it("shows an error for a Duration past the maximum instead of running it", async () => {
+		render(<LoanCalculatorClient />)
+		const duration = field("Duration (months)")
+		// Typing is per keystroke, so the results follow the last value that
+		// was still in range ("999") and stop there.
+		await replaceValue(duration, "999")
+		const atLastValid = summaryValue("Monthly rate")
+
+		await user.type(duration, "9999999")
+
+		expect(
+			screen.getByText(`Use ${MAX_PERIOD_MONTHS} or less.`)
+		).toBeInTheDocument()
+		expect(summaryValue("Monthly rate")).toBe(atLastValid)
+	})
+
+	it("shows an error for a fractional Duration", async () => {
+		render(<LoanCalculatorClient />)
+
+		await replaceValue(field("Duration (months)"), "12.5")
+
+		expect(screen.getByText("Use a whole number.")).toBeInTheDocument()
+	})
+
+	it("lets a field stay empty while retyping, with an error", async () => {
+		render(<LoanCalculatorClient />)
+
+		await replaceValue(field("Loan"), "")
+
+		expect(field("Loan")).toHaveValue(null)
+		expect(screen.getByText("Enter a number.")).toBeInTheDocument()
+	})
+
+	it("shows an error for an extra-payment frequency of 0", async () => {
+		render(<LoanCalculatorClient />)
+		await user.click(screen.getByRole("checkbox"))
+
+		await replaceValue(field("Frequency (months)"), "0")
+
+		expect(screen.getByText("Use 1 or more.")).toBeInTheDocument()
+	})
+
+	it("clears the error and recomputes once the value is valid again", async () => {
+		render(<LoanCalculatorClient />)
+		const before = summaryValue("Monthly rate")
+		const duration = field("Duration (months)")
+
+		await replaceValue(duration, "0")
+		await replaceValue(duration, "120")
+
+		expect(screen.queryByText("Use 1 or more.")).not.toBeInTheDocument()
+		expect(duration).toHaveAttribute("aria-invalid", "false")
+		expect(summaryValue("Monthly rate")).not.toBe(before)
+	})
+
+	it("resets a hidden extra-payment field when the toggle is turned off", async () => {
+		render(<LoanCalculatorClient />)
+		const toggle = screen.getByRole("checkbox")
+		await user.click(toggle)
+		await replaceValue(field("Frequency (months)"), "0")
+
+		await user.click(toggle)
+		await user.click(toggle)
+
+		expect(field("Frequency (months)")).toHaveValue(1)
+		expect(screen.queryByText("Use 1 or more.")).not.toBeInTheDocument()
 	})
 })
 

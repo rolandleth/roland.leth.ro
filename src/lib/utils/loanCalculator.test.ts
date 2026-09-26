@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import computeLoan, { formatNumber } from "@/lib/utils/loanCalculator"
+import computeLoan, {
+	formatNumber,
+	LOAN_FIELD_RULES,
+	MAX_ANNUAL_INTEREST_RATE,
+	MAX_PERIOD_MONTHS,
+	parseLoanField,
+} from "@/lib/utils/loanCalculator"
 
 const baseParams = {
 	period: 360,
@@ -96,6 +102,111 @@ describe("computeLoan — input validation", () => {
 
 	it("throws on negative period", () => {
 		expect(() => computeLoan({ ...baseParams, period: -10 })).toThrow(/period/)
+	})
+
+	it("throws past the maximum period instead of looping that many times", () => {
+		expect(() =>
+			computeLoan({ ...baseParams, period: MAX_PERIOD_MONTHS + 1 })
+		).toThrow(/period/)
+	})
+
+	it("accepts exactly the maximum period", () => {
+		const result = computeLoan({ ...baseParams, period: MAX_PERIOD_MONTHS })
+		expect(result.durationOfRepay).toBe(MAX_PERIOD_MONTHS)
+	})
+
+	it("stays finite at the maximum rate over the maximum period", () => {
+		const result = computeLoan({
+			...baseParams,
+			period: MAX_PERIOD_MONTHS,
+			annualInterestRate: MAX_ANNUAL_INTEREST_RATE,
+		})
+
+		expect(Number.isFinite(result.baseMonthlyPayment)).toBe(true)
+		expect(Number.isFinite(result.total)).toBe(true)
+	})
+})
+
+// #endregion
+
+// #region parseLoanField
+
+describe("parseLoanField", () => {
+	const rule = { min: 1, max: 10, isWholeNumber: true }
+
+	it("returns the number for a value inside the rule", () => {
+		expect(parseLoanField("5", rule)).toEqual({ value: 5, error: null })
+	})
+
+	it("accepts both bounds", () => {
+		expect(parseLoanField("1", rule).value).toBe(1)
+		expect(parseLoanField("10", rule).value).toBe(10)
+	})
+
+	it("ignores surrounding whitespace", () => {
+		expect(parseLoanField("  7 ", rule).value).toBe(7)
+	})
+
+	it("rejects an empty field instead of reading it as zero", () => {
+		expect(parseLoanField("", rule)).toEqual({
+			value: null,
+			error: "Enter a number.",
+		})
+		expect(parseLoanField("   ", rule).error).toBe("Enter a number.")
+	})
+
+	it("rejects text that is not wholly a number", () => {
+		expect(parseLoanField("12abc", rule).error).toBe("Enter a number.")
+	})
+
+	it("rejects values that overflow to infinity", () => {
+		expect(parseLoanField("1e400", { min: 0 }).error).toBe("Enter a number.")
+	})
+
+	it("rejects a value below the minimum", () => {
+		expect(parseLoanField("0", rule).error).toBe("Use 1 or more.")
+		expect(parseLoanField("-3", rule).error).toBe("Use 1 or more.")
+	})
+
+	it("rejects a value above the maximum", () => {
+		expect(parseLoanField("11", rule).error).toBe("Use 10 or less.")
+	})
+
+	it("rejects a decimal where the rule wants a whole number", () => {
+		expect(parseLoanField("2.5", rule).error).toBe("Use a whole number.")
+	})
+
+	it("accepts a decimal where the rule allows one", () => {
+		expect(parseLoanField("2.5", { min: 0 }).value).toBe(2.5)
+	})
+
+	it("has no upper bound when the rule sets none", () => {
+		expect(parseLoanField("1000000000", { min: 0 }).value).toBe(1_000_000_000)
+	})
+})
+
+describe("LOAN_FIELD_RULES", () => {
+	// Every value the rules accept must be one `computeLoan` accepts, or the
+	// form can still hand it a value that throws during render.
+	it("keeps each rule's minimum inside computeLoan's preconditions", () => {
+		const atMinimum = {
+			...baseParams,
+			period: LOAN_FIELD_RULES.period.min,
+			annualInterestRate: LOAN_FIELD_RULES.annualInterestRate.min,
+			extraPayments: {
+				value: LOAN_FIELD_RULES.extraPaymentValue.min,
+				frequency: LOAN_FIELD_RULES.extraPaymentFrequency.min,
+				limit: LOAN_FIELD_RULES.extraPaymentLimit.min,
+			},
+		}
+
+		expect(() => computeLoan(atMinimum)).not.toThrow()
+	})
+
+	it("keeps the period's maximum inside computeLoan's preconditions", () => {
+		expect(() =>
+			computeLoan({ ...baseParams, period: LOAN_FIELD_RULES.period.max })
+		).not.toThrow()
 	})
 })
 
