@@ -10,9 +10,26 @@ vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
 }))
 
-// Stub sub-components that are not the focus of these tests.
+// Stub sub-components that are not the focus of these tests. The upload stub
+// exposes buttons that drive `onUploadingChange`, so the Save gate is testable
+// without a real upload.
 vi.mock("@/components/admin/ImageUpload", () => ({
-	default: () => null,
+	default: ({
+		label,
+		onUploadingChange,
+	}: {
+		label?: string
+		onUploadingChange?: (isUploading: boolean) => void
+	}) => (
+		<div>
+			<button type="button" onClick={() => onUploadingChange?.(true)}>
+				Start upload: {label}
+			</button>
+			<button type="button" onClick={() => onUploadingChange?.(false)}>
+				Finish upload: {label}
+			</button>
+		</div>
+	),
 }))
 vi.mock("@/components/admin/SectionManager", () => ({
 	default: () => null,
@@ -316,6 +333,62 @@ describe("ProjectForm — create mode", () => {
 		expect(payload.faqs).toEqual([
 			{ question: "Is it free?", answer: "Yes.", sortOrder: 0 },
 		])
+	})
+})
+
+// #endregion
+
+// #region Save gate while uploading
+
+describe("ProjectForm — uploads in flight", () => {
+	const saveButton = () => screen.getByRole("button", { name: /save project/i })
+
+	it("disables Save while an image upload is in flight", async () => {
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.click(
+			screen.getByRole("button", { name: "Start upload: Icon URL" })
+		)
+
+		expect(saveButton()).toBeDisabled()
+	})
+
+	it("enables Save again once the upload finishes", async () => {
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.click(
+			screen.getByRole("button", { name: "Start upload: Icon URL" })
+		)
+		await user.click(
+			screen.getByRole("button", { name: "Finish upload: Icon URL" })
+		)
+
+		expect(saveButton()).toBeEnabled()
+	})
+
+	it("keeps Save disabled until every concurrent upload finishes", async () => {
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.click(
+			screen.getByRole("button", { name: "Start upload: Icon URL" })
+		)
+		await user.click(
+			screen.getByRole("button", { name: "Start upload: Hero image URL" })
+		)
+		await user.click(
+			screen.getByRole("button", { name: "Finish upload: Icon URL" })
+		)
+
+		expect(saveButton()).toBeDisabled()
+
+		await user.click(
+			screen.getByRole("button", { name: "Finish upload: Hero image URL" })
+		)
+
+		expect(saveButton()).toBeEnabled()
 	})
 })
 

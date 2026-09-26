@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { act, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { renderOrderedList } from "@/test/renderOrderedList"
 import { setupUser } from "@/test/user"
 import SectionManager, { type SectionItem } from "./SectionManager"
 
@@ -24,21 +25,39 @@ vi.mock("./MarkdownEditor", () => ({
 	),
 }))
 
-// ImageUpload renders a file input and a fetch wrapper; stubbed for the same
-// reason — we only need to assert SectionManager-level orchestration here.
+/**
+ * Uploads started through the stubbed `ImageUpload`, each holding the
+ * `onChange` from the render in which its file was picked — what the real
+ * component's `handleFileChange` closure holds while its fetch is in flight.
+ */
+const pendingUploads: { finish: (url: string) => void }[] = []
+
 vi.mock("./ImageUpload", () => ({
 	default: ({
 		value,
 		onChange,
+		onUploadingChange,
 	}: {
 		value: string
 		onChange: (url: string) => void
+		onUploadingChange?: (isUploading: boolean) => void
 	}) => (
-		<input
-			data-testid="image-upload"
-			value={value}
-			onChange={(e) => onChange(e.target.value)}
-		/>
+		<div>
+			<input
+				data-testid="image-upload"
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+			/>
+			<button
+				type="button"
+				onClick={() => {
+					onUploadingChange?.(true)
+					pendingUploads.push({ finish: onChange })
+				}}
+			>
+				Pick file
+			</button>
+		</div>
 	),
 }))
 
@@ -52,21 +71,34 @@ function makeSection(partial: Partial<SectionItem> = {}): SectionItem {
 	}
 }
 
+function renderSections(
+	initial: SectionItem[],
+	onUploadingChange?: (imageKey: string, isUploading: boolean) => void
+) {
+	return renderOrderedList(initial, (value, onChange) => (
+		<SectionManager
+			value={value}
+			onChange={onChange}
+			onUploadingChange={onUploadingChange}
+		/>
+	))
+}
+
 beforeEach(() => {
 	vi.resetAllMocks()
+	pendingUploads.length = 0
 })
 
 // #region Add
 
 describe("SectionManager add", () => {
 	it("appends an empty section with the next sortOrder when Add section is clicked", async () => {
-		const existing = [makeSection({ _key: "a", sortOrder: 0 })]
-		const onChange = vi.fn()
-
-		render(<SectionManager value={existing} onChange={onChange} />)
+		const { latest } = renderSections([
+			makeSection({ _key: "a", sortOrder: 0 }),
+		])
 		await user.click(screen.getByRole("button", { name: /add section/i }))
 
-		const next = onChange.mock.calls[0][0] as SectionItem[]
+		const next = latest()
 		expect(next).toHaveLength(2)
 		expect(next[1]).toMatchObject({
 			title: "",
@@ -84,19 +116,16 @@ describe("SectionManager add", () => {
 
 describe("SectionManager remove + reindex", () => {
 	it("removes the targeted section and compacts sortOrder values", async () => {
-		const sections = [
+		const { latest } = renderSections([
 			makeSection({ _key: "a", title: "Alpha", sortOrder: 0 }),
 			makeSection({ _key: "b", title: "Beta", sortOrder: 1 }),
 			makeSection({ _key: "c", title: "Charlie", sortOrder: 2 }),
-		]
-		const onChange = vi.fn()
-
-		render(<SectionManager value={sections} onChange={onChange} />)
+		])
 		const removeButtons = screen.getAllByRole("button", { name: /remove/i })
 		// Click the middle section's remove.
 		await user.click(removeButtons[1])
 
-		const next = onChange.mock.calls[0][0] as SectionItem[]
+		const next = latest()
 		expect(next.map((s) => s.title)).toEqual(["Alpha", "Charlie"])
 		expect(next.map((s) => s.sortOrder)).toEqual([0, 1])
 	})
@@ -108,21 +137,102 @@ describe("SectionManager remove + reindex", () => {
 
 describe("SectionManager update", () => {
 	it("updates only the targeted section's title", async () => {
-		const sections = [
+		const { latest } = renderSections([
 			makeSection({ _key: "a", title: "Alpha" }),
 			makeSection({ _key: "b", title: "Beta" }),
-		]
-		const onChange = vi.fn()
-
-		render(<SectionManager value={sections} onChange={onChange} />)
+		])
 		const titleInputs = screen.getAllByPlaceholderText("Section title")
 		await user.type(titleInputs[0], "!")
 
-		const last = onChange.mock.calls[
-			onChange.mock.calls.length - 1
-		][0] as SectionItem[]
+		const last = latest()
 		expect(last[0].title).toBe("Alpha!")
 		expect(last[1].title).toBe("Beta")
+	})
+})
+
+// #endregion
+
+// #region Image upload finishing after other edits
+
+describe("SectionManager image upload finishing late", () => {
+	const imageSection = (key: string, title: string, sortOrder: number) =>
+		makeSection({
+			_key: key,
+			title,
+			sortOrder,
+			images: [{ _key: `${key}-img`, url: "", caption: "", sortOrder: 0 }],
+		})
+
+	it("keeps edits made while the upload was in flight", async () => {
+		const { latest } = renderSections([
+			imageSection("a", "Alpha", 0),
+			imageSection("b", "Beta", 1),
+		])
+		// Pick a file for Beta's image, then keep editing before it lands.
+		await user.click(screen.getAllByRole("button", { name: "Pick file" })[1])
+		await user.type(screen.getAllByPlaceholderText("Section title")[0], "!")
+		// Move-up controls in DOM order: Alpha, Alpha's image, Beta, Beta's image.
+		await user.click(screen.getAllByRole("button", { name: "Move up" })[2])
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/beta.png")
+		})
+
+		const sections = latest()
+		// The reorder and the title edit both survive…
+		expect(sections.map((s) => s.title)).toEqual(["Beta", "Alpha!"])
+		expect(sections.map((s) => s.sortOrder)).toEqual([0, 1])
+		// …and the URL lands on the image it was picked for, not on the section
+		// that now sits at Beta's old index.
+		expect(sections[0].images[0].url).toBe("https://blob.example/beta.png")
+		expect(sections[1].images[0].url).toBe("")
+	})
+
+	it("keeps both URLs when two uploads finish back to back", async () => {
+		const { latest } = renderSections([
+			imageSection("a", "Alpha", 0),
+			imageSection("b", "Beta", 1),
+		])
+		const pickButtons = screen.getAllByRole("button", { name: "Pick file" })
+		await user.click(pickButtons[0])
+		await user.click(pickButtons[1])
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/alpha.png")
+			pendingUploads[1].finish("https://blob.example/beta.png")
+		})
+
+		const sections = latest()
+		expect(sections[0].images[0].url).toBe("https://blob.example/alpha.png")
+		expect(sections[1].images[0].url).toBe("https://blob.example/beta.png")
+	})
+
+	it("drops the URL when its section was removed in the meantime", async () => {
+		const { latest } = renderSections([
+			imageSection("a", "Alpha", 0),
+			imageSection("b", "Beta", 1),
+		])
+		await user.click(screen.getAllByRole("button", { name: "Pick file" })[1])
+		// Section "Remove" controls come first in each card, image ones after.
+		const removeButtons = screen.getAllByRole("button", { name: /remove/i })
+		await user.click(removeButtons[2])
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/beta.png")
+		})
+
+		const sections = latest()
+		expect(sections.map((s) => s.title)).toEqual(["Alpha"])
+		expect(sections[0].images[0].url).toBe("")
+	})
+
+	it("reports uploads to the form keyed by image", async () => {
+		const onUploadingChange = vi.fn()
+		renderSections([imageSection("a", "Alpha", 0)], onUploadingChange)
+
+		await user.click(screen.getByRole("button", { name: "Pick file" }))
+
+		expect(onUploadingChange).toHaveBeenCalledWith("a-img", true)
 	})
 })
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
@@ -37,11 +37,29 @@ export default function ImageUpload({
 		return () => abortRef.current?.abort()
 	}, [])
 
+	// An Effect Event so the effect below re-runs on `isUploading` alone. With
+	// the callback as a dependency, a parent passing an inline arrow re-ran it
+	// on every render, and the cleanup's `false` plus the body's `true` would
+	// churn the parent's state in a loop while an upload is in flight.
+	const reportUploading = useEffectEvent((value: boolean) => {
+		onUploadingChange?.(value)
+	})
+
 	// Mirrored to the parent in an effect rather than from `setIsUploading`'s call
 	// sites, so every path that flips it — success, failure, abort — reports.
+	// The cleanup covers unmounting mid-upload (the row holding this input was
+	// removed): the unmount aborts the request, but the `finally` below can't
+	// flip state on an unmounted component, so without it the parent would
+	// count this upload as in flight forever and keep Save disabled.
 	useEffect(() => {
-		onUploadingChange?.(isUploading)
-	}, [isUploading, onUploadingChange])
+		reportUploading(isUploading)
+
+		return () => {
+			if (isUploading) {
+				reportUploading(false)
+			}
+		}
+	}, [isUploading])
 
 	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0]

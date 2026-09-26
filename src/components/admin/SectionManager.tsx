@@ -3,7 +3,11 @@
 import { useState } from "react"
 import ImageUpload from "@/components/admin/ImageUpload"
 import MarkdownEditor from "@/components/admin/MarkdownEditor"
-import { useOrderedList } from "@/components/admin/useOrderedList"
+import {
+	type OrderedItemPatch,
+	type OrderedListChange,
+	useOrderedList,
+} from "@/components/admin/useOrderedList"
 import ReorderControls from "@/components/ui/ReorderControls"
 
 export interface SectionImage {
@@ -23,8 +27,17 @@ export interface SectionItem {
 
 interface Props {
 	value: SectionItem[]
-	onChange: (sections: SectionItem[]) => void
+	onChange: OrderedListChange<SectionItem>
+	/**
+	 * Reports each image upload starting and ending, keyed by the image's
+	 * `_key`, so the form can hold Save until every upload has landed.
+	 */
+	onUploadingChange?: (imageKey: string, isUploading: boolean) => void
 }
+
+type SectionPatch =
+	| OrderedItemPatch<SectionItem>
+	| ((section: SectionItem) => OrderedItemPatch<SectionItem>)
 
 function SectionCard({
 	section,
@@ -33,18 +46,23 @@ function SectionCard({
 	onPatch,
 	onRemove,
 	onMove,
+	onUploadingChange,
 }: {
 	section: SectionItem
 	index: number
 	total: number
-	onPatch: (patch: Partial<SectionItem>) => void
+	onPatch: (patch: SectionPatch) => void
 	onRemove: () => void
 	onMove: (direction: "up" | "down") => void
+	onUploadingChange?: (imageKey: string, isUploading: boolean) => void
 }) {
 	const [isOpen, setIsOpen] = useState(true)
 
-	const images = useOrderedList<SectionImage>(section.images, (next) =>
-		onPatch({ images: next })
+	// The image list patches its section from the section's latest images, so
+	// an upload finishing after other edits adds its URL to them instead of
+	// restoring the images as they were when the file was picked.
+	const images = useOrderedList<SectionImage>((update) =>
+		onPatch((latest) => ({ images: update(latest.images) }))
 	)
 
 	return (
@@ -100,8 +118,11 @@ function SectionCard({
 							>
 								<ImageUpload
 									value={image.url}
-									onChange={(url) => images.update(imageIndex, { url })}
+									onChange={(url) => images.update(image._key, { url })}
 									label="Image URL"
+									onUploadingChange={(isUploading) =>
+										onUploadingChange?.(image._key, isUploading)
+									}
 								/>
 
 								<div className="flex items-center gap-2">
@@ -109,7 +130,7 @@ function SectionCard({
 										type="text"
 										value={image.caption}
 										onChange={(e) =>
-											images.update(imageIndex, { caption: e.target.value })
+											images.update(image._key, { caption: e.target.value })
 										}
 										placeholder="Caption (optional)"
 										className="admin-input min-w-0 flex-1"
@@ -118,9 +139,9 @@ function SectionCard({
 									<ReorderControls
 										canMoveUp={imageIndex > 0}
 										canMoveDown={imageIndex < section.images.length - 1}
-										onMoveUp={() => images.move(imageIndex, "up")}
-										onMoveDown={() => images.move(imageIndex, "down")}
-										onRemove={() => images.remove(imageIndex)}
+										onMoveUp={() => images.move(image._key, "up")}
+										onMoveDown={() => images.move(image._key, "down")}
+										onRemove={() => images.remove(image._key)}
 									/>
 								</div>
 							</div>
@@ -140,8 +161,12 @@ function SectionCard({
 	)
 }
 
-export default function SectionManager({ value, onChange }: Props) {
-	const list = useOrderedList<SectionItem>(value, onChange)
+export default function SectionManager({
+	value,
+	onChange,
+	onUploadingChange,
+}: Props) {
+	const list = useOrderedList<SectionItem>(onChange)
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -151,9 +176,10 @@ export default function SectionManager({ value, onChange }: Props) {
 					section={section}
 					index={index}
 					total={value.length}
-					onPatch={(patch) => list.update(index, patch)}
-					onRemove={() => list.remove(index)}
-					onMove={(direction) => list.move(index, direction)}
+					onPatch={(patch) => list.update(section._key, patch)}
+					onRemove={() => list.remove(section._key)}
+					onMove={(direction) => list.move(section._key, direction)}
+					onUploadingChange={onUploadingChange}
 				/>
 			))}
 
