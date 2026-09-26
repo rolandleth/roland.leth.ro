@@ -7,6 +7,7 @@ import NavigationTypeTracker from "@/components/NavigationTypeTracker"
 import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
+import { NO_SCRIPT_FADE_RULE } from "@/lib/client/motion"
 import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
 import {
 	defaultOgImage,
@@ -92,10 +93,11 @@ export default function RootLayout({
 				{/* Set the theme class before first paint (no flash). `globals.css`
 					hides the page until a class is present; this reveals it once the
 					class is set — and the `<noscript>` reveals it for visitors without
-					JS, who would otherwise stay hidden. */}
+					JS, who would otherwise stay hidden. It also shows the `fadeUp`
+					content, which the prerender writes at opacity 0. */}
 				<ThemeScript />
 				<noscript>
-					<style>{`html:not(.dark):not(.light){visibility:visible}`}</style>
+					<style>{`html:not(.dark):not(.light){visibility:visible}${NO_SCRIPT_FADE_RULE}`}</style>
 				</noscript>
 
 				<a
