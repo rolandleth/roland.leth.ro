@@ -252,6 +252,24 @@ describe("LoanCalculatorClient input validation", () => {
 		expect(summaryValue("Monthly rate")).not.toBe(before)
 	})
 
+	it("copies the last valid value into a comparison opened while a field is invalid", async () => {
+		render(<LoanCalculatorClient />)
+		await replaceValue(field("Duration (months)"), "120")
+		await user.type(field("Duration (months)"), ".5")
+
+		await user.click(screen.getByRole("button", { name: /add comparison/i }))
+
+		const [first, second] = screen.getAllByRole("spinbutton", {
+			name: "Duration (months)",
+		})
+		// The draft stays where it was typed; the copy starts from the params
+		// the results were computed from, so it opens valid.
+		expect(first).toHaveValue(120.5)
+		expect(first).toHaveAttribute("aria-invalid", "true")
+		expect(second).toHaveValue(120)
+		expect(second).toHaveAttribute("aria-invalid", "false")
+	})
+
 	it("resets a hidden extra-payment field when the toggle is turned off", async () => {
 		render(<LoanCalculatorClient />)
 		const toggle = screen.getByRole("checkbox")
