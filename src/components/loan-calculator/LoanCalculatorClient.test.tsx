@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { MAX_PERIOD_MONTHS } from "@/lib/utils/loanCalculator"
+import {
+	MAX_ANNUAL_INTEREST_RATE,
+	MAX_PERIOD_MONTHS,
+} from "@/lib/utils/loanCalculator"
 import { setupUser } from "@/test/user"
 import LoanCalculatorClient from "./LoanCalculatorClient"
 
@@ -158,6 +161,56 @@ describe("LoanCalculatorClient input validation", () => {
 			screen.getByText(`Use ${MAX_PERIOD_MONTHS} or less.`)
 		).toBeInTheDocument()
 		expect(summaryValue("Monthly rate")).toBe(atLastValid)
+	})
+
+	it("shows an error for an interest rate past the maximum", async () => {
+		render(<LoanCalculatorClient />)
+		const rate = field("Annual interest rate (%)")
+		await replaceValue(rate, "10")
+		const atLastValid = summaryValue("Monthly rate")
+
+		await user.type(rate, "1")
+
+		expect(
+			screen.getByText(`Use ${MAX_ANNUAL_INTEREST_RATE} or less.`)
+		).toBeInTheDocument()
+		expect(summaryValue("Monthly rate")).toBe(atLastValid)
+	})
+
+	it("adds the error to the field's accessible description", async () => {
+		render(<LoanCalculatorClient />)
+		const duration = field("Duration (months)")
+
+		await replaceValue(duration, "0")
+
+		expect(duration).toHaveAccessibleDescription(
+			expect.stringContaining("Use 1 or more.")
+		)
+	})
+
+	it("announces the error through a live region", async () => {
+		render(<LoanCalculatorClient />)
+		const duration = field("Duration (months)")
+
+		await replaceValue(duration, "0")
+
+		expect(screen.getByText("Use 1 or more.")).toHaveAttribute(
+			"aria-live",
+			"polite"
+		)
+	})
+
+	it("keeps the invalid-border and spin-button utilities as separate classes", () => {
+		render(<LoanCalculatorClient />)
+
+		// jsdom compiles no Tailwind, so this guards the class tokens themselves:
+		// two utilities fused without a space generate neither rule.
+		expect(field("Duration (months)").classList).toContain(
+			"aria-[invalid=true]:border-red-500"
+		)
+		expect(field("Duration (months)").classList).toContain(
+			"[&::-webkit-inner-spin-button]:appearance-none"
+		)
 	})
 
 	it("shows an error for a fractional Duration", async () => {

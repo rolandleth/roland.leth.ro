@@ -129,15 +129,20 @@ function NumberField({
 					step={rule.isWholeNumber ? 1 : "any"}
 					aria-invalid={error != null}
 					aria-describedby={describedBy}
-					className="border-border text-primary focus:border-accent aria-[invalid=true]:border-red-500[&::-webkit-inner-spin-button]:appearance-none [appearance:textfield] border-b bg-transparent pb-0.5 text-right text-sm transition-colors duration-200 outline-none [&::-webkit-outer-spin-button]:appearance-none"
+					className="border-border text-primary focus:border-accent [appearance:textfield] border-b bg-transparent pb-0.5 text-right text-sm transition-colors duration-200 outline-none aria-[invalid=true]:border-red-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				/>
 			</label>
 
-			{error && (
-				<p id={errorId} className="mt-1 text-right text-xs text-red-500">
-					{error}
-				</p>
-			)}
+			{/* Always mounted: a live region only announces changes to content it
+			    already held, so mounting it together with the error stays silent.
+			    Polite, not `role="alert"`: the error changes per keystroke. */}
+			<p
+				id={errorId}
+				aria-live="polite"
+				className="mt-1 text-right text-xs text-red-500 empty:mt-0"
+			>
+				{error}
+			</p>
 		</>
 	)
 }
