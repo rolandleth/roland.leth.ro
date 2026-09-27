@@ -4,6 +4,7 @@ import GuidesTab from "@/components/admin/GuidesTab"
 import IndexNowPanel from "@/components/admin/IndexNowPanel"
 import PostsTab from "@/components/admin/PostsTab"
 import ProjectsTab from "@/components/admin/ProjectsTab"
+import RememberAdminListUrl from "@/components/admin/RememberAdminListUrl"
 import RevalidatePanel from "@/components/admin/RevalidatePanel"
 import { ADMIN_DASHBOARD_TAG } from "@/lib/auth/adminTags"
 import { requireAdminPageSession } from "@/lib/auth/middlewareBypass"
@@ -42,6 +43,7 @@ export default async function AdminDashboard({ searchParams }: PageProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
+			<RememberAdminListUrl href={buildAdminPageUrl({ tab, query, page })} />
 			<RevalidatePanel />
 			<IndexNowPanel />
 

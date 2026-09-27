@@ -2,13 +2,25 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
+import { adminListUrlFor } from "@/lib/client/adminListReturn"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
+import type { AdminTab } from "@/lib/client/adminPageUrl"
+
+type Resource = "posts" | "projects" | "guides" | "guide-topics"
 
 interface Config {
 	/** Matches the `/api/admin/<resource>` route segment exactly. */
-	resource: "posts" | "projects" | "guides" | "guide-topics"
+	resource: Resource
 	id: number | null
+}
+
+/** The dashboard tab that lists each resource; topics sit on the Guides tab. */
+const RESOURCE_TABS: Record<Resource, AdminTab> = {
+	posts: "posts",
+	projects: "projects",
+	guides: "guides",
+	"guide-topics": "guides",
 }
 
 interface AdminResource<TPayload> {
@@ -45,8 +57,10 @@ export function useAdminResource<TPayload>({
 
 	const isEditing = id !== null
 
+	// Back to the list the admin came from (tab, search and page) when it shows
+	// this resource, otherwise to the resource's tab.
 	function goBackToAdmin() {
-		router.push("/admin")
+		router.push(adminListUrlFor(RESOURCE_TABS[resource]))
 		router.refresh()
 	}
 
@@ -57,6 +71,7 @@ export function useAdminResource<TPayload>({
 		const controller = new AbortController()
 		abortRef.current?.abort()
 		abortRef.current = controller
+		let isNavigating = false
 
 		try {
 			const url = isEditing
@@ -92,6 +107,7 @@ export function useAdminResource<TPayload>({
 				throw new Error(message)
 			}
 
+			isNavigating = true
 			goBackToAdmin()
 		} catch (err) {
 			if (!isMountedRef.current || abortRef.current !== controller) {
@@ -110,8 +126,14 @@ export function useAdminResource<TPayload>({
 			)
 		} finally {
 			// Only the latest request clears the flag; a superseded save must not
-			// re-enable the button while the newer one is still running.
-			if (isMountedRef.current && abortRef.current === controller) {
+			// re-enable the button while the newer one is still running. A
+			// successful one keeps it too: `router.push` resolves before the list
+			// renders, and a second click in that gap re-POSTs into a 409.
+			if (
+				!isNavigating &&
+				isMountedRef.current &&
+				abortRef.current === controller
+			) {
 				setIsSubmitting(false)
 			}
 		}
@@ -132,6 +154,7 @@ export function useAdminResource<TPayload>({
 		const controller = new AbortController()
 		abortRef.current?.abort()
 		abortRef.current = controller
+		let isNavigating = false
 
 		try {
 			const response = await fetch(`/api/admin/${resource}/${id}`, {
@@ -157,6 +180,7 @@ export function useAdminResource<TPayload>({
 				throw new Error(message)
 			}
 
+			isNavigating = true
 			goBackToAdmin()
 		} catch (err) {
 			if (!isMountedRef.current || abortRef.current !== controller) {
@@ -172,8 +196,13 @@ export function useAdminResource<TPayload>({
 			)
 		} finally {
 			// Only the latest request clears the flag; a superseded remove must not
-			// re-enable the button while the newer one is still running.
-			if (isMountedRef.current && abortRef.current === controller) {
+			// re-enable the button while the newer one is still running. A
+			// successful one keeps it, as in `save`: a second click would 404.
+			if (
+				!isNavigating &&
+				isMountedRef.current &&
+				abortRef.current === controller
+			) {
 				setIsSubmitting(false)
 			}
 		}
