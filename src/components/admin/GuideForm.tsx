@@ -14,6 +14,7 @@ import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 
 interface Props {
 	initialData?: {
@@ -60,7 +61,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 		id: initialData?.id ?? null,
 	})
 
-	const { state, setField, setState } = useFormState<FormState>({
+	const { state, setField, setState, isDirty } = useFormState<FormState>({
 		slug: initialData?.slug ?? "",
 		title: initialData?.title ?? "",
 		description: initialData?.description ?? "",
@@ -70,6 +71,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 		sortOrder: String(initialData?.sortOrder ?? 0),
 		published: initialData?.published ?? true,
 	})
+	useUnsavedChangesGuard(isDirty)
 
 	/**
 	 * Picking a topic adopts its project: the API rejects a guide whose project

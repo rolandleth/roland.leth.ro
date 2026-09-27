@@ -19,10 +19,10 @@ import {
 } from "@/lib/db/projects"
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:projects:GET]")
+	const unauthorized = await requireAdmin(request, "[api:admin:projects:GET]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -56,7 +56,7 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:projects:PUT]")
+	const unauthorized = await requireAdmin(request, "[api:admin:projects:PUT]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -182,10 +182,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:projects:DELETE]")
+	const unauthorized = await requireAdmin(
+		request,
+		"[api:admin:projects:DELETE]"
+	)
 
 	if (unauthorized) {
 		return unauthorized

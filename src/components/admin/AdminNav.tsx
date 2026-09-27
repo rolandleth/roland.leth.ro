@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { isAbortError } from "@/lib/client/isAbortError"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
+import { confirmDiscardUnsavedChanges } from "@/lib/client/unsavedChanges"
 
 export default function AdminNav() {
 	const router = useRouter()
@@ -68,6 +69,11 @@ export default function AdminNav() {
 	}
 
 	async function handleLogout() {
+		// A button, not a link, so the form's click guard doesn't see it.
+		if (!confirmDiscardUnsavedChanges()) {
+			return
+		}
+
 		setError(null)
 		setIsLoggingOut(true)
 

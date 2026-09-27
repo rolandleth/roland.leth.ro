@@ -15,10 +15,10 @@ import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime } from "@/lib/utils/format"
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:posts:GET]")
+	const unauthorized = await requireAdmin(request, "[api:admin:posts:GET]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -49,7 +49,7 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:posts:PUT]")
+	const unauthorized = await requireAdmin(request, "[api:admin:posts:PUT]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -204,10 +204,10 @@ export async function PUT(
 }
 
 export async function DELETE(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:posts:DELETE]")
+	const unauthorized = await requireAdmin(request, "[api:admin:posts:DELETE]")
 
 	if (unauthorized) {
 		return unauthorized

@@ -280,7 +280,7 @@ describe("ProjectForm — create mode", () => {
 		expect(body.isOwnApp).toBe(false)
 	})
 
-	it("navigates to /admin after a successful save", async () => {
+	it("navigates to the Projects tab after a successful save", async () => {
 		const { push } = mockRouter()
 		mockFetch(true)
 
@@ -288,7 +288,9 @@ describe("ProjectForm — create mode", () => {
 		await fillRequiredFields()
 		await clickSave()
 
-		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
+		await waitFor(() =>
+			expect(push).toHaveBeenCalledWith("/admin?tab=projects")
+		)
 	})
 
 	it("blocks submit and surfaces an error when no bucket is selected", async () => {
@@ -517,7 +519,7 @@ describe("ProjectForm — edit mode", () => {
 		expect(JSON.parse(options.body)).not.toHaveProperty("slug")
 	})
 
-	it("navigates to /admin after a successful delete", async () => {
+	it("navigates to the Projects tab after a successful delete", async () => {
 		const { push } = mockRouter()
 		// DELETE returns 204 (no body), ok=true
 		global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 })
@@ -526,7 +528,9 @@ describe("ProjectForm — edit mode", () => {
 		render(<ProjectForm initialData={initialData} />)
 		await user.click(screen.getByRole("button", { name: /delete/i }))
 
-		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
+		await waitFor(() =>
+			expect(push).toHaveBeenCalledWith("/admin?tab=projects")
+		)
 	})
 
 	it("does not delete when the user cancels the confirm dialog", async () => {

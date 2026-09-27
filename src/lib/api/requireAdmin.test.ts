@@ -12,17 +12,32 @@ const mockVerifySession = vi.mocked(verifySession)
 // every test, so read that mock rather than layering a `vi.spyOn` on top of it.
 const consoleError = () => vi.mocked(console.error)
 
+function adminRequest(
+	method = "POST",
+	headers: Record<string, string> = {}
+): Request {
+	return new Request("https://roland.leth.ro/api/admin/posts", {
+		method,
+		headers,
+	})
+}
+
+const CROSS_SITE = {
+	"sec-fetch-site": "same-site",
+	origin: "https://other.leth.ro",
+}
+
 describe("requireAdmin", () => {
 	it("returns null so the handler proceeds when the session is valid", async () => {
 		mockVerifySession.mockResolvedValue(true)
 
-		await expect(requireAdmin("[test]")).resolves.toBeNull()
+		await expect(requireAdmin(adminRequest(), "[test]")).resolves.toBeNull()
 	})
 
 	it("returns a 401 when there is no valid session", async () => {
 		mockVerifySession.mockResolvedValue(false)
 
-		const response = await requireAdmin("[test]")
+		const response = await requireAdmin(adminRequest(), "[test]")
 
 		expect(response?.status).toBe(401)
 		expect(await response?.json()).toEqual({ error: "Unauthorized" })
@@ -34,7 +49,7 @@ describe("requireAdmin", () => {
 		// the matcher. That is a security event and has to be greppable.
 		mockVerifySession.mockResolvedValue(false)
 
-		await requireAdmin("[api:admin:posts:DELETE]")
+		await requireAdmin(adminRequest(), "[api:admin:posts:DELETE]")
 
 		expect(consoleError()).toHaveBeenCalledWith(
 			expect.stringContaining("[api:admin:posts:DELETE]"),
@@ -51,7 +66,7 @@ describe("requireAdmin", () => {
 	it("tags the line with the handler surface", async () => {
 		mockVerifySession.mockResolvedValue(false)
 
-		await requireAdmin("[api:admin:posts:DELETE]")
+		await requireAdmin(adminRequest(), "[api:admin:posts:DELETE]")
 
 		expect(consoleError()).toHaveBeenCalledWith(
 			expect.any(String),
@@ -65,8 +80,42 @@ describe("requireAdmin", () => {
 	it("does not log when the session is valid", async () => {
 		mockVerifySession.mockResolvedValue(true)
 
-		await requireAdmin("[test]")
+		await requireAdmin(adminRequest(), "[test]")
 
 		expect(consoleError()).not.toHaveBeenCalled()
+	})
+
+	it("refuses a cross-site write even with a valid session", async () => {
+		// The browser attaches the cookie to a same-site POST, so a valid
+		// session proves nothing about where the request came from.
+		mockVerifySession.mockResolvedValue(true)
+		vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+		const response = await requireAdmin(
+			adminRequest("POST", CROSS_SITE),
+			"[test]"
+		)
+
+		expect(response?.status).toBe(403)
+	})
+
+	it("lets a cross-site read through with a valid session", async () => {
+		mockVerifySession.mockResolvedValue(true)
+
+		await expect(
+			requireAdmin(adminRequest("GET", CROSS_SITE), "[test]")
+		).resolves.toBeNull()
+	})
+
+	it("answers 401, not 403, to a cross-site write without a session", async () => {
+		// The session check runs first, so the bypass is still logged as one.
+		mockVerifySession.mockResolvedValue(false)
+
+		const response = await requireAdmin(
+			adminRequest("POST", CROSS_SITE),
+			"[test]"
+		)
+
+		expect(response?.status).toBe(401)
 	})
 })

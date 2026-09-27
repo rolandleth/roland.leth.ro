@@ -143,7 +143,7 @@ function summariseSkipped(
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin(TAG)
+	const unauthorized = await requireAdmin(request, TAG)
 
 	if (unauthorized) {
 		return unauthorized

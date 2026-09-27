@@ -84,15 +84,34 @@ export function respondInternalError(
 
 /**
  * Parses the request JSON body and validates it against `schema`. Returns the
- * parsed data on success, or a NextResponse on any failure (malformed JSON →
- * 400, schema mismatch → 400 with zod issues). Centralised so every admin
- * write handler treats parser errors identically.
+ * parsed data on success, or a NextResponse on any failure (not JSON by its
+ * `Content-Type` → 415, malformed JSON → 400, schema mismatch → 400 with zod
+ * issues). Centralised so every admin write handler treats parser errors
+ * identically.
+ *
+ * The `Content-Type` check is a CSRF layer of its own: an HTML form can only
+ * send `text/plain`, `multipart/form-data` or `application/x-www-form-urlencoded`,
+ * and `request.json()` would parse a `text/plain` body shaped like JSON all the
+ * same. A cross-site `fetch` with `application/json` needs a CORS preflight,
+ * which this site never grants.
  */
 export async function parseJsonBody<T extends z.ZodTypeAny>(
 	request: Request,
 	schema: T,
 	tag: string
 ): Promise<z.infer<T> | NextResponse> {
+	if (!isJsonContentType(request.headers.get("content-type"))) {
+		// eslint-disable-next-line no-console
+		console.warn(`${tag} non-JSON content type`, {
+			contentType: request.headers.get("content-type"),
+		})
+
+		return NextResponse.json(
+			{ error: "Content-Type must be application/json" },
+			{ status: 415 }
+		)
+	}
+
 	let body: unknown
 
 	try {
@@ -165,4 +184,19 @@ function describeZodIssues(
 	const remainder = segments.length - MAX_ISSUE_SEGMENTS
 
 	return `${head}, +${remainder} more`
+}
+
+/**
+ * Whether a `Content-Type` header names JSON: the media type before any `;`
+ * parameters, compared without case (`application/json; charset=utf-8` and
+ * `Application/JSON` both pass).
+ */
+function isJsonContentType(header: string | null): boolean {
+	if (header == null) {
+		return false
+	}
+
+	const mediaType = header.split(";")[0].trim().toLowerCase()
+
+	return mediaType === "application/json"
 }

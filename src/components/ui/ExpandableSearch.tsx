@@ -31,7 +31,19 @@ export default function ExpandableSearch({
 		onClose?.()
 	}
 
-	useClickOutside(formRef, handleClose, isOpen)
+	// An outside click collapses an idle search only. With a query applied, the
+	// page below is its results, and clicking into them (a toggle, Edit,
+	// Next →) must not throw the filter away. The cancel button and Escape
+	// still clear it.
+	function handleClickOutside() {
+		if (initialValue.length > 0) {
+			return
+		}
+
+		handleClose()
+	}
+
+	useClickOutside(formRef, handleClickOutside, isOpen)
 
 	function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()

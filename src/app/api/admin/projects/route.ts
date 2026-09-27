@@ -14,7 +14,7 @@ import {
 } from "@/lib/db/projects"
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:projects:POST]")
+	const unauthorized = await requireAdmin(request, "[api:admin:projects:POST]")
 
 	if (unauthorized) {
 		return unauthorized

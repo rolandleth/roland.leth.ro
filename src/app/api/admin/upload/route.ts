@@ -20,7 +20,7 @@ const ALLOWED_UPLOAD_MIMES = new Set([
 ])
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:upload:POST]")
+	const unauthorized = await requireAdmin(request, "[api:admin:upload:POST]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -152,7 +152,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const key = adminUploadKey(file.name)
 
 	try {
-		const blob = await put(key, file, { access: "public" })
+		// The sniffed type, never the default: without `contentType` the SDK takes
+		// the type from the key's extension, which is the client's filename, so a
+		// verified PNG uploaded as `x.html` would be served as HTML.
+		const blob = await put(key, file, {
+			access: "public",
+			contentType: detectedMime,
+		})
 
 		return NextResponse.json({ url: blob.url })
 	} catch (error) {

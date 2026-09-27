@@ -27,8 +27,12 @@ export default function AdminSearch({ tab, query }: Props) {
 		router.replace(buildAdminPageUrl({ tab, query: "", page: 1 }))
 	}
 
+	// Keyed by tab: a tab switch is a client navigation that keeps this
+	// instance, and `ExpandableSearch` reads `initialValue` only on mount, so
+	// the previous tab's term would otherwise stay open in the box.
 	return (
 		<ExpandableSearch
+			key={tab}
 			placeholder="Search…"
 			onSubmit={handleSubmit}
 			onClose={handleClose}

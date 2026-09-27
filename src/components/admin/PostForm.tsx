@@ -10,6 +10,7 @@ import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString, followTitleSlug } from "@/lib/utils/format"
 
@@ -67,7 +68,7 @@ export default function PostForm({ initialData }: Props) {
 	// callback identity is stable across renders (no value/closure dependency)
 	// so the heavy children — `MarkdownEditor`, `ImageUpload` — get the same
 	// `onChange` reference on every render.
-	const { state, setField, setState } = useFormState<FormState>({
+	const { state, setField, setState, isDirty } = useFormState<FormState>({
 		title: initialData?.title ?? "",
 		slug: initialData?.slug ?? "",
 		section: initialData?.section ?? "tech",
@@ -80,6 +81,8 @@ export default function PostForm({ initialData }: Props) {
 	// Saving mid-upload would persist the row without the image and navigate
 	// away, aborting the request — the picked file lost with nothing shown.
 	const [isUploading, setIsUploading] = useState(false)
+	// An upload in flight counts: its URL reaches the state only when it lands.
+	useUnsavedChangesGuard(isDirty || isUploading)
 
 	// On create, the slug follows the title until the author types their own. On
 	// edit it is fixed, so the title changes alone.

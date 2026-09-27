@@ -8,6 +8,12 @@ vi.mock("@/lib/api/requireAdmin", async () => {
 	return requireAdminMockFactory()
 })
 
+function keepaliveRequest(): Request {
+	return new Request("http://localhost/api/admin/keepalive", {
+		method: "POST",
+	})
+}
+
 // `redis` in the route is evaluated at module-load from
 // `process.env.KV_REST_API_TOKEN`/`_URL`. `.env.test` leaves them unset, so
 // `redis` is null here and these tests exercise the no-Redis 503 path. The
@@ -16,7 +22,7 @@ vi.mock("@/lib/api/requireAdmin", async () => {
 
 describe("POST /api/admin/keepalive — no Redis configured", () => {
 	it("returns 503 when Redis env vars are unset", async () => {
-		const response = await POST()
+		const response = await POST(keepaliveRequest())
 
 		expect(response.status).toBe(503)
 		const data = await response.json()
@@ -59,7 +65,7 @@ describe("POST /api/admin/keepalive — Redis configured", () => {
 		}))
 
 		const { POST: POSTReloaded } = await import("./route")
-		const response = await POSTReloaded()
+		const response = await POSTReloaded(keepaliveRequest())
 
 		expect(response.status).toBe(200)
 		const data = await response.json()
@@ -84,7 +90,7 @@ describe("POST /api/admin/keepalive — Redis configured", () => {
 		}))
 
 		const { POST: POSTReloaded } = await import("./route")
-		const response = await POSTReloaded()
+		const response = await POSTReloaded(keepaliveRequest())
 
 		expect(response.status).toBe(502)
 		const data = await response.json()

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { rememberAdminListUrl } from "@/lib/client/adminListReturn"
 import { useAdminResource } from "./useAdminResource"
 
 vi.mock("next/navigation", () => ({
@@ -36,6 +37,7 @@ function mockFetchError(status: number, body: unknown = {}) {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	window.sessionStorage.clear()
 })
 
 // #region save
@@ -91,6 +93,76 @@ describe("useAdminResource.save", () => {
 
 		expect(push).toHaveBeenCalledWith("/admin")
 		expect(refresh).toHaveBeenCalled()
+	})
+
+	it("keeps isSubmitting true after success, while the navigation runs", async () => {
+		// `router.push` resolves before the list renders; a live Save button in
+		// that gap re-POSTs the same slug into a 409.
+		mockRouter()
+		mockFetchOk()
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.isSubmitting).toBe(true)
+	})
+
+	it.each([
+		["projects", "/admin?tab=projects"],
+		["guides", "/admin?tab=guides"],
+		["guide-topics", "/admin?tab=guides"],
+	] as const)(
+		"returns a %s save to its own tab when no list was remembered",
+		async (resource, expectedUrl) => {
+			const { push } = mockRouter()
+			mockFetchOk()
+
+			const { result } = renderHook(() => useAdminResource({ resource, id: 1 }))
+
+			await act(async () => {
+				await result.current.save({})
+			})
+
+			expect(push).toHaveBeenCalledWith(expectedUrl)
+		}
+	)
+
+	it("returns to the remembered list, search and page included", async () => {
+		const { push } = mockRouter()
+		mockFetchOk()
+		rememberAdminListUrl("/admin?tab=projects&q=app&page=3")
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "projects", id: 1 })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(push).toHaveBeenCalledWith("/admin?tab=projects&q=app&page=3")
+	})
+
+	it("ignores a remembered list on another tab", async () => {
+		// Returning to the Posts list after saving a project would hide it.
+		const { push } = mockRouter()
+		mockFetchOk()
+		rememberAdminListUrl("/admin?q=hello&page=2")
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "projects", id: 1 })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(push).toHaveBeenCalledWith("/admin?tab=projects")
 	})
 
 	it("surfaces the server error message on non-ok responses", async () => {
@@ -157,7 +229,9 @@ describe("useAdminResource.save", () => {
 			await secondSave
 		})
 
-		expect(result.current.isSubmitting).toBe(false)
+		// The latest save succeeded, so the flag stays set through the
+		// navigation back to the list.
+		expect(result.current.isSubmitting).toBe(true)
 	})
 
 	it("aborts the in-flight fetch when the consumer unmounts mid-request", async () => {
@@ -249,6 +323,40 @@ describe("useAdminResource.remove", () => {
 		expect(url).toBe("/api/admin/posts/7")
 		expect(options.method).toBe("DELETE")
 		expect(push).toHaveBeenCalledWith("/admin")
+	})
+
+	it("keeps isSubmitting true after a successful delete", async () => {
+		// A second Delete click during the navigation would 404.
+		mockRouter()
+		mockFetchOk()
+		window.confirm = vi.fn().mockReturnValue(true)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: 7 })
+		)
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(result.current.isSubmitting).toBe(true)
+	})
+
+	it("returns a delete to the remembered list", async () => {
+		const { push } = mockRouter()
+		mockFetchOk()
+		window.confirm = vi.fn().mockReturnValue(true)
+		rememberAdminListUrl("/admin?q=draft&page=2")
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: 7 })
+		)
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(push).toHaveBeenCalledWith("/admin?q=draft&page=2")
 	})
 
 	it("surfaces the server error message on delete failure", async () => {

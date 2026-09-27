@@ -115,6 +115,23 @@ describe("PostForm — create mode", () => {
 		).not.toBeInTheDocument()
 	})
 
+	it("guards closing the tab only once something was typed", async () => {
+		mockRouter()
+		render(<PostForm />)
+		const unload = () => {
+			const event = new Event("beforeunload", { cancelable: true })
+			window.dispatchEvent(event)
+
+			return event.defaultPrevented
+		}
+
+		expect(unload()).toBe(false)
+
+		await user.type(screen.getByLabelText(/title/i), "Draft")
+
+		expect(unload()).toBe(true)
+	})
+
 	it("sends a POST request to /api/admin/posts on submit", async () => {
 		mockRouter()
 		mockFetch(true)

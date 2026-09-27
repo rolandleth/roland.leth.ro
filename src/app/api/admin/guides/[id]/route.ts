@@ -20,10 +20,10 @@ import { calculateReadingTime } from "@/lib/utils/format"
 import type { z } from "zod"
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:guides:GET]")
+	const unauthorized = await requireAdmin(request, "[api:admin:guides:GET]")
 
 	if (unauthorized) {
 		return unauthorized
@@ -104,7 +104,7 @@ export async function PUT(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin(PUT_TAG)
+	const unauthorized = await requireAdmin(request, PUT_TAG)
 
 	if (unauthorized) {
 		return unauthorized
@@ -198,10 +198,10 @@ export async function PUT(
 const DELETE_TAG = "[api:admin:guides:DELETE]"
 
 export async function DELETE(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-	const unauthorized = await requireAdmin(DELETE_TAG)
+	const unauthorized = await requireAdmin(request, DELETE_TAG)
 
 	if (unauthorized) {
 		return unauthorized
