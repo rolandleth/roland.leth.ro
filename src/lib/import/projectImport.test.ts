@@ -60,6 +60,19 @@ describe("requireManifestSlug", () => {
 		)
 	})
 
+	it.each([
+		["a number", 42],
+		["a boolean", true],
+		["an array", ["reckon"]],
+	])("throws when the slug is %s, as untyped JSON can hold", (_label, slug) => {
+		// The manifest is parsed JSON, so the declared type doesn't hold at runtime.
+		const manifest = { name: "Reckon", slug } as unknown as Parameters<
+			typeof requireManifestSlug
+		>[0]
+
+		expect(() => requireManifestSlug(manifest)).toThrow(/has no slug/)
+	})
+
 	it.each(["Bad Slug", "  continuum  ", "my--app", "-app"])(
 		"throws on the non-canonical slug %j instead of rewriting it",
 		(slug) => {

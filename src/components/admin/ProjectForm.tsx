@@ -122,6 +122,10 @@ export default function ProjectForm({ initialData }: Props) {
 	// tooltip pointed at nothing visible. Surfacing through `<ErrorMessage>`
 	// keeps the gate visible and announced.
 	const [validationError, setValidationError] = useState<string | null>(null)
+	// One key space for every uploader on the form: the top-level fields report
+	// under fixed names (`"icon"`, `"heroImage"`, …), section images under their
+	// `_key`, a `crypto.randomUUID()`. The two can't collide as long as no fixed
+	// name is UUID-shaped.
 	const { isUploading, reportUploading } = useUploadTracker()
 
 	// Single state object so a partial-update setter (`setField`) can stand in
