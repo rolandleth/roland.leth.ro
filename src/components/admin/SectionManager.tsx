@@ -95,68 +95,72 @@ function SectionCard({
 				/>
 			</div>
 
-			{isOpen && (
-				<div className="border-border flex flex-col gap-6 border-t p-4">
-					<div className="flex flex-col gap-1.5">
-						<span className="text-secondary text-sm font-medium">
-							Description
-						</span>
-						<MarkdownEditor
-							value={section.description}
-							onChange={(v) => onPatch({ description: v })}
-							placeholder="Section description…"
-						/>
-					</div>
+			{/* Hidden, not unmounted: unmounting an `ImageUpload` aborts its upload,
+			    so collapsing a section mid-upload would drop the picked image
+			    without a word. Tailwind's preflight makes `[hidden]` beat `flex`. */}
+			<div
+				hidden={!isOpen}
+				className="border-border flex flex-col gap-6 border-t p-4"
+			>
+				<div className="flex flex-col gap-1.5">
+					<span className="text-secondary text-sm font-medium">
+						Description
+					</span>
+					<MarkdownEditor
+						value={section.description}
+						onChange={(v) => onPatch({ description: v })}
+						placeholder="Section description…"
+					/>
+				</div>
 
-					<div className="flex flex-col gap-3">
-						<span className="text-secondary text-sm font-medium">Images</span>
+				<div className="flex flex-col gap-3">
+					<span className="text-secondary text-sm font-medium">Images</span>
 
-						{section.images.map((image, imageIndex) => (
-							<div
-								key={image._key}
-								className="border-border flex flex-col gap-3 rounded-md border p-3"
-							>
-								<ImageUpload
-									value={image.url}
-									onChange={(url) => images.update(image._key, { url })}
-									label="Image URL"
-									onUploadingChange={(isUploading) =>
-										onUploadingChange?.(image._key, isUploading)
+					{section.images.map((image, imageIndex) => (
+						<div
+							key={image._key}
+							className="border-border flex flex-col gap-3 rounded-md border p-3"
+						>
+							<ImageUpload
+								value={image.url}
+								onChange={(url) => images.update(image._key, { url })}
+								label="Image URL"
+								onUploadingChange={(isUploading) =>
+									onUploadingChange?.(image._key, isUploading)
+								}
+							/>
+
+							<div className="flex items-center gap-2">
+								<input
+									type="text"
+									value={image.caption}
+									onChange={(e) =>
+										images.update(image._key, { caption: e.target.value })
 									}
+									placeholder="Caption (optional)"
+									className="admin-input min-w-0 flex-1"
 								/>
 
-								<div className="flex items-center gap-2">
-									<input
-										type="text"
-										value={image.caption}
-										onChange={(e) =>
-											images.update(image._key, { caption: e.target.value })
-										}
-										placeholder="Caption (optional)"
-										className="admin-input min-w-0 flex-1"
-									/>
-
-									<ReorderControls
-										canMoveUp={imageIndex > 0}
-										canMoveDown={imageIndex < section.images.length - 1}
-										onMoveUp={() => images.move(image._key, "up")}
-										onMoveDown={() => images.move(image._key, "down")}
-										onRemove={() => images.remove(image._key)}
-									/>
-								</div>
+								<ReorderControls
+									canMoveUp={imageIndex > 0}
+									canMoveDown={imageIndex < section.images.length - 1}
+									onMoveUp={() => images.move(image._key, "up")}
+									onMoveDown={() => images.move(image._key, "down")}
+									onRemove={() => images.remove(image._key)}
+								/>
 							</div>
-						))}
+						</div>
+					))}
 
-						<button
-							type="button"
-							onClick={() => images.add(() => ({ url: "", caption: "" }))}
-							className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
-						>
-							Add image
-						</button>
-					</div>
+					<button
+						type="button"
+						onClick={() => images.add(() => ({ url: "", caption: "" }))}
+						className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
+					>
+						Add image
+					</button>
 				</div>
-			)}
+			</div>
 		</div>
 	)
 }

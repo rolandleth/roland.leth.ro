@@ -257,16 +257,39 @@ describe("SectionManager image upload finishing late", () => {
 		expect(onUploadingChange).toHaveBeenCalledWith("a-img", true)
 	})
 
-	it("reports the upload as ended when collapsing the section unmounts it", async () => {
-		// Otherwise the form's Save button would stay disabled for an upload
-		// that no longer exists.
+	it("keeps an upload running when its section is collapsed", async () => {
+		// Collapsing used to unmount the uploader, which aborted the upload and
+		// dropped the picked image without a message.
 		const onUploadingChange = vi.fn()
-		renderSections([imageSection("a", "Alpha", 0)], onUploadingChange)
+		const { latest } = renderSections(
+			[imageSection("a", "Alpha", 0)],
+			onUploadingChange
+		)
 		await user.click(screen.getByRole("button", { name: "Pick file" }))
 
 		await user.click(screen.getByRole("button", { name: "Collapse section" }))
 
-		expect(onUploadingChange).toHaveBeenLastCalledWith("a-img", false)
+		expect(onUploadingChange).not.toHaveBeenCalledWith("a-img", false)
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/alpha.png")
+		})
+
+		expect(latest()[0].images[0].url).toBe("https://blob.example/alpha.png")
+	})
+
+	it("hides a collapsed section's content and shows it again on expand", async () => {
+		renderSections([imageSection("a", "Alpha", 0)])
+
+		await user.click(screen.getByRole("button", { name: "Collapse section" }))
+
+		expect(
+			screen.queryByRole("button", { name: "Add image" })
+		).not.toBeInTheDocument()
+
+		await user.click(screen.getByRole("button", { name: "Expand section" }))
+
+		expect(screen.getByRole("button", { name: "Add image" })).toBeVisible()
 	})
 
 	const twoImageSection = () =>
