@@ -64,6 +64,7 @@ import {
 	type ProjectManifest,
 	requireManifestSlug,
 	resolveManifestImageRefs,
+	selectProjectFolders,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
 import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
@@ -511,10 +512,10 @@ function toFailureResult(folderName: string, error: unknown): ProjectResult {
 // #region helpers
 
 /**
- * Lists the project folders to process: every direct subdirectory of
- * `scripts/imports/` that the optional name filters allow. Returns `null`, after
- * naming the culprits, when any filter matches no folder: a typo must stop the
- * run, not import the folders that did match and exit 0.
+ * Lists the project folders to process: the direct subdirectories of
+ * `scripts/imports/` that `selectProjectFolders` picks. Returns `null`, after
+ * logging why, when the staging directory can't be read or any filter matches
+ * no folder.
  */
 async function discoverProjectDirs(
 	filters: string[]
@@ -535,10 +536,12 @@ async function discoverProjectDirs(
 	const folderNames = entries
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name)
-	const missing = filters.filter((filter) => !folderNames.includes(filter))
+	const selection = selectProjectFolders(folderNames, filters)
 
-	if (missing.length > 0) {
-		const quoted = missing.map((name) => JSON.stringify(name)).join(", ")
+	if ("missing" in selection) {
+		const quoted = selection.missing
+			.map((name) => JSON.stringify(name))
+			.join(", ")
 		console.error(
 			`No import folder named ${quoted} under scripts/imports/. Nothing was imported.`
 		)
@@ -546,12 +549,7 @@ async function discoverProjectDirs(
 		return null
 	}
 
-	const selected =
-		filters.length > 0
-			? folderNames.filter((name) => filters.includes(name))
-			: folderNames
-
-	return selected.sort().map((name) => path.join(IMPORTS_DIR, name))
+	return selection.selected.map((name) => path.join(IMPORTS_DIR, name))
 }
 
 function formatError(error: unknown): string {
