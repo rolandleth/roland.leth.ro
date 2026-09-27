@@ -105,7 +105,32 @@ describe("ExpandableSearch", () => {
 		expect(onSubmit).not.toHaveBeenCalled()
 	})
 
-	it("collapses on outside click via useClickOutside", async () => {
+	it("collapses an idle search on outside click", async () => {
+		const onClose = vi.fn()
+		render(
+			<>
+				<ExpandableSearch
+					placeholder="Search…"
+					onSubmit={vi.fn()}
+					onClose={onClose}
+				/>
+				<button data-testid="outside">outside</button>
+			</>
+		)
+		await user.click(screen.getByRole("button", { name: /search/i }))
+		await screen.findByRole("searchbox")
+
+		await user.click(screen.getByTestId("outside"))
+
+		// Don't assert call-count: under happy-dom, framer-motion AnimatePresence
+		// + useClickOutside can produce a follow-up mousedown that fires onClose
+		// again as the form unmounts. We only care that the close path fired.
+		expect(onClose).toHaveBeenCalled()
+	})
+
+	it("keeps an applied query open on outside click", async () => {
+		// The page below is the query's results; acting on one must not drop
+		// the filter.
 		const onClose = vi.fn()
 		render(
 			<>
@@ -118,14 +143,26 @@ describe("ExpandableSearch", () => {
 				<button data-testid="outside">outside</button>
 			</>
 		)
-		// Confirm expanded first.
-		expect(screen.getByRole("searchbox")).toBeInTheDocument()
 
 		await user.click(screen.getByTestId("outside"))
 
-		// Don't assert call-count: under happy-dom, framer-motion AnimatePresence
-		// + useClickOutside can produce a follow-up mousedown that fires onClose
-		// again as the form unmounts. We only care that the close path fired.
+		expect(onClose).not.toHaveBeenCalled()
+		expect(screen.getByRole("searchbox")).toHaveValue("x")
+	})
+
+	it("still clears an applied query on Escape", async () => {
+		const onClose = vi.fn()
+		render(
+			<ExpandableSearch
+				placeholder="Search…"
+				onSubmit={vi.fn()}
+				onClose={onClose}
+				initialValue="x"
+			/>
+		)
+
+		await user.type(screen.getByRole("searchbox"), "{Escape}")
+
 		expect(onClose).toHaveBeenCalled()
 	})
 })

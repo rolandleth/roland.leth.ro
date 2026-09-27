@@ -88,4 +88,30 @@ describe("AdminSearch — close behavior", () => {
 
 		expect(replace).not.toHaveBeenCalled()
 	})
+
+	it("keeps the query when clicking into the results", async () => {
+		// Toggling Published, Edit or Next → on a filtered list used to drop
+		// the filter and swap in the unfiltered page.
+		const { replace } = mockRouter()
+		render(
+			<>
+				<AdminSearch tab="posts" query="hello" />
+				<button type="button">Next →</button>
+			</>
+		)
+
+		await user.click(screen.getByRole("button", { name: "Next →" }))
+
+		expect(replace).not.toHaveBeenCalled()
+		expect(screen.getByRole("searchbox")).toHaveValue("hello")
+	})
+
+	it("drops the previous tab's term when the tab changes", () => {
+		mockRouter()
+		const { rerender } = render(<AdminSearch tab="posts" query="hello" />)
+
+		rerender(<AdminSearch tab="projects" query="" />)
+
+		expect(screen.queryByRole("searchbox")).not.toBeInTheDocument()
+	})
 })
