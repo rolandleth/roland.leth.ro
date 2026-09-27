@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setHasUnsavedChanges } from "@/lib/client/unsavedChanges"
 import { setupUser } from "@/test/user"
 import AdminNav from "./AdminNav"
 
@@ -31,6 +32,39 @@ describe("AdminNav — handleLogout", () => {
 		await user.click(screen.getByRole("button", { name: /logout/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login"))
+	})
+
+	it("stays when a form has unsaved changes and the admin cancels", async () => {
+		// Logout is a button, so the form's link guard never sees it.
+		const { push } = mockRouter()
+		global.fetch = vi.fn()
+		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
+		const form = Symbol("form")
+		setHasUnsavedChanges(form, true)
+
+		render(<AdminNav />)
+		await user.click(screen.getByRole("button", { name: /logout/i }))
+
+		expect(window.confirm).toHaveBeenCalledOnce()
+		expect(global.fetch).not.toHaveBeenCalled()
+		expect(push).not.toHaveBeenCalled()
+
+		setHasUnsavedChanges(form, false)
+		vi.unstubAllGlobals()
+	})
+
+	it("logs out without asking when nothing is unsaved", async () => {
+		mockRouter()
+		global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+		vi.stubGlobal("confirm", vi.fn())
+
+		render(<AdminNav />)
+		await user.click(screen.getByRole("button", { name: /logout/i }))
+
+		expect(window.confirm).not.toHaveBeenCalled()
+		expect(global.fetch).toHaveBeenCalledOnce()
+
+		vi.unstubAllGlobals()
 	})
 
 	it("blocks the redirect and surfaces an error on a non-ok response", async () => {

@@ -9,6 +9,7 @@ import MarkdownEditor from "@/components/admin/MarkdownEditor"
 import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 
 interface Props {
 	initialData?: {
@@ -55,7 +56,7 @@ export default function GuideTopicForm({
 			id: initialData?.id ?? null,
 		})
 
-	const { state, setField } = useFormState<FormState>({
+	const { state, setField, isDirty } = useFormState<FormState>({
 		slug: initialData?.slug ?? "",
 		title: initialData?.title ?? "",
 		shortDescription: initialData?.shortDescription ?? "",
@@ -63,6 +64,7 @@ export default function GuideTopicForm({
 		projectSlug: initialData?.projectSlug ?? NONE,
 		published: initialData?.published ?? true,
 	})
+	useUnsavedChangesGuard(isDirty)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()

@@ -13,6 +13,7 @@ import SectionManager, {
 import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
+import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
@@ -133,40 +134,41 @@ export default function ProjectForm({ initialData }: Props) {
 	// The list managers get `updateField`, which applies each change to the
 	// latest list: an image upload that finishes after other edits would
 	// otherwise put back the sections as they were when the file was picked.
-	const { state, setField, updateField, setState } = useFormState<FormState>({
-		name: initialData?.name ?? "",
-		slug: initialData?.slug ?? "",
-		bucket: initialData?.bucket ?? null,
-		platformTags: initialData?.platformTags ?? [],
-		role: initialData?.role ?? "",
-		date: initialData?.date ?? "",
-		sortOrder: initialData?.sortOrder ?? 0,
-		accentColor: initialData?.accentColor ?? "",
-		summary: initialData?.summary ?? "",
-		icon: initialData?.icon ?? "",
-		cardImage: initialData?.cardImage ?? "",
-		ogImage: initialData?.ogImage ?? "",
-		heroImage: initialData?.heroImage ?? "",
-		isFeatured: initialData?.isFeatured ?? false,
-		isDiscontinued: initialData?.isDiscontinued ?? false,
-		isOwnApp: initialData?.isOwnApp ?? false,
-		sections: (initialData?.sections ?? []).map((section) => ({
-			...section,
-			_key: crypto.randomUUID(),
-			images: section.images.map((image) => ({
-				...image,
+	const { state, setField, updateField, setState, isDirty } =
+		useFormState<FormState>({
+			name: initialData?.name ?? "",
+			slug: initialData?.slug ?? "",
+			bucket: initialData?.bucket ?? null,
+			platformTags: initialData?.platformTags ?? [],
+			role: initialData?.role ?? "",
+			date: initialData?.date ?? "",
+			sortOrder: initialData?.sortOrder ?? 0,
+			accentColor: initialData?.accentColor ?? "",
+			summary: initialData?.summary ?? "",
+			icon: initialData?.icon ?? "",
+			cardImage: initialData?.cardImage ?? "",
+			ogImage: initialData?.ogImage ?? "",
+			heroImage: initialData?.heroImage ?? "",
+			isFeatured: initialData?.isFeatured ?? false,
+			isDiscontinued: initialData?.isDiscontinued ?? false,
+			isOwnApp: initialData?.isOwnApp ?? false,
+			sections: (initialData?.sections ?? []).map((section) => ({
+				...section,
+				_key: crypto.randomUUID(),
+				images: section.images.map((image) => ({
+					...image,
+					_key: crypto.randomUUID(),
+				})),
+			})),
+			links: (initialData?.links ?? []).map((link) => ({
+				...link,
 				_key: crypto.randomUUID(),
 			})),
-		})),
-		links: (initialData?.links ?? []).map((link) => ({
-			...link,
-			_key: crypto.randomUUID(),
-		})),
-		faqs: (initialData?.faqs ?? []).map((faq) => ({
-			...faq,
-			_key: crypto.randomUUID(),
-		})),
-	})
+			faqs: (initialData?.faqs ?? []).map((faq) => ({
+				...faq,
+				_key: crypto.randomUUID(),
+			})),
+		})
 
 	// Tracks the literal text in the sortOrder input so the user sees what
 	// they typed during edits (including transient invalid states like `""`
@@ -177,6 +179,14 @@ export default function ProjectForm({ initialData }: Props) {
 	// previous value.
 	const [sortOrderText, setSortOrderText] = useState(
 		String(initialData?.sortOrder ?? 0)
+	)
+	// The sort-order text counts on its own: an invalid value typed but not
+	// yet committed to `state.sortOrder` is still an edit. So does an upload in
+	// flight, whose URL reaches the state only when it lands.
+	useUnsavedChangesGuard(
+		isDirty ||
+			sortOrderText !== String(initialData?.sortOrder ?? 0) ||
+			isUploading
 	)
 
 	// On create, the slug follows the name until the author types their own. On
