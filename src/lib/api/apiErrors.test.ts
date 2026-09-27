@@ -101,6 +101,54 @@ describe("parseJsonBody", () => {
 		expect(result).toEqual({ name: "hello" })
 	})
 
+	it.each(["application/json; charset=utf-8", "Application/JSON"])(
+		"accepts the JSON content type written as %j",
+		async (contentType) => {
+			const result = await parseJsonBody(
+				new Request("http://localhost/", {
+					method: "POST",
+					headers: { "Content-Type": contentType },
+					body: JSON.stringify({ name: "hello" }),
+				}),
+				schema,
+				"[test]"
+			)
+
+			expect(result).toEqual({ name: "hello" })
+		}
+	)
+
+	it.each([
+		["text/plain", "text/plain"],
+		["a form", "application/x-www-form-urlencoded"],
+		["no header", null],
+	])(
+		"refuses a JSON-shaped body sent as %s with a 415",
+		async (_label, contentType) => {
+			// An HTML form can post `text/plain` cross-site with no preflight, and
+			// `request.json()` parses its body all the same.
+			const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+			const request = new Request("http://localhost/", {
+				method: "POST",
+				body: JSON.stringify({ name: "hello" }),
+			})
+
+			if (contentType == null) {
+				request.headers.delete("content-type")
+			} else {
+				request.headers.set("content-type", contentType)
+			}
+
+			const response = await parseJsonBody(request, schema, "[test]")
+
+			expect(response).toBeInstanceOf(NextResponse)
+			expect((response as NextResponse).status).toBe(415)
+			expect(warn).toHaveBeenCalledWith("[test] non-JSON content type", {
+				contentType,
+			})
+		}
+	)
+
 	it("returns a 400 NextResponse on malformed JSON and logs the tag at warn", async () => {
 		// Routine client-bug signal (peer of the schema-validation warn below).
 		// Logging at error would let any malformed-body probe dominate the error

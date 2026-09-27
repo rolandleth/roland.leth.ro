@@ -130,7 +130,7 @@ function emitSkipSummary(
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:posts:BULK]")
+	const unauthorized = await requireAdmin(request, "[api:admin:posts:BULK]")
 
 	if (unauthorized) {
 		return unauthorized

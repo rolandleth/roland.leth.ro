@@ -20,7 +20,7 @@ const ALLOWED_UPLOAD_MIMES = new Set([
 ])
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:upload:POST]")
+	const unauthorized = await requireAdmin(request, "[api:admin:upload:POST]")
 
 	if (unauthorized) {
 		return unauthorized

@@ -9,7 +9,7 @@ import { revalidatePost } from "@/lib/db/posts"
 import { calculateReadingTime } from "@/lib/utils/format"
 
 export async function POST(request: Request): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:posts:POST]")
+	const unauthorized = await requireAdmin(request, "[api:admin:posts:POST]")
 
 	if (unauthorized) {
 		return unauthorized

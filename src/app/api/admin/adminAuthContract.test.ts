@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs"
 import { dirname } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { verifySession } from "@/lib/auth/auth"
 
 /**
  * Contract test: every exported handler under `/api/admin` refuses a request
@@ -106,6 +107,42 @@ describe.each(routeModules)("$path", ({ load }) => {
 				`${method} answered ${response.status} without a session`
 			).toBe(401)
 		}
+	})
+})
+
+describe.each(routeModules)("$path, cross-site", ({ load }) => {
+	it("refuses every exported write handler sent cross-site, session or not", async () => {
+		// With a valid session: the check runs after the session one, so a
+		// handler that forwards a stand-in request instead of its own would
+		// pass the 401 contract above and fail here.
+		vi.mocked(verifySession).mockResolvedValue(true)
+		vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
+		const routeModule = (await load()) as Record<string, Handler | undefined>
+		const writes = HTTP_METHODS.filter(
+			(method) => method !== "GET" && typeof routeModule[method] === "function"
+		)
+
+		for (const method of writes) {
+			const handler = routeModule[method] as Handler
+			const request = new Request("http://localhost/api/admin/probe", {
+				method,
+				headers: {
+					"sec-fetch-site": "same-site",
+					origin: "http://other.localhost",
+				},
+			})
+			const response = await handler(request, {
+				params: Promise.resolve({ id: "1" }),
+			})
+
+			expect(
+				response.status,
+				`${method} answered ${response.status} to a cross-site write`
+			).toBe(403)
+		}
+
+		vi.mocked(verifySession).mockResolvedValue(false)
 	})
 })
 

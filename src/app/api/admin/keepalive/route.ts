@@ -9,8 +9,8 @@ import { errorDetails } from "@/lib/utils/errorMessage"
 // without waiting for the next 00:00 UTC tick.
 const redis = getKeepaliveRedis()
 
-export async function POST(): Promise<NextResponse> {
-	const unauthorized = await requireAdmin("[api:admin:keepalive]")
+export async function POST(request: Request): Promise<NextResponse> {
+	const unauthorized = await requireAdmin(request, "[api:admin:keepalive]")
 
 	if (unauthorized) {
 		return unauthorized
