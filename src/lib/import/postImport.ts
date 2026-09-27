@@ -27,6 +27,7 @@ import {
 	calculateReadingTime,
 	createSlug,
 	isFutureDatetime,
+	SLUG_MAX_LENGTH,
 } from "@/lib/utils/format"
 import type { Section } from "@/lib/db/sections"
 import type { ZodError } from "zod"
@@ -118,7 +119,8 @@ export type ImportPlan = {
  * Resolves a file's slug from its `slug:` line: the value itself when
  * canonical, otherwise `createSlug` applied to it — `createSlug` is idempotent
  * on a well-formed slug, so it doubles as the canonical-shape check. Returns a
- * skip reason instead when the line is missing, blank, or normalizes to "".
+ * skip reason instead when the line is missing, blank, normalizes to "", or
+ * is longer than `SLUG_MAX_LENGTH` once normalized.
  *
  * Never falls back to the title. A title-derived slug could match an older
  * post's, and the plan, which matches rows by slug, then treated the new file
@@ -140,6 +142,14 @@ function resolveSlug(
 
 	if (slug === "") {
 		return { skipReason: "`slug:` normalizes to an empty slug" }
+	}
+
+	// Skipped, not cut: a truncated slug would be a URL nobody authored, and the
+	// admin form and API reject the same length.
+	if (slug.length > SLUG_MAX_LENGTH) {
+		return {
+			skipReason: `\`slug:\` is longer than ${SLUG_MAX_LENGTH} characters`,
+		}
 	}
 
 	return { slug, written: fileSlug }

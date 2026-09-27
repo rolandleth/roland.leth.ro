@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { deriveDescription } from "@/lib/content/markdown"
-import { calculateReadingTime, createSlug } from "@/lib/utils/format"
+import {
+	calculateReadingTime,
+	createSlug,
+	SLUG_MAX_LENGTH,
+} from "@/lib/utils/format"
 import {
 	buildPostFile,
 	parseFrontmatter,
@@ -189,6 +193,43 @@ describe("parsePostFiles", () => {
 
 		expect(parsed).toEqual([])
 		expect(skipped[0]?.reason).toMatch(/`slug:` normalizes to an empty slug/)
+	})
+
+	it("skips a `slug:` longer than the maximum instead of cutting it", () => {
+		const { parsed, skipped } = parsePostFiles([
+			fmFile(
+				"2026-07-24-0937-long.md",
+				"Long",
+				"Body.",
+				"a".repeat(SLUG_MAX_LENGTH + 1)
+			),
+		])
+
+		expect(parsed).toEqual([])
+		expect(skipped[0]?.reason).toBe(
+			`\`slug:\` is longer than ${SLUG_MAX_LENGTH} characters`
+		)
+	})
+
+	it("imports a `slug:` at exactly the maximum length", () => {
+		const slug = "a".repeat(SLUG_MAX_LENGTH)
+		const { parsed, skipped } = parsePostFiles([
+			fmFile("2026-07-24-0937-long.md", "Long", "Body.", slug),
+		])
+
+		expect(skipped).toEqual([])
+		expect(parsed[0]?.slug).toBe(slug)
+	})
+
+	it("measures the length after normalizing, not the raw `slug:` value", () => {
+		// 101 raw characters that normalize to 100: the trailing hyphen goes.
+		const raw = `${"a".repeat(SLUG_MAX_LENGTH)}-`
+		const { parsed, skipped } = parsePostFiles([
+			fmFile("2026-07-24-0937-long.md", "Long", "Body.", raw),
+		])
+
+		expect(skipped).toEqual([])
+		expect(parsed[0]?.slug).toBe("a".repeat(SLUG_MAX_LENGTH))
 	})
 
 	it("detects a duplicate slug across files with different titles", () => {

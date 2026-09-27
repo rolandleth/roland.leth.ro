@@ -10,6 +10,7 @@ import {
 	type ProjectManifest,
 	requireManifestSlug,
 	resolveManifestImageRefs,
+	selectProjectFolders,
 	syntheticBlobUrl,
 } from "./projectImport"
 
@@ -60,6 +61,19 @@ describe("requireManifestSlug", () => {
 		)
 	})
 
+	it.each([
+		["a number", 42],
+		["a boolean", true],
+		["an array", ["reckon"]],
+	])("throws when the slug is %s, as untyped JSON can hold", (_label, slug) => {
+		// The manifest is parsed JSON, so the declared type doesn't hold at runtime.
+		const manifest = { name: "Reckon", slug } as unknown as Parameters<
+			typeof requireManifestSlug
+		>[0]
+
+		expect(() => requireManifestSlug(manifest)).toThrow(/has no slug/)
+	})
+
 	it.each(["Bad Slug", "  continuum  ", "my--app", "-app"])(
 		"throws on the non-canonical slug %j instead of rewriting it",
 		(slug) => {
@@ -68,6 +82,76 @@ describe("requireManifestSlug", () => {
 			)
 		}
 	)
+})
+
+// #endregion
+
+// #region selectProjectFolders
+
+describe("selectProjectFolders", () => {
+	const FOLDERS = ["reckon", "continuum", "atlas"]
+
+	it("selects every folder, sorted, when there are no filters", () => {
+		expect(selectProjectFolders(FOLDERS, [])).toEqual({
+			selected: ["atlas", "continuum", "reckon"],
+		})
+	})
+
+	it("selects only the named folders, sorted", () => {
+		expect(selectProjectFolders(FOLDERS, ["reckon", "atlas"])).toEqual({
+			selected: ["atlas", "reckon"],
+		})
+	})
+
+	it("refuses the whole run when one filter of several matches nothing", () => {
+		// Importing `reckon` and skipping the typo would exit 0 on a partial run.
+		expect(selectProjectFolders(FOLDERS, ["reckon", "contnuum"])).toEqual({
+			missing: ["contnuum"],
+		})
+	})
+
+	it("names every unmatched filter, in the order given", () => {
+		expect(selectProjectFolders(FOLDERS, ["zeta", "reckon", "beta"])).toEqual({
+			missing: ["zeta", "beta"],
+		})
+	})
+
+	it("matches case-sensitively, as folder names on disk do", () => {
+		expect(selectProjectFolders(FOLDERS, ["Reckon"])).toEqual({
+			missing: ["Reckon"],
+		})
+	})
+
+	it("does not match a filter against part of a folder name", () => {
+		expect(selectProjectFolders(FOLDERS, ["reck"])).toEqual({
+			missing: ["reck"],
+		})
+	})
+
+	it("selects a folder once when its filter is repeated", () => {
+		expect(selectProjectFolders(FOLDERS, ["reckon", "reckon"])).toEqual({
+			selected: ["reckon"],
+		})
+	})
+
+	it("reports a filter as missing when there are no folders at all", () => {
+		expect(selectProjectFolders([], ["reckon"])).toEqual({
+			missing: ["reckon"],
+		})
+	})
+
+	it("selects nothing when there are no folders and no filters", () => {
+		// The script turns this into "Nothing to import." and a non-zero exit.
+		expect(selectProjectFolders([], [])).toEqual({ selected: [] })
+	})
+
+	it("does not reorder the caller's folder list", () => {
+		const folders = [...FOLDERS]
+
+		selectProjectFolders(folders, [])
+
+		expect(folders).toEqual(FOLDERS)
+	})
 })
 
 // #endregion

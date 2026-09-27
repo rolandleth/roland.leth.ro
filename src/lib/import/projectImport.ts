@@ -143,6 +143,33 @@ export function requireManifestSlug(manifest: ProjectManifest): string {
 	return slug
 }
 
+/**
+ * Picks the staged project folders to import: every folder when there are no
+ * filters, otherwise the ones the filters name, matched exactly and
+ * case-sensitively. Sorted, so the run order doesn't depend on `readdir`.
+ *
+ * Any filter that names no folder refuses the whole selection and returns the
+ * unmatched filters instead: a typo must stop the run, not import the folders
+ * that did match and exit 0.
+ */
+export function selectProjectFolders(
+	folderNames: readonly string[],
+	filters: readonly string[]
+): { selected: string[] } | { missing: string[] } {
+	const missing = filters.filter((filter) => !folderNames.includes(filter))
+
+	if (missing.length > 0) {
+		return { missing }
+	}
+
+	const selected =
+		filters.length > 0
+			? folderNames.filter((name) => filters.includes(name))
+			: [...folderNames]
+
+	return { selected: selected.sort() }
+}
+
 // The boolean flags a manifest has to set explicitly, in the order an error
 // lists them.
 const REQUIRED_FLAGS = ["isFeatured", "isDiscontinued", "isOwnApp"] as const

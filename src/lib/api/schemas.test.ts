@@ -139,7 +139,7 @@ describe("postCreateSchema", () => {
 		expect(postCreateSchema.safeParse(rest).success).toBe(false)
 	})
 
-	it.each(["My Post", "my--post", "-post", "my_post"])(
+	it.each(["My Post", "my--post", "-post", "my_post", "x".repeat(101)])(
 		"rejects the non-canonical slug %j instead of rewriting it",
 		(slug) => {
 			expect(postCreateSchema.safeParse({ ...valid, slug }).success).toBe(false)
@@ -799,6 +799,17 @@ describe("projectUpdateSchema", () => {
 		expect(projectUpdateSchema.safeParse({ name: "Renamed App" }).success).toBe(
 			true
 		)
+	})
+
+	it("trims the name on update, as on create", () => {
+		const result = projectUpdateSchema.safeParse({ name: "  Renamed App  " })
+
+		expect(result.success).toBe(true)
+		expect(result.data?.name).toBe("Renamed App")
+	})
+
+	it("rejects a whitespace-only name on update", () => {
+		expect(projectUpdateSchema.safeParse({ name: "   " }).success).toBe(false)
 	})
 
 	it("strips a slug, so an update can't move the project's URL", () => {

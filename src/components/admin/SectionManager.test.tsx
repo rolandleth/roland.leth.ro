@@ -32,34 +32,56 @@ vi.mock("./MarkdownEditor", () => ({
  */
 const pendingUploads: { finish: (url: string) => void }[] = []
 
-vi.mock("./ImageUpload", () => ({
-	default: ({
-		value,
-		onChange,
-		onUploadingChange,
-	}: {
-		value: string
-		onChange: (url: string) => void
-		onUploadingChange?: (isUploading: boolean) => void
-	}) => (
-		<div>
-			<input
-				data-testid="image-upload"
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-			/>
-			<button
-				type="button"
-				onClick={() => {
-					onUploadingChange?.(true)
-					pendingUploads.push({ finish: onChange })
-				}}
-			>
-				Pick file
-			</button>
-		</div>
-	),
-}))
+vi.mock("./ImageUpload", async () => {
+	const { useEffect, useRef } = await import("react")
+
+	return {
+		default: function ImageUploadStub({
+			value,
+			onChange,
+			onUploadingChange,
+		}: {
+			value: string
+			onChange: (url: string) => void
+			onUploadingChange?: (isUploading: boolean) => void
+		}) {
+			const isUploadingRef = useRef(false)
+			const reportRef = useRef(onUploadingChange)
+			reportRef.current = onUploadingChange
+
+			// Like the real component: unmounting mid-upload aborts it and reports
+			// that nothing is in flight any more.
+			useEffect(
+				() => () => {
+					if (isUploadingRef.current) {
+						reportRef.current?.(false)
+					}
+				},
+				[]
+			)
+
+			return (
+				<div>
+					<input
+						data-testid="image-upload"
+						value={value}
+						onChange={(e) => onChange(e.target.value)}
+					/>
+					<button
+						type="button"
+						onClick={() => {
+							isUploadingRef.current = true
+							onUploadingChange?.(true)
+							pendingUploads.push({ finish: onChange })
+						}}
+					>
+						Pick file
+					</button>
+				</div>
+			)
+		},
+	}
+})
 
 function makeSection(partial: Partial<SectionItem> = {}): SectionItem {
 	return {
@@ -233,6 +255,58 @@ describe("SectionManager image upload finishing late", () => {
 		await user.click(screen.getByRole("button", { name: "Pick file" }))
 
 		expect(onUploadingChange).toHaveBeenCalledWith("a-img", true)
+	})
+
+	it("reports the upload as ended when collapsing the section unmounts it", async () => {
+		// Otherwise the form's Save button would stay disabled for an upload
+		// that no longer exists.
+		const onUploadingChange = vi.fn()
+		renderSections([imageSection("a", "Alpha", 0)], onUploadingChange)
+		await user.click(screen.getByRole("button", { name: "Pick file" }))
+
+		await user.click(screen.getByRole("button", { name: "Collapse section" }))
+
+		expect(onUploadingChange).toHaveBeenLastCalledWith("a-img", false)
+	})
+
+	const twoImageSection = () =>
+		makeSection({
+			_key: "a",
+			images: [
+				{ _key: "img-1", url: "", caption: "One", sortOrder: 0 },
+				{ _key: "img-2", url: "", caption: "Two", sortOrder: 1 },
+			],
+		})
+
+	it("drops the URL when its image was removed in the meantime", async () => {
+		const { latest } = renderSections([twoImageSection()])
+		await user.click(screen.getAllByRole("button", { name: "Pick file" })[1])
+		// Remove controls in DOM order: the section, image one, image two.
+		await user.click(screen.getAllByRole("button", { name: /remove/i })[2])
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/two.png")
+		})
+
+		const images = latest()[0].images
+		expect(images.map((image) => image._key)).toEqual(["img-1"])
+		expect(images[0].url).toBe("")
+	})
+
+	it("lands the URL on its image after that image was moved", async () => {
+		const { latest } = renderSections([twoImageSection()])
+		await user.click(screen.getAllByRole("button", { name: "Pick file" })[1])
+		// Move-up controls in DOM order: the section, image one, image two.
+		await user.click(screen.getAllByRole("button", { name: "Move up" })[2])
+
+		act(() => {
+			pendingUploads[0].finish("https://blob.example/two.png")
+		})
+
+		const images = latest()[0].images
+		expect(images.map((image) => image._key)).toEqual(["img-2", "img-1"])
+		expect(images[0].url).toBe("https://blob.example/two.png")
+		expect(images[1].url).toBe("")
 	})
 })
 

@@ -202,8 +202,15 @@ export async function DELETE(
 	try {
 		// Serializable isolation for the same reason as the PUT handler: a concurrent
 		// sortOrder write during a delete could leave duplicate slots after the
-		// decrement-shift below. It also keeps the reference count below honest:
-		// a guide pointed at this project mid-delete aborts one of the two.
+		// decrement-shift below.
+		//
+		// simplified: the reference count is a point-in-time check, not a lock.
+		// The guide and topic writes validate `projectSlug` in `guideValidation.ts`
+		// outside any transaction, and Postgres only detects conflicts between two
+		// serializable transactions, so a guide saved against this project while
+		// the delete runs can still commit with a dangling `projectSlug`. Accepted
+		// for a single admin; closing it means running those reference checks and
+		// writes inside serializable transactions too.
 		const outcome = await prisma.$transaction(
 			async (tx) => {
 				const references = await countProjectReferences(tx, id)
