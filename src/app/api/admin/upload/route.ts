@@ -152,7 +152,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 	const key = adminUploadKey(file.name)
 
 	try {
-		const blob = await put(key, file, { access: "public" })
+		// The sniffed type, never the default: without `contentType` the SDK takes
+		// the type from the key's extension, which is the client's filename, so a
+		// verified PNG uploaded as `x.html` would be served as HTML.
+		const blob = await put(key, file, {
+			access: "public",
+			contentType: detectedMime,
+		})
 
 		return NextResponse.json({ url: blob.url })
 	} catch (error) {

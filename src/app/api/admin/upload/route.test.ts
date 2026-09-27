@@ -493,7 +493,20 @@ describe("POST /api/admin/upload", () => {
 			/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-my-photo\.png$/
 		)
 		expect(file).toBeInstanceOf(File)
-		expect(options).toEqual({ access: "public" })
+		expect(options).toEqual({ access: "public", contentType: "image/png" })
+	})
+
+	it("stores the sniffed type, not one implied by the filename's extension", async () => {
+		// The key keeps the client's filename, and the Blob SDK derives the
+		// served type from its extension unless told otherwise.
+		const formData = new FormData()
+		formData.append("file", pngFile({ name: "page.html" }))
+
+		await POST(uploadRequest(formData))
+
+		const [key, , options] = vi.mocked(put).mock.calls[0]
+		expect(key).toMatch(/-page\.html$/)
+		expect(options).toMatchObject({ contentType: "image/png" })
 	})
 
 	it("returns 500 when the blob client throws", async () => {
