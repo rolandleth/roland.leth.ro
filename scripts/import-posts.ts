@@ -53,6 +53,7 @@ import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
+import { parseCliArgs } from "@/lib/import/cliArgs"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import {
 	diffBodyLines,
@@ -68,26 +69,19 @@ import {
 import { currentDatetimeString } from "@/lib/utils/format"
 
 const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite", "--verbose"])
-const SECTION_FLAG_PREFIX = "--section="
+const SECTION_FLAG = "--section"
+const VALUE_FLAGS = new Set([SECTION_FLAG])
 // Cap the per-post diff so one big-body edit can't bury the report.
 const DIFF_LINE_CAP = 8
 
 // #region CLI
 
-const argv = process.argv.slice(2)
-const isDryRun = argv.includes("--dry-run")
-const isOverwrite = argv.includes("--overwrite")
-const isVerbose = argv.includes("--verbose")
-const sectionFlag = argv
-	.find((arg) => arg.startsWith(SECTION_FLAG_PREFIX))
-	?.slice(SECTION_FLAG_PREFIX.length)
-const positionals = argv.filter((arg) => !arg.startsWith("--"))
-const unknownFlags = argv.filter(
-	(arg) =>
-		arg.startsWith("--") &&
-		!KNOWN_FLAGS.has(arg) &&
-		!arg.startsWith(SECTION_FLAG_PREFIX)
-)
+const { flags, values, positionals, unknownFlags, repeatedValueFlags } =
+	parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
+const isDryRun = flags.has("--dry-run")
+const isOverwrite = flags.has("--overwrite")
+const isVerbose = flags.has("--verbose")
+const sectionFlag = values.get(SECTION_FLAG)
 
 // #endregion
 
@@ -222,20 +216,31 @@ function printUpdate(
 
 // #region main
 
-async function main(): Promise<void> {
+/**
+ * The reason the arguments can't start a run, or `null` when they can. Checked
+ * before anything touches the folder or the DB.
+ */
+function cliArgsProblem(): string | null {
 	if (unknownFlags.length > 0) {
-		console.error(
-			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}, ${SECTION_FLAG_PREFIX}<section>.`
-		)
-		process.exitCode = 1
+		return `Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}, ${SECTION_FLAG}=<section>.`
+	}
 
-		return
+	if (repeatedValueFlags.length > 0) {
+		return `Flag(s) given more than once: ${repeatedValueFlags.join(", ")}. Pass each one once.`
 	}
 
 	if (positionals.length !== 1) {
-		console.error(
-			"Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run] [--verbose]"
-		)
+		return "Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run] [--verbose]"
+	}
+
+	return null
+}
+
+async function main(): Promise<void> {
+	const argsProblem = cliArgsProblem()
+
+	if (argsProblem != null) {
+		console.error(argsProblem)
 		process.exitCode = 1
 
 		return

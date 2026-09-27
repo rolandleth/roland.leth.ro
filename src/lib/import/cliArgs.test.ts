@@ -36,7 +36,101 @@ describe("parseCliArgs", () => {
 		const result = parseCliArgs([], KNOWN)
 
 		expect(result.flags.size).toBe(0)
+		expect(result.values.size).toBe(0)
 		expect(result.positionals).toEqual([])
 		expect(result.unknownFlags).toEqual([])
+		expect(result.repeatedValueFlags).toEqual([])
 	})
+
+	it("reports a known flag given a value as unknown", () => {
+		expect(parseCliArgs(["--dry-run=true"], KNOWN).unknownFlags).toEqual([
+			"--dry-run=true",
+		])
+	})
+
+	it("treats `--` as an unknown flag rather than an end-of-flags marker", () => {
+		const result = parseCliArgs(["--", "-dry-run"], KNOWN)
+
+		expect(result.unknownFlags).toEqual(["--", "-dry-run"])
+		expect(result.positionals).toEqual([])
+	})
+
+	it("collapses a repeated boolean flag", () => {
+		const result = parseCliArgs(["--dry-run", "--dry-run"], KNOWN)
+
+		expect([...result.flags]).toEqual(["--dry-run"])
+		expect(result.unknownFlags).toEqual([])
+	})
+
+	it("reports every unknown flag among positionals, in order", () => {
+		const result = parseCliArgs(
+			["reckon", "--nope", "--dry-run", "continuum", "-x"],
+			KNOWN
+		)
+
+		expect(result.unknownFlags).toEqual(["--nope", "-x"])
+		expect(result.positionals).toEqual(["reckon", "continuum"])
+		expect([...result.flags]).toEqual(["--dry-run"])
+	})
+
+	// #region value flags
+
+	const VALUE_FLAGS = new Set(["--section"])
+
+	it("reads a value flag's value after `=`", () => {
+		const result = parseCliArgs(
+			["../blog", "--section=tech", "--dry-run"],
+			KNOWN,
+			VALUE_FLAGS
+		)
+
+		expect(result.values.get("--section")).toBe("tech")
+		expect(result.positionals).toEqual(["../blog"])
+		expect(result.unknownFlags).toEqual([])
+	})
+
+	it("keeps an empty value, leaving its validation to the caller", () => {
+		const result = parseCliArgs(["--section="], KNOWN, VALUE_FLAGS)
+
+		expect(result.values.get("--section")).toBe("")
+		expect(result.unknownFlags).toEqual([])
+	})
+
+	it("keeps everything after the first `=` as the value", () => {
+		const result = parseCliArgs(["--section=a=b"], KNOWN, VALUE_FLAGS)
+
+		expect(result.values.get("--section")).toBe("a=b")
+	})
+
+	it("reports the spaced form as unknown, so its value can't become a positional target", () => {
+		const result = parseCliArgs(["--section", "tech"], KNOWN, VALUE_FLAGS)
+
+		expect(result.unknownFlags).toEqual(["--section"])
+		expect(result.values.has("--section")).toBe(false)
+	})
+
+	it("reports a single-dash value flag as unknown", () => {
+		const result = parseCliArgs(["-section=tech"], KNOWN, VALUE_FLAGS)
+
+		expect(result.unknownFlags).toEqual(["-section=tech"])
+	})
+
+	it("reports a repeated value flag once, keeping the first value", () => {
+		const result = parseCliArgs(
+			["--section=tech", "--section=life", "--section=tech"],
+			KNOWN,
+			VALUE_FLAGS
+		)
+
+		expect(result.repeatedValueFlags).toEqual(["--section"])
+		expect(result.values.get("--section")).toBe("tech")
+	})
+
+	it("treats an unlisted value flag as unknown", () => {
+		expect(parseCliArgs(["--section=tech"], KNOWN).unknownFlags).toEqual([
+			"--section=tech",
+		])
+	})
+
+	// #endregion
 })
