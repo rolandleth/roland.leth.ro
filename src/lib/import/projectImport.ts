@@ -149,14 +149,16 @@ export function requireManifestSlug(manifest: ProjectManifest): string {
  * case-sensitively. Sorted, so the run order doesn't depend on `readdir`.
  *
  * Any filter that names no folder refuses the whole selection and returns the
- * unmatched filters instead: a typo must stop the run, not import the folders
- * that did match and exit 0.
+ * unmatched filters instead, each once, in the order given: a typo must stop
+ * the run, not import the folders that did match and exit 0.
  */
 export function selectProjectFolders(
 	folderNames: readonly string[],
 	filters: readonly string[]
 ): { selected: string[] } | { missing: string[] } {
-	const missing = filters.filter((filter) => !folderNames.includes(filter))
+	const missing = [...new Set(filters)].filter(
+		(filter) => !folderNames.includes(filter)
+	)
 
 	if (missing.length > 0) {
 		return { missing }

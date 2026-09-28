@@ -72,3 +72,32 @@ export function parseCliArgs(
 
 	return { flags, values, positionals, unknownFlags, repeatedValueFlags }
 }
+
+/**
+ * The reason a script's flags can't start a run, or `null` when they can: any
+ * unknown flag, then any repeated value flag. Pass the same sets given to
+ * `parseCliArgs`, so the "Supported" list can't drift from the flags honoured.
+ *
+ * Positional counts differ per script (exactly one folder, any number of
+ * filters, none at all), so each script checks those itself.
+ */
+export function flagsProblem(
+	parsed: ParsedCliArgs,
+	knownFlags: ReadonlySet<string>,
+	valueFlags: ReadonlySet<string> = new Set()
+): string | null {
+	if (parsed.unknownFlags.length > 0) {
+		const supported = [
+			...knownFlags,
+			...[...valueFlags].map((flag) => `${flag}=<${flag.replace(/^-+/, "")}>`),
+		]
+
+		return `Unknown flag(s): ${parsed.unknownFlags.join(", ")}. Supported: ${supported.join(", ")}.`
+	}
+
+	if (parsed.repeatedValueFlags.length > 0) {
+		return `Flag(s) given more than once: ${parsed.repeatedValueFlags.join(", ")}. Pass each one once.`
+	}
+
+	return null
+}

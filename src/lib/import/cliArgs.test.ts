@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseCliArgs } from "./cliArgs"
+import { flagsProblem, parseCliArgs } from "./cliArgs"
 
 const KNOWN = new Set(["--dry-run", "--cleanup"])
 
@@ -133,4 +133,43 @@ describe("parseCliArgs", () => {
 	})
 
 	// #endregion
+})
+
+describe("flagsProblem", () => {
+	const VALUE = new Set(["--section"])
+
+	function problemFor(argv: string[]): string | null {
+		return flagsProblem(parseCliArgs(argv, KNOWN, VALUE), KNOWN, VALUE)
+	}
+
+	it("returns null for known flags and any positionals", () => {
+		expect(problemFor(["a", "b", "--dry-run", "--section=tech"])).toBeNull()
+		expect(problemFor([])).toBeNull()
+	})
+
+	it("names every unknown flag and lists the supported ones, value flags included", () => {
+		expect(problemFor(["-dry-run", "--force"])).toBe(
+			"Unknown flag(s): -dry-run, --force. Supported: --dry-run, --cleanup, --section=<section>."
+		)
+	})
+
+	it("lists only the boolean flags when a script has no value flags", () => {
+		const problem = flagsProblem(parseCliArgs(["--nope"], KNOWN), KNOWN)
+
+		expect(problem).toBe(
+			"Unknown flag(s): --nope. Supported: --dry-run, --cleanup."
+		)
+	})
+
+	it("refuses a repeated value flag", () => {
+		expect(problemFor(["--section=tech", "--section=life"])).toBe(
+			"Flag(s) given more than once: --section. Pass each one once."
+		)
+	})
+
+	it("reports unknown flags before repeated ones", () => {
+		expect(problemFor(["--section=tech", "--section=life", "--nope"])).toMatch(
+			/^Unknown flag\(s\): --nope\./
+		)
+	})
 })
