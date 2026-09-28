@@ -58,10 +58,11 @@ interface FormState {
 
 export default function PostForm({ initialData }: Props) {
 	const isEditing = initialData != null
-	const { save, remove, isSubmitting, error } = useAdminResource<PostPayload>({
-		resource: "posts",
-		id: initialData?.id ?? null,
-	})
+	const { save, remove, isSubmitting, hasSucceeded, error } =
+		useAdminResource<PostPayload>({
+			resource: "posts",
+			id: initialData?.id ?? null,
+		})
 
 	// Single state object so a partial-update setter (`setField`) can stand in
 	// for the seven individual `useState` setters this form used to carry. The
@@ -82,7 +83,7 @@ export default function PostForm({ initialData }: Props) {
 	// away, aborting the request — the picked file lost with nothing shown.
 	const [isUploading, setIsUploading] = useState(false)
 	// An upload in flight counts: its URL reaches the state only when it lands.
-	useUnsavedChangesGuard(isDirty || isUploading)
+	useUnsavedChangesGuard((isDirty || isUploading) && !hasSucceeded)
 
 	// On create, the slug follows the title until the author types their own. On
 	// edit it is fixed, so the title changes alone.

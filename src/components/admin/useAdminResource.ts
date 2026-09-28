@@ -27,6 +27,13 @@ interface AdminResource<TPayload> {
 	save: (payload: TPayload) => Promise<void>
 	remove: () => Promise<void>
 	isSubmitting: boolean
+	/**
+	 * Whether a save or delete succeeded and the form is on its way back to the
+	 * list. The form's edits are then stored, so its unsaved-changes guard must
+	 * stand down: the list takes one server round trip to render, and a click or
+	 * a tab close in that gap would otherwise warn about changes already saved.
+	 */
+	hasSucceeded: boolean
 	error: string | null
 }
 
@@ -36,6 +43,7 @@ export function useAdminResource<TPayload>({
 }: Config): AdminResource<TPayload> {
 	const router = useRouter()
 	const [isSubmitting, setIsSubmitting] = useState(false)
+	const [hasSucceeded, setHasSucceeded] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	// Gates `setState` calls that fire after the caller has unmounted (e.g. the
 	// admin navigated away while a PUT was in flight). Without this the React
@@ -58,9 +66,12 @@ export function useAdminResource<TPayload>({
 	const isEditing = id !== null
 
 	// Back to the list the admin came from (tab, search and page) when it shows
-	// this resource, otherwise to the resource's tab.
+	// this resource, otherwise to the resource's tab; see `adminListUrlFor`.
 	function goBackToAdmin() {
-		router.push(adminListUrlFor(RESOURCE_TABS[resource]))
+		setHasSucceeded(true)
+		router.push(
+			adminListUrlFor(RESOURCE_TABS[resource], { isAfterCreate: !isEditing })
+		)
 		router.refresh()
 	}
 
@@ -208,5 +219,5 @@ export function useAdminResource<TPayload>({
 		}
 	}
 
-	return { save, remove, isSubmitting, error }
+	return { save, remove, isSubmitting, hasSucceeded, error }
 }

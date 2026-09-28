@@ -148,6 +148,57 @@ describe("useAdminResource.save", () => {
 		expect(push).toHaveBeenCalledWith("/admin?tab=projects&q=app&page=3")
 	})
 
+	it("returns a create to the tab's first page, ignoring a remembered search", async () => {
+		// The search was typed before the new item existed and would likely hide it.
+		const { push } = mockRouter()
+		mockFetchOk()
+		rememberAdminListUrl("/admin?tab=projects&q=app&page=3")
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "projects", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(push).toHaveBeenCalledWith("/admin?tab=projects")
+	})
+
+	it("reports hasSucceeded only after a successful save", async () => {
+		mockRouter()
+		mockFetchOk()
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: 1 })
+		)
+
+		expect(result.current.hasSucceeded).toBe(false)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.hasSucceeded).toBe(true)
+	})
+
+	it("keeps hasSucceeded false when the save fails", async () => {
+		// The edits are not stored, so the form's unsaved-changes guard must
+		// stay armed.
+		mockRouter()
+		mockFetchError(409, { error: "Slug taken" })
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.hasSucceeded).toBe(false)
+	})
+
 	it("ignores a remembered list on another tab", async () => {
 		// Returning to the Posts list after saving a project would hide it.
 		const { push } = mockRouter()
@@ -357,6 +408,30 @@ describe("useAdminResource.remove", () => {
 		})
 
 		expect(push).toHaveBeenCalledWith("/admin?q=draft&page=2")
+	})
+
+	it("reports hasSucceeded after a successful delete, not after a failed one", async () => {
+		mockRouter()
+		window.confirm = vi.fn().mockReturnValue(true)
+		mockFetchError(500, { error: "DB offline" })
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: 7 })
+		)
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(result.current.hasSucceeded).toBe(false)
+
+		mockFetchOk()
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(result.current.hasSucceeded).toBe(true)
 	})
 
 	it("surfaces the server error message on delete failure", async () => {

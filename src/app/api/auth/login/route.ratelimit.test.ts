@@ -183,6 +183,21 @@ describe("POST /api/auth/login — per-IP rate limiting", () => {
 		)
 	})
 
+	it("refuses a cross-site POST without spending the client's bucket", async () => {
+		limitMock.mockResolvedValue({ success: true })
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+		const request = makeRequest({ email: "admin@example.com", password: "x" })
+		request.headers.set("sec-fetch-site", "cross-site")
+		request.headers.set("origin", "https://evil.example")
+
+		const response = await POST(request as never)
+
+		// A page the admin visits could otherwise lock them out by firing form
+		// POSTs from the admin's own browser, which share the admin's IP bucket.
+		expect(response.status).toBe(403)
+		expect(limitMock).not.toHaveBeenCalled()
+	})
+
 	it("keys the limiter on the HMAC of the client IP, never the global bucket", async () => {
 		limitMock.mockResolvedValue({ success: true })
 		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })

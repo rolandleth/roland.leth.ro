@@ -29,6 +29,7 @@ import { del, list } from "@vercel/blob"
 import { type Prisma, PrismaClient } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import { type BlobStore } from "@/lib/import/blobSync"
+import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
 import {
 	describeDatabaseUrl,
 	readScriptEnv,
@@ -41,9 +42,8 @@ import { errorMessage } from "@/lib/utils/errorMessage"
 
 const KNOWN_FLAGS = new Set(["--apply"])
 
-const argv = process.argv.slice(2)
-const isApply = argv.includes("--apply")
-const unknownArgs = argv.filter((arg) => !KNOWN_FLAGS.has(arg))
+const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
+const isApply = parsedArgs.flags.has("--apply")
 
 // #endregion
 
@@ -98,9 +98,19 @@ async function readAllRows(prisma: PrismaClient): Promise<object[]> {
 // #region main
 
 async function main(): Promise<void> {
-	if (unknownArgs.length > 0) {
+	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS)
+
+	if (flagProblem != null) {
+		console.error(flagProblem)
+		process.exitCode = 1
+
+		return
+	}
+
+	// The sweep takes no folder or filter, so a bare word is a typo (`apply`).
+	if (parsedArgs.positionals.length > 0) {
 		console.error(
-			`Unknown argument(s): ${unknownArgs.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}.`
+			`Unexpected argument(s): ${parsedArgs.positionals.join(", ")}. Usage: yarn blob:prune-uploads [--apply]`
 		)
 		process.exitCode = 1
 

@@ -56,10 +56,11 @@ interface FormState {
 
 export default function GuideForm({ initialData, topics, projects }: Props) {
 	const isEditing = initialData != null
-	const { save, remove, isSubmitting, error } = useAdminResource<GuidePayload>({
-		resource: "guides",
-		id: initialData?.id ?? null,
-	})
+	const { save, remove, isSubmitting, hasSucceeded, error } =
+		useAdminResource<GuidePayload>({
+			resource: "guides",
+			id: initialData?.id ?? null,
+		})
 
 	const { state, setField, setState, isDirty } = useFormState<FormState>({
 		slug: initialData?.slug ?? "",
@@ -71,7 +72,7 @@ export default function GuideForm({ initialData, topics, projects }: Props) {
 		sortOrder: String(initialData?.sortOrder ?? 0),
 		published: initialData?.published ?? true,
 	})
-	useUnsavedChangesGuard(isDirty)
+	useUnsavedChangesGuard(isDirty && !hasSucceeded)
 
 	/**
 	 * Picking a topic adopts its project: the API rejects a guide whose project

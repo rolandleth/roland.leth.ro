@@ -42,7 +42,7 @@ describe("isAdminUploadKey", () => {
 		(filename) => {
 			// Fed through the route's own key builder, so a change to the key shape
 			// fails here instead of leaving the sweep blind to new uploads.
-			expect(isAdminUploadKey(adminUploadKey(filename))).toBe(true)
+			expect(isAdminUploadKey(adminUploadKey(filename, "image/png"))).toBe(true)
 		}
 	)
 

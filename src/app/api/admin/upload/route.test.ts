@@ -2,6 +2,7 @@ import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "./route"
 import {
+	adminUploadKey,
 	detectImageMime,
 	sanitizeFilename,
 	sanitizeLogString,
@@ -58,11 +59,54 @@ describe("sanitizeFilename", () => {
 	})
 
 	it("returns an empty string when every char is stripped", () => {
-		// Edge: this means the resulting key ends with a trailing `-` from
-		// the `${uuid}-${sanitized}` template. Pinned here so a future
-		// refactor that changes the contract is forced to acknowledge it.
+		// Edge: this means the resulting key is `${uuid}-.${extension}`. Pinned
+		// here so a future refactor that changes the contract is forced to
+		// acknowledge it.
 		expect(sanitizeFilename("///")).toBe("-")
 		expect(sanitizeFilename("📸")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region adminUploadKey
+
+describe("adminUploadKey", () => {
+	const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+	it.each([
+		["image/png", "png"],
+		["image/jpeg", "jpg"],
+		["image/gif", "gif"],
+		["image/webp", "webp"],
+		["image/avif", "avif"],
+	] as const)("ends a %s key with .%s", (mime, extension) => {
+		expect(adminUploadKey("photo", mime)).toMatch(
+			new RegExp(`^${UUID}-photo\\.${extension}$`)
+		)
+	})
+
+	it("replaces the filename's extension with the sniffed type's", () => {
+		expect(adminUploadKey("cover.JPEG", "image/png")).toMatch(/-cover\.png$/)
+		expect(adminUploadKey("page.html", "image/png")).toMatch(/-page\.png$/)
+	})
+
+	it("drops only the last extension", () => {
+		expect(adminUploadKey("photo.final.webp", "image/webp")).toMatch(
+			/-photo\.final\.webp$/
+		)
+	})
+
+	it("keeps a name with no extension whole", () => {
+		expect(adminUploadKey("screenshot", "image/gif")).toMatch(
+			/-screenshot\.gif$/
+		)
+	})
+
+	it("still ends in the extension when the base name strips entirely", () => {
+		expect(adminUploadKey("📸.png", "image/png")).toMatch(
+			new RegExp(`^${UUID}-\\.png$`)
+		)
 	})
 })
 
@@ -496,16 +540,16 @@ describe("POST /api/admin/upload", () => {
 		expect(options).toEqual({ access: "public", contentType: "image/png" })
 	})
 
-	it("stores the sniffed type, not one implied by the filename's extension", async () => {
-		// The key keeps the client's filename, and the Blob SDK derives the
-		// served type from its extension unless told otherwise.
+	it("stores the sniffed type and extension, not the filename's", async () => {
+		// A downloaded copy opens by its extension, so verified PNG bytes named
+		// `page.html` must not keep `.html` in the key.
 		const formData = new FormData()
 		formData.append("file", pngFile({ name: "page.html" }))
 
 		await POST(uploadRequest(formData))
 
 		const [key, , options] = vi.mocked(put).mock.calls[0]
-		expect(key).toMatch(/-page\.html$/)
+		expect(key).toMatch(/-page\.png$/)
 		expect(options).toMatchObject({ contentType: "image/png" })
 	})
 

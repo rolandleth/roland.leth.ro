@@ -28,42 +28,22 @@ import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { PrismaClient } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
-import { isValidSection, type Section } from "@/lib/db/sections"
+import { type Section } from "@/lib/db/sections"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
+import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
+import { resolveSectionArg } from "@/lib/import/sectionArg"
 import { groupBy, planStamp, type Row } from "@/lib/import/slugInit"
 import { errorMessage } from "@/lib/utils/errorMessage"
 
 const KNOWN_FLAGS = new Set(["--dry-run"])
-const SECTION_FLAG_PREFIX = "--section="
+const SECTION_FLAG = "--section"
+const VALUE_FLAGS = new Set([SECTION_FLAG])
 
-const argv = process.argv.slice(2)
-const isDryRun = argv.includes("--dry-run")
-const sectionFlag = argv
-	.find((arg) => arg.startsWith(SECTION_FLAG_PREFIX))
-	?.slice(SECTION_FLAG_PREFIX.length)
-const positionals = argv.filter((arg) => !arg.startsWith("--"))
-const unknownFlags = argv.filter(
-	(arg) =>
-		arg.startsWith("--") &&
-		!KNOWN_FLAGS.has(arg) &&
-		!arg.startsWith(SECTION_FLAG_PREFIX)
-)
-
-// simplified: `resolveSection` is copied from `import-posts.ts` rather than
-// extracted — not worth a shared module for a rarely-run resync tool; if a
-// third script ever needs it, extract then.
-function resolveSection(folder: string, flag: string | undefined): Section {
-	const candidate = flag ?? path.basename(path.resolve(folder))
-
-	if (!isValidSection(candidate)) {
-		throw new Error(
-			`"${candidate}" is not a valid section. Use --section=<value> or point at a folder named after one.`
-		)
-	}
-
-	return candidate
-}
+const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
+const { flags, values, positionals } = parsedArgs
+const isDryRun = flags.has("--dry-run")
+const sectionFlag = values.get(SECTION_FLAG)
 
 type StampOutcome =
 	// `slug` is set only when the match succeeded but the WRITE failed — the row
@@ -202,10 +182,10 @@ async function initFolder(
 }
 
 async function main(): Promise<void> {
-	if (unknownFlags.length > 0) {
-		console.error(
-			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}, ${SECTION_FLAG_PREFIX}<section>.`
-		)
+	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS, VALUE_FLAGS)
+
+	if (flagProblem != null) {
+		console.error(flagProblem)
 		process.exitCode = 1
 
 		return
@@ -221,7 +201,16 @@ async function main(): Promise<void> {
 	}
 
 	const folder = positionals[0]
-	const section = resolveSection(folder, sectionFlag)
+	const sectionArg = resolveSectionArg(folder, sectionFlag)
+
+	if ("problem" in sectionArg) {
+		console.error(sectionArg.problem)
+		process.exitCode = 1
+
+		return
+	}
+
+	const { section } = sectionArg
 
 	console.log(
 		`${isDryRun ? "DRY RUN — " : ""}stamping files in ` +

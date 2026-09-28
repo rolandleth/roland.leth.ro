@@ -134,6 +134,12 @@ describe("selectProjectFolders", () => {
 		})
 	})
 
+	it("lists a repeated unmatched filter once", () => {
+		expect(
+			selectProjectFolders(FOLDERS, ["zeta", "reckon", "zeta", "beta"])
+		).toEqual({ missing: ["zeta", "beta"] })
+	})
+
 	it("reports a filter as missing when there are no folders at all", () => {
 		expect(selectProjectFolders([], ["reckon"])).toEqual({
 			missing: ["reckon"],

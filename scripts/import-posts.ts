@@ -48,12 +48,11 @@ import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { Prisma } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
-import { isValidSection, type Section } from "@/lib/db/sections"
 import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
-import { parseCliArgs } from "@/lib/import/cliArgs"
+import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import {
 	diffBodyLines,
@@ -66,6 +65,7 @@ import {
 	type SkippedFile,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/postImport"
+import { resolveSectionArg } from "@/lib/import/sectionArg"
 import { currentDatetimeString } from "@/lib/utils/format"
 
 const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite", "--verbose"])
@@ -76,8 +76,8 @@ const DIFF_LINE_CAP = 8
 
 // #region CLI
 
-const { flags, values, positionals, unknownFlags, repeatedValueFlags } =
-	parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
+const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
+const { flags, values, positionals } = parsedArgs
 const isDryRun = flags.has("--dry-run")
 const isOverwrite = flags.has("--overwrite")
 const isVerbose = flags.has("--verbose")
@@ -86,24 +86,6 @@ const sectionFlag = values.get(SECTION_FLAG)
 // #endregion
 
 // #region helpers
-
-/**
- * Resolves the target section: the explicit `--section=` value when present,
- * otherwise the folder's basename (`…/posts/tech` → `tech`). Fails loudly on
- * anything else — importing into the wrong section is a cross-section mess to
- * untangle, not a typo to shrug at.
- */
-function resolveSection(folder: string, flag: string | undefined): Section {
-	const candidate = flag ?? path.basename(path.resolve(folder))
-
-	if (!isValidSection(candidate)) {
-		throw new Error(
-			`"${candidate}" is not a valid section. Use --section=<value> or point at a folder named after one.`
-		)
-	}
-
-	return candidate
-}
 
 /**
  * Reads the folder's direct `*.md` files (no recursion, so `drafts/` stays
@@ -221,12 +203,10 @@ function printUpdate(
  * before anything touches the folder or the DB.
  */
 function cliArgsProblem(): string | null {
-	if (unknownFlags.length > 0) {
-		return `Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}, ${SECTION_FLAG}=<section>.`
-	}
+	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS, VALUE_FLAGS)
 
-	if (repeatedValueFlags.length > 0) {
-		return `Flag(s) given more than once: ${repeatedValueFlags.join(", ")}. Pass each one once.`
+	if (flagProblem != null) {
+		return flagProblem
 	}
 
 	if (positionals.length !== 1) {
@@ -247,7 +227,16 @@ async function main(): Promise<void> {
 	}
 
 	const folder = positionals[0]
-	const section = resolveSection(folder, sectionFlag)
+	const sectionArg = resolveSectionArg(folder, sectionFlag)
+
+	if ("problem" in sectionArg) {
+		console.error(sectionArg.problem)
+		process.exitCode = 1
+
+		return
+	}
+
+	const { section } = sectionArg
 	const files = await readMarkdownFiles(folder)
 
 	if (files.length === 0) {

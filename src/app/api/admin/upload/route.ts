@@ -149,12 +149,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 	// Nothing deletes an upload when its image is replaced or removed, or its row
 	// deleted. `yarn blob:prune-uploads` sweeps the unreferenced ones; it relies on
 	// the key shape `adminUploadKey` writes.
-	const key = adminUploadKey(file.name)
+	const key = adminUploadKey(file.name, detectedMime)
 
 	try {
-		// The sniffed type, never the default: without `contentType` the SDK takes
-		// the type from the key's extension, which is the client's filename, so a
-		// verified PNG uploaded as `x.html` would be served as HTML.
+		// The sniffed type, set explicitly rather than left to the SDK's guess
+		// from the key's extension, so the served type never depends on how the
+		// key is built.
 		const blob = await put(key, file, {
 			access: "public",
 			contentType: detectedMime,

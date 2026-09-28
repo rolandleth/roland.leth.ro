@@ -21,11 +21,25 @@ export function rememberAdminListUrl(url: string): void {
 
 /**
  * The list to return to for a resource on `tab`: the remembered one when it
- * shows that tab, otherwise the tab's first page. A remembered list on another
- * tab is ignored, since returning there would hide the item just saved.
+ * shows that tab, otherwise the tab's first page.
+ *
+ * - A remembered list on another tab is ignored: it can't show the item at all.
+ * - After a create, the tab's first page, with no search: a remembered search
+ *   was typed before the item existed, and would likely hide it.
+ * - After an edit or a delete, the remembered search and page stay, so the
+ *   admin carries on where they were. An edit that stops matching the search
+ *   drops out of it, as any search result would.
  */
-export function adminListUrlFor(tab: AdminTab): string {
+export function adminListUrlFor(
+	tab: AdminTab,
+	{ isAfterCreate }: { isAfterCreate: boolean }
+): string {
 	const fallback = buildAdminPageUrl({ tab, query: "", page: 1 })
+
+	if (isAfterCreate) {
+		return fallback
+	}
+
 	const remembered = readRememberedUrl()
 
 	if (remembered == null) {

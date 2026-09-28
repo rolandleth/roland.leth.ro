@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
+import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import PostForm from "./PostForm"
 
@@ -118,18 +119,49 @@ describe("PostForm — create mode", () => {
 	it("guards closing the tab only once something was typed", async () => {
 		mockRouter()
 		render(<PostForm />)
-		const unload = () => {
-			const event = new Event("beforeunload", { cancelable: true })
-			window.dispatchEvent(event)
 
-			return event.defaultPrevented
-		}
-
-		expect(unload()).toBe(false)
+		expect(isUnloadGuarded()).toBe(false)
 
 		await user.type(screen.getByLabelText(/title/i), "Draft")
 
-		expect(unload()).toBe(true)
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("guards closing the tab while an upload is in flight", async () => {
+		// The upload's URL reaches the form state only when it lands.
+		mockRouter()
+		render(<PostForm />)
+
+		await user.click(screen.getByRole("button", { name: /start upload/i }))
+
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("stops guarding once the save succeeds, while the list loads", async () => {
+		// The edits are stored; a tab close before the list renders must not
+		// warn about them.
+		mockRouter()
+		mockFetch(true)
+		render(<PostForm />)
+
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
+	})
+
+	it("keeps guarding when the save fails", async () => {
+		mockRouter()
+		mockFetch(false, { error: "Validation error" })
+		render(<PostForm />)
+
+		await user.type(screen.getByLabelText(/title/i), "A new post")
+		await user.click(screen.getByRole("button", { name: /save post/i }))
+
+		await waitFor(() =>
+			expect(screen.getByText(/Validation error/)).toBeInTheDocument()
+		)
+		expect(isUnloadGuarded()).toBe(true)
 	})
 
 	it("sends a POST request to /api/admin/posts on submit", async () => {
@@ -323,6 +355,13 @@ describe("PostForm — edit mode", () => {
 		mockRouter()
 		render(<PostForm initialData={initialData} />)
 		expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument()
+	})
+
+	it("starts with no unsaved changes", () => {
+		mockRouter()
+		render(<PostForm initialData={initialData} />)
+
+		expect(isUnloadGuarded()).toBe(false)
 	})
 
 	it("sends a PUT request to /api/admin/posts/:id on submit", async () => {

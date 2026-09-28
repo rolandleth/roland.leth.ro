@@ -53,7 +53,8 @@ import {
 	type StoredBlob,
 	syncImages,
 } from "@/lib/import/blobSync"
-import { parseCliArgs } from "@/lib/import/cliArgs"
+import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
+import { isMissingPathError } from "@/lib/import/fsErrors"
 import {
 	blobKeyFor,
 	contentHashFor,
@@ -92,11 +93,8 @@ type ProjectResult = {
 
 // #region CLI
 
-const {
-	flags,
-	positionals: slugFilters,
-	unknownFlags,
-} = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
+const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
+const { flags, positionals: slugFilters } = parsedArgs
 const isDryRun = flags.has("--dry-run")
 const shouldCleanup = flags.has("--cleanup")
 const isReupload = flags.has("--reupload")
@@ -524,11 +522,22 @@ async function discoverProjectDirs(
 
 	try {
 		entries = await readdir(IMPORTS_DIR, { withFileTypes: true })
-	} catch {
-		console.error(
-			`No staging directory at ${path.relative(process.cwd(), IMPORTS_DIR)}. ` +
-				`Create scripts/imports/<name>/ with a ${MANIFEST_FILENAME}.`
-		)
+	} catch (error) {
+		const relativeDir = path.relative(process.cwd(), IMPORTS_DIR)
+
+		// Only a missing folder means "nothing staged yet"; anything else (a
+		// permission error, a file where the folder should be) is reported as it
+		// is, or the fix would be looked for in the wrong place.
+		if (isMissingPathError(error)) {
+			console.error(
+				`No staging directory at ${relativeDir}. ` +
+					`Create scripts/imports/<name>/ with a ${MANIFEST_FILENAME}.`
+			)
+		} else {
+			console.error(
+				`Could not read the staging directory ${relativeDir}: ${errorMessage(error)}`
+			)
+		}
 
 		return null
 	}
@@ -572,12 +581,10 @@ function formatError(error: unknown): string {
 // #region main
 
 async function main(): Promise<void> {
-	if (unknownFlags.length > 0) {
-		// Derived from the same set the parser checks, so the help text can't
-		// drift from the flags actually honoured.
-		console.error(
-			`Unknown flag(s): ${unknownFlags.join(", ")}. Supported: ${[...KNOWN_FLAGS].join(", ")}.`
-		)
+	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS)
+
+	if (flagProblem != null) {
+		console.error(flagProblem)
 		process.exitCode = 1
 
 		return

@@ -45,6 +45,12 @@ function Harness({
 			<a href="/admin?tab=projects" onClick={handleClick}>
 				<span>Nested label</span>
 			</a>
+			<a href="/admin/cover.png" download onClick={handleClick}>
+				Download
+			</a>
+			<a href="/admin/posts/1/edit?preview=1" onClick={handleClick}>
+				Same path, new query
+			</a>
 		</>
 	)
 }
@@ -111,20 +117,25 @@ describe("useUnsavedChangesGuard, link clicks", () => {
 		["a modified click", { metaKey: true }],
 		["a ctrl click", { ctrlKey: true }],
 		["a shift click", { shiftKey: true }],
+		["an alt click", { altKey: true }],
 		["a middle click", { button: 1 }],
-	])("lets %s through, since it opens a new tab", (_label, init) => {
-		renderHarness(true)
+	])(
+		"lets %s through, since it opens a new tab or downloads",
+		(_label, init) => {
+			renderHarness(true)
 
-		fireEvent.click(screen.getByText("In app"), init)
+			fireEvent.click(screen.getByText("In app"), init)
 
-		expect(confirm).not.toHaveBeenCalled()
-	})
+			expect(confirm).not.toHaveBeenCalled()
+		}
+	)
 
-	it.each(["New tab", "Elsewhere", "Same page"])(
+	it.each(["New tab", "Elsewhere", "Same page", "Download"])(
 		"doesn't ask on the %j link",
 		async (label) => {
 			// A new tab keeps the form; another site unloads the page, which
-			// `beforeunload` covers; a hash link stays on the page.
+			// `beforeunload` covers; a hash link stays on the page; a download
+			// doesn't leave it.
 			renderHarness(true)
 
 			await user.click(screen.getByText(label))
@@ -132,6 +143,36 @@ describe("useUnsavedChangesGuard, link clicks", () => {
 			expect(confirm).not.toHaveBeenCalled()
 		}
 	)
+
+	it("asks on a link to the same path with a different query", async () => {
+		// Next renders a new page for a new query, so the form's state goes.
+		confirm.mockReturnValue(false)
+		const { onNavigate } = renderHarness(true)
+
+		await user.click(screen.getByText("Same path, new query"))
+
+		expect(confirm).toHaveBeenCalledOnce()
+		expect(onNavigate).not.toHaveBeenCalled()
+	})
+
+	it("doesn't ask when an earlier handler already cancelled the click", () => {
+		// A window capture listener runs before the guard's document one.
+		function cancelClick(event: MouseEvent) {
+			event.preventDefault()
+		}
+
+		window.addEventListener("click", cancelClick, true)
+
+		try {
+			renderHarness(true)
+
+			fireEvent.click(screen.getByText("In app"))
+
+			expect(confirm).not.toHaveBeenCalled()
+		} finally {
+			window.removeEventListener("click", cancelClick, true)
+		}
+	})
 
 	it("stops asking once the form is clean again", async () => {
 		const { rerender, onNavigate } = renderHarness(true)

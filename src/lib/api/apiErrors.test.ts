@@ -6,6 +6,7 @@ import {
 	parseIdParam,
 	parseJsonBody,
 	plainTextNotFound,
+	refuseNonJsonBody,
 	respondInternalError,
 } from "@/lib/api/apiErrors"
 
@@ -78,6 +79,36 @@ describe("parseIdParam", () => {
 	it("parses negative integers", async () => {
 		const result = await parseIdParam(Promise.resolve({ id: "-1" }))
 		expect(result).toEqual({ id: -1 })
+	})
+})
+
+describe("refuseNonJsonBody", () => {
+	function requestWith(contentType: string): Request {
+		return new Request("http://localhost/", {
+			method: "POST",
+			headers: { "Content-Type": contentType },
+			body: "{}",
+		})
+	}
+
+	it("returns null for a JSON content type, without logging", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+		expect(
+			refuseNonJsonBody(requestWith("application/json"), "[test]")
+		).toBeNull()
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	it("returns a 415 with the error message for any other type", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => {})
+
+		const response = refuseNonJsonBody(requestWith("text/plain"), "[test]")
+
+		expect(response?.status).toBe(415)
+		expect(await response?.json()).toEqual({
+			error: "Content-Type must be application/json",
+		})
 	})
 })
 

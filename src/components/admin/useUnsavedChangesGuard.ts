@@ -21,9 +21,11 @@ import {
  * The browser's Back button is not covered: the App Router gives a page no way
  * to cancel a history navigation.
  *
- * A save's own `router.push` is not a click, so a successful save leaves
- * without a prompt. The guard stays on while the save is in flight on purpose:
- * leaving then unmounts the form, which aborts the request.
+ * The guard stays on while a save is in flight on purpose: leaving then
+ * unmounts the form, which aborts the request. Once a save succeeds, the form
+ * passes `false` (`useAdminResource`'s `hasSucceeded`), so nothing prompts
+ * while the list renders: the save's own `router.push` is not a click, and a
+ * click or tab close in that gap would otherwise warn about stored edits.
  */
 export function useUnsavedChangesGuard(isDirty: boolean): void {
 	const [id] = useState(() => Symbol("form"))

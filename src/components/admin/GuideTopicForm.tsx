@@ -50,7 +50,7 @@ export default function GuideTopicForm({
 	guideCount = 0,
 }: Props) {
 	const isEditing = initialData != null
-	const { save, remove, isSubmitting, error } =
+	const { save, remove, isSubmitting, hasSucceeded, error } =
 		useAdminResource<GuideTopicPayload>({
 			resource: "guide-topics",
 			id: initialData?.id ?? null,
@@ -64,7 +64,7 @@ export default function GuideTopicForm({
 		projectSlug: initialData?.projectSlug ?? NONE,
 		published: initialData?.published ?? true,
 	})
-	useUnsavedChangesGuard(isDirty)
+	useUnsavedChangesGuard(isDirty && !hasSucceeded)
 
 	async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault()

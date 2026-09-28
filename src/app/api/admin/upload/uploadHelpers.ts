@@ -15,18 +15,35 @@ export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/\0\s]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "")
 }
 
+/** The file extension each image type the sniff recognizes is stored under. */
+const IMAGE_EXTENSIONS = {
+	"image/png": "png",
+	"image/jpeg": "jpg",
+	"image/gif": "gif",
+	"image/webp": "webp",
+	"image/avif": "avif",
+} as const
+
+export type ImageMime = keyof typeof IMAGE_EXTENSIONS
+
 /**
- * The blob key for an admin upload: `<uuid>-<sanitized name>` at the store root.
- * The random prefix prevents collisions and guessable URLs. If the name strips
- * entirely, the key ends with a trailing `-`; acceptable.
+ * The blob key for an admin upload: `<uuid>-<sanitized base name>.<extension>`
+ * at the store root. The random prefix prevents collisions and guessable URLs.
+ * If the base name strips entirely, the key is `<uuid>-.<extension>`; acceptable.
+ *
+ * The extension comes from the sniffed type, never the client's filename: the
+ * blob is served with the sniffed `Content-Type`, but a downloaded copy opens by
+ * its extension, and a `.html` key on verified PNG bytes would open as a page.
  *
  * `isAdminUploadKey` in `src/lib/import/uploadPrune.ts` recognizes exactly this
  * shape, and `scripts/prune-uploads.ts` deletes the unreferenced ones. Change
  * one and the other has to follow — `uploadPrune.test.ts` feeds keys made here
  * through it, so a drift fails there first.
  */
-export function adminUploadKey(filename: string): string {
-	return `${randomUUID()}-${sanitizeFilename(filename)}`
+export function adminUploadKey(filename: string, mime: ImageMime): string {
+	const baseName = filename.replace(/\.[^.]*$/, "")
+
+	return `${randomUUID()}-${sanitizeFilename(baseName)}.${IMAGE_EXTENSIONS[mime]}`
 }
 
 /**
@@ -52,7 +69,7 @@ export function sanitizeLogString(value: string): string {
  * the `file.type` allowlist so a spoofed Content-Type (`image/png` claimed,
  * `text/html` payload) is rejected before reaching Blob storage.
  */
-export function detectImageMime(bytes: Uint8Array): string | null {
+export function detectImageMime(bytes: Uint8Array): ImageMime | null {
 	if (bytes.length < 12) return null
 
 	if (
