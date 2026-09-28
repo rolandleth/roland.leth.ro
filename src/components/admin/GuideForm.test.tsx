@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
+import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import GuideForm from "./GuideForm"
 
@@ -56,6 +57,57 @@ describe("GuideForm — description", () => {
 		await user.paste(`${"x".repeat(80)}\n\n\n${"x".repeat(79)}`)
 
 		expect(screen.getByRole("button", { name: /save guide/i })).toBeEnabled()
+	})
+})
+
+// #endregion
+
+// #region Unsaved changes
+
+describe("GuideForm — unsaved changes", () => {
+	const initialData = {
+		id: 5,
+		slug: "choosing-well",
+		title: "Choosing well",
+		description: "How to choose.",
+		body: "Body.",
+		projectSlug: null,
+		topicId: null,
+		sortOrder: 2,
+		published: true,
+	}
+
+	it("guards closing the tab only once something was typed", async () => {
+		render(<GuideForm topics={[]} projects={[]} />)
+
+		expect(isUnloadGuarded()).toBe(false)
+
+		await user.type(screen.getByLabelText(/^title/i), "Choosing")
+
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("starts with no unsaved changes in edit mode", () => {
+		render(<GuideForm initialData={initialData} topics={[]} projects={[]} />)
+
+		expect(isUnloadGuarded()).toBe(false)
+	})
+
+	it("stops guarding once the save succeeds", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			headers: new Headers(),
+			json: () => Promise.resolve({}),
+		})
+		render(<GuideForm initialData={initialData} topics={[]} projects={[]} />)
+
+		await user.type(screen.getByLabelText(/^title/i), " again")
+
+		expect(isUnloadGuarded()).toBe(true)
+
+		await user.click(screen.getByRole("button", { name: /save guide/i }))
+
+		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
 })
 

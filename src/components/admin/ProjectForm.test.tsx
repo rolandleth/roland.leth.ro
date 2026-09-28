@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
 
@@ -434,6 +435,64 @@ describe("ProjectForm — uploads in flight", () => {
 		)
 
 		expect(saveButton()).toBeEnabled()
+	})
+})
+
+// #endregion
+
+// #region Unsaved changes
+
+describe("ProjectForm — unsaved changes", () => {
+	it("starts with no unsaved changes in edit mode", () => {
+		// The initial state builds fresh `_key` UUIDs on every render; only the
+		// first render's must count as the baseline.
+		mockRouter()
+		render(
+			<ProjectForm
+				initialData={{
+					...initialData,
+					links: [{ label: "Site", url: "https://example.com", sortOrder: 0 }],
+					faqs: [{ question: "Why?", answer: "Because.", sortOrder: 0 }],
+				}}
+			/>
+		)
+
+		expect(isUnloadGuarded()).toBe(false)
+	})
+
+	it("counts sort-order text that isn't committed yet as an edit", async () => {
+		// Clearing the field leaves `state.sortOrder` untouched until blur.
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.clear(screen.getByLabelText(/sort order/i))
+
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("counts an upload in flight as an edit", async () => {
+		mockRouter()
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.click(
+			screen.getByRole("button", { name: "Start upload: Icon URL" })
+		)
+
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("stops guarding once the save succeeds", async () => {
+		mockRouter()
+		mockFetch(true)
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.type(screen.getByLabelText(/^name$/i), " 2")
+
+		expect(isUnloadGuarded()).toBe(true)
+
+		await clickSave()
+
+		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
 })
 

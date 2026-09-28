@@ -11,7 +11,9 @@ describe("RememberAdminListUrl", () => {
 	it("records the list it is rendered with", () => {
 		render(<RememberAdminListUrl href="/admin?tab=guides&page=2" />)
 
-		expect(adminListUrlFor("guides")).toBe("/admin?tab=guides&page=2")
+		expect(adminListUrlFor("guides", { isAfterCreate: false })).toBe(
+			"/admin?tab=guides&page=2"
+		)
 	})
 
 	it("records the new list when the dashboard navigates", () => {
@@ -19,7 +21,9 @@ describe("RememberAdminListUrl", () => {
 
 		rerender(<RememberAdminListUrl href="/admin?q=draft" />)
 
-		expect(adminListUrlFor("posts")).toBe("/admin?q=draft")
+		expect(adminListUrlFor("posts", { isAfterCreate: false })).toBe(
+			"/admin?q=draft"
+		)
 	})
 
 	it("renders nothing", () => {

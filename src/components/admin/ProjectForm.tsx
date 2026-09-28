@@ -110,7 +110,7 @@ interface FormState {
 
 export default function ProjectForm({ initialData }: Props) {
 	const isEditing = initialData != null
-	const { save, remove, isSubmitting, error } =
+	const { save, remove, isSubmitting, hasSucceeded, error } =
 		useAdminResource<ProjectPayload>({
 			resource: "projects",
 			id: initialData?.id ?? null,
@@ -177,16 +177,14 @@ export default function ProjectForm({ initialData }: Props) {
 	// value. Mirrors the contract in `ProjectSortOrderInput.handleBlur` —
 	// without this, invalid input silently coerced to `0` and erased the
 	// previous value.
-	const [sortOrderText, setSortOrderText] = useState(
-		String(initialData?.sortOrder ?? 0)
-	)
+	const initialSortOrderText = String(initialData?.sortOrder ?? 0)
+	const [sortOrderText, setSortOrderText] = useState(initialSortOrderText)
 	// The sort-order text counts on its own: an invalid value typed but not
 	// yet committed to `state.sortOrder` is still an edit. So does an upload in
 	// flight, whose URL reaches the state only when it lands.
 	useUnsavedChangesGuard(
-		isDirty ||
-			sortOrderText !== String(initialData?.sortOrder ?? 0) ||
-			isUploading
+		(isDirty || sortOrderText !== initialSortOrderText || isUploading) &&
+			!hasSucceeded
 	)
 
 	// On create, the slug follows the name until the author types their own. On
