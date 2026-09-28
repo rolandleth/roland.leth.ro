@@ -83,33 +83,51 @@ export function respondInternalError(
 }
 
 /**
- * Parses the request JSON body and validates it against `schema`. Returns the
- * parsed data on success, or a NextResponse on any failure (not JSON by its
- * `Content-Type` → 415, malformed JSON → 400, schema mismatch → 400 with zod
- * issues). Centralised so every admin write handler treats parser errors
- * identically.
- *
- * The `Content-Type` check is a CSRF layer of its own: an HTML form can only
- * send `text/plain`, `multipart/form-data` or `application/x-www-form-urlencoded`,
- * and `request.json()` would parse a `text/plain` body shaped like JSON all the
+ * A 415 response when the request's `Content-Type` isn't JSON, or `null` when it
+ * is. A CSRF layer of its own: an HTML form can only send `text/plain`,
+ * `multipart/form-data` or `application/x-www-form-urlencoded`, and
+ * `request.json()` would parse a `text/plain` body shaped like JSON all the
  * same. A cross-site `fetch` with `application/json` needs a CORS preflight,
  * which this site never grants.
+ *
+ * `parseJsonBody` runs it first; the login route, which keeps its own parse and
+ * error messages, calls it directly.
+ */
+export function refuseNonJsonBody(
+	request: Request,
+	tag: string
+): NextResponse | null {
+	const contentType = request.headers.get("content-type")
+
+	if (isJsonContentType(contentType)) {
+		return null
+	}
+
+	// eslint-disable-next-line no-console
+	console.warn(`${tag} non-JSON content type`, { contentType })
+
+	return NextResponse.json(
+		{ error: "Content-Type must be application/json" },
+		{ status: 415 }
+	)
+}
+
+/**
+ * Parses the request JSON body and validates it against `schema`. Returns the
+ * parsed data on success, or a NextResponse on any failure (not JSON by its
+ * `Content-Type` → 415, see `refuseNonJsonBody`; malformed JSON → 400; schema
+ * mismatch → 400 with zod issues). Centralised so every admin write handler
+ * treats parser errors identically.
  */
 export async function parseJsonBody<T extends z.ZodTypeAny>(
 	request: Request,
 	schema: T,
 	tag: string
 ): Promise<z.infer<T> | NextResponse> {
-	if (!isJsonContentType(request.headers.get("content-type"))) {
-		// eslint-disable-next-line no-console
-		console.warn(`${tag} non-JSON content type`, {
-			contentType: request.headers.get("content-type"),
-		})
+	const nonJson = refuseNonJsonBody(request, tag)
 
-		return NextResponse.json(
-			{ error: "Content-Type must be application/json" },
-			{ status: 415 }
-		)
+	if (nonJson) {
+		return nonJson
 	}
 
 	let body: unknown

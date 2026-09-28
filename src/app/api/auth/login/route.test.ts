@@ -11,17 +11,84 @@ vi.mock("@/lib/auth/auth", () => ({
 // `KV_REST_API_TOKEN` is present at module-load time. With `.env.test` not
 // setting it, these tests exercise the `ratelimit === null` branch. The
 // rate-limit path is covered by an explicit integration test in future work.
-function makeRequest(body: unknown, { rawBody }: { rawBody?: string } = {}) {
+function makeRequest(
+	body: unknown,
+	{
+		rawBody,
+		headers = {},
+	}: { rawBody?: string; headers?: Record<string, string> } = {}
+) {
 	return new Request("http://localhost/api/auth/login", {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...headers },
 		body: rawBody ?? JSON.stringify(body),
 	})
 }
 
+const credentials = { email: "admin@example.com", password: "secret" }
+
 beforeEach(() => {
 	vi.resetAllMocks()
 })
+
+// #region Request origin and content type
+
+describe("POST /api/auth/login — request checks", () => {
+	it("refuses a cross-site POST with 403 before checking credentials", async () => {
+		const response = await POST(
+			makeRequest(credentials, {
+				headers: {
+					"sec-fetch-site": "cross-site",
+					origin: "https://evil.example",
+				},
+			}) as never
+		)
+
+		expect(response.status).toBe(403)
+		expect(verifyCredentials).not.toHaveBeenCalled()
+	})
+
+	it("refuses a same-site sibling origin", async () => {
+		const response = await POST(
+			makeRequest(credentials, {
+				headers: {
+					"sec-fetch-site": "same-site",
+					origin: "http://other.localhost",
+				},
+			}) as never
+		)
+
+		expect(response.status).toBe(403)
+	})
+
+	it("accepts a same-origin POST", async () => {
+		vi.mocked(verifyCredentials).mockResolvedValue(false)
+
+		const response = await POST(
+			makeRequest(credentials, {
+				headers: {
+					"sec-fetch-site": "same-origin",
+					origin: "http://localhost",
+				},
+			}) as never
+		)
+
+		expect(response.status).toBe(401)
+	})
+
+	it("refuses a JSON-shaped text/plain body with 415 before parsing it", async () => {
+		const response = await POST(
+			makeRequest(credentials, {
+				headers: { "Content-Type": "text/plain" },
+			}) as never
+		)
+
+		expect(response.status).toBe(415)
+		expect(verifyCredentials).not.toHaveBeenCalled()
+	})
+})
+
+// #endregion
 
 // #region Body parsing
 

@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto"
 import { Ratelimit } from "@upstash/ratelimit"
 import { Redis } from "@upstash/redis"
 import { NextRequest, NextResponse } from "next/server"
+import { refuseNonJsonBody } from "@/lib/api/apiErrors"
+import { refuseCrossSiteWrite } from "@/lib/api/sameOrigin"
 import { loginSchema } from "@/lib/api/schemas"
 import { verifyCredentials, createSession } from "@/lib/auth/auth"
 import { getIpHashSecret, getRedisConfig } from "@/lib/auth/env"
@@ -98,6 +100,15 @@ function bucketKey(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+	// Ahead of the limiter on purpose: a page the admin visits could otherwise
+	// fire cross-site form POSTs from the admin's own browser, spend the admin's
+	// per-IP budget and lock them out.
+	const crossSite = refuseCrossSiteWrite(request, "[api:auth:login]")
+
+	if (crossSite) {
+		return crossSite
+	}
+
 	// Per-IP keying when the HMAC secret is set, else a single shared bucket.
 	// Per-IP avoids the previous global-bucket failure mode where a stale
 	// botnet of 5 failed attempts/15min locks the legitimate admin out of the
@@ -137,6 +148,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 				error
 			)
 		}
+	}
+
+	const nonJson = refuseNonJsonBody(request, "[api:auth:login]")
+
+	if (nonJson) {
+		return nonJson
 	}
 
 	let body: unknown
