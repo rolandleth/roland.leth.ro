@@ -2,7 +2,7 @@
 //
 // `POST /api/admin/upload` writes every admin image — a post's image, a project's
 // icon, card, OG and hero images, section images — to the store root as
-// `<uuid>-<sanitized name>`, and nothing ever deletes one. Replacing or removing
+// `<uuid>-<sanitized name>.<extension>`, and nothing ever deletes one. Replacing or removing
 // an image, or deleting the row, orphans the blob. This decides which to delete;
 // the script does the I/O.
 //
@@ -34,6 +34,8 @@ const UUID_LENGTH = 36
 /**
  * The key shape the upload route writes: `randomUUID()`, a hyphen, then
  * `sanitizeFilename`'s output, which keeps only `[a-zA-Z0-9._-]` and can be empty.
+ * The route now appends `.<extension>` of the sniffed type to a base name, and
+ * older uploads kept the client's full filename; both fit this pattern.
  * No `/`, so it's always at the store root. Anything else in the store — the
  * project importer's `projects/<slug>/` keys, files added by hand — is never a
  * candidate.
