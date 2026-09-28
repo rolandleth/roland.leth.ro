@@ -18,7 +18,7 @@ describe("resolveSectionArg", () => {
 	})
 
 	it("returns a problem for a folder not named after a section", () => {
-		expect(resolveSectionArg("/tmp/export", undefined)).toEqual({
+		expect(resolveSectionArg("../blog/export", undefined)).toEqual({
 			problem:
 				'"export" is not a valid section. Use --section=<value> or point at a folder named after one.',
 		})

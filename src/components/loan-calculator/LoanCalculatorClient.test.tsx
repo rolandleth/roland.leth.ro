@@ -200,6 +200,42 @@ describe("LoanCalculatorClient input validation", () => {
 		)
 	})
 
+	it("mounts the live region, empty, before any error appears", async () => {
+		// A live region announces only changes to content it already held, so
+		// one mounted together with its error would stay silent.
+		const { container } = render(<LoanCalculatorClient />)
+		const regionsBefore = [
+			...container.querySelectorAll<HTMLElement>('[aria-live="polite"]'),
+		]
+
+		expect(regionsBefore.length).toBeGreaterThan(0)
+		expect(regionsBefore.every((region) => region.textContent === "")).toBe(
+			true
+		)
+
+		await replaceValue(field("Duration (months)"), "0")
+
+		expect(regionsBefore).toContain(screen.getByText("Use 1 or more."))
+	})
+
+	it("empties the live region and drops it from the description once valid again", async () => {
+		render(<LoanCalculatorClient />)
+		const duration = field("Duration (months)")
+
+		await replaceValue(duration, "0")
+		const region = screen.getByText("Use 1 or more.")
+
+		expect(duration.getAttribute("aria-describedby")).toContain(region.id)
+
+		await replaceValue(duration, "120")
+
+		expect(region).toBeInTheDocument()
+		expect(region).toBeEmptyDOMElement()
+		expect(duration.getAttribute("aria-describedby") ?? "").not.toContain(
+			region.id
+		)
+	})
+
 	it("keeps the invalid-border and spin-button utilities as separate classes", () => {
 		render(<LoanCalculatorClient />)
 
