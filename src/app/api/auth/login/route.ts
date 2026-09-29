@@ -150,6 +150,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 		}
 	}
 
+	// After the limiter, unlike the cross-site check: whatever gets past that
+	// check is the caller's own traffic, so a malformed request should spend a
+	// slot like a wrong password does, not probe the route for free.
 	const nonJson = refuseNonJsonBody(request, "[api:auth:login]")
 
 	if (nonJson) {

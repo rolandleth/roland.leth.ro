@@ -198,6 +198,32 @@ describe("POST /api/auth/login — per-IP rate limiting", () => {
 		expect(limitMock).not.toHaveBeenCalled()
 	})
 
+	it("spends the bucket before refusing a same-origin non-JSON POST", async () => {
+		limitMock.mockResolvedValue({ success: true })
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+		const request = makeRequest({ email: "admin@example.com", password: "x" })
+		request.headers.set("content-type", "text/plain")
+
+		const response = await POST(request as never)
+
+		// Past the cross-site check only the caller's own traffic remains, so a
+		// malformed request pays for its attempt like a wrong password does.
+		expect(response.status).toBe(415)
+		expect(limitMock).toHaveBeenCalledWith(expectedKey(CLIENT_IP))
+		expect(verifyCredentialsMock).not.toHaveBeenCalled()
+	})
+
+	it("returns 429, not 415, for a non-JSON POST once the bucket is exhausted", async () => {
+		limitMock.mockResolvedValue({ success: false })
+		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
+		const request = makeRequest({ email: "admin@example.com", password: "x" })
+		request.headers.set("content-type", "text/plain")
+
+		const response = await POST(request as never)
+
+		expect(response.status).toBe(429)
+	})
+
 	it("keys the limiter on the HMAC of the client IP, never the global bucket", async () => {
 		limitMock.mockResolvedValue({ success: true })
 		const { POST } = await loadRoute({ ipHashSecret: PER_IP_SECRET })
