@@ -225,16 +225,24 @@ describe("LoanCalculatorClient input validation", () => {
 		await replaceValue(duration, "0")
 		const region = screen.getByText("Use 1 or more.")
 
-		expect(duration.getAttribute("aria-describedby")).toContain(region.id)
+		// An empty id would match any list, and a substring check would match an
+		// id that merely starts with this one; compare whole tokens instead.
+		expect(region.id).not.toBe("")
+		expect(describedByIds(duration)).toContain(region.id)
 
 		await replaceValue(duration, "120")
 
 		expect(region).toBeInTheDocument()
 		expect(region).toBeEmptyDOMElement()
-		expect(duration.getAttribute("aria-describedby") ?? "").not.toContain(
-			region.id
-		)
+		expect(describedByIds(duration)).not.toContain(region.id)
 	})
+
+	/** The ids in an element's `aria-describedby`, as whole tokens. */
+	function describedByIds(element: HTMLElement): string[] {
+		return (element.getAttribute("aria-describedby") ?? "")
+			.split(/\s+/)
+			.filter((id) => id !== "")
+	}
 
 	it("keeps the invalid-border and spin-button utilities as separate classes", () => {
 		render(<LoanCalculatorClient />)

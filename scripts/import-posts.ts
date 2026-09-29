@@ -52,7 +52,6 @@ import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
-import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import {
 	diffBodyLines,
@@ -65,23 +64,21 @@ import {
 	type SkippedFile,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/postImport"
-import { resolveSectionArg } from "@/lib/import/sectionArg"
+import { parsePostScriptArgs } from "@/lib/import/sectionArg"
 import { currentDatetimeString } from "@/lib/utils/format"
 
-const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite", "--verbose"])
-const SECTION_FLAG = "--section"
-const VALUE_FLAGS = new Set([SECTION_FLAG])
 // Cap the per-post diff so one big-body edit can't bury the report.
 const DIFF_LINE_CAP = 8
 
 // #region CLI
 
-const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
-const { flags, values, positionals } = parsedArgs
-const isDryRun = flags.has("--dry-run")
-const isOverwrite = flags.has("--overwrite")
-const isVerbose = flags.has("--verbose")
-const sectionFlag = values.get(SECTION_FLAG)
+const cli = parsePostScriptArgs(process.argv.slice(2), {
+	command: "yarn db:import-posts",
+	knownFlags: new Set(["--overwrite", "--dry-run", "--verbose"]),
+})
+const isDryRun = cli.flags.has("--dry-run")
+const isOverwrite = cli.flags.has("--overwrite")
+const isVerbose = cli.flags.has("--verbose")
 
 // #endregion
 
@@ -198,45 +195,15 @@ function printUpdate(
 
 // #region main
 
-/**
- * The reason the arguments can't start a run, or `null` when they can. Checked
- * before anything touches the folder or the DB.
- */
-function cliArgsProblem(): string | null {
-	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS, VALUE_FLAGS)
-
-	if (flagProblem != null) {
-		return flagProblem
-	}
-
-	if (positionals.length !== 1) {
-		return "Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run] [--verbose]"
-	}
-
-	return null
-}
-
 async function main(): Promise<void> {
-	const argsProblem = cliArgsProblem()
-
-	if (argsProblem != null) {
-		console.error(argsProblem)
+	if (cli.problem != null) {
+		console.error(cli.problem)
 		process.exitCode = 1
 
 		return
 	}
 
-	const folder = positionals[0]
-	const sectionArg = resolveSectionArg(folder, sectionFlag)
-
-	if ("problem" in sectionArg) {
-		console.error(sectionArg.problem)
-		process.exitCode = 1
-
-		return
-	}
-
-	const { section } = sectionArg
+	const { folder, section } = cli
 	const files = await readMarkdownFiles(folder)
 
 	if (files.length === 0) {

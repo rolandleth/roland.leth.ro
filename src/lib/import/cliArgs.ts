@@ -74,22 +74,96 @@ export function parseCliArgs(
 }
 
 /**
+ * How many positionals a script takes, and what its usage line calls them:
+ * exactly one (a folder), any number (filters), or none.
+ */
+export type PositionalSpec =
+	| { count: "one"; name: string }
+	| { count: "any"; name: string }
+	| { count: "none" }
+
+/**
+ * Everything a script's argument check and usage line derive from. One object
+ * feeds the parse, the "Supported" list and the usage line, so none of them
+ * can drift from the flags the script honours.
+ */
+export type CliSpec = {
+	/** How the script is run, as the usage line prints it: `yarn db:import-posts`. */
+	command: string
+	positionals: PositionalSpec
+	knownFlags: ReadonlySet<string>
+	valueFlags?: ReadonlySet<string>
+}
+
+export type ParsedScriptArgs = ParsedCliArgs & {
+	/** The reason these arguments can't start a run, or `null` when they can. */
+	problem: string | null
+}
+
+/**
+ * Parses a script's arguments against its spec and names the first reason they
+ * can't start a run: an unknown flag, a repeated value flag, then a wrong
+ * positional count. The script refuses to start when `problem` is set, before
+ * it touches any folder, database or blob store.
+ */
+export function parseScriptArgs(
+	argv: readonly string[],
+	spec: CliSpec
+): ParsedScriptArgs {
+	const parsed = parseCliArgs(argv, spec.knownFlags, spec.valueFlags)
+
+	return {
+		...parsed,
+		problem: flagsProblem(parsed, spec) ?? positionalsProblem(parsed, spec),
+	}
+}
+
+/**
+ * The script's usage line, flags in spec order:
+ * `Usage: yarn db:import-posts <folder> [--section=<section>] [--dry-run]`.
+ */
+export function cliUsage(spec: CliSpec): string {
+	const parts = [spec.command]
+
+	switch (spec.positionals.count) {
+		case "one":
+			parts.push(`<${spec.positionals.name}>`)
+			break
+		case "any":
+			parts.push(`[${spec.positionals.name}…]`)
+			break
+		case "none":
+			break
+	}
+
+	for (const flag of spec.valueFlags ?? []) {
+		parts.push(`[${valueFlagPlaceholder(flag)}]`)
+	}
+
+	for (const flag of spec.knownFlags) {
+		parts.push(`[${flag}]`)
+	}
+
+	return `Usage: ${parts.join(" ")}`
+}
+
+/** How a value flag is written in messages: `--section` → `--section=<section>`. */
+export function valueFlagPlaceholder(flag: string): string {
+	return `${flag}=<${flag.replace(/^-+/, "")}>`
+}
+
+/**
  * The reason a script's flags can't start a run, or `null` when they can: any
- * unknown flag, then any repeated value flag. Pass the same sets given to
- * `parseCliArgs`, so the "Supported" list can't drift from the flags honoured.
- *
- * Positional counts differ per script (exactly one folder, any number of
- * filters, none at all), so each script checks those itself.
+ * unknown flag, then any repeated value flag.
  */
 export function flagsProblem(
 	parsed: ParsedCliArgs,
-	knownFlags: ReadonlySet<string>,
-	valueFlags: ReadonlySet<string> = new Set()
+	spec: Pick<CliSpec, "knownFlags" | "valueFlags">
 ): string | null {
 	if (parsed.unknownFlags.length > 0) {
 		const supported = [
-			...knownFlags,
-			...[...valueFlags].map((flag) => `${flag}=<${flag.replace(/^-+/, "")}>`),
+			...spec.knownFlags,
+			...[...(spec.valueFlags ?? [])].map(valueFlagPlaceholder),
 		]
 
 		return `Unknown flag(s): ${parsed.unknownFlags.join(", ")}. Supported: ${supported.join(", ")}.`
@@ -100,4 +174,23 @@ export function flagsProblem(
 	}
 
 	return null
+}
+
+function positionalsProblem(
+	parsed: ParsedCliArgs,
+	spec: CliSpec
+): string | null {
+	const { positionals } = parsed
+
+	switch (spec.positionals.count) {
+		case "one":
+			return positionals.length === 1 ? null : cliUsage(spec)
+		case "any":
+			return null
+		case "none":
+			// A bare word here is a typo (`apply` for `--apply`), not a target.
+			return positionals.length === 0
+				? null
+				: `Unexpected argument(s): ${positionals.join(", ")}. ${cliUsage(spec)}`
+	}
 }

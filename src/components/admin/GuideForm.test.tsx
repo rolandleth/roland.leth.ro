@@ -109,6 +109,24 @@ describe("GuideForm — unsaved changes", () => {
 
 		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
+
+	it("keeps guarding when the save fails", async () => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 409,
+			headers: new Headers({ "content-type": "application/json" }),
+			json: () => Promise.resolve({ error: "Slug already taken" }),
+		})
+		render(<GuideForm initialData={initialData} topics={[]} projects={[]} />)
+
+		await user.type(screen.getByLabelText(/^title/i), " again")
+		await user.click(screen.getByRole("button", { name: /save guide/i }))
+
+		await waitFor(() =>
+			expect(screen.getByText(/Slug already taken/)).toBeInTheDocument()
+		)
+		expect(isUnloadGuarded()).toBe(true)
+	})
 })
 
 // #endregion

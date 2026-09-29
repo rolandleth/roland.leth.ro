@@ -30,20 +30,16 @@ import { PrismaClient } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import { type Section } from "@/lib/db/sections"
 import { writeFileAtomic } from "@/lib/import/atomicWrite"
-import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
-import { resolveSectionArg } from "@/lib/import/sectionArg"
+import { parsePostScriptArgs } from "@/lib/import/sectionArg"
 import { groupBy, planStamp, type Row } from "@/lib/import/slugInit"
 import { errorMessage } from "@/lib/utils/errorMessage"
 
-const KNOWN_FLAGS = new Set(["--dry-run"])
-const SECTION_FLAG = "--section"
-const VALUE_FLAGS = new Set([SECTION_FLAG])
-
-const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS, VALUE_FLAGS)
-const { flags, values, positionals } = parsedArgs
-const isDryRun = flags.has("--dry-run")
-const sectionFlag = values.get(SECTION_FLAG)
+const cli = parsePostScriptArgs(process.argv.slice(2), {
+	command: "yarn tsx scripts/init-post-slugs.ts",
+	knownFlags: new Set(["--dry-run"]),
+})
+const isDryRun = cli.flags.has("--dry-run")
 
 type StampOutcome =
 	// `slug` is set only when the match succeeded but the WRITE failed — the row
@@ -182,35 +178,14 @@ async function initFolder(
 }
 
 async function main(): Promise<void> {
-	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS, VALUE_FLAGS)
-
-	if (flagProblem != null) {
-		console.error(flagProblem)
+	if (cli.problem != null) {
+		console.error(cli.problem)
 		process.exitCode = 1
 
 		return
 	}
 
-	if (positionals.length !== 1) {
-		console.error(
-			"Usage: yarn tsx scripts/init-post-slugs.ts <folder> [--section=<section>] [--dry-run]"
-		)
-		process.exitCode = 1
-
-		return
-	}
-
-	const folder = positionals[0]
-	const sectionArg = resolveSectionArg(folder, sectionFlag)
-
-	if ("problem" in sectionArg) {
-		console.error(sectionArg.problem)
-		process.exitCode = 1
-
-		return
-	}
-
-	const { section } = sectionArg
+	const { folder, section } = cli
 
 	console.log(
 		`${isDryRun ? "DRY RUN — " : ""}stamping files in ` +

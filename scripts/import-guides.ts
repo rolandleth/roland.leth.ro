@@ -34,7 +34,7 @@ import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { Prisma } from "@/generated/prisma/client"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
-import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
+import { parseScriptArgs } from "@/lib/import/cliArgs"
 import {
 	DRAFTS_FOLDER,
 	type ExistingGuide,
@@ -49,14 +49,15 @@ import {
 } from "@/lib/import/guideImport"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 
-const KNOWN_FLAGS = new Set(["--dry-run", "--overwrite"])
-
 // #region CLI
 
-const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
-const { flags, positionals } = parsedArgs
-const isDryRun = flags.has("--dry-run")
-const isOverwrite = flags.has("--overwrite")
+const cli = parseScriptArgs(process.argv.slice(2), {
+	command: "yarn db:import-guides",
+	positionals: { count: "one", name: "guides-folder" },
+	knownFlags: new Set(["--overwrite", "--dry-run"]),
+})
+const isDryRun = cli.flags.has("--dry-run")
+const isOverwrite = cli.flags.has("--overwrite")
 
 // #endregion
 
@@ -142,25 +143,14 @@ function printWarnings(warnings: readonly GuideWarning[]): void {
 // #region main
 
 async function main(): Promise<void> {
-	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS)
-
-	if (flagProblem != null) {
-		console.error(flagProblem)
+	if (cli.problem != null) {
+		console.error(cli.problem)
 		process.exitCode = 1
 
 		return
 	}
 
-	if (positionals.length !== 1) {
-		console.error(
-			"Usage: yarn db:import-guides <guides-folder> [--overwrite] [--dry-run]"
-		)
-		process.exitCode = 1
-
-		return
-	}
-
-	const root = positionals[0]
+	const root = cli.positionals[0]
 	const files = await readGuideFiles(root)
 
 	if (files.length === 0) {

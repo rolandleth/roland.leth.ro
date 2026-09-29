@@ -64,6 +64,13 @@ export function sanitizeLogString(value: string): string {
 }
 
 /**
+ * How many leading bytes the route hands `detectImageMime`. 12 cover every
+ * magic number; the rest reach the `ftyp` box's compatible brands, which an
+ * AVIF with the generic `mif1` major brand needs (encoders write 20-40 bytes).
+ */
+export const SNIFF_HEADER_BYTES = 64
+
+/**
  * Returns the image MIME type implied by the file's leading bytes, or `null`
  * if the bytes don't match any of the allowed image formats. Inspected after
  * the `file.type` allowlist so a spoofed Content-Type (`image/png` claimed,
@@ -114,23 +121,69 @@ export function detectImageMime(bytes: Uint8Array): ImageMime | null {
 		return "image/webp"
 	}
 
-	// AVIF: `ftyp` at 4-7, AVIF brand at 8-11. `avif` is the dominant major
-	// brand; `avis` (image sequence) and `mif1` (HEIF-family marker also used
-	// by AVIF encoders) round out the set. HEIC brands (`heic`/`heix`) are
-	// deliberately excluded — they are not browser-renderable on most
-	// platforms and the allowlist is `image/avif` only, not `image/heic`.
 	if (
 		bytes[4] === 0x66 &&
 		bytes[5] === 0x74 &&
 		bytes[6] === 0x79 &&
 		bytes[7] === 0x70
 	) {
-		const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])
-
-		if (brand === "avif" || brand === "avis" || brand === "mif1") {
-			return "image/avif"
-		}
+		return isAvifFtyp(bytes) ? "image/avif" : null
 	}
 
 	return null
+}
+
+const AVIF_BRANDS = new Set(["avif", "avis"])
+
+/**
+ * Whether a file that starts with an `ftyp` box (at 4-7) is an AVIF. `avif`
+ * is the dominant major brand (at 8-11) and `avis` marks an image sequence.
+ * HEIC brands (`heic`/`heix`) are deliberately excluded — they are not
+ * browser-renderable on most platforms and the allowlist is `image/avif`
+ * only, not `image/heic`.
+ */
+function isAvifFtyp(bytes: Uint8Array): boolean {
+	const majorBrand = brandAt(bytes, 8)
+
+	if (AVIF_BRANDS.has(majorBrand)) {
+		return true
+	}
+
+	// `mif1` is the generic HEIF marker: some AVIF encoders use it, but so do
+	// HEIC files. Only an AVIF brand in the compatible list tells them apart;
+	// without it a HEIC would be stored as an `.avif` no browser renders.
+	return majorBrand === "mif1" && hasCompatibleAvifBrand(bytes)
+}
+
+/** The four-character brand code at `offset`. */
+function brandAt(bytes: Uint8Array, offset: number): string {
+	return String.fromCharCode(
+		bytes[offset],
+		bytes[offset + 1],
+		bytes[offset + 2],
+		bytes[offset + 3]
+	)
+}
+
+/**
+ * Whether the `ftyp` box's compatible-brands list (from byte 16 to the box's
+ * declared size) names an AVIF brand. Brands past the end of `bytes` are not
+ * seen, so a box longer than `SNIFF_HEADER_BYTES` can yield a false `false`:
+ * a refused upload, never a wrong type.
+ */
+function hasCompatibleAvifBrand(bytes: Uint8Array): boolean {
+	const boxSize = new DataView(
+		bytes.buffer,
+		bytes.byteOffset,
+		bytes.byteLength
+	).getUint32(0)
+	const end = Math.min(boxSize, bytes.length)
+
+	for (let offset = 16; offset + 4 <= end; offset += 4) {
+		if (AVIF_BRANDS.has(brandAt(bytes, offset))) {
+			return true
+		}
+	}
+
+	return false
 }
