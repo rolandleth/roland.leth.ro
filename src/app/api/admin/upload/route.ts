@@ -7,6 +7,7 @@ import {
 	adminUploadKey,
 	detectImageMime,
 	sanitizeLogString,
+	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 
 const MAX_UPLOAD_MIB = 10
@@ -127,10 +128,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 		)
 	}
 
-	// Bytes are already buffered by `formData()`; reading 12 more bytes here is
+	// Bytes are already buffered by `formData()`; reading the header here is
 	// cheap and lets us reject a payload whose Content-Type lies about its
 	// contents (e.g. `image/png` header on a `text/html` body).
-	const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+	const headerBytes = new Uint8Array(
+		await file.slice(0, SNIFF_HEADER_BYTES).arrayBuffer()
+	)
 	const detectedMime = detectImageMime(headerBytes)
 
 	if (detectedMime === null || detectedMime !== file.type) {

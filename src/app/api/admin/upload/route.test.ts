@@ -20,6 +20,17 @@ const PNG_HEADER = new Uint8Array([
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ])
 
+/** An `ftyp` box: size, `ftyp`, major brand, minor version 0, compatible brands. */
+function ftypBox(major: string, compatible: string[]): Uint8Array {
+	const size = 16 + compatible.length * 4
+	const box = new Uint8Array(size)
+	new DataView(box.buffer).setUint32(0, size)
+	const text = ["ftyp", major, "\0\0\0\0", ...compatible].join("")
+	box.set(new TextEncoder().encode(text), 4)
+
+	return box
+}
+
 vi.mock("@vercel/blob", () => ({
 	put: vi.fn(),
 }))
@@ -209,8 +220,8 @@ describe("detectImageMime", () => {
 		).toBe("image/webp")
 	})
 
-	it("detects AVIF major brands (avif, avis, mif1)", () => {
-		for (const brand of ["avif", "avis", "mif1"]) {
+	it("detects AVIF major brands (avif, avis)", () => {
+		for (const brand of ["avif", "avis"]) {
 			const b = bytes(0x00, 0x00, 0x00, 0x00, 0x66, 0x74, 0x79, 0x70)
 			b[8] = brand.charCodeAt(0)
 			b[9] = brand.charCodeAt(1)
@@ -218,6 +229,41 @@ describe("detectImageMime", () => {
 			b[11] = brand.charCodeAt(3)
 			expect(detectImageMime(b)).toBe("image/avif")
 		}
+	})
+
+	it("detects a mif1 file that lists an AVIF compatible brand", () => {
+		expect(detectImageMime(ftypBox("mif1", ["mif1", "avif", "miaf"]))).toBe(
+			"image/avif"
+		)
+		expect(detectImageMime(ftypBox("mif1", ["avis"]))).toBe("image/avif")
+	})
+
+	it("returns null for a mif1 HEIC, which lists no AVIF brand", () => {
+		// Stored as `.avif`, it would be a broken image no browser renders.
+		expect(
+			detectImageMime(ftypBox("mif1", ["mif1", "heic", "miaf"]))
+		).toBeNull()
+	})
+
+	it("returns null for a bare mif1 with no compatible brands", () => {
+		expect(detectImageMime(ftypBox("mif1", []))).toBeNull()
+	})
+
+	it("ignores AVIF brands past the ftyp box's declared size", () => {
+		// The next box's bytes happen to spell `avif`; they aren't a brand.
+		const box = ftypBox("mif1", ["heic"])
+		const withNextBox = new Uint8Array(box.length + 8)
+		withNextBox.set(box, 0)
+		withNextBox.set(new TextEncoder().encode("avifavif"), box.length)
+
+		expect(detectImageMime(withNextBox)).toBeNull()
+	})
+
+	it("returns null when the compatible brands are cut off by the header", () => {
+		// The box declares one brand but the header ends before it.
+		const box = ftypBox("mif1", ["avif"])
+
+		expect(detectImageMime(box.slice(0, 16))).toBeNull()
 	})
 
 	it("returns null for HTML disguised as an image", () => {
@@ -551,6 +597,44 @@ describe("POST /api/admin/upload", () => {
 		const [key, , options] = vi.mocked(put).mock.calls[0]
 		expect(key).toMatch(/-page\.png$/)
 		expect(options).toMatchObject({ contentType: "image/png" })
+	})
+
+	it("accepts a mif1 AVIF, whose AVIF brand sits past the first 12 bytes", async () => {
+		// The compatible brands start at byte 16, so a 12-byte sniff would
+		// refuse this file.
+		const formData = new FormData()
+		formData.append(
+			"file",
+			pngFile({
+				name: "photo.avif",
+				type: "image/avif",
+				headerBytes: ftypBox("mif1", ["mif1", "miaf", "avif"]),
+			})
+		)
+
+		const response = await POST(uploadRequest(formData))
+
+		expect(response.status).toBe(200)
+		const [key, , options] = vi.mocked(put).mock.calls[0]
+		expect(key).toMatch(/-photo\.avif$/)
+		expect(options).toMatchObject({ contentType: "image/avif" })
+	})
+
+	it("returns 415 for a mif1 HEIC claimed as image/avif", async () => {
+		const formData = new FormData()
+		formData.append(
+			"file",
+			pngFile({
+				name: "photo.avif",
+				type: "image/avif",
+				headerBytes: ftypBox("mif1", ["mif1", "heic", "miaf"]),
+			})
+		)
+
+		const response = await POST(uploadRequest(formData))
+
+		expect(response.status).toBe(415)
+		expect(put).not.toHaveBeenCalled()
 	})
 
 	it("returns 500 when the blob client throws", async () => {
