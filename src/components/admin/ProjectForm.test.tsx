@@ -494,6 +494,20 @@ describe("ProjectForm — unsaved changes", () => {
 
 		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
+
+	it("keeps guarding when the save fails", async () => {
+		mockRouter()
+		mockFetch(false, { error: "Name already taken" })
+		render(<ProjectForm initialData={initialData} />)
+
+		await user.type(screen.getByLabelText(/^name$/i), " 2")
+		await clickSave()
+
+		await waitFor(() =>
+			expect(screen.getByText(/Name already taken/)).toBeInTheDocument()
+		)
+		expect(isUnloadGuarded()).toBe(true)
+	})
 })
 
 // #endregion
