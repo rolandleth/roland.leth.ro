@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { flagsProblem, parseCliArgs } from "./cliArgs"
+import {
+	type CliSpec,
+	cliUsage,
+	flagsProblem,
+	parseCliArgs,
+	parseScriptArgs,
+} from "./cliArgs"
 
 const KNOWN = new Set(["--dry-run", "--cleanup"])
 
@@ -139,7 +145,10 @@ describe("flagsProblem", () => {
 	const VALUE = new Set(["--section"])
 
 	function problemFor(argv: string[]): string | null {
-		return flagsProblem(parseCliArgs(argv, KNOWN, VALUE), KNOWN, VALUE)
+		return flagsProblem(parseCliArgs(argv, KNOWN, VALUE), {
+			knownFlags: KNOWN,
+			valueFlags: VALUE,
+		})
 	}
 
 	it("returns null for known flags and any positionals", () => {
@@ -154,7 +163,9 @@ describe("flagsProblem", () => {
 	})
 
 	it("lists only the boolean flags when a script has no value flags", () => {
-		const problem = flagsProblem(parseCliArgs(["--nope"], KNOWN), KNOWN)
+		const problem = flagsProblem(parseCliArgs(["--nope"], KNOWN), {
+			knownFlags: KNOWN,
+		})
 
 		expect(problem).toBe(
 			"Unknown flag(s): --nope. Supported: --dry-run, --cleanup."
@@ -171,5 +182,106 @@ describe("flagsProblem", () => {
 		expect(problemFor(["--section=tech", "--section=life", "--nope"])).toMatch(
 			/^Unknown flag\(s\): --nope\./
 		)
+	})
+})
+
+describe("cliUsage", () => {
+	it("prints one positional, then value flags, then boolean flags, in spec order", () => {
+		expect(
+			cliUsage({
+				command: "yarn db:import-posts",
+				positionals: { count: "one", name: "folder" },
+				knownFlags: new Set(["--overwrite", "--dry-run"]),
+				valueFlags: new Set(["--section"]),
+			})
+		).toBe(
+			"Usage: yarn db:import-posts <folder> [--section=<section>] [--overwrite] [--dry-run]"
+		)
+	})
+
+	it("marks any number of positionals as optional and repeatable", () => {
+		expect(
+			cliUsage({
+				command: "yarn db:import-projects",
+				positionals: { count: "any", name: "name" },
+				knownFlags: new Set(["--dry-run"]),
+			})
+		).toBe("Usage: yarn db:import-projects [name…] [--dry-run]")
+	})
+
+	it("prints no positional when the script takes none", () => {
+		expect(
+			cliUsage({
+				command: "yarn blob:prune-uploads",
+				positionals: { count: "none" },
+				knownFlags: new Set(["--apply"]),
+			})
+		).toBe("Usage: yarn blob:prune-uploads [--apply]")
+	})
+})
+
+describe("parseScriptArgs", () => {
+	const ONE_FOLDER: CliSpec = {
+		command: "yarn db:import-guides",
+		positionals: { count: "one", name: "guides-folder" },
+		knownFlags: new Set(["--dry-run"]),
+	}
+	const ANY_FILTERS: CliSpec = {
+		command: "yarn db:import-projects",
+		positionals: { count: "any", name: "name" },
+		knownFlags: new Set(["--dry-run"]),
+	}
+	const NO_POSITIONALS: CliSpec = {
+		command: "yarn blob:prune-uploads",
+		positionals: { count: "none" },
+		knownFlags: new Set(["--apply"]),
+	}
+
+	it("has no problem for a valid run, and exposes the parsed arguments", () => {
+		const result = parseScriptArgs(["../blog/guides", "--dry-run"], ONE_FOLDER)
+
+		expect(result.problem).toBeNull()
+		expect(result.flags.has("--dry-run")).toBe(true)
+		expect(result.positionals).toEqual(["../blog/guides"])
+	})
+
+	it("refuses a missing or extra folder with the usage line", () => {
+		const usage = "Usage: yarn db:import-guides <guides-folder> [--dry-run]"
+
+		expect(parseScriptArgs([], ONE_FOLDER).problem).toBe(usage)
+		expect(parseScriptArgs(["a", "b"], ONE_FOLDER).problem).toBe(usage)
+	})
+
+	it("reports a flag problem before a positional one", () => {
+		// `-dry-run` alone: an unknown flag and no folder. The flag is the
+		// likelier mistake, so it's the one named.
+		expect(parseScriptArgs(["-dry-run"], ONE_FOLDER).problem).toMatch(
+			/^Unknown flag\(s\): -dry-run\./
+		)
+	})
+
+	it("accepts any number of filters, none included", () => {
+		expect(parseScriptArgs([], ANY_FILTERS).problem).toBeNull()
+		expect(parseScriptArgs(["a", "b", "c"], ANY_FILTERS).problem).toBeNull()
+	})
+
+	it("refuses a bare word when the script takes no positionals", () => {
+		expect(parseScriptArgs(["apply"], NO_POSITIONALS).problem).toBe(
+			"Unexpected argument(s): apply. Usage: yarn blob:prune-uploads [--apply]"
+		)
+	})
+
+	it("honours value flags from the same spec it lists as supported", () => {
+		// One spec feeds both the parse and the message, so a flag can't be
+		// listed as supported while the parse refuses it.
+		const spec: CliSpec = {
+			...ONE_FOLDER,
+			valueFlags: new Set(["--section"]),
+		}
+
+		const result = parseScriptArgs(["folder", "--section=tech"], spec)
+
+		expect(result.problem).toBeNull()
+		expect(result.values.get("--section")).toBe("tech")
 	})
 })

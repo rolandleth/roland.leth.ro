@@ -53,7 +53,7 @@ import {
 	type StoredBlob,
 	syncImages,
 } from "@/lib/import/blobSync"
-import { flagsProblem, parseCliArgs } from "@/lib/import/cliArgs"
+import { parseScriptArgs } from "@/lib/import/cliArgs"
 import { isMissingPathError } from "@/lib/import/fsErrors"
 import {
 	blobKeyFor,
@@ -74,12 +74,6 @@ import { errorMessage } from "@/lib/utils/errorMessage"
 const SCRIPTS_DIR = path.dirname(fileURLToPath(import.meta.url))
 const IMPORTS_DIR = path.join(SCRIPTS_DIR, "imports")
 const MANIFEST_FILENAME = "project.json"
-const KNOWN_FLAGS = new Set([
-	"--dry-run",
-	"--cleanup",
-	"--reupload",
-	"--no-prune",
-])
 
 type ProjectResult = {
 	name: string
@@ -93,8 +87,12 @@ type ProjectResult = {
 
 // #region CLI
 
-const parsedArgs = parseCliArgs(process.argv.slice(2), KNOWN_FLAGS)
-const { flags, positionals: slugFilters } = parsedArgs
+const cli = parseScriptArgs(process.argv.slice(2), {
+	command: "yarn db:import-projects",
+	positionals: { count: "any", name: "name" },
+	knownFlags: new Set(["--dry-run", "--cleanup", "--reupload", "--no-prune"]),
+})
+const { flags, positionals: slugFilters } = cli
 const isDryRun = flags.has("--dry-run")
 const shouldCleanup = flags.has("--cleanup")
 const isReupload = flags.has("--reupload")
@@ -135,8 +133,16 @@ async function loadImages(
 
 		try {
 			buffer = await readFile(absolutePath)
-		} catch {
-			throw new Error(`Image not found: ${relativePath}`)
+		} catch (error) {
+			// Only a missing file is "not found"; a permission error or a folder at
+			// that path is reported as it is.
+			if (isMissingPathError(error)) {
+				throw new Error(`Image not found: ${relativePath}`)
+			}
+
+			throw new Error(
+				`Could not read image ${relativePath}: ${errorMessage(error)}`
+			)
 		}
 
 		// Content-addressed key: hashing the bytes means a changed image lands at
@@ -355,10 +361,15 @@ async function readManifest(
 
 	try {
 		raw = await readFile(manifestPath, "utf8")
-	} catch {
-		throw new Error(
-			`No ${MANIFEST_FILENAME} at ${path.relative(process.cwd(), manifestPath)}.`
-		)
+	} catch (error) {
+		const relativePath = path.relative(process.cwd(), manifestPath)
+
+		// Same split as the image read: only a missing file means "no manifest".
+		if (isMissingPathError(error)) {
+			throw new Error(`No ${MANIFEST_FILENAME} at ${relativePath}.`)
+		}
+
+		throw new Error(`Could not read ${relativePath}: ${errorMessage(error)}`)
 	}
 
 	try {
@@ -581,10 +592,8 @@ function formatError(error: unknown): string {
 // #region main
 
 async function main(): Promise<void> {
-	const flagProblem = flagsProblem(parsedArgs, KNOWN_FLAGS)
-
-	if (flagProblem != null) {
-		console.error(flagProblem)
+	if (cli.problem != null) {
+		console.error(cli.problem)
 		process.exitCode = 1
 
 		return
