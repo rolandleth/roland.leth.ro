@@ -121,34 +121,39 @@ export function detectImageMime(bytes: Uint8Array): ImageMime | null {
 		return "image/webp"
 	}
 
-	// AVIF: `ftyp` at 4-7, major brand at 8-11. `avif` is the dominant major
-	// brand and `avis` marks an image sequence. HEIC brands (`heic`/`heix`) are
-	// deliberately excluded — they are not browser-renderable on most
-	// platforms and the allowlist is `image/avif` only, not `image/heic`.
 	if (
 		bytes[4] === 0x66 &&
 		bytes[5] === 0x74 &&
 		bytes[6] === 0x79 &&
 		bytes[7] === 0x70
 	) {
-		const majorBrand = brandAt(bytes, 8)
-
-		if (AVIF_BRANDS.has(majorBrand)) {
-			return "image/avif"
-		}
-
-		// `mif1` is the generic HEIF marker: some AVIF encoders use it, but so do
-		// HEIC files. Only an AVIF brand in the compatible list tells them apart;
-		// without it a HEIC would be stored as an `.avif` no browser renders.
-		if (majorBrand === "mif1" && hasCompatibleAvifBrand(bytes)) {
-			return "image/avif"
-		}
+		return isAvifFtyp(bytes) ? "image/avif" : null
 	}
 
 	return null
 }
 
 const AVIF_BRANDS = new Set(["avif", "avis"])
+
+/**
+ * Whether a file that starts with an `ftyp` box (at 4-7) is an AVIF. `avif`
+ * is the dominant major brand (at 8-11) and `avis` marks an image sequence.
+ * HEIC brands (`heic`/`heix`) are deliberately excluded — they are not
+ * browser-renderable on most platforms and the allowlist is `image/avif`
+ * only, not `image/heic`.
+ */
+function isAvifFtyp(bytes: Uint8Array): boolean {
+	const majorBrand = brandAt(bytes, 8)
+
+	if (AVIF_BRANDS.has(majorBrand)) {
+		return true
+	}
+
+	// `mif1` is the generic HEIF marker: some AVIF encoders use it, but so do
+	// HEIC files. Only an AVIF brand in the compatible list tells them apart;
+	// without it a HEIC would be stored as an `.avif` no browser renders.
+	return majorBrand === "mif1" && hasCompatibleAvifBrand(bytes)
+}
 
 /** The four-character brand code at `offset`. */
 function brandAt(bytes: Uint8Array, offset: number): string {
