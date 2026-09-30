@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sanitizeLogString } from "@/lib/api/sanitizeLogString"
 import { isPrismaNotFound } from "@/lib/db/db"
 import { parseIntId } from "@/lib/utils/format"
 import { randomShortId } from "@/lib/utils/randomShortId"
@@ -103,8 +104,12 @@ export function refuseNonJsonBody(
 		return null
 	}
 
+	// The header is client-supplied and this runs before authentication on the
+	// login route, so it is capped like any other untrusted log payload.
 	// eslint-disable-next-line no-console
-	console.warn(`${tag} non-JSON content type`, { contentType })
+	console.warn(`${tag} non-JSON content type`, {
+		contentType: contentType == null ? null : sanitizeLogString(contentType),
+	})
 
 	return NextResponse.json(
 		{ error: "Content-Type must be application/json" },

@@ -5,7 +5,7 @@ import {
 	adminUploadKey,
 	detectImageMime,
 	sanitizeFilename,
-	sanitizeLogString,
+	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 
 vi.mock("@/lib/api/requireAdmin", async () => {
@@ -123,45 +123,6 @@ describe("adminUploadKey", () => {
 
 // #endregion
 
-// #region sanitizeLogString
-
-describe("sanitizeLogString", () => {
-	it("collapses CR / LF / TAB / NUL into single spaces", () => {
-		// Log injection: attacker-controlled bytes in `error.message` from the
-		// multipart parser could otherwise forge fake log lines beneath the
-		// real one. Newlines are the primary vector — strip them.
-		expect(sanitizeLogString("line1\nline2")).toBe("line1 line2")
-		expect(sanitizeLogString("line1\r\nline2")).toBe("line1 line2")
-		expect(sanitizeLogString("col1\tcol2")).toBe("col1 col2")
-		expect(sanitizeLogString("a\0b")).toBe("a b")
-	})
-
-	it("collapses runs of mixed control characters into a single space", () => {
-		expect(sanitizeLogString("foo\n\n\r\tbar")).toBe("foo bar")
-	})
-
-	it("preserves printable characters", () => {
-		expect(sanitizeLogString("Invalid boundary — got --x")).toBe(
-			"Invalid boundary — got --x"
-		)
-	})
-
-	it("clamps absurdly long messages", () => {
-		const long = "a".repeat(500)
-		const out = sanitizeLogString(long)
-		// 200-char cap + ellipsis. Pin the exact length so a future refactor
-		// can't silently uncap.
-		expect(out.length).toBe(201)
-		expect(out.endsWith("…")).toBe(true)
-	})
-
-	it("returns the input unchanged when it has no control characters and is short", () => {
-		expect(sanitizeLogString("ok")).toBe("ok")
-	})
-})
-
-// #endregion
-
 // #region detectImageMime
 
 describe("detectImageMime", () => {
@@ -264,6 +225,39 @@ describe("detectImageMime", () => {
 		const box = ftypBox("mif1", ["avif"])
 
 		expect(detectImageMime(box.slice(0, 16))).toBeNull()
+	})
+
+	it.each([0, 1])(
+		"returns null for a mif1 box whose declared size is the special value %i",
+		(declaredSize) => {
+			// 0 means "runs to end of file" and 1 means a 64-bit size follows;
+			// neither is read, so the brands are never scanned. A refusal, never
+			// a wrong type.
+			const box = ftypBox("mif1", ["avif"])
+			new DataView(box.buffer).setUint32(0, declaredSize)
+
+			expect(detectImageMime(box)).toBeNull()
+		}
+	)
+
+	it("scans up to the header end when the box is longer than the bytes seen", () => {
+		// The usual shape of a long box: it runs past the sniffed header.
+		const box = ftypBox("mif1", ["mif1", "avif"])
+		new DataView(box.buffer).setUint32(0, 4096)
+
+		expect(detectImageMime(box)).toBe("image/avif")
+	})
+
+	it("reads the box size relative to a subarray's own start", () => {
+		const padded = new Uint8Array(8 + 24)
+		padded.set(ftypBox("mif1", ["mif1", "avif"]), 8)
+
+		expect(detectImageMime(padded.subarray(8))).toBe("image/avif")
+	})
+
+	it("returns null for a non-mif1 HEIF major brand that lists AVIF as compatible", () => {
+		expect(detectImageMime(ftypBox("msf1", ["avis", "msf1"]))).toBeNull()
+		expect(detectImageMime(ftypBox("heic", ["avif", "mif1"]))).toBeNull()
 	})
 
 	it("returns null for HTML disguised as an image", () => {
@@ -628,6 +622,48 @@ describe("POST /api/admin/upload", () => {
 				name: "photo.avif",
 				type: "image/avif",
 				headerBytes: ftypBox("mif1", ["mif1", "heic", "miaf"]),
+			})
+		)
+
+		const response = await POST(uploadRequest(formData))
+
+		expect(response.status).toBe(415)
+		expect(put).not.toHaveBeenCalled()
+	})
+
+	/** A mif1 `ftyp` box whose only AVIF brand ends exactly at `brandEnd`. */
+	function mif1WithAvifEndingAt(brandEnd: number): Uint8Array {
+		const fillerCount = (brandEnd - 16) / 4 - 1
+
+		return ftypBox("mif1", [...Array<string>(fillerCount).fill("mif1"), "avif"])
+	}
+
+	it("sees an AVIF brand in the last four sniffed bytes", async () => {
+		const formData = new FormData()
+		formData.append(
+			"file",
+			pngFile({
+				name: "photo.avif",
+				type: "image/avif",
+				headerBytes: mif1WithAvifEndingAt(SNIFF_HEADER_BYTES),
+			})
+		)
+
+		const response = await POST(uploadRequest(formData))
+
+		expect(response.status).toBe(200)
+	})
+
+	it("refuses, never mis-types, a mif1 AVIF whose brand sits past the sniffed bytes", async () => {
+		// The documented false negative of `SNIFF_HEADER_BYTES`: a 415, not a
+		// file stored under the wrong type.
+		const formData = new FormData()
+		formData.append(
+			"file",
+			pngFile({
+				name: "photo.avif",
+				type: "image/avif",
+				headerBytes: mif1WithAvifEndingAt(SNIFF_HEADER_BYTES + 4),
 			})
 		)
 
