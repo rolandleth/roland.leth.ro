@@ -1,5 +1,5 @@
 import path from "node:path"
-import { isValidSection, type Section } from "@/lib/db/sections"
+import { isValidSection, type Section, SECTIONS } from "@/lib/db/sections"
 import {
 	type CliSpec,
 	type ParsedCliArgs,
@@ -59,7 +59,7 @@ export function resolveSectionArg(
 
 	if (!isValidSection(candidate)) {
 		return {
-			problem: `"${candidate}" is not a valid section. Use ${valueFlagPlaceholder(SECTION_FLAG)} or point at a folder named after one.`,
+			problem: `"${candidate}" is not a valid section (${SECTIONS.join(", ")}). Use ${valueFlagPlaceholder(SECTION_FLAG)} or point at a folder named after one.`,
 		}
 	}
 

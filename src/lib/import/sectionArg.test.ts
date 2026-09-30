@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { parsePostScriptArgs, resolveSectionArg } from "./sectionArg"
 
 const INVALID_EXPORT_PROBLEM =
-	'"export" is not a valid section. Use --section=<section> or point at a folder named after one.'
+	'"export" is not a valid section (tech, life). Use --section=<section> or point at a folder named after one.'
 
 describe("resolveSectionArg", () => {
 	it("takes the section from the folder's name when no flag is given", () => {
@@ -36,7 +36,7 @@ describe("resolveSectionArg", () => {
 		// `--section=` with no value is a mistake, not "use the default".
 		expect(resolveSectionArg("../blog/posts/tech", "")).toEqual({
 			problem:
-				'"" is not a valid section. Use --section=<section> or point at a folder named after one.',
+				'"" is not a valid section (tech, life). Use --section=<section> or point at a folder named after one.',
 		})
 	})
 })
@@ -92,6 +92,18 @@ describe("parsePostScriptArgs", () => {
 		expect(parsePostScriptArgs(["--dry-run"], SPEC).problem).toBe(USAGE)
 	})
 
+	it("refuses two folders, naming both, before resolving any section", () => {
+		const result = parsePostScriptArgs(
+			["../blog/posts/tech", "../blog/posts/life"],
+			SPEC
+		)
+
+		expect(result.problem).toBe(
+			`Expected one <folder>, got 2: ../blog/posts/tech, ../blog/posts/life. ${USAGE}`
+		)
+		expect(result).not.toHaveProperty("section")
+	})
+
 	it("refuses a folder not named after a section, with no flag to fix it", () => {
 		const result = parsePostScriptArgs(["../blog/export"], SPEC)
 
@@ -102,6 +114,6 @@ describe("parsePostScriptArgs", () => {
 	it("refuses an empty --section", () => {
 		expect(
 			parsePostScriptArgs(["../blog/posts/tech", "--section="], SPEC).problem
-		).toMatch(/^"" is not a valid section\./)
+		).toMatch(/^"" is not a valid section \(tech, life\)\./)
 	})
 })
