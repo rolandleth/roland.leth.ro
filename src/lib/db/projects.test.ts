@@ -16,7 +16,7 @@ import {
 	toProjectFormInitialData,
 	type AdminProjectDetail,
 } from "@/lib/db/projects"
-import { makeProjectListItem } from "@/test/fixtures"
+import { EMPTY_PRODUCT_PAGE_FIELDS, makeProjectListItem } from "@/test/fixtures"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheSpyFactory } = await import("@/test/mocks/nextCache")
@@ -444,6 +444,7 @@ describe("getProjectBySlug", () => {
 		isFeatured: false,
 		isDiscontinued: false,
 		isOwnApp: false,
+		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
@@ -466,6 +467,26 @@ describe("getProjectBySlug", () => {
 
 		const result = await getProjectBySlug("nonexistent")
 		expect(result).toBeNull()
+	})
+
+	it("hands the plans and palette Json columns back as stored", async () => {
+		const plans = [{ name: "Free", features: ["Meals."], sortOrder: 1 }]
+		const theme = {
+			band: "#24443a",
+			bandInk: "#f4f1e8",
+			bandInk2: "#c9d3cc",
+			bandHighlight: "#cfa75a",
+			accentText: "#2e7d5b",
+		}
+		vi.mocked(prisma.project.findUnique).mockResolvedValue({
+			...fullProject,
+			plans,
+			palette: { light: theme, dark: theme },
+		} as Awaited<ReturnType<typeof prisma.project.findUnique>>)
+
+		const result = await getProjectBySlug("my-app")
+		expect(result?.plans).toEqual(plans)
+		expect(result?.palette).toEqual({ light: theme, dark: theme })
 	})
 })
 
@@ -490,6 +511,7 @@ describe("loadProject", () => {
 			isFeatured: false,
 			isDiscontinued: false,
 			isOwnApp: false,
+			...EMPTY_PRODUCT_PAGE_FIELDS,
 			date: null,
 			createdAt: new Date(),
 			updatedAt: new Date(),
@@ -554,6 +576,7 @@ describe("toProjectFormInitialData", () => {
 			isFeatured: false,
 			isDiscontinued: false,
 			isOwnApp: false,
+			...EMPTY_PRODUCT_PAGE_FIELDS,
 			date: null,
 			sortOrder: 0,
 			createdAt: new Date(),
@@ -565,12 +588,14 @@ describe("toProjectFormInitialData", () => {
 					title: "Section",
 					description: "Desc",
 					sortOrder: 0,
+					hasPlans: false,
 					images: [
 						{
 							id: 100,
 							sectionId: 10,
 							url: "https://example.com/a.png",
 							caption: null,
+							alt: null,
 							sortOrder: 0,
 						},
 						{
@@ -578,6 +603,7 @@ describe("toProjectFormInitialData", () => {
 							sectionId: 10,
 							url: "https://example.com/b.png",
 							caption: "hi",
+							alt: null,
 							sortOrder: 1,
 						},
 					],

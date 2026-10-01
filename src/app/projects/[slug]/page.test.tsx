@@ -5,6 +5,7 @@ import { markdownToReact } from "@/lib/content/markdown"
 import { ogImageEntry } from "@/lib/content/metadata"
 import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import ProjectPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/projects", async (importOriginal) => ({
@@ -59,6 +60,7 @@ const existingProject = {
 	isFeatured: false,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 0,
 	createdAt: new Date(),
@@ -184,6 +186,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Good",
 					description: "Good section.",
 					sortOrder: 0,
+					hasPlans: false,
 					images: [],
 				},
 				{
@@ -192,6 +195,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Broken",
 					description: "Broken section raw text.",
 					sortOrder: 1,
+					hasPlans: false,
 					images: [],
 				},
 			],
@@ -263,6 +267,25 @@ describe("generateMetadata", () => {
 		})
 		const result = await generateMetadata(paramsFor("my-app"))
 		expect(result.title).toBe("My App")
+	})
+
+	it("uses metaDescription for the description when set, not the longer summary", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			summary: "A long hero paragraph that runs well past a result snippet.",
+			metaDescription: "A short meta description.",
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.description).toBe("A short meta description.")
+	})
+
+	it("falls back to the summary for the description when metaDescription is null", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			metaDescription: null,
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.description).toBe("A project")
 	})
 
 	it("uses the ogImage for OG, preferring it over the cardImage", async () => {

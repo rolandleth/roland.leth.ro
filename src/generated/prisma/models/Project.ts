@@ -53,6 +53,14 @@ export type ProjectMinAggregateOutputType = {
   isFeatured: boolean | null
   isDiscontinued: boolean | null
   isOwnApp: boolean | null
+  metaDescription: string | null
+  heroEyebrow: string | null
+  heroHeadline: string | null
+  heroImageAlt: string | null
+  storeNote: string | null
+  closingHeadline: string | null
+  closingBody: string | null
+  disclaimer: string | null
   date: string | null
   sortOrder: number | null
   createdAt: Date | null
@@ -76,6 +84,14 @@ export type ProjectMaxAggregateOutputType = {
   isFeatured: boolean | null
   isDiscontinued: boolean | null
   isOwnApp: boolean | null
+  metaDescription: string | null
+  heroEyebrow: string | null
+  heroHeadline: string | null
+  heroImageAlt: string | null
+  storeNote: string | null
+  closingHeadline: string | null
+  closingBody: string | null
+  disclaimer: string | null
   date: string | null
   sortOrder: number | null
   createdAt: Date | null
@@ -102,6 +118,16 @@ export type ProjectCountAggregateOutputType = {
   isFeatured: number
   isDiscontinued: number
   isOwnApp: number
+  metaDescription: number
+  heroEyebrow: number
+  heroHeadline: number
+  heroImageAlt: number
+  storeNote: number
+  closingHeadline: number
+  closingBody: number
+  disclaimer: number
+  plans: number
+  palette: number
   date: number
   sortOrder: number
   createdAt: number
@@ -137,6 +163,14 @@ export type ProjectMinAggregateInputType = {
   isFeatured?: true
   isDiscontinued?: true
   isOwnApp?: true
+  metaDescription?: true
+  heroEyebrow?: true
+  heroHeadline?: true
+  heroImageAlt?: true
+  storeNote?: true
+  closingHeadline?: true
+  closingBody?: true
+  disclaimer?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -160,6 +194,14 @@ export type ProjectMaxAggregateInputType = {
   isFeatured?: true
   isDiscontinued?: true
   isOwnApp?: true
+  metaDescription?: true
+  heroEyebrow?: true
+  heroHeadline?: true
+  heroImageAlt?: true
+  storeNote?: true
+  closingHeadline?: true
+  closingBody?: true
+  disclaimer?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -186,6 +228,16 @@ export type ProjectCountAggregateInputType = {
   isFeatured?: true
   isDiscontinued?: true
   isOwnApp?: true
+  metaDescription?: true
+  heroEyebrow?: true
+  heroHeadline?: true
+  heroImageAlt?: true
+  storeNote?: true
+  closingHeadline?: true
+  closingBody?: true
+  disclaimer?: true
+  plans?: true
+  palette?: true
   date?: true
   sortOrder?: true
   createdAt?: true
@@ -299,6 +351,16 @@ export type ProjectGroupByOutputType = {
   isFeatured: boolean
   isDiscontinued: boolean
   isOwnApp: boolean
+  metaDescription: string | null
+  heroEyebrow: string | null
+  heroHeadline: string | null
+  heroImageAlt: string | null
+  storeNote: string | null
+  closingHeadline: string | null
+  closingBody: string | null
+  disclaimer: string | null
+  plans: runtime.JsonValue | null
+  palette: runtime.JsonValue | null
   date: string | null
   sortOrder: number
   createdAt: Date
@@ -348,6 +410,16 @@ export type ProjectWhereInput = {
   isFeatured?: Prisma.BoolFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
+  metaDescription?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroEyebrow?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroHeadline?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroImageAlt?: Prisma.StringNullableFilter<"Project"> | string | null
+  storeNote?: Prisma.StringNullableFilter<"Project"> | string | null
+  closingHeadline?: Prisma.StringNullableFilter<"Project"> | string | null
+  closingBody?: Prisma.StringNullableFilter<"Project"> | string | null
+  disclaimer?: Prisma.StringNullableFilter<"Project"> | string | null
+  plans?: Prisma.JsonNullableFilter<"Project">
+  palette?: Prisma.JsonNullableFilter<"Project">
   date?: Prisma.StringNullableFilter<"Project"> | string | null
   sortOrder?: Prisma.IntFilter<"Project"> | number
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
@@ -377,6 +449,16 @@ export type ProjectOrderByWithRelationInput = {
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
+  metaDescription?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroEyebrow?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroHeadline?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroImageAlt?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  closingHeadline?: Prisma.SortOrderInput | Prisma.SortOrder
+  closingBody?: Prisma.SortOrderInput | Prisma.SortOrder
+  disclaimer?: Prisma.SortOrderInput | Prisma.SortOrder
+  plans?: Prisma.SortOrderInput | Prisma.SortOrder
+  palette?: Prisma.SortOrderInput | Prisma.SortOrder
   date?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -409,6 +491,16 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   isFeatured?: Prisma.BoolFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
+  metaDescription?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroEyebrow?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroHeadline?: Prisma.StringNullableFilter<"Project"> | string | null
+  heroImageAlt?: Prisma.StringNullableFilter<"Project"> | string | null
+  storeNote?: Prisma.StringNullableFilter<"Project"> | string | null
+  closingHeadline?: Prisma.StringNullableFilter<"Project"> | string | null
+  closingBody?: Prisma.StringNullableFilter<"Project"> | string | null
+  disclaimer?: Prisma.StringNullableFilter<"Project"> | string | null
+  plans?: Prisma.JsonNullableFilter<"Project">
+  palette?: Prisma.JsonNullableFilter<"Project">
   date?: Prisma.StringNullableFilter<"Project"> | string | null
   sortOrder?: Prisma.IntFilter<"Project"> | number
   createdAt?: Prisma.DateTimeFilter<"Project"> | Date | string
@@ -438,6 +530,16 @@ export type ProjectOrderByWithAggregationInput = {
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
+  metaDescription?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroEyebrow?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroHeadline?: Prisma.SortOrderInput | Prisma.SortOrder
+  heroImageAlt?: Prisma.SortOrderInput | Prisma.SortOrder
+  storeNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  closingHeadline?: Prisma.SortOrderInput | Prisma.SortOrder
+  closingBody?: Prisma.SortOrderInput | Prisma.SortOrder
+  disclaimer?: Prisma.SortOrderInput | Prisma.SortOrder
+  plans?: Prisma.SortOrderInput | Prisma.SortOrder
+  palette?: Prisma.SortOrderInput | Prisma.SortOrder
   date?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -472,6 +574,16 @@ export type ProjectScalarWhereWithAggregatesInput = {
   isFeatured?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   isDiscontinued?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
+  metaDescription?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  heroEyebrow?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  heroHeadline?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  heroImageAlt?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  storeNote?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  closingHeadline?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  closingBody?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  disclaimer?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
+  plans?: Prisma.JsonNullableWithAggregatesFilter<"Project">
+  palette?: Prisma.JsonNullableWithAggregatesFilter<"Project">
   date?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   sortOrder?: Prisma.IntWithAggregatesFilter<"Project"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Project"> | Date | string
@@ -497,6 +609,16 @@ export type ProjectCreateInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -526,6 +648,16 @@ export type ProjectUncheckedCreateInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -554,6 +686,16 @@ export type ProjectUpdateInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -583,6 +725,16 @@ export type ProjectUncheckedUpdateInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -612,6 +764,16 @@ export type ProjectCreateManyInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -637,6 +799,16 @@ export type ProjectUpdateManyMutationInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -663,6 +835,16 @@ export type ProjectUncheckedUpdateManyInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -705,6 +887,16 @@ export type ProjectCountOrderByAggregateInput = {
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
+  metaDescription?: Prisma.SortOrder
+  heroEyebrow?: Prisma.SortOrder
+  heroHeadline?: Prisma.SortOrder
+  heroImageAlt?: Prisma.SortOrder
+  storeNote?: Prisma.SortOrder
+  closingHeadline?: Prisma.SortOrder
+  closingBody?: Prisma.SortOrder
+  disclaimer?: Prisma.SortOrder
+  plans?: Prisma.SortOrder
+  palette?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -733,6 +925,14 @@ export type ProjectMaxOrderByAggregateInput = {
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
+  metaDescription?: Prisma.SortOrder
+  heroEyebrow?: Prisma.SortOrder
+  heroHeadline?: Prisma.SortOrder
+  heroImageAlt?: Prisma.SortOrder
+  storeNote?: Prisma.SortOrder
+  closingHeadline?: Prisma.SortOrder
+  closingBody?: Prisma.SortOrder
+  disclaimer?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -756,6 +956,14 @@ export type ProjectMinOrderByAggregateInput = {
   isFeatured?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
+  metaDescription?: Prisma.SortOrder
+  heroEyebrow?: Prisma.SortOrder
+  heroHeadline?: Prisma.SortOrder
+  heroImageAlt?: Prisma.SortOrder
+  storeNote?: Prisma.SortOrder
+  closingHeadline?: Prisma.SortOrder
+  closingBody?: Prisma.SortOrder
+  disclaimer?: Prisma.SortOrder
   date?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -855,6 +1063,16 @@ export type ProjectCreateWithoutSectionsInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -883,6 +1101,16 @@ export type ProjectUncheckedCreateWithoutSectionsInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -926,6 +1154,16 @@ export type ProjectUpdateWithoutSectionsInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -954,6 +1192,16 @@ export type ProjectUncheckedUpdateWithoutSectionsInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -981,6 +1229,16 @@ export type ProjectCreateWithoutLinksInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1009,6 +1267,16 @@ export type ProjectUncheckedCreateWithoutLinksInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1052,6 +1320,16 @@ export type ProjectUpdateWithoutLinksInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1080,6 +1358,16 @@ export type ProjectUncheckedUpdateWithoutLinksInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1107,6 +1395,16 @@ export type ProjectCreateWithoutFaqsInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1135,6 +1433,16 @@ export type ProjectUncheckedCreateWithoutFaqsInput = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: string | null
+  heroEyebrow?: string | null
+  heroHeadline?: string | null
+  heroImageAlt?: string | null
+  storeNote?: string | null
+  closingHeadline?: string | null
+  closingBody?: string | null
+  disclaimer?: string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: string | null
   sortOrder?: number
   createdAt?: Date | string
@@ -1178,6 +1486,16 @@ export type ProjectUpdateWithoutFaqsInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1206,6 +1524,16 @@ export type ProjectUncheckedUpdateWithoutFaqsInput = {
   isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroEyebrow?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  heroImageAlt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storeNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingHeadline?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  closingBody?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  disclaimer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plans?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  palette?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   date?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1283,6 +1611,16 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: boolean
+  heroEyebrow?: boolean
+  heroHeadline?: boolean
+  heroImageAlt?: boolean
+  storeNote?: boolean
+  closingHeadline?: boolean
+  closingBody?: boolean
+  disclaimer?: boolean
+  plans?: boolean
+  palette?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1313,6 +1651,16 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: boolean
+  heroEyebrow?: boolean
+  heroHeadline?: boolean
+  heroImageAlt?: boolean
+  storeNote?: boolean
+  closingHeadline?: boolean
+  closingBody?: boolean
+  disclaimer?: boolean
+  plans?: boolean
+  palette?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1339,6 +1687,16 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: boolean
+  heroEyebrow?: boolean
+  heroHeadline?: boolean
+  heroImageAlt?: boolean
+  storeNote?: boolean
+  closingHeadline?: boolean
+  closingBody?: boolean
+  disclaimer?: boolean
+  plans?: boolean
+  palette?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
@@ -1365,13 +1723,23 @@ export type ProjectSelectScalar = {
   isFeatured?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
+  metaDescription?: boolean
+  heroEyebrow?: boolean
+  heroHeadline?: boolean
+  heroImageAlt?: boolean
+  storeNote?: boolean
+  closingHeadline?: boolean
+  closingBody?: boolean
+  disclaimer?: boolean
+  plans?: boolean
+  palette?: boolean
   date?: boolean
   sortOrder?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "isOwnApp" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "isOwnApp" | "metaDescription" | "heroEyebrow" | "heroHeadline" | "heroImageAlt" | "storeNote" | "closingHeadline" | "closingBody" | "disclaimer" | "plans" | "palette" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sections?: boolean | Prisma.Project$sectionsArgs<ExtArgs>
   links?: boolean | Prisma.Project$linksArgs<ExtArgs>
@@ -1408,6 +1776,16 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     isFeatured: boolean
     isDiscontinued: boolean
     isOwnApp: boolean
+    metaDescription: string | null
+    heroEyebrow: string | null
+    heroHeadline: string | null
+    heroImageAlt: string | null
+    storeNote: string | null
+    closingHeadline: string | null
+    closingBody: string | null
+    disclaimer: string | null
+    plans: runtime.JsonValue | null
+    palette: runtime.JsonValue | null
     date: string | null
     sortOrder: number
     createdAt: Date
@@ -1857,6 +2235,16 @@ export interface ProjectFieldRefs {
   readonly isFeatured: Prisma.FieldRef<"Project", 'Boolean'>
   readonly isDiscontinued: Prisma.FieldRef<"Project", 'Boolean'>
   readonly isOwnApp: Prisma.FieldRef<"Project", 'Boolean'>
+  readonly metaDescription: Prisma.FieldRef<"Project", 'String'>
+  readonly heroEyebrow: Prisma.FieldRef<"Project", 'String'>
+  readonly heroHeadline: Prisma.FieldRef<"Project", 'String'>
+  readonly heroImageAlt: Prisma.FieldRef<"Project", 'String'>
+  readonly storeNote: Prisma.FieldRef<"Project", 'String'>
+  readonly closingHeadline: Prisma.FieldRef<"Project", 'String'>
+  readonly closingBody: Prisma.FieldRef<"Project", 'String'>
+  readonly disclaimer: Prisma.FieldRef<"Project", 'String'>
+  readonly plans: Prisma.FieldRef<"Project", 'Json'>
+  readonly palette: Prisma.FieldRef<"Project", 'Json'>
   readonly date: Prisma.FieldRef<"Project", 'String'>
   readonly sortOrder: Prisma.FieldRef<"Project", 'Int'>
   readonly createdAt: Prisma.FieldRef<"Project", 'DateTime'>

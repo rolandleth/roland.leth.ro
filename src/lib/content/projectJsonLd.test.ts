@@ -5,6 +5,7 @@ import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
 } from "@/lib/content/projectJsonLd"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import type { ProjectDetail } from "@/lib/db/projects"
 
 const BASE = "https://roland.leth.ro"
@@ -36,6 +37,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		isFeatured: false,
 		isDiscontinued: false,
 		isOwnApp: false,
+		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
 		sortOrder: 0,
 		createdAt: new Date(),

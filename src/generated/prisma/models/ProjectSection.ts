@@ -44,6 +44,7 @@ export type ProjectSectionMinAggregateOutputType = {
   title: string | null
   description: string | null
   sortOrder: number | null
+  hasPlans: boolean | null
 }
 
 export type ProjectSectionMaxAggregateOutputType = {
@@ -52,6 +53,7 @@ export type ProjectSectionMaxAggregateOutputType = {
   title: string | null
   description: string | null
   sortOrder: number | null
+  hasPlans: boolean | null
 }
 
 export type ProjectSectionCountAggregateOutputType = {
@@ -60,6 +62,7 @@ export type ProjectSectionCountAggregateOutputType = {
   title: number
   description: number
   sortOrder: number
+  hasPlans: number
   _all: number
 }
 
@@ -82,6 +85,7 @@ export type ProjectSectionMinAggregateInputType = {
   title?: true
   description?: true
   sortOrder?: true
+  hasPlans?: true
 }
 
 export type ProjectSectionMaxAggregateInputType = {
@@ -90,6 +94,7 @@ export type ProjectSectionMaxAggregateInputType = {
   title?: true
   description?: true
   sortOrder?: true
+  hasPlans?: true
 }
 
 export type ProjectSectionCountAggregateInputType = {
@@ -98,6 +103,7 @@ export type ProjectSectionCountAggregateInputType = {
   title?: true
   description?: true
   sortOrder?: true
+  hasPlans?: true
   _all?: true
 }
 
@@ -193,6 +199,7 @@ export type ProjectSectionGroupByOutputType = {
   title: string
   description: string
   sortOrder: number
+  hasPlans: boolean
   _count: ProjectSectionCountAggregateOutputType | null
   _avg: ProjectSectionAvgAggregateOutputType | null
   _sum: ProjectSectionSumAggregateOutputType | null
@@ -224,6 +231,7 @@ export type ProjectSectionWhereInput = {
   title?: Prisma.StringFilter<"ProjectSection"> | string
   description?: Prisma.StringFilter<"ProjectSection"> | string
   sortOrder?: Prisma.IntFilter<"ProjectSection"> | number
+  hasPlans?: Prisma.BoolFilter<"ProjectSection"> | boolean
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   images?: Prisma.ProjectSectionImageListRelationFilter
 }
@@ -234,6 +242,7 @@ export type ProjectSectionOrderByWithRelationInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
+  hasPlans?: Prisma.SortOrder
   project?: Prisma.ProjectOrderByWithRelationInput
   images?: Prisma.ProjectSectionImageOrderByRelationAggregateInput
 }
@@ -247,6 +256,7 @@ export type ProjectSectionWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"ProjectSection"> | string
   description?: Prisma.StringFilter<"ProjectSection"> | string
   sortOrder?: Prisma.IntFilter<"ProjectSection"> | number
+  hasPlans?: Prisma.BoolFilter<"ProjectSection"> | boolean
   project?: Prisma.XOR<Prisma.ProjectScalarRelationFilter, Prisma.ProjectWhereInput>
   images?: Prisma.ProjectSectionImageListRelationFilter
 }, "id">
@@ -257,6 +267,7 @@ export type ProjectSectionOrderByWithAggregationInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
+  hasPlans?: Prisma.SortOrder
   _count?: Prisma.ProjectSectionCountOrderByAggregateInput
   _avg?: Prisma.ProjectSectionAvgOrderByAggregateInput
   _max?: Prisma.ProjectSectionMaxOrderByAggregateInput
@@ -273,12 +284,14 @@ export type ProjectSectionScalarWhereWithAggregatesInput = {
   title?: Prisma.StringWithAggregatesFilter<"ProjectSection"> | string
   description?: Prisma.StringWithAggregatesFilter<"ProjectSection"> | string
   sortOrder?: Prisma.IntWithAggregatesFilter<"ProjectSection"> | number
+  hasPlans?: Prisma.BoolWithAggregatesFilter<"ProjectSection"> | boolean
 }
 
 export type ProjectSectionCreateInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
   project: Prisma.ProjectCreateNestedOneWithoutSectionsInput
   images?: Prisma.ProjectSectionImageCreateNestedManyWithoutSectionInput
 }
@@ -289,6 +302,7 @@ export type ProjectSectionUncheckedCreateInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
   images?: Prisma.ProjectSectionImageUncheckedCreateNestedManyWithoutSectionInput
 }
 
@@ -296,6 +310,7 @@ export type ProjectSectionUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
   project?: Prisma.ProjectUpdateOneRequiredWithoutSectionsNestedInput
   images?: Prisma.ProjectSectionImageUpdateManyWithoutSectionNestedInput
 }
@@ -306,6 +321,7 @@ export type ProjectSectionUncheckedUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.ProjectSectionImageUncheckedUpdateManyWithoutSectionNestedInput
 }
 
@@ -315,12 +331,14 @@ export type ProjectSectionCreateManyInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
 }
 
 export type ProjectSectionUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type ProjectSectionUncheckedUpdateManyInput = {
@@ -329,6 +347,7 @@ export type ProjectSectionUncheckedUpdateManyInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type ProjectSectionListRelationFilter = {
@@ -347,6 +366,7 @@ export type ProjectSectionCountOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
+  hasPlans?: Prisma.SortOrder
 }
 
 export type ProjectSectionAvgOrderByAggregateInput = {
@@ -361,6 +381,7 @@ export type ProjectSectionMaxOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
+  hasPlans?: Prisma.SortOrder
 }
 
 export type ProjectSectionMinOrderByAggregateInput = {
@@ -369,6 +390,7 @@ export type ProjectSectionMinOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
+  hasPlans?: Prisma.SortOrder
 }
 
 export type ProjectSectionSumOrderByAggregateInput = {
@@ -442,6 +464,7 @@ export type ProjectSectionCreateWithoutProjectInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
   images?: Prisma.ProjectSectionImageCreateNestedManyWithoutSectionInput
 }
 
@@ -450,6 +473,7 @@ export type ProjectSectionUncheckedCreateWithoutProjectInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
   images?: Prisma.ProjectSectionImageUncheckedCreateNestedManyWithoutSectionInput
 }
 
@@ -488,12 +512,14 @@ export type ProjectSectionScalarWhereInput = {
   title?: Prisma.StringFilter<"ProjectSection"> | string
   description?: Prisma.StringFilter<"ProjectSection"> | string
   sortOrder?: Prisma.IntFilter<"ProjectSection"> | number
+  hasPlans?: Prisma.BoolFilter<"ProjectSection"> | boolean
 }
 
 export type ProjectSectionCreateWithoutImagesInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
   project: Prisma.ProjectCreateNestedOneWithoutSectionsInput
 }
 
@@ -503,6 +529,7 @@ export type ProjectSectionUncheckedCreateWithoutImagesInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
 }
 
 export type ProjectSectionCreateOrConnectWithoutImagesInput = {
@@ -525,6 +552,7 @@ export type ProjectSectionUpdateWithoutImagesInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
   project?: Prisma.ProjectUpdateOneRequiredWithoutSectionsNestedInput
 }
 
@@ -534,6 +562,7 @@ export type ProjectSectionUncheckedUpdateWithoutImagesInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type ProjectSectionCreateManyProjectInput = {
@@ -541,12 +570,14 @@ export type ProjectSectionCreateManyProjectInput = {
   title: string
   description: string
   sortOrder?: number
+  hasPlans?: boolean
 }
 
 export type ProjectSectionUpdateWithoutProjectInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.ProjectSectionImageUpdateManyWithoutSectionNestedInput
 }
 
@@ -555,6 +586,7 @@ export type ProjectSectionUncheckedUpdateWithoutProjectInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
   images?: Prisma.ProjectSectionImageUncheckedUpdateManyWithoutSectionNestedInput
 }
 
@@ -563,6 +595,7 @@ export type ProjectSectionUncheckedUpdateManyWithoutProjectInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.StringFieldUpdateOperationsInput | string
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  hasPlans?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 
@@ -602,6 +635,7 @@ export type ProjectSectionSelect<ExtArgs extends runtime.Types.Extensions.Intern
   title?: boolean
   description?: boolean
   sortOrder?: boolean
+  hasPlans?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   images?: boolean | Prisma.ProjectSection$imagesArgs<ExtArgs>
   _count?: boolean | Prisma.ProjectSectionCountOutputTypeDefaultArgs<ExtArgs>
@@ -613,6 +647,7 @@ export type ProjectSectionSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   title?: boolean
   description?: boolean
   sortOrder?: boolean
+  hasPlans?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["projectSection"]>
 
@@ -622,6 +657,7 @@ export type ProjectSectionSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   title?: boolean
   description?: boolean
   sortOrder?: boolean
+  hasPlans?: boolean
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["projectSection"]>
 
@@ -631,9 +667,10 @@ export type ProjectSectionSelectScalar = {
   title?: boolean
   description?: boolean
   sortOrder?: boolean
+  hasPlans?: boolean
 }
 
-export type ProjectSectionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "title" | "description" | "sortOrder", ExtArgs["result"]["projectSection"]>
+export type ProjectSectionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "projectId" | "title" | "description" | "sortOrder" | "hasPlans", ExtArgs["result"]["projectSection"]>
 export type ProjectSectionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.ProjectDefaultArgs<ExtArgs>
   images?: boolean | Prisma.ProjectSection$imagesArgs<ExtArgs>
@@ -658,6 +695,7 @@ export type $ProjectSectionPayload<ExtArgs extends runtime.Types.Extensions.Inte
     title: string
     description: string
     sortOrder: number
+    hasPlans: boolean
   }, ExtArgs["result"]["projectSection"]>
   composites: {}
 }
@@ -1088,6 +1126,7 @@ export interface ProjectSectionFieldRefs {
   readonly title: Prisma.FieldRef<"ProjectSection", 'String'>
   readonly description: Prisma.FieldRef<"ProjectSection", 'String'>
   readonly sortOrder: Prisma.FieldRef<"ProjectSection", 'Int'>
+  readonly hasPlans: Prisma.FieldRef<"ProjectSection", 'Boolean'>
 }
     
 

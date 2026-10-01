@@ -149,6 +149,16 @@ export const ProjectScalarFieldEnum = {
   isFeatured: 'isFeatured',
   isDiscontinued: 'isDiscontinued',
   isOwnApp: 'isOwnApp',
+  metaDescription: 'metaDescription',
+  heroEyebrow: 'heroEyebrow',
+  heroHeadline: 'heroHeadline',
+  heroImageAlt: 'heroImageAlt',
+  storeNote: 'storeNote',
+  closingHeadline: 'closingHeadline',
+  closingBody: 'closingBody',
+  disclaimer: 'disclaimer',
+  plans: 'plans',
+  palette: 'palette',
   date: 'date',
   sortOrder: 'sortOrder',
   createdAt: 'createdAt',
@@ -163,7 +173,8 @@ export const ProjectSectionScalarFieldEnum = {
   projectId: 'projectId',
   title: 'title',
   description: 'description',
-  sortOrder: 'sortOrder'
+  sortOrder: 'sortOrder',
+  hasPlans: 'hasPlans'
 } as const
 
 export type ProjectSectionScalarFieldEnum = (typeof ProjectSectionScalarFieldEnum)[keyof typeof ProjectSectionScalarFieldEnum]
@@ -174,6 +185,7 @@ export const ProjectSectionImageScalarFieldEnum = {
   sectionId: 'sectionId',
   url: 'url',
   caption: 'caption',
+  alt: 'alt',
   sortOrder: 'sortOrder'
 } as const
 

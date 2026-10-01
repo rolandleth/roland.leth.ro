@@ -213,6 +213,20 @@ const projectOfferSchema = z.object({
 	}),
 	priceCurrency: z.string().length(3),
 	billingPeriod: z.string().max(10).optional(),
+	// The plan this price belongs to, by its `name`. The product page prints a
+	// plan's prices inside its card; `refineProjectPlans` rejects a name no plan
+	// has. The JSON-LD ignores it.
+	plan: z.string().trim().min(1).max(60).optional(),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
+// One plan card on the product page: what the plan includes, with its prices
+// pulled from the offers that name it. Stored in the `plans` Json column, like
+// `offers`.
+const projectPlanSchema = z.object({
+	name: z.string().trim().min(1).max(60),
+	isHighlighted: z.boolean().optional(),
+	features: z.array(z.string().trim().min(1).max(160)).min(1).max(12),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -226,6 +240,7 @@ const projectFaqSchema = z.object({
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
 	caption: z.string().max(300).nullable().optional(),
+	alt: z.string().max(300).nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -233,6 +248,7 @@ const projectSectionSchema = z.object({
 	title: z.string().min(1).max(200),
 	description: z.string().min(1).max(100_000),
 	sortOrder: z.number().int().min(0).optional(),
+	hasPlans: z.boolean().optional(),
 	images: z.array(projectSectionImageSchema).optional(),
 })
 
@@ -247,6 +263,24 @@ const hexColor = z
 	.refine((v) => [4, 5, 7, 9].includes(v.length), {
 		message: "Hex color must be 3, 4, 6, or 8 digits after the '#'",
 	})
+
+// The product page's band and small-text colours for one theme. Hex only: the
+// page writes them into a `<style>` block, so the regex is also what keeps
+// anything but a colour out of the CSS.
+const paletteThemeSchema = z.object({
+	band: hexColor,
+	bandInk: hexColor,
+	bandInk2: hexColor,
+	bandHighlight: hexColor,
+	accentText: hexColor,
+})
+
+// Both themes are required: a band designed for one background has no safe
+// default on the other (a cream band is a glaring block on a dark page).
+const projectPaletteSchema = z.object({
+	light: paletteThemeSchema,
+	dark: paletteThemeSchema,
+})
 
 // `min(1)` on tags so a project can't be saved with bucket only and no
 // descriptive tags — the detail page needs something to render. `max(8)` is
@@ -314,11 +348,121 @@ const projectFields = {
 	isFeatured: z.boolean().optional(),
 	isDiscontinued: z.boolean().optional(),
 	isOwnApp: z.boolean().optional(),
+	// Product-page fields, rendered only on own apps. See the Prisma schema.
+	metaDescription: collapsedWhitespace
+		.pipe(z.string().min(1).max(DESCRIPTION_MAX_CHARS))
+		.nullable()
+		.optional(),
+	heroEyebrow: z.string().trim().min(1).max(80).nullable().optional(),
+	heroHeadline: z.string().trim().min(1).max(80).nullable().optional(),
+	heroImageAlt: z.string().trim().min(1).max(300).nullable().optional(),
+	storeNote: z.string().trim().min(1).max(120).nullable().optional(),
+	closingHeadline: z.string().trim().min(1).max(80).nullable().optional(),
+	closingBody: z.string().trim().min(1).max(200).nullable().optional(),
+	disclaimer: z.string().trim().min(1).max(300).nullable().optional(),
+	plans: z.array(projectPlanSchema).max(4).optional(),
+	palette: projectPaletteSchema.optional(),
 	date: z.string().nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
 	faqs: z.array(projectFaqSchema).optional(),
+}
+
+type PlanRefineInput = {
+	plans?: { name: string; isHighlighted?: boolean }[]
+	offers?: { plan?: string }[]
+	sections?: { hasPlans?: boolean }[]
+}
+
+// Cross-field rules for the plan cards:
+//   - plan names are unique, since offers point at a plan by name;
+//   - at most one plan is highlighted (it's the one on the band colour);
+//   - with plans present, every offer names one of them, or that price would
+//     print in no card;
+//   - an offer that names a plan needs plans to exist;
+//   - at most one section holds the cards.
+// Like `refineBucketTagCoherence`, each rule only fires when the fields it
+// compares are in the payload. The one exception is the create path: there the
+// whole project is in the payload, so an offer naming a plan with no `plans`
+// sent is a dangling reference, not a field left out.
+function projectPlansRefinement(isPartial: boolean) {
+	return (value: PlanRefineInput, ctx: z.RefinementCtx) =>
+		refineProjectPlans(value, ctx, isPartial)
+}
+
+function refineProjectPlans(
+	value: PlanRefineInput,
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	const { plans, offers, sections } = value
+
+	if (plans != null) {
+		const names = plans.map((plan) => plan.name)
+		const duplicates = names.filter(
+			(name, index) => names.indexOf(name) !== index
+		)
+
+		if (duplicates.length > 0) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["plans"],
+				message: `Duplicate plan names: ${[...new Set(duplicates)].join(", ")}`,
+			})
+		}
+
+		if (plans.filter((plan) => plan.isHighlighted === true).length > 1) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["plans"],
+				message: "At most one plan can be highlighted",
+			})
+		}
+	}
+
+	if (offers != null) {
+		const planNames = new Set((plans ?? []).map((plan) => plan.name))
+
+		offers.forEach((offer, index) => {
+			if (offer.plan == null) {
+				if (plans != null && plans.length > 0) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["offers", index, "plan"],
+						message: "Every offer needs a plan when the project has plans",
+					})
+				}
+
+				return
+			}
+
+			if (plans == null && isPartial) {
+				// A partial update may send offers alone; only a payload that sends
+				// both can be checked against the plans it names.
+				return
+			}
+
+			if (!planNames.has(offer.plan)) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["offers", index, "plan"],
+					message: `No plan is named "${offer.plan}"`,
+				})
+			}
+		})
+	}
+
+	if (
+		sections != null &&
+		sections.filter((section) => section.hasPlans === true).length > 1
+	) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["sections"],
+			message: "At most one section can hold the plans",
+		})
+	}
 }
 
 // `superRefine` is layered on the base object schemas so each surface keeps
@@ -332,11 +476,13 @@ const projectFields = {
 export const projectCreateSchema = z
 	.object({ ...projectFields, slug: canonicalSlug })
 	.superRefine(refineBucketTagCoherence)
+	.superRefine(projectPlansRefinement(false))
 
 export const projectUpdateSchema = z
 	.object(projectFields)
 	.partial()
 	.superRefine(refineBucketTagCoherence)
+	.superRefine(projectPlansRefinement(true))
 
 // Auth
 

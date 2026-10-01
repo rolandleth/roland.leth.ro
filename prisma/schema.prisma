@@ -195,6 +195,31 @@ model Project {
   // derived from `role`, which is free text ("Head of Digital" exists) — copy
   // must not decide behaviour.
   isOwnApp       Boolean          @default(false)
+  // Product-page fields: rendered only by the own-app layout (`isOwnApp`),
+  // every one optional, so a project without them degrades to a bare-name
+  // hero and a closing with no words of its own.
+  // `metaDescription` is the meta description when set; `summary` stays the
+  // hero paragraph and the fallback. The two differ in length: a hero paragraph
+  // runs to 300 characters, a result snippet is cut near 160.
+  metaDescription String?
+  // `heroEyebrow` and `heroHeadline` share the `<h1>` with `name`.
+  heroEyebrow     String?
+  heroHeadline    String?
+  heroImageAlt    String?
+  // One line under the store button, shown in the hero and in the closing.
+  storeNote       String?
+  closingHeadline String?
+  closingBody     String?
+  disclaimer      String?
+  // `[{ name, isHighlighted, features[], sortOrder }]`: one card per plan on
+  // the page, each listing the `offers` whose `plan` names it. `Json?` for the
+  // same reason as `offers`: small, render-only, manifest-driven.
+  plans           Json?
+  // `{ light, dark }`, each `{ band, bandInk, bandInk2, bandHighlight,
+  // accentText }`: the hero and closing band colours plus a darker or lighter
+  // accent for small text, since no single hex reads at 4.5:1 on both the
+  // light and the dark page. Null means no band: the hero sits on the page.
+  palette         Json?
   date           String?
   sortOrder      Int              @default(0)
   createdAt      DateTime         @default(now())
@@ -246,6 +271,10 @@ model ProjectSection {
   title       String
   description String
   sortOrder   Int                   @default(0)
+  // The section the plan cards render in, on the own-app layout. At most one
+  // per project (`projectCreateSchema`); with none, the cards get a section of
+  // their own before the FAQ.
+  hasPlans    Boolean               @default(false)
   images      ProjectSectionImage[]
 }
 
@@ -255,6 +284,10 @@ model ProjectSectionImage {
   section   ProjectSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   url       String
   caption   String?
+  // Alt text when it should differ from the visible caption, e.g. a long
+  // description that would read badly printed under the image. Resolves
+  // `alt ?? caption ?? "{section title} screenshot"`.
+  alt       String?
   sortOrder Int            @default(0)
 }
 

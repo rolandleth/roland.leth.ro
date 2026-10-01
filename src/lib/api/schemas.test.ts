@@ -1361,6 +1361,238 @@ describe("projectCreateSchema — accentColor hex validation", () => {
 
 // #endregion
 
+// #region Product-page fields
+
+describe("projectCreateSchema — product-page fields", () => {
+	const base = {
+		name: "Digest",
+		slug: "digest",
+		summary: "A food and symptom journal.",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
+	}
+	const theme = {
+		band: "#24443a",
+		bandInk: "#f4f1e8",
+		bandInk2: "#c9d3cc",
+		bandHighlight: "#cfa75a",
+		accentText: "#2e7d5b",
+	}
+	const plans = [
+		{ name: "Free, forever", features: ["Meals."], sortOrder: 1 },
+		{
+			name: "Insights",
+			isHighlighted: true,
+			features: ["Suspects."],
+			sortOrder: 2,
+		},
+	]
+	const offers = [
+		{ name: "Free", plan: "Free, forever", price: "0", priceCurrency: "USD" },
+		{
+			name: "Insights, monthly",
+			plan: "Insights",
+			price: "6.99",
+			priceCurrency: "USD",
+			billingPeriod: "P1M",
+		},
+	]
+
+	function issueMessages(input: unknown): string[] {
+		const result = projectCreateSchema.safeParse(input)
+
+		return result.success ? [] : result.error.issues.map((i) => i.message)
+	}
+
+	it("accepts a full product page: text fields, plans, offers with plans, palette, a plans section, image alt", () => {
+		const result = projectCreateSchema.safeParse({
+			...base,
+			metaDescription: "Digest is a food and symptom journal for iPhone.",
+			heroEyebrow: "Food and symptom journal for iPhone and iPad",
+			heroHeadline: "Find which foods to suspect",
+			heroImageAlt: "Four cards from Digest.",
+			storeNote: "Logging is free, forever.",
+			closingHeadline: "10 seconds a meal",
+			closingBody: "Three weeks of this is the cheap way to find out.",
+			disclaimer: "Digest is not a medical device.",
+			plans,
+			offers,
+			palette: { light: theme, dark: theme },
+			sections: [
+				{
+					title: "Free and paid",
+					description: "Prices are for the US.",
+					hasPlans: true,
+					images: [
+						{
+							url: "https://example.com/a.png",
+							caption: null,
+							alt: "A long description.",
+						},
+					],
+				},
+			],
+		})
+
+		expect(result.success).toBe(true)
+	})
+
+	it("collapses whitespace in the meta description and caps it at the description limit", () => {
+		const collapsed = projectCreateSchema.safeParse({
+			...base,
+			metaDescription: "Two\nlines.",
+		})
+		expect(collapsed.success && collapsed.data.metaDescription).toBe(
+			"Two lines."
+		)
+
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				metaDescription: "x".repeat(DESCRIPTION_MAX_CHARS + 1),
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an empty hero line rather than storing an empty heading part", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, heroEyebrow: "   " }).success
+		).toBe(false)
+	})
+
+	it("rejects text fields past their limits", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, heroHeadline: "x".repeat(81) })
+				.success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({ ...base, storeNote: "x".repeat(121) })
+				.success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({ ...base, closingBody: "x".repeat(201) })
+				.success
+		).toBe(false)
+	})
+
+	it("rejects two plans with the same name, since offers point at plans by name", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans: [plans[0], { ...plans[1], name: "Free, forever" }],
+			})
+		).toContain("Duplicate plan names: Free, forever")
+	})
+
+	it("rejects more than one highlighted plan", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans: [{ ...plans[0], isHighlighted: true }, plans[1]],
+			})
+		).toContain("At most one plan can be highlighted")
+	})
+
+	it("rejects a plan with no features", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [{ name: "Free", features: [] }],
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an offer that names no plan when the project has plans", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans,
+				offers: [{ name: "Free", price: "0", priceCurrency: "USD" }],
+			})
+		).toContain("Every offer needs a plan when the project has plans")
+	})
+
+	it("rejects an offer that names a plan that doesn't exist", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans,
+				offers: [{ ...offers[0], plan: "Pro" }],
+			})
+		).toContain('No plan is named "Pro"')
+	})
+
+	it("rejects an offer naming a plan when a create sends no plans at all", () => {
+		expect(issueMessages({ ...base, offers })).toEqual(
+			expect.arrayContaining(['No plan is named "Free, forever"'])
+		)
+	})
+
+	it("accepts offers without plans when the project has none (Reckon, Continuum today)", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				offers: [{ name: "One-time", price: "3.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(true)
+	})
+
+	it("rejects two sections that both hold the plans", () => {
+		expect(
+			issueMessages({
+				...base,
+				sections: [
+					{ title: "A", description: "a", hasPlans: true },
+					{ title: "B", description: "b", hasPlans: true },
+				],
+			})
+		).toContain("At most one section can hold the plans")
+	})
+
+	it("rejects a palette value that isn't a hex colour, which would otherwise reach the page's CSS", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				palette: {
+					light: { ...theme, band: "red;} body{display:none" },
+					dark: theme,
+				},
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects a palette with only one theme", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, palette: { light: theme } })
+				.success
+		).toBe(false)
+	})
+})
+
+describe("projectUpdateSchema — product-page fields", () => {
+	it("accepts offers that name plans without the plans in the same payload", () => {
+		// A partial update can't see the stored plans; judging the offers against
+		// an absent field would reject every offers-only PUT.
+		expect(
+			projectUpdateSchema.safeParse({
+				offers: [
+					{ name: "Free", plan: "Free", price: "0", priceCurrency: "USD" },
+				],
+			}).success
+		).toBe(true)
+	})
+
+	it("still checks offers against plans sent in the same payload", () => {
+		const result = projectUpdateSchema.safeParse({
+			plans: [{ name: "Free", features: ["Meals."] }],
+			offers: [{ name: "Pro", plan: "Pro", price: "9", priceCurrency: "USD" }],
+		})
+		expect(result.success).toBe(false)
+	})
+})
+
+// #endregion
+
 // #region loginSchema
 
 describe("loginSchema", () => {

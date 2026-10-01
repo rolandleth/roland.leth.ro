@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
 
@@ -68,6 +69,7 @@ const existingProject = {
 	isFeatured: false,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 3,
 	createdAt: new Date(),
@@ -211,6 +213,30 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(data.isFeatured).toBeUndefined()
 		expect(data.isDiscontinued).toBeUndefined()
 		expect(data.isOwnApp).toBeUndefined()
+	})
+
+	// The admin form edits the product-page text fields but not `plans` or
+	// `palette`, which are manifest-only. A save that omits them must not touch
+	// what the import wrote.
+	it("leaves plans and palette unchanged when a save omits them", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		await PUT(
+			putRequest("1", { heroEyebrow: "Food and symptom journal" }),
+			params("1")
+		)
+
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.heroEyebrow).toBe("Food and symptom journal")
+		expect(data.plans).toBeUndefined()
+		expect(data.palette).toBeUndefined()
+	})
+
+	it("passes a cleared product-page field through as null", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		await PUT(putRequest("1", { heroEyebrow: null }), params("1"))
+
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.heroEyebrow).toBeNull()
 	})
 
 	it("shifts projects in [new, old) up when moving to a lower position", async () => {

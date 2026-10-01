@@ -10,6 +10,7 @@ import {
 	revalidateProject,
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
 
@@ -109,6 +110,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 						isOwnApp: isOwnApp ?? false,
 						date: date ?? null,
 						sortOrder: targetOrder,
+						...toProductPageCreate(parsed),
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
 						faqs: toFaqCreate(faqs),

@@ -1,9 +1,43 @@
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
-import type { ProjectGalleryItem, ProjectListItem } from "@/lib/db/projects"
+import type {
+	ProjectDetail,
+	ProjectGalleryItem,
+	ProjectListItem,
+} from "@/lib/db/projects"
 
 export const TEST_SECRET = "abc123"
+
+/**
+ * Every product-page column, empty. Spread into each full project fixture, in
+ * the `ProjectDetail` and the Prisma row shapes alike, so a new product-page
+ * field means one edit here instead of one per test file.
+ */
+export const EMPTY_PRODUCT_PAGE_FIELDS = {
+	metaDescription: null,
+	heroEyebrow: null,
+	heroHeadline: null,
+	heroImageAlt: null,
+	storeNote: null,
+	closingHeadline: null,
+	closingBody: null,
+	disclaimer: null,
+	plans: null,
+	palette: null,
+} satisfies Pick<
+	ProjectDetail,
+	| "metaDescription"
+	| "heroEyebrow"
+	| "heroHeadline"
+	| "heroImageAlt"
+	| "storeNote"
+	| "closingHeadline"
+	| "closingBody"
+	| "disclaimer"
+	| "plans"
+	| "palette"
+>
 
 /** Fixed so `updatedAt` assertions don't depend on wall-clock time. */
 const FIXTURE_DATE = new Date("2026-07-01T12:00:00.000Z")

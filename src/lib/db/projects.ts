@@ -44,7 +44,40 @@ export interface ProjectOffer {
 	price: string
 	priceCurrency: string
 	billingPeriod?: string
+	/** The `ProjectPlan.name` this price belongs to, on the product page. */
+	plan?: string
 	sortOrder?: number
+}
+
+/**
+ * One plan card on the own-app product page, stored in the `plans` Json column.
+ * Mirrors `projectPlanSchema`; narrowed from `JsonValue` in `getProjectBySlug`
+ * the same way `offers` is.
+ *
+ * `type`, not `interface`, here and in the two palette types below: these are
+ * written back into Json columns (`toProductPageCreate`), and only a type alias
+ * satisfies Prisma's index-signature `InputJsonObject`.
+ */
+export type ProjectPlan = {
+	name: string
+	isHighlighted?: boolean
+	features: string[]
+	sortOrder?: number
+}
+
+/** One theme's band and small-text colours. Mirrors `paletteThemeSchema`. */
+export type ProjectPaletteTheme = {
+	band: string
+	bandInk: string
+	bandInk2: string
+	bandHighlight: string
+	accentText: string
+}
+
+/** The `palette` Json column. Mirrors `projectPaletteSchema`. */
+export type ProjectPalette = {
+	light: ProjectPaletteTheme
+	dark: ProjectPaletteTheme
 }
 
 export interface ProjectDetail {
@@ -67,6 +100,16 @@ export interface ProjectDetail {
 	isFeatured: boolean
 	isDiscontinued: boolean
 	isOwnApp: boolean
+	metaDescription: string | null
+	heroEyebrow: string | null
+	heroHeadline: string | null
+	heroImageAlt: string | null
+	storeNote: string | null
+	closingHeadline: string | null
+	closingBody: string | null
+	disclaimer: string | null
+	plans: ProjectPlan[] | null
+	palette: ProjectPalette | null
 	date: string | null
 	sortOrder: number
 	createdAt: Date
@@ -77,11 +120,13 @@ export interface ProjectDetail {
 		title: string
 		description: string
 		sortOrder: number
+		hasPlans: boolean
 		images: {
 			id: number
 			sectionId: number
 			url: string
 			caption: string | null
+			alt: string | null
 			sortOrder: number
 		}[]
 	}[]
@@ -319,7 +364,9 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 export {
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
+	type ProductPageInput,
 	type ProjectFaqInput,
 	type ProjectLinkInput,
 	type ProjectSectionInput,
@@ -383,9 +430,13 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 			// shaped decimal string with no re-check. A row written around the
 			// schema (raw SQL, a future importer that skips the parse) breaks that
 			// assumption here, not at the consumer.
+			// `plans` and `palette` are the same kind of column, narrowed for the
+			// same reason, against `projectPlanSchema` and `projectPaletteSchema`.
 			return {
 				...row,
 				offers: row.offers as unknown as ProjectOffer[] | null,
+				plans: row.plans as unknown as ProjectPlan[] | null,
+				palette: row.palette as unknown as ProjectPalette | null,
 			}
 		},
 		[projectTag(slug)],

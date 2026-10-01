@@ -3,6 +3,7 @@ import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
 import { projectInclude } from "@/lib/db/projects"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { generateMetadata, default as EditProjectPage } from "./page"
 
 vi.mock("@/lib/db/db", () => ({
@@ -57,6 +58,7 @@ const existingProject = {
 	isFeatured: false,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 0,
 	createdAt: new Date(),
@@ -68,12 +70,14 @@ const existingProject = {
 			title: "Overview",
 			description: "Some text",
 			sortOrder: 0,
+			hasPlans: false,
 			images: [
 				{
 					id: 100,
 					sectionId: 10,
 					url: "/img.png",
 					caption: null,
+					alt: null,
 					sortOrder: 0,
 				},
 			],

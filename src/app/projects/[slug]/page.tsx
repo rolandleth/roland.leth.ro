@@ -56,7 +56,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		// `metaTitle` drives the `<title>` tag when set (keyword-bearing), falling
 		// back to the brand-word `name`. The `<h1>` and gallery card still use `name`.
 		title: project.metaTitle ?? project.name,
-		description: project.summary,
+		// `metaDescription` when set: `summary` doubles as the own-app hero
+		// paragraph, which runs past the length a result snippet shows.
+		description: project.metaDescription ?? project.summary,
 		path: `/projects/${project.slug}`,
 		// Prefer the purpose-built OG asset, then the card image, hero, and first
 		// section image (see `resolveOgImage`).

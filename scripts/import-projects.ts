@@ -41,6 +41,7 @@ import { projectCreateSchema } from "@/lib/api/schemas"
 import {
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
 } from "@/lib/db/projectMappers"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
@@ -336,6 +337,7 @@ async function writeProject(
 					// admin create route, which shifts siblings to make room. The
 					// manifest author owns gallery ordering across the whole batch.
 					sortOrder: data.sortOrder ?? 0,
+					...toProductPageCreate(data),
 					sections: toSectionCreate(data.sections),
 					links: toLinkCreate(data.links),
 					faqs: toFaqCreate(data.faqs),
