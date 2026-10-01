@@ -152,6 +152,10 @@ marked Sensitive on Vercel can't be read back, so the pull can't fill it; copy
 that one in by hand. Next.js loads `.env.local` over `.env`, so keep a development
 `DATABASE_URL` in `.env.local`, or `yarn dev` runs against production.
 
+A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
+named or not, and counted as skipped rather than failed, so an app can be staged
+before it's ready without every bare run failing on it. Remove the key to import.
+
 Dry run first; `blob:prune-uploads` deletes permanently. It prints the database
 and blob store it targets before anything else, and `--apply` refuses when the
 uploads it would delete outnumber the ones the database references.

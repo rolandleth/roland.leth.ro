@@ -59,6 +59,7 @@ import { isMissingPathError } from "@/lib/import/fsErrors"
 import {
 	blobKeyFor,
 	contentHashFor,
+	isDraftManifest,
 	listManifestImagePaths,
 	parseManifest,
 	type ProjectFlags,
@@ -78,7 +79,7 @@ const MANIFEST_FILENAME = "project.json"
 
 type ProjectResult = {
 	name: string
-	status: "imported" | "validated" | "failed"
+	status: "imported" | "validated" | "skipped" | "failed"
 	detail?: string
 	// The manifest's slug (= the `/projects/<slug>` last path component). Absent
 	// when a run fails before the slug is checked. Used to print the paste-ready
@@ -352,13 +353,18 @@ async function writeProject(
 
 // #region per-project pipeline
 
+type ManifestRead =
+	| { isDraft: true }
+	| { isDraft: false; manifest: ProjectManifest & ProjectFlags }
+
 /**
- * Reads a manifest through `parseManifest`, so the required-flags check runs
- * before anything else in `processProject`, dry runs included.
+ * Reads a manifest. A draft (`isDraftManifest`) comes back as one with no
+ * further checks, so a manifest staged before its app is ready is skipped even
+ * while incomplete. Anything else goes through `parseManifest`, so the
+ * required-flags check runs before anything else in `processProject`, dry runs
+ * included.
  */
-async function readManifest(
-	manifestPath: string
-): Promise<ProjectManifest & ProjectFlags> {
+async function readManifest(manifestPath: string): Promise<ManifestRead> {
 	let raw: string
 
 	try {
@@ -375,7 +381,11 @@ async function readManifest(
 	}
 
 	try {
-		return parseManifest(raw)
+		if (isDraftManifest(raw)) {
+			return { isDraft: true }
+		}
+
+		return { isDraft: false, manifest: parseManifest(raw) }
 	} catch (error) {
 		throw new Error(`${MANIFEST_FILENAME}: ${errorMessage(error)}`)
 	}
@@ -388,9 +398,17 @@ async function processProject(
 	const folderName = path.basename(projectDir)
 
 	try {
-		const manifest = await readManifest(
-			path.join(projectDir, MANIFEST_FILENAME)
-		)
+		const read = await readManifest(path.join(projectDir, MANIFEST_FILENAME))
+
+		if (read.isDraft) {
+			console.log(
+				`\n▸ ${folderName}  draft, skipped (remove "isDraft" from ${MANIFEST_FILENAME} to import)`
+			)
+
+			return { name: folderName, status: "skipped" }
+		}
+
+		const { manifest } = read
 
 		if (typeof manifest.name !== "string" || manifest.name.trim() === "") {
 			throw new Error(`Manifest is missing a non-empty "name".`)
@@ -644,14 +662,20 @@ async function main(): Promise<void> {
 
 	const imported = results.filter((result) => result.status === "imported")
 	const validated = results.filter((result) => result.status === "validated")
+	const skipped = results.filter((result) => result.status === "skipped")
 	const failed = results.filter((result) => result.status === "failed")
 
 	const headline = isDryRun ? "Dry run" : "Import"
 	const tally = isDryRun
 		? `${validated.length} validated`
 		: `${imported.length} imported`
+	// Drafts are listed but don't fail the run: holding one back is the point.
+	const skippedTally =
+		skipped.length > 0 ? `, ${skipped.length} skipped (draft)` : ""
 
-	console.log(`\n${headline} complete: ${tally}, ${failed.length} failed.`)
+	console.log(
+		`\n${headline} complete: ${tally}${skippedTally}, ${failed.length} failed.`
+	)
 
 	// Script writes bypass the app, so `unstable_cache` tags aren't busted. Print
 	// the imported slugs so they paste straight into the admin dashboard's

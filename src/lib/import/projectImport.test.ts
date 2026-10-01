@@ -5,6 +5,7 @@ import {
 	contentHashFor,
 	isLocalImageRef,
 	listManifestImagePaths,
+	isDraftManifest,
 	parseManifest,
 	projectFlags,
 	type ProjectManifest,
@@ -262,6 +263,64 @@ describe("parseManifest", () => {
 		["a string", '"Reckon"'],
 	])("rejects %s, which parses but isn't a manifest", (_label, raw) => {
 		expect(() => parseManifest(raw)).toThrow(
+			"The manifest must be a JSON object."
+		)
+	})
+
+	it("refuses a draft, so a missing draft check can't import it", () => {
+		const raw = JSON.stringify({
+			name: "Digest",
+			isDraft: true,
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+
+		expect(() => parseManifest(raw)).toThrow(/draft/)
+	})
+
+	it("accepts `isDraft: false` as a manifest that's ready", () => {
+		const raw = JSON.stringify({
+			name: "Digest",
+			isDraft: false,
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+
+		expect(parseManifest(raw).name).toBe("Digest")
+	})
+})
+
+// #endregion
+
+// #region isDraftManifest
+
+describe("isDraftManifest", () => {
+	it("is true for `isDraft: true`, even with the required flags left out", () => {
+		// A draft is skipped before validation, so it can be incomplete.
+		expect(
+			isDraftManifest(JSON.stringify({ name: "Digest", isDraft: true }))
+		).toBe(true)
+	})
+
+	it("is false when `isDraft` is false or left out", () => {
+		expect(isDraftManifest(JSON.stringify({ isDraft: false }))).toBe(false)
+		expect(isDraftManifest(JSON.stringify({ name: "Reckon" }))).toBe(false)
+	})
+
+	it("rejects an `isDraft` that isn't a boolean rather than guessing", () => {
+		expect(() => isDraftManifest(JSON.stringify({ isDraft: "yes" }))).toThrow(
+			/"isDraft" must be true or false/
+		)
+		expect(() => isDraftManifest(JSON.stringify({ isDraft: null }))).toThrow(
+			/"isDraft" must be true or false/
+		)
+	})
+
+	it("reports text that isn't a JSON object", () => {
+		expect(() => isDraftManifest('{ "isDraft": ')).toThrow(/^Invalid JSON: /)
+		expect(() => isDraftManifest("[]")).toThrow(
 			"The manifest must be a JSON object."
 		)
 	})

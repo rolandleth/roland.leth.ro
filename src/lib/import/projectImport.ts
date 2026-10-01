@@ -85,6 +85,8 @@ export type ProjectManifest = {
 	isFeatured?: boolean
 	isDiscontinued?: boolean
 	isOwnApp?: boolean
+	/** Manifest-only: a draft is skipped by the import. See `isDraftManifest`. */
+	isDraft?: boolean
 	date?: string | null
 	sortOrder?: number
 	sections?: ManifestSection[]
@@ -210,14 +212,8 @@ function assertRequiredFlags(
 	}
 }
 
-/**
- * Parses a manifest file's text: the JSON, then `assertRequiredFlags`. The
- * import script reads every manifest through this, so the flag check runs
- * first — before the schema, any upload and the dry-run exit — and can't be
- * dropped from the script without dropping the parse with it. The flags come
- * back typed as booleans, which is what lets the write skip a `?? false`.
- */
-export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
+/** The manifest text as a JSON object, or a readable error when it isn't one. */
+function parseManifestObject(raw: string): Record<string, unknown> {
 	let parsed: unknown
 
 	try {
@@ -230,6 +226,59 @@ export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
 	// `TypeError` instead of a message about the manifest.
 	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
 		throw new Error("The manifest must be a JSON object.")
+	}
+
+	return parsed as Record<string, unknown>
+}
+
+/**
+ * Whether a manifest's text marks it a draft: `"isDraft": true`, for an app
+ * staged before it's ready to publish. The import script checks this before
+ * `parseManifest` and skips a draft without validating it, so a manifest still
+ * missing a flag or holding a placeholder link is reported as skipped, not as
+ * failed. The key is manifest-only and never reaches the database.
+ *
+ * Throws for text that isn't a JSON object, and for an `isDraft` that isn't a
+ * boolean: `"isDraft": "yes"` must not import a page the author meant to hold.
+ */
+export function isDraftManifest(raw: string): boolean {
+	return draftFlag(parseManifestObject(raw))
+}
+
+function draftFlag(manifest: Record<string, unknown>): boolean {
+	const { isDraft } = manifest
+
+	if (isDraft === undefined) {
+		return false
+	}
+
+	if (typeof isDraft !== "boolean") {
+		throw new Error(
+			`"isDraft" must be true or false, or left out; it is ${JSON.stringify(isDraft)}.`
+		)
+	}
+
+	return isDraft
+}
+
+/**
+ * Parses a manifest file's text: the JSON, then `assertRequiredFlags`. The
+ * import script reads every manifest through this, so the flag check runs
+ * first — before the schema, any upload and the dry-run exit — and can't be
+ * dropped from the script without dropping the parse with it. The flags come
+ * back typed as booleans, which is what lets the write skip a `?? false`.
+ *
+ * A draft (`isDraftManifest`) is refused: the script skips drafts before it
+ * gets here, so one reaching this point means that check went missing, and
+ * importing a page its author marked as not ready is the wrong way to find out.
+ */
+export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
+	const parsed = parseManifestObject(raw)
+
+	if (draftFlag(parsed)) {
+		throw new Error(
+			`The manifest is a draft ("isDraft": true). Remove the key to import it.`
+		)
 	}
 
 	// Loosely typed on purpose (see `ProjectManifest`): `projectCreateSchema`
