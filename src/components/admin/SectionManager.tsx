@@ -14,6 +14,8 @@ export interface SectionImage {
 	_key: string
 	url: string
 	caption: string
+	/** Empty means none: the page falls back to the caption, then the section title. */
+	alt: string
 	sortOrder: number
 }
 
@@ -22,6 +24,8 @@ export interface SectionItem {
 	title: string
 	description: string
 	sortOrder: number
+	/** The section the own-app page renders the plan cards in. */
+	hasPlans: boolean
 	images: SectionImage[]
 }
 
@@ -113,6 +117,20 @@ function SectionCard({
 					/>
 				</div>
 
+				{/* Only one section per project can hold them; the API rejects a
+				    second, so the author learns it on save. */}
+				<label className="flex cursor-pointer items-center gap-2 self-start">
+					<input
+						type="checkbox"
+						checked={section.hasPlans}
+						onChange={(e) => onPatch({ hasPlans: e.target.checked })}
+						className="accent-accent h-4 w-4"
+					/>
+					<span className="text-secondary text-sm font-medium">
+						Show the plan cards in this section (own apps)
+					</span>
+				</label>
+
 				<div className="flex flex-col gap-3">
 					<span className="text-secondary text-sm font-medium">Images</span>
 
@@ -149,12 +167,26 @@ function SectionCard({
 									onRemove={() => images.remove(image._key)}
 								/>
 							</div>
+
+							<input
+								type="text"
+								value={image.alt}
+								onChange={(e) =>
+									images.update(image._key, { alt: e.target.value })
+								}
+								placeholder="Alt text (optional, defaults to the caption)"
+								aria-label="Alt text"
+								maxLength={300}
+								className="admin-input"
+							/>
 						</div>
 					))}
 
 					<button
 						type="button"
-						onClick={() => images.add(() => ({ url: "", caption: "" }))}
+						onClick={() =>
+							images.add(() => ({ url: "", caption: "", alt: "" }))
+						}
 						className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
 					>
 						Add image
@@ -190,7 +222,12 @@ export default function SectionManager({
 			<button
 				type="button"
 				onClick={() =>
-					list.add(() => ({ title: "", description: "", images: [] }))
+					list.add(() => ({
+						title: "",
+						description: "",
+						hasPlans: false,
+						images: [],
+					}))
 				}
 				className="border-border text-secondary hover:text-primary self-start rounded-md border px-3 py-2 text-sm transition-colors"
 			>

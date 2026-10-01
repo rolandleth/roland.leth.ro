@@ -634,6 +634,23 @@ describe("toProjectFormInitialData", () => {
 		expect(data.sections[0].images[1].caption).toBe("hi")
 	})
 
+	it("coerces null alt text to an empty string and keeps stored alt text", () => {
+		const detail = makeAdminDetail()
+		detail.sections[0].images[1].alt = "Stored alt."
+
+		const data = toProjectFormInitialData(detail)
+
+		expect(data.sections[0].images[0].alt).toBe("")
+		expect(data.sections[0].images[1].alt).toBe("Stored alt.")
+	})
+
+	it("passes the plans flag through to the form", () => {
+		const detail = makeAdminDetail()
+		detail.sections[0].hasPlans = true
+
+		expect(toProjectFormInitialData(detail).sections[0].hasPlans).toBe(true)
+	})
+
 	it("preserves top-level project fields untouched", () => {
 		const detail = makeAdminDetail()
 		const data = toProjectFormInitialData(detail)

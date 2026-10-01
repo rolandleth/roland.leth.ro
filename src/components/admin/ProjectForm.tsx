@@ -19,7 +19,7 @@ import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
 import { followTitleSlug } from "@/lib/utils/format"
 
-interface InitialData {
+type InitialData = {
 	id: number
 	name: string
 	slug: string
@@ -43,13 +43,62 @@ interface InitialData {
 	})[]
 	links: (Omit<LinkItem, "_key"> & { id?: number })[]
 	faqs: (Omit<FaqItem, "_key"> & { id?: number })[]
-}
+} & Partial<Record<ProductPageField, string | null>>
 
 interface Props {
 	initialData?: InitialData
 }
 
-interface ProjectPayload {
+/**
+ * The own-app page's text fields, all optional on the page and all plain
+ * strings in the form. `plans`, `palette` and `offers` are manifest-only and
+ * never sent from here, so a save leaves what the import wrote.
+ */
+const PRODUCT_PAGE_FIELDS = [
+	{ key: "heroEyebrow", label: "Hero eyebrow", maxLength: 80 },
+	{ key: "heroHeadline", label: "Hero headline", maxLength: 80 },
+	{ key: "heroImageAlt", label: "Hero image alt text", maxLength: 300 },
+	{ key: "storeNote", label: "Store button note", maxLength: 120 },
+	{ key: "closingHeadline", label: "Closing headline", maxLength: 80 },
+	{
+		key: "closingBody",
+		label: "Closing text",
+		maxLength: 200,
+		isMultiline: true,
+	},
+	{ key: "disclaimer", label: "Disclaimer", maxLength: 300, isMultiline: true },
+	{
+		key: "metaDescription",
+		label: "Meta description (defaults to the summary)",
+		maxLength: 160,
+		isMultiline: true,
+	},
+] as const
+
+type ProductPageField = (typeof PRODUCT_PAGE_FIELDS)[number]["key"]
+
+/** Empty-or-whitespace means "not set", which the API stores as null. */
+function textOrNull(value: string): string | null {
+	const trimmed = value.trim()
+
+	return trimmed === "" ? null : trimmed
+}
+
+/**
+ * Builds one value per product-page field. The cast is the one place the keys
+ * are trusted: `Object.fromEntries` types its result as a string-keyed record,
+ * and the entries come from `PRODUCT_PAGE_FIELDS` itself, so every key is
+ * present.
+ */
+function mapProductPageFields<T>(
+	value: (key: ProductPageField) => T
+): Record<ProductPageField, T> {
+	return Object.fromEntries(
+		PRODUCT_PAGE_FIELDS.map(({ key }) => [key, value(key)])
+	) as Record<ProductPageField, T>
+}
+
+type ProjectPayload = {
 	name: string
 	/** Sent on create only; the update schema has no slug. */
 	slug?: string
@@ -68,11 +117,11 @@ interface ProjectPayload {
 	date: string | null
 	sortOrder: number
 	sections: (Omit<SectionItem, "_key" | "images"> & {
-		images: Omit<SectionImage, "_key">[]
+		images: (Omit<SectionImage, "_key" | "alt"> & { alt: string | null })[]
 	})[]
 	links: Omit<LinkItem, "_key">[]
 	faqs: Omit<FaqItem, "_key">[]
-}
+} & Record<ProductPageField, string | null>
 
 const ROLE_OPTIONS = [
 	"Sole developer",
@@ -103,6 +152,7 @@ interface FormState {
 	isFeatured: boolean
 	isDiscontinued: boolean
 	isOwnApp: boolean
+	productPage: Record<ProductPageField, string>
 	sections: SectionItem[]
 	links: LinkItem[]
 	faqs: FaqItem[]
@@ -152,6 +202,7 @@ export default function ProjectForm({ initialData }: Props) {
 			isFeatured: initialData?.isFeatured ?? false,
 			isDiscontinued: initialData?.isDiscontinued ?? false,
 			isOwnApp: initialData?.isOwnApp ?? false,
+			productPage: mapProductPageFields((key) => initialData?.[key] ?? ""),
 			sections: (initialData?.sections ?? []).map((section) => ({
 				...section,
 				_key: crypto.randomUUID(),
@@ -246,13 +297,18 @@ export default function ProjectForm({ initialData }: Props) {
 			isFeatured: state.isFeatured,
 			isDiscontinued: state.isDiscontinued,
 			isOwnApp: state.isOwnApp,
+			...mapProductPageFields((key) => textOrNull(state.productPage[key])),
 			date: state.date || null,
 			sortOrder,
 			// Strip the client-only `_key` from sections, their nested images,
-			// and links before sending.
+			// and links before sending. An empty alt goes out as null: stored as
+			// "", it would make the image decorative on the page.
 			sections: state.sections.map(({ _key: _, images, ...rest }) => ({
 				...rest,
-				images: images.map(({ _key: __, ...imgRest }) => imgRest),
+				images: images.map(({ _key: __, alt, ...imgRest }) => ({
+					...imgRest,
+					alt: textOrNull(alt),
+				})),
 			})),
 			links: state.links.map(({ _key: _, ...rest }) => rest),
 			faqs: state.faqs.map(({ _key: _, ...rest }) => rest),
@@ -462,6 +518,53 @@ export default function ProjectForm({ initialData }: Props) {
 					<span className="text-secondary text-sm font-medium">Own app</span>
 				</label>
 			</div>
+
+			{/* Only own apps render these. Unchecking "Own app" hides the group but
+			    keeps what was typed, and a save still sends it. */}
+			{state.isOwnApp && (
+				<fieldset className="border-border flex flex-col gap-4 rounded-lg border p-4">
+					<legend className="text-secondary px-1 text-sm font-medium">
+						Product page
+					</legend>
+
+					{PRODUCT_PAGE_FIELDS.map((field) => {
+						const id = `productPage-${field.key}`
+						const inputProps = {
+							id,
+							value: state.productPage[field.key],
+							onChange: (
+								e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+							) => {
+								const { value } = e.target
+
+								updateField("productPage", (prev) => ({
+									...prev,
+									[field.key]: value,
+								}))
+							},
+							maxLength: field.maxLength,
+							className: "admin-input",
+						}
+
+						return (
+							<div key={field.key} className="flex flex-col gap-1.5">
+								<label
+									htmlFor={id}
+									className="text-secondary text-sm font-medium"
+								>
+									{field.label}
+								</label>
+
+								{"isMultiline" in field ? (
+									<textarea rows={2} {...inputProps} />
+								) : (
+									<input type="text" {...inputProps} />
+								)}
+							</div>
+						)
+					})}
+				</fieldset>
+			)}
 
 			<div className="flex flex-col gap-1.5">
 				{/* `SectionManager` / `LinkManager` are composite controls with no

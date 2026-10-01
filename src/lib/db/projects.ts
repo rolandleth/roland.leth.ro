@@ -530,6 +530,7 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
 			images: section.images.map((image) => ({
 				...image,
 				caption: image.caption ?? "",
+				alt: image.alt ?? "",
 			})),
 		})),
 	}

@@ -89,6 +89,7 @@ function makeSection(partial: Partial<SectionItem> = {}): SectionItem {
 		title: partial.title ?? "Overview",
 		description: partial.description ?? "Body",
 		sortOrder: partial.sortOrder ?? 0,
+		hasPlans: partial.hasPlans ?? false,
 		images: partial.images ?? [],
 	}
 }
@@ -126,9 +127,59 @@ describe("SectionManager add", () => {
 			title: "",
 			description: "",
 			sortOrder: 1,
+			hasPlans: false,
 			images: [],
 		})
 		expect(typeof next[1]._key).toBe("string")
+	})
+
+	it("adds an image with empty caption and alt", async () => {
+		const { latest } = renderSections([makeSection({ _key: "a" })])
+		await user.click(screen.getByRole("button", { name: "Add image" }))
+
+		expect(latest()[0].images[0]).toMatchObject({
+			url: "",
+			caption: "",
+			alt: "",
+		})
+	})
+})
+
+// #endregion
+
+// #region Product-page fields
+
+describe("SectionManager product-page fields", () => {
+	it("sets and clears the plans flag on the targeted section only", async () => {
+		const { latest } = renderSections([
+			makeSection({ _key: "a", title: "Alpha" }),
+			makeSection({ _key: "b", title: "Beta" }),
+		])
+		const checkboxes = screen.getAllByRole("checkbox", {
+			name: /show the plan cards in this section/i,
+		})
+
+		await user.click(checkboxes[1])
+		expect(latest().map((s) => s.hasPlans)).toEqual([false, true])
+
+		await user.click(checkboxes[1])
+		expect(latest().map((s) => s.hasPlans)).toEqual([false, false])
+	})
+
+	it("edits the alt text of the targeted image only", async () => {
+		const { latest } = renderSections([
+			makeSection({
+				_key: "a",
+				images: [
+					{ _key: "img-1", url: "", caption: "One", alt: "", sortOrder: 0 },
+					{ _key: "img-2", url: "", caption: "Two", alt: "", sortOrder: 1 },
+				],
+			}),
+		])
+
+		await user.type(screen.getAllByLabelText("Alt text")[1], "Second")
+
+		expect(latest()[0].images.map((image) => image.alt)).toEqual(["", "Second"])
 	})
 })
 
@@ -182,7 +233,9 @@ describe("SectionManager image upload finishing late", () => {
 			_key: key,
 			title,
 			sortOrder,
-			images: [{ _key: `${key}-img`, url: "", caption: "", sortOrder: 0 }],
+			images: [
+				{ _key: `${key}-img`, url: "", caption: "", alt: "", sortOrder: 0 },
+			],
 		})
 
 	it("keeps edits made while the upload was in flight", async () => {
@@ -296,8 +349,8 @@ describe("SectionManager image upload finishing late", () => {
 		makeSection({
 			_key: "a",
 			images: [
-				{ _key: "img-1", url: "", caption: "One", sortOrder: 0 },
-				{ _key: "img-2", url: "", caption: "Two", sortOrder: 1 },
+				{ _key: "img-1", url: "", caption: "One", alt: "", sortOrder: 0 },
+				{ _key: "img-2", url: "", caption: "Two", alt: "", sortOrder: 1 },
 			],
 		})
 
