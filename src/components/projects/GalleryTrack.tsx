@@ -18,6 +18,17 @@ interface Props {
 	/** `sizes` hint forwarded to every slide's `next/image`. */
 	sizes: string
 	/**
+	 * The slide that loads with `priority` (preloaded, high fetch priority): the
+	 * first image on the page, when this strip holds it. Omitted everywhere else.
+	 */
+	priorityIndex?: number
+	/**
+	 * Lazy-load every slide but the priority one. For a page that stacks several
+	 * strips, where the default (the centred slide and its neighbours eager)
+	 * would fetch two images per strip on load, most of them far below the fold.
+	 */
+	isLazy?: boolean
+	/**
 	 * Transform applied to the centred slide only (scale + pan for the lightbox
 	 * zoom). Neighbours never zoom, so only the active slide reads it.
 	 */
@@ -36,9 +47,13 @@ interface Props {
 /**
  * Eager-load the centred slide and its immediate neighbours (the ones a single
  * swipe reveals); lazy-load the rest so a long gallery doesn't fetch every
- * screenshot on mount.
+ * screenshot on mount. With `isLazy`, every slide is lazy.
  */
-function slideLoading(offset: number): "eager" | "lazy" {
+function slideLoading(offset: number, isLazy: boolean): "eager" | "lazy" {
+	if (isLazy) {
+		return "lazy"
+	}
+
 	return Math.abs(offset) <= 1 ? "eager" : "lazy"
 }
 
@@ -53,6 +68,8 @@ export default function GalleryTrack({
 	index,
 	x,
 	sizes,
+	priorityIndex,
+	isLazy = false,
 	activeSlideStyle,
 	onActivateSlide,
 	drag = false,
@@ -72,6 +89,7 @@ export default function GalleryTrack({
 			{images.map((image, i) => {
 				const isActive = i === index
 				const alt = galleryImageAlt(image)
+				const isPriority = i === priorityIndex
 				const picture = (
 					<Image
 						src={image.url}
@@ -79,7 +97,10 @@ export default function GalleryTrack({
 						fill
 						sizes={sizes}
 						draggable={false}
-						loading={slideLoading(i - index)}
+						// `priority` implies eager loading, and next/image warns when
+						// both are set.
+						priority={isPriority}
+						loading={isPriority ? undefined : slideLoading(i - index, isLazy)}
 						// `pointer-events-none` lets the drag/zoom surface above receive
 						// the gesture and stops the browser's native image drag.
 						className="pointer-events-none object-contain select-none"

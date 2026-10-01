@@ -7,6 +7,8 @@ export interface GalleryImage {
 	id: number
 	url: string
 	caption: string | null
+	/** Alt text when it differs from the caption; see {@link galleryImageAlt}. */
+	alt: string | null
 	/** Index of the owning section, so navigation can follow the active tab. */
 	sectionIndex: number
 	/** Position within the owning section, for the section-scoped dots. */
@@ -18,7 +20,12 @@ export interface GalleryImage {
 /** The minimum a section needs to expose for {@link flattenSections}. */
 interface FlattenableSection {
 	title: string
-	images: { id: number; url: string; caption: string | null }[]
+	images: {
+		id: number
+		url: string
+		caption: string | null
+		alt?: string | null
+	}[]
 }
 
 /**
@@ -34,6 +41,7 @@ export function flattenSections(
 			id: image.id,
 			url: image.url,
 			caption: image.caption,
+			alt: image.alt ?? null,
 			sectionIndex,
 			localIndex,
 			sectionTitle: section.title,
@@ -53,7 +61,20 @@ export function firstIndexOfSection(
 	return images.findIndex((image) => image.sectionIndex === sectionIndex)
 }
 
-/** Resolves the fallback-aware alt text for a slide. */
+/**
+ * Resolves a slide's alt text: the alt when set, else the caption, else
+ * "{section title} screenshot". Blank counts as unset. The admin form used to
+ * store an empty caption as "", and an empty alt marks an image decorative,
+ * which would hide a screenshot from screen readers.
+ */
 export function galleryImageAlt(image: GalleryImage): string {
-	return image.caption ?? `${image.sectionTitle} screenshot`
+	return (
+		nonBlank(image.alt) ??
+		nonBlank(image.caption) ??
+		`${image.sectionTitle} screenshot`
+	)
+}
+
+function nonBlank(value: string | null): string | null {
+	return value != null && value.trim() !== "" ? value : null
 }

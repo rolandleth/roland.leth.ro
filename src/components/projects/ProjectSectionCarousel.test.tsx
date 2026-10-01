@@ -8,8 +8,15 @@ const user = setupUser()
 
 vi.mock("next/image", () => ({
 	default: (props: Record<string, unknown>) => {
-		// eslint-disable-next-line @next/next/no-img-element
-		return <img alt={props.alt as string} src={props.src as string} />
+		return (
+			// eslint-disable-next-line @next/next/no-img-element
+			<img
+				alt={props.alt as string}
+				src={props.src as string}
+				loading={props.loading as "eager" | "lazy" | undefined}
+				data-priority={props.priority === true ? "true" : undefined}
+			/>
+		)
 	},
 }))
 
@@ -22,6 +29,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 0,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 	{
 		id: 2,
@@ -30,6 +38,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 1,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 	{
 		id: 3,
@@ -38,6 +47,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 2,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 ]
 
@@ -116,6 +126,7 @@ describe("ProjectSectionCarousel", () => {
 				sectionIndex: 0,
 				localIndex: 0,
 				sectionTitle: "Alpha",
+				alt: null,
 			},
 			{
 				id: 2,
@@ -124,6 +135,7 @@ describe("ProjectSectionCarousel", () => {
 				sectionIndex: 1,
 				localIndex: 0,
 				sectionTitle: "Beta",
+				alt: null,
 			},
 			{
 				id: 3,
@@ -132,6 +144,7 @@ describe("ProjectSectionCarousel", () => {
 				sectionIndex: 1,
 				localIndex: 1,
 				sectionTitle: "Beta",
+				alt: null,
 			},
 		]
 		const { props } = renderCarousel({ images: twoSections, index: 1 })
@@ -193,11 +206,43 @@ describe("ProjectSectionCarousel", () => {
 					sectionIndex: 0,
 					localIndex: 0,
 					sectionTitle: "MyApp",
+					alt: null,
 				},
 			],
 		})
 		expect(
 			screen.queryByRole("button", { name: /go to image/i })
 		).not.toBeInTheDocument()
+	})
+})
+
+describe("ProjectSectionCarousel image loading", () => {
+	function slideImage(name: string) {
+		return screen.getByRole("img", { name, hidden: true })
+	}
+
+	it("loads the centred slide and its neighbour eagerly and the rest lazily by default", () => {
+		renderCarousel()
+
+		expect(slideImage("First slide")).toHaveAttribute("loading", "eager")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "eager")
+		expect(slideImage("MyApp screenshot")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("loads every slide lazily when the page stacks several carousels", () => {
+		renderCarousel({ isLazy: true })
+
+		expect(slideImage("First slide")).toHaveAttribute("loading", "lazy")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("gives only the priority slide `priority`, with no `loading` beside it", () => {
+		renderCarousel({ isLazy: true, priorityIndex: 0 })
+
+		const first = slideImage("First slide")
+		expect(first).toHaveAttribute("data-priority", "true")
+		expect(first).not.toHaveAttribute("loading")
+		expect(slideImage("Second slide")).not.toHaveAttribute("data-priority")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
 	})
 })

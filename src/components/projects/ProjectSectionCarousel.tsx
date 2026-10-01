@@ -22,7 +22,23 @@ interface Props {
 	onSelectImage: (flatIndex: number) => void
 	/** Enlarge the current image into the lightbox. */
 	onEnlarge: () => void
+	/** `sizes` for the slides; defaults to the tabbed layout's 736px column. */
+	sizes?: string
+	/** Forwarded to `GalleryTrack`: the slide that loads with `priority`. */
+	priorityIndex?: number
+	/** Forwarded to `GalleryTrack`: lazy-load every non-priority slide. */
+	isLazy?: boolean
+	/**
+	 * Replaces the stage's sizing and decoration classes. The tabbed layout caps
+	 * the stage's height; the product page lets it follow the column's width and
+	 * adds an edge and a shadow.
+	 */
+	stageClassName?: string
 }
+
+const DEFAULT_SIZES = "(max-width: 768px) calc(100vw - 2rem), 736px"
+const DEFAULT_STAGE_CLASS =
+	"aspect-[1270/760] max-h-[60vh] w-full rounded-xl sm:max-h-120"
 
 // Spring for snapping the strip to a slide — quick and lightly damped so it
 // settles inside Apple's 0.2–0.3s window.
@@ -39,6 +55,10 @@ export default function ProjectSectionCarousel({
 	galleryLabel,
 	onSelectImage,
 	onEnlarge,
+	sizes = DEFAULT_SIZES,
+	priorityIndex,
+	isLazy,
+	stageClassName = DEFAULT_STAGE_CLASS,
 }: Props) {
 	const stageRef = useRef<HTMLDivElement | null>(null)
 	const { width } = useElementSize(stageRef)
@@ -160,7 +180,7 @@ export default function ProjectSectionCarousel({
 			    the off-screen slides. */}
 			<div
 				ref={stageRef}
-				className="relative aspect-[1270/760] max-h-[60vh] w-full overflow-hidden rounded-xl sm:max-h-120"
+				className={`relative overflow-hidden ${stageClassName}`}
 				// Start each interaction with a clean suppress flag and record where the
 				// pointer went down. Capture phase, so it runs before the drag layer.
 				onPointerDownCapture={(event) => {
@@ -191,7 +211,9 @@ export default function ProjectSectionCarousel({
 					images={images}
 					index={index}
 					x={x}
-					sizes="(max-width: 768px) calc(100vw - 2rem), 736px"
+					sizes={sizes}
+					priorityIndex={priorityIndex}
+					isLazy={isLazy}
 					onActivateSlide={handleEnlarge}
 					drag={canNavigate ? "x" : false}
 					dragConstraints={{ left: -(images.length - 1) * width, right: 0 }}

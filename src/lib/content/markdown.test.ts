@@ -6,6 +6,7 @@ import {
 	extractDefinitions,
 	markdownToHtml,
 	markdownToReact,
+	productMarkdownToReact,
 	stripMarkdown,
 	truncateBody,
 } from "@/lib/content/markdown"
@@ -131,6 +132,29 @@ describe("markdownToReact", () => {
 		expect(html).toContain("<h2>")
 		expect(html).toContain("First paragraph.")
 		expect(html).toContain("Second paragraph.")
+	})
+
+	it("keeps a numbered `###` heading as a plain heading outside the product page", async () => {
+		const html = await render("### 1. Log a meal\n\nBody.")
+		expect(html).toContain("<h3>1. Log a meal</h3>")
+		expect(html).not.toContain("product-steps")
+	})
+})
+
+describe("productMarkdownToReact", () => {
+	it("renders `### 1. Title` headings as numbered steps", async () => {
+		const node = await productMarkdownToReact("### 1. Log a meal\n\nBody.")
+		const html = renderToStaticMarkup(node as React.ReactElement)
+
+		expect(html).toContain('<ol class="product-steps" role="list">')
+		expect(html).toContain("<span>Log a meal</span>")
+	})
+
+	it("renders everything else as the page processor does", async () => {
+		const node = await productMarkdownToReact("Plain **text**.")
+		const html = renderToStaticMarkup(node as React.ReactElement)
+
+		expect(html).toBe("<p>Plain <strong>text</strong>.</p>")
 	})
 })
 

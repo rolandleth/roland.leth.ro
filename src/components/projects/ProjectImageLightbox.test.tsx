@@ -22,6 +22,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 0,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 	{
 		id: 2,
@@ -30,6 +31,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 1,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 	{
 		id: 3,
@@ -38,6 +40,7 @@ const images: GalleryImage[] = [
 		sectionIndex: 0,
 		localIndex: 2,
 		sectionTitle: "MyApp",
+		alt: null,
 	},
 ]
 
