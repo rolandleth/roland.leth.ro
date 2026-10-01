@@ -6,6 +6,12 @@ import { createSlug } from "@/lib/utils/format"
 import type { ProjectOffer, ProjectPlan } from "@/lib/db/projects"
 
 /**
+ * The section count at which the page shows its section list. Below it the
+ * page is short enough to scroll, and a list beside three sections is noise.
+ */
+export const TOC_MIN_SECTIONS = 6
+
+/**
  * Ids the page uses for its own blocks. A section titled "FAQ" or "Pricing"
  * must not take one of them, or the table of contents and the "See how it
  * works" link would land on the wrong block.

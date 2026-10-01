@@ -197,6 +197,202 @@ code[data-theme*=" "] span {
 	font-weight: normal;
 }
 
+/* Own-app product page (`src/components/projects/product`). The per-project
+   values (`--project-accent`, and the band palette when the project has one)
+   come from `ProductThemeStyle`; these are the defaults without a palette: no
+   band behind the hero, and an accent tint for the closing and the highlighted
+   plan. */
+.product-page {
+	--project-accent: var(--color-accent-value);
+	--product-band: transparent;
+	--product-band-surface: color-mix(
+		in srgb,
+		var(--project-accent) 9%,
+		var(--color-background-value)
+	);
+	--product-band-ink: var(--color-primary-value);
+	--product-band-ink2: var(--color-secondary-value);
+	--product-band-hi: var(--project-accent);
+	/* Small accent-coloured text and marks. The project's one accent can't
+	   reach 4.5:1 on both the light and the dark page, so a palette sets one
+	   per theme; without one, the accent is all there is. */
+	--product-accent-text: var(--project-accent);
+	--product-surface: #ffffff;
+}
+
+.dark .product-page {
+	--product-surface: color-mix(
+		in srgb,
+		#ffffff 4%,
+		var(--color-background-value)
+	);
+}
+
+/* Screenshots: a hairline so a light image's edge doesn't vanish into the page,
+   and a soft shadow under it. The hairline is the text colour at low alpha, so
+   it turns light on a dark page or band. Dark mode drops the shadow, which
+   doesn't show on a near-black page. */
+.product-shot {
+	--product-shot-edge: var(--color-primary-value);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--product-shot-edge) 8%, transparent),
+		0 2px 4px rgb(3 7 18 / 0.04),
+		0 18px 40px -16px rgb(3 7 18 / 0.3);
+}
+
+.product-band .product-shot {
+	--product-shot-edge: var(--product-band-ink);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--product-shot-edge) 12%, transparent),
+		0 28px 56px -20px rgb(0 0 0 / 0.45);
+}
+
+.dark .product-shot {
+	box-shadow: 0 0 0 1px
+		color-mix(in srgb, var(--product-shot-edge) 12%, transparent);
+}
+
+/* Plan cards. The highlighted plan takes the band colours. */
+.product-plan {
+	padding: 26px 26px 28px;
+	border: 1px solid var(--color-border-value);
+	border-radius: 14px;
+	background: var(--product-surface);
+	color: var(--color-primary-value);
+}
+
+.product-plan__prices {
+	border-bottom: 1px solid var(--color-border-value);
+}
+
+.product-plan__label {
+	color: var(--color-secondary-value);
+}
+
+.product-plan__features {
+	list-style: disc;
+}
+
+.product-plan__features li::marker {
+	color: var(--product-accent-text);
+}
+
+.product-plan--highlighted {
+	border-color: transparent;
+	background: var(--product-band-surface);
+	color: var(--product-band-ink);
+}
+
+.product-plan--highlighted .product-plan__prices {
+	border-bottom-color: color-mix(
+		in srgb,
+		var(--product-band-ink) 16%,
+		transparent
+	);
+}
+
+.product-plan--highlighted .product-plan__label {
+	color: var(--product-band-ink2);
+}
+
+.product-plan--highlighted .product-plan__features li::marker {
+	color: var(--product-band-hi);
+}
+
+/* Numbered steps, from `### 1. Title` headings in a section body (see
+   `rehypeNumberedSteps`). Unlayered, like the other `.prose` overrides above,
+   so it beats typography's list and heading rules. */
+.prose .product-steps {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.prose .product-step {
+	margin: 0;
+	padding: 22px 0;
+	border-top: 1px solid var(--color-border-value);
+}
+
+.prose .product-step:last-child {
+	padding-bottom: 0;
+}
+
+.prose .product-step::marker {
+	content: none;
+}
+
+.prose .product-step__title {
+	display: grid;
+	grid-template-columns: 44px minmax(0, 1fr);
+	gap: 14px;
+	align-items: center;
+	margin: 0;
+	font-family: var(--font-body);
+	font-size: 19px;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.prose .product-step__num {
+	font-family: var(--font-heading);
+	font-size: 40px;
+	font-weight: 400;
+	line-height: 1;
+	color: var(--product-accent-text);
+}
+
+.prose .product-step__body {
+	margin-left: 58px;
+}
+
+.prose .product-step__body > :first-child {
+	margin-top: 8px;
+}
+
+.prose .product-step__body > :last-child {
+	margin-bottom: 0;
+}
+
+@media (max-width: 639px) {
+	.prose .product-step__title {
+		grid-template-columns: 32px minmax(0, 1fr);
+		gap: 10px;
+	}
+
+	.prose .product-step__num {
+		font-size: 32px;
+	}
+
+	.prose .product-step__body {
+		margin-left: 42px;
+	}
+}
+
+/* The page's one load moment: the hero rises in, 0.25s, staggered a little.
+   Off when the reader asks for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+	.product-hero-fade {
+		animation: product-hero-up 0.25s ease-out both;
+	}
+
+	.product-hero-fade + .product-hero-fade {
+		animation-delay: 120ms;
+	}
+}
+
+@keyframes product-hero-up {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
 @layer components {
 	.admin-input {
 		@apply border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none;

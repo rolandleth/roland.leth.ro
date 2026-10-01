@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
-import { markdownToReact } from "@/lib/content/markdown"
+import { markdownToReact, productMarkdownToReact } from "@/lib/content/markdown"
 import { ogImageEntry } from "@/lib/content/metadata"
 import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
@@ -18,6 +18,13 @@ vi.mock("@/lib/db/projects", async (importOriginal) => ({
 
 vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn().mockResolvedValue(null),
+	productMarkdownToReact: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock("@/components/projects/product/ProductPage", () => ({
+	default: function MockProductPage() {
+		return <div data-testid="product-page" />
+	},
 }))
 
 vi.mock("@/lib/db/guides", () => ({
@@ -32,7 +39,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/projects/ProjectContent", () => ({
 	default: function MockProjectContent() {
-		return null
+		return <div data-testid="project-content" />
 	},
 }))
 
@@ -90,6 +97,48 @@ describe("ProjectPage", () => {
 		vi.mocked(loadProject).mockResolvedValue(existingProject)
 		const result = await ProjectPage(paramsFor("my-app"))
 		expect(result).toBeDefined()
+	})
+
+	const sectionWithSteps = {
+		id: 10,
+		projectId: 1,
+		title: "How it works",
+		description: "### 1. Log a meal",
+		sortOrder: 0,
+		hasPlans: false,
+		images: [],
+	}
+
+	it("renders the tabbed layout for a project that isn't an own app", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			sections: [sectionWithSteps],
+		})
+
+		const { getByTestId, queryByTestId } = render(
+			await ProjectPage(paramsFor("my-app"))
+		)
+
+		expect(getByTestId("project-content")).toBeInTheDocument()
+		expect(queryByTestId("product-page")).not.toBeInTheDocument()
+		expect(markdownToReact).toHaveBeenCalledWith("### 1. Log a meal")
+		expect(productMarkdownToReact).not.toHaveBeenCalled()
+	})
+
+	it("renders the product page for an own app, with the steps-aware markdown", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			isOwnApp: true,
+			sections: [sectionWithSteps],
+		})
+
+		const { getByTestId, queryByTestId } = render(
+			await ProjectPage(paramsFor("my-app"))
+		)
+
+		expect(getByTestId("product-page")).toBeInTheDocument()
+		expect(queryByTestId("project-content")).not.toBeInTheDocument()
+		expect(productMarkdownToReact).toHaveBeenCalledWith("### 1. Log a meal")
 	})
 })
 

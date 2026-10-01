@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation"
 import JsonLdScript from "@/components/JsonLdScript"
+import ProductPage from "@/components/projects/product/ProductPage"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { getSiteUrl } from "@/lib/auth/env"
 import { overviewToLinkItems } from "@/lib/content/guideLinks"
-import { markdownToReact } from "@/lib/content/markdown"
+import { markdownToReact, productMarkdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
@@ -75,11 +76,20 @@ export default async function ProjectPage({ params }: Props) {
 		notFound()
 	}
 
+	// Own apps get the product page; every other project keeps the tabbed
+	// portfolio entry. The product page renders `### 1. Title` headings in a
+	// section body as numbered steps, so its descriptions go through the
+	// product processor.
+	const isProductPage = project.isOwnApp
+	const renderDescription = isProductPage
+		? productMarkdownToReact
+		: markdownToReact
+
 	// Section descriptions are Markdown. `allSettled` (like the FAQ block below)
 	// so one bad description renders an inline plain-text fallback instead of
 	// 500'ing the whole project page. Aligned by index with `project.sections`.
 	const descriptionSettlements = await Promise.allSettled(
-		project.sections.map(async (s) => markdownToReact(s.description))
+		project.sections.map(async (s) => renderDescription(s.description))
 	)
 	const renderedDescriptions = descriptionSettlements.map((settled, index) => {
 		const section = project.sections[index]
@@ -148,12 +158,21 @@ export default async function ProjectPage({ params }: Props) {
 			<JsonLdScript data={faqJsonLd} />
 			<JsonLdScript data={softwareJsonLd} />
 
-			<ProjectContent
-				project={project}
-				renderedDescriptions={renderedDescriptions}
-				renderedFaqAnswers={renderedFaqAnswers}
-				guides={guides}
-			/>
+			{isProductPage ? (
+				<ProductPage
+					project={project}
+					renderedDescriptions={renderedDescriptions}
+					renderedFaqAnswers={renderedFaqAnswers}
+					guides={guides}
+				/>
+			) : (
+				<ProjectContent
+					project={project}
+					renderedDescriptions={renderedDescriptions}
+					renderedFaqAnswers={renderedFaqAnswers}
+					guides={guides}
+				/>
+			)}
 		</>
 	)
 }
