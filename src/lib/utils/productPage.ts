@@ -8,17 +8,32 @@ import type { GalleryGroup } from "@/lib/client/gallery"
 import type { ProjectOffer, ProjectPlan } from "@/lib/db/projects"
 
 /**
- * Ids the page uses for its own blocks. A section titled "FAQ" or "Pricing"
- * must not take one of them, or the table of contents and the "See how it
- * works" link would land on the wrong block.
+ * Ids the page always uses for its own blocks. A section titled "FAQ" must not
+ * take one of them, or the table of contents and the "See how it works" link
+ * would land on the wrong block.
  */
 export const RESERVED_ANCHORS: ReadonlySet<string> = new Set([
 	"faq",
-	"pricing",
 	"guides",
 	"get",
 	"main-content",
 ])
+
+/**
+ * The automatic "Pricing" block's id. Reserved only on a page that shows the
+ * block: with a `pricing` section of its own, the page has no such block, and
+ * a section titled "Pricing" should get the plain `#pricing`, not `#pricing-2`.
+ */
+export const AUTOMATIC_PRICING_ANCHOR = "pricing"
+
+/** The ids a section can't take on this page; see the two constants above. */
+export function reservedAnchors(
+	hasAutomaticPricing: boolean
+): ReadonlySet<string> {
+	return hasAutomaticPricing
+		? new Set([...RESERVED_ANCHORS, AUTOMATIC_PRICING_ANCHOR])
+		: RESERVED_ANCHORS
+}
 
 /**
  * One anchor id per section title, in order: the title's slug, made unique by

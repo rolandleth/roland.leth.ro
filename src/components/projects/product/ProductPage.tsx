@@ -6,8 +6,10 @@ import { flattenGroups } from "@/lib/client/gallery"
 import { resolveHeroImage } from "@/lib/db/projects"
 import { linkCtasFor } from "@/lib/utils/platforms"
 import {
+	AUTOMATIC_PRICING_ANCHOR,
 	groupOffersByPlan,
 	productGalleryGroups,
+	reservedAnchors,
 	sectionAnchors,
 } from "@/lib/utils/productPage"
 import ProjectGuides from "../ProjectGuides"
@@ -91,7 +93,14 @@ export default function ProductPage({
 	guides,
 }: Props) {
 	const { name, sections, faqs } = project
-	const anchors = sectionAnchors(sections.map((section) => section.title))
+	const pricing = pricingFor(project)
+	const hasAutomaticPricing =
+		pricing != null &&
+		!sections.some((section) => section.kind === ProjectSectionKind.pricing)
+	const anchors = sectionAnchors(
+		sections.map((section) => section.title),
+		reservedAnchors(hasAutomaticPricing)
+	)
 	const linkCtas = linkCtasFor(project)
 	const storeLinks = linkCtas.filter(({ cta }) => cta.kind !== "plainPill")
 	const otherLinks = linkCtas.filter(({ cta }) => cta.kind === "plainPill")
@@ -101,14 +110,10 @@ export default function ProductPage({
 	const { groups, sectionGroups, stepGroups } = productGalleryGroups(sections)
 	const gallery = flattenGroups(groups)
 	const heroImage = resolveHeroImage(project)
-	const pricing = pricingFor(project)
 	// A `pricing` section with nothing to price (a discontinued app) would be a
 	// heading over nothing, so it's left off the page and the section list.
 	const isShown = (section: (typeof sections)[number]) =>
 		section.kind !== ProjectSectionKind.pricing || pricing != null
-	const hasAutomaticPricing =
-		pricing != null &&
-		!sections.some((section) => section.kind === ProjectSectionKind.pricing)
 	const [primaryStoreLink] = storeLinks
 	// A flex row, so the badge sits at its own width on the left: it carries
 	// `justify-self-center` for the tabbed layout's link grid, which browsers
@@ -127,7 +132,9 @@ export default function ProductPage({
 		...sections.flatMap((section, index) =>
 			isShown(section) ? [{ id: anchors[index], title: section.title }] : []
 		),
-		...(hasAutomaticPricing ? [{ id: "pricing", title: "Pricing" }] : []),
+		...(hasAutomaticPricing
+			? [{ id: AUTOMATIC_PRICING_ANCHOR, title: "Pricing" }]
+			: []),
 		...(faqs.length > 0 ? [{ id: "faq", title: "FAQ" }] : []),
 	]
 
@@ -233,7 +240,7 @@ export default function ProductPage({
 
 					{hasAutomaticPricing && (
 						<ProductPricingSection
-							id="pricing"
+							id={AUTOMATIC_PRICING_ANCHOR}
 							title="Pricing"
 							pricing={pricing}
 							note={

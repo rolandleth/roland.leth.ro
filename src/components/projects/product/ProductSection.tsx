@@ -9,13 +9,10 @@ export const PRODUCT_H2_CLASS =
 /** Markdown text in a section or a step: the reading measure. */
 export const PRODUCT_PROSE_CLASS = "prose dark:prose-invert max-w-[40em]"
 
-/**
- * Where a gallery sits under text, in a split section's right column or under
- * a step: 32rem at most, which is the split column's width on a full-width page.
- */
-export const NARROW_GALLERY_CLASS = "w-full max-w-[32rem]"
-export const NARROW_GALLERY_SIZES =
-	"(max-width: 640px) calc(100vw - 2rem), 512px"
+// A split section's gallery sits under its text in the right column: 32rem at
+// most, which is that column's width on a full-width page.
+const NARROW_GALLERY_CLASS = "w-full max-w-[32rem]"
+const NARROW_GALLERY_SIZES = "(max-width: 640px) calc(100vw - 2rem), 512px"
 
 // A stacked section's gallery spans the content column: 840px at most; below
 // 640px the page has 16px gutters.

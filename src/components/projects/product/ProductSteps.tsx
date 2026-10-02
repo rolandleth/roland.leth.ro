@@ -1,11 +1,11 @@
 import { ProductGroupGallery } from "./ProductGallery"
-import {
-	NARROW_GALLERY_CLASS,
-	NARROW_GALLERY_SIZES,
-	PRODUCT_PROSE_CLASS,
-	ProductSectionShell,
-} from "./ProductSection"
+import { PRODUCT_PROSE_CLASS, ProductSectionShell } from "./ProductSection"
 import type { ReactNode } from "react"
+
+// A step's gallery is as wide as the step's text (40em), so the two share a
+// right edge: 640px at most, less the indent under the number on a phone.
+const STEP_GALLERY_CLASS = "w-full max-w-[40em]"
+const STEP_GALLERY_SIZES = "(max-width: 640px) calc(100vw - 5rem), 640px"
 
 export interface ProductStep {
 	id: number
@@ -59,11 +59,11 @@ export default function ProductStepsSection({
 							<div className={PRODUCT_PROSE_CLASS}>{step.body}</div>
 
 							{step.galleryIndex != null && (
-								<div className={`${NARROW_GALLERY_CLASS} mt-5`}>
+								<div className={`${STEP_GALLERY_CLASS} mt-5`}>
 									<ProductGroupGallery
 										groupIndex={step.galleryIndex}
 										label={`${projectName}: ${step.title}`}
-										sizes={NARROW_GALLERY_SIZES}
+										sizes={STEP_GALLERY_SIZES}
 									/>
 								</div>
 							)}

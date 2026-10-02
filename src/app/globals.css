@@ -307,6 +307,26 @@ code[data-theme*=" "] span {
 	);
 }
 
+/* A lone plan's features, beside its name and prices from 640px: the divider
+   is the same line as under the prices of a card in a row, turned upright. */
+.product-plan__aside {
+	padding-top: 20px;
+	border-top: 1px solid var(--color-border-value);
+}
+
+@media (min-width: 640px) {
+	.product-plan__aside {
+		padding-top: 0;
+		padding-left: 40px;
+		border-top: 0;
+		border-left: 1px solid var(--color-border-value);
+	}
+}
+
+.product-plan--highlighted .product-plan__aside {
+	border-color: color-mix(in srgb, var(--product-band-ink) 16%, transparent);
+}
+
 .product-plan--highlighted .product-plan__label {
 	color: var(--product-band-ink2);
 }

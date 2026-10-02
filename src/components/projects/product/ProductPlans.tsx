@@ -66,31 +66,63 @@ export default function ProductPlans({ pricing }: Props) {
 		)
 	}
 
-	const isSingle = pricing.plans.length === 1
+	const [singlePlan] = pricing.plans
+
+	// One plan (a single upfront price) spans the column: name and prices on
+	// the left, what's included beside them from 640px, so a lone card doesn't
+	// sit small against an empty column. Stacked like the other cards below that.
+	if (pricing.plans.length === 1) {
+		return (
+			<div
+				className={`product-plan grid gap-5 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:gap-10 ${planHighlightClass(singlePlan.plan)}`}
+			>
+				<div>
+					<PlanName name={singlePlan.plan.name} />
+					<PriceList offers={singlePlan.offers} label={priceLabel} isLast />
+				</div>
+
+				<div className="product-plan__aside">
+					<PlanFeatures features={singlePlan.plan.features} />
+				</div>
+			</div>
+		)
+	}
 
 	return (
-		<div className={`grid gap-4 ${isSingle ? "max-w-md" : "sm:grid-cols-2"}`}>
+		<div className="grid gap-4 sm:grid-cols-2">
 			{pricing.plans.map(({ plan, offers }) => (
 				<div
 					key={plan.name}
-					className={`product-plan row-span-3 grid grid-rows-subgrid ${
-						plan.isHighlighted === true ? "product-plan--highlighted" : ""
-					}`}
+					className={`product-plan row-span-3 grid grid-rows-subgrid ${planHighlightClass(plan)}`}
 				>
-					<h3 className="mb-3.5 font-serif text-[26px] leading-tight font-medium tracking-[-0.01em]">
-						{plan.name}
-					</h3>
-
+					<PlanName name={plan.name} />
 					<PriceList offers={offers} label={priceLabel} isLast={false} />
-
-					<ul className="product-plan__features grid content-start gap-2 pl-[18px] text-base leading-normal">
-						{plan.features.map((feature) => (
-							<li key={feature}>{feature}</li>
-						))}
-					</ul>
+					<PlanFeatures features={plan.features} />
 				</div>
 			))}
 		</div>
+	)
+}
+
+function planHighlightClass(plan: { isHighlighted?: boolean }): string {
+	return plan.isHighlighted === true ? "product-plan--highlighted" : ""
+}
+
+function PlanName({ name }: { name: string }) {
+	return (
+		<h3 className="mb-3.5 font-serif text-[26px] leading-tight font-medium tracking-[-0.01em]">
+			{name}
+		</h3>
+	)
+}
+
+function PlanFeatures({ features }: { features: readonly string[] }) {
+	return (
+		<ul className="product-plan__features grid content-start gap-2 pl-[18px] text-base leading-normal">
+			{features.map((feature) => (
+				<li key={feature}>{feature}</li>
+			))}
+		</ul>
 	)
 }
 

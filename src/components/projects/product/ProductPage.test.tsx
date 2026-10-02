@@ -718,6 +718,26 @@ describe("ProductPage — pricing", () => {
 		).toBeTruthy()
 	})
 
+	it("gives a pricing section titled Pricing the plain #pricing, and keeps the automatic block off", () => {
+		// With a section of its own the page has no automatic block, so `pricing`
+		// isn't taken and the URL doesn't end in `#pricing-2`.
+		renderPage(
+			makeProject({
+				plans,
+				offers,
+				sections: [makeSection(1, "Pricing", PRICING_SECTION)],
+			})
+		)
+
+		const headings = screen.getAllByRole("heading", {
+			level: 2,
+			name: "Pricing",
+		})
+
+		expect(headings).toHaveLength(1)
+		expect(headings[0].closest("section")).toHaveAttribute("id", "pricing")
+	})
+
 	it("lists the offers by name when the project has offers but no plans", () => {
 		renderPage(
 			makeProject({

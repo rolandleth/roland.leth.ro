@@ -5,6 +5,7 @@ import {
 	groupOffersByPlan,
 	priceLabel,
 	productGalleryGroups,
+	reservedAnchors,
 	RESERVED_ANCHORS,
 	sectionAnchors,
 } from "./productPage"
@@ -26,7 +27,17 @@ describe("sectionAnchors", () => {
 
 	it("keeps a section off the page's own ids", () => {
 		// A section called "FAQ" would otherwise share the FAQ block's id.
-		expect(sectionAnchors(["FAQ", "Pricing"])).toEqual(["faq-2", "pricing-2"])
+		expect(sectionAnchors(["FAQ", "Pricing"], reservedAnchors(true))).toEqual([
+			"faq-2",
+			"pricing-2",
+		])
+	})
+
+	it("lets a section have `pricing` when the page has no automatic Pricing block", () => {
+		expect(sectionAnchors(["FAQ", "Pricing"], reservedAnchors(false))).toEqual([
+			"faq-2",
+			"pricing",
+		])
 	})
 
 	it("gives a title with no letters or digits a positional id", () => {
@@ -38,7 +49,7 @@ describe("sectionAnchors", () => {
 
 	it("reserves the ids the page uses for its own blocks", () => {
 		expect([...RESERVED_ANCHORS]).toEqual(
-			expect.arrayContaining(["faq", "pricing", "guides", "main-content"])
+			expect.arrayContaining(["faq", "guides", "main-content"])
 		)
 	})
 })
