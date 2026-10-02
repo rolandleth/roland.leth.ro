@@ -5,7 +5,6 @@ import {
 	groupOffersByPlan,
 	hasNumberedSteps,
 	sectionAnchors,
-	TOC_MIN_SECTIONS,
 } from "@/lib/utils/productPage"
 import ProjectGuides from "../ProjectGuides"
 import ProjectLinkCta from "../ProjectLinkCta"
@@ -110,7 +109,6 @@ export default function ProductPage({
 		...(hasPricingSection ? [{ id: "pricing", title: "Pricing" }] : []),
 		...(faqs.length > 0 ? [{ id: "faq", title: "FAQ" }] : []),
 	]
-	const hasToc = sections.length >= TOC_MIN_SECTIONS
 	const hasMeta = project.disclaimer != null || otherLinks.length > 0
 
 	return (
@@ -134,20 +132,15 @@ export default function ProductPage({
 				storeNote={project.storeNote}
 			/>
 
-			{/* A long page puts the section list in a 200px first column of the
-			    frame, which leaves 840px for the sections at full width. A short
-			    page centres that same 840px column. */}
-			<div
-				className={`product-frame ${
-					hasToc
-						? "min-[1080px]:grid min-[1080px]:grid-cols-[200px_minmax(0,1fr)] min-[1080px]:gap-16"
-						: ""
-				}`}
-			>
-				{hasToc && <ProductToc items={tocItems} />}
+			{/* The section list takes a 200px first column of the frame from
+			    1080px, which leaves 840px for the sections at full width; below
+			    that it collapses into a list above them. Shown on every page,
+			    short ones included: it balances the frame and the long column. */}
+			<div className="product-frame min-[1080px]:grid min-[1080px]:grid-cols-[200px_minmax(0,1fr)] min-[1080px]:gap-16">
+				<ProductToc items={tocItems} />
 
-				<div className={hasToc ? "min-w-0" : "mx-auto max-w-[840px] min-w-0"}>
-					{hasToc && <ProductTocCompact items={tocItems} />}
+				<div className="min-w-0">
+					<ProductTocCompact items={tocItems} />
 
 					<ProductGalleryProvider
 						images={gallery}

@@ -478,7 +478,7 @@ describe("ProductPage — pricing", () => {
 // #region Section list
 
 describe("ProductPage — section list", () => {
-	it("lists every section, the pricing and the FAQ from six sections up", () => {
+	it("lists every section, the pricing and the FAQ", () => {
 		renderPage(
 			makeProject({
 				sections: twelveSections,
@@ -506,12 +506,26 @@ describe("ProductPage — section list", () => {
 		).toBeInTheDocument()
 	})
 
-	it("shows no section list below six sections", () => {
-		renderPage(makeProject({ sections: twelveSections.slice(0, 5) }))
+	it("shows the section list on a short page too", () => {
+		renderPage(
+			makeProject({
+				sections: twelveSections.slice(0, 1),
+				faqs: [
+					{ id: 1, projectId: 1, question: "Q?", answer: "A.", sortOrder: 0 },
+				],
+			})
+		)
 
+		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
+		const hrefs = within(rail)
+			.getAllByRole("link")
+			.map((link) => link.getAttribute("href"))
+
+		expect(hrefs).toHaveLength(2)
+		expect(hrefs.at(-1)).toBe("#faq")
 		expect(
-			screen.queryByRole("navigation", { name: "On this page" })
-		).not.toBeInTheDocument()
+			screen.getByText("On this page", { selector: "summary" })
+		).toBeInTheDocument()
 	})
 })
 

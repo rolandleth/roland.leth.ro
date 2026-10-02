@@ -54,6 +54,23 @@
 	--blob3-opacity-from: 0.08;
 }
 
+/* The site frame, from the product page design: 1200px wide, with a gutter
+   that grows from 16 to 32 to 48px. The site header uses it on every page, so
+   the bar doesn't change width between pages; the product page lays its hero
+   and sections on it (`.product-frame`), so its logo lines up with the hero. */
+:root {
+	--site-max-width: 1200px;
+	--site-gutter: 1rem;
+
+	@variant sm {
+		--site-gutter: 2rem;
+	}
+
+	@variant lg {
+		--site-gutter: 3rem;
+	}
+}
+
 body {
 	-webkit-font-smoothing: antialiased;
 	background-color: var(--color-background-value);
@@ -225,24 +242,6 @@ code[data-theme*=" "] span {
 		#ffffff 4%,
 		var(--color-background-value)
 	);
-}
-
-/* The product page's frame, from the design: 1200px wide, with a gutter that
-   grows from 16 to 32 to 48px. Set on the root rather than on `.product-page`
-   because the site header reads both values too (its own fallbacks are the
-   site's 56rem and 16px), so while a product page is open the logo lines up
-   with the hero's left edge. `.product-frame` applies them. */
-:root:has(.product-page) {
-	--site-max-width: 1200px;
-	--site-gutter: 1rem;
-
-	@variant sm {
-		--site-gutter: 2rem;
-	}
-
-	@variant lg {
-		--site-gutter: 3rem;
-	}
 }
 
 /* Screenshots: a hairline so a light image's edge doesn't vanish into the page,
