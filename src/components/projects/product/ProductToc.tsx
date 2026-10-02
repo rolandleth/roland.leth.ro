@@ -1,6 +1,9 @@
 "use client"
 
+import { ArrowUp } from "lucide-react"
 import { useEffect, useState } from "react"
+import { MAIN_CONTENT_ID } from "@/lib/client/navigation"
+import type { MouseEvent } from "react"
 
 export interface TocItem {
 	/** The target's element id. */
@@ -19,10 +22,12 @@ const ACTIVE_BAND = "-30% 0px -60% 0px"
 /**
  * The section list on a long product page, from 1080px up: sticky beside the
  * content, with the section in view marked (`aria-current`) as the reader
- * scrolls. Narrower screens get `ProductTocCompact` instead.
+ * scrolls, and a way back to the top under it. Narrower screens get
+ * `ProductTocCompact` instead.
  *
  * Without JavaScript it's a plain list of in-page links; the marker is the
- * only part that needs the observer.
+ * only part that needs the observer, and "Back to top" falls back to the skip
+ * link's target.
  */
 export function ProductToc({ items }: Props) {
 	const [activeId, setActiveId] = useState<string | null>(null)
@@ -87,8 +92,35 @@ export function ProductToc({ items }: Props) {
 					)
 				})}
 			</ol>
+
+			<a
+				href={`#${MAIN_CONTENT_ID}`}
+				onClick={scrollToTop}
+				className="text-secondary hover:text-primary mt-5 inline-flex items-center gap-1.5 text-[13px] no-underline transition-colors duration-200"
+			>
+				<ArrowUp aria-hidden size={14} />
+				Back to top
+			</a>
 		</nav>
 	)
+}
+
+/**
+ * Scrolls to the very top, above the hero, rather than to `<main>` as the bare
+ * link would; smooth or not by the page's own `scroll-behavior`, so readers who
+ * ask for less motion get a jump. It also drops the `#section` a rail click left
+ * in the URL, or a reload would land back on that section. The entry is
+ * replaced, not added, so Back doesn't return to the top first. Focus moves to
+ * `<main>` (focusable through its `tabIndex={-1}`), as the skip link moves it,
+ * so the next Tab starts from the top.
+ */
+function scrollToTop(event: MouseEvent<HTMLAnchorElement>) {
+	event.preventDefault()
+	window.scrollTo({ top: 0 })
+
+	const { pathname, search } = window.location
+	window.history.replaceState(window.history.state, "", `${pathname}${search}`)
+	document.getElementById(MAIN_CONTENT_ID)?.focus({ preventScroll: true })
 }
 
 /**

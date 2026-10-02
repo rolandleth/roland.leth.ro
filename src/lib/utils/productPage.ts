@@ -3,6 +3,7 @@
 // ids, gallery grouping, price labels, plan grouping) are unit-testable alone.
 
 import { ProjectSectionKind } from "@/generated/prisma/enums"
+import { MAIN_CONTENT_ID } from "@/lib/client/navigation"
 import { createSlug } from "@/lib/utils/format"
 import type { GalleryGroup } from "@/lib/client/gallery"
 import type { ProjectOffer, ProjectPlan } from "@/lib/db/projects"
@@ -16,7 +17,7 @@ export const RESERVED_ANCHORS: ReadonlySet<string> = new Set([
 	"faq",
 	"guides",
 	"get",
-	"main-content",
+	MAIN_CONTENT_ID,
 ])
 
 /**

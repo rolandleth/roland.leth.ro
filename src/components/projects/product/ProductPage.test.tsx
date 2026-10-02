@@ -166,6 +166,13 @@ function renderPage(project: ProjectDetail) {
 	)
 }
 
+/** The desktop rail's section entries, without its "Back to top" link. */
+function railEntries(): HTMLElement[] {
+	const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
+
+	return within(within(rail).getByRole("list")).getAllByRole("link")
+}
+
 const twelveSections = Array.from({ length: 12 }, (_, index) =>
 	makeSection(index + 1, `Section ${index + 1}`)
 )
@@ -642,13 +649,9 @@ describe("ProductPage — steps", () => {
 			})
 		)
 
-		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
-
-		expect(
-			within(rail)
-				.getAllByRole("link")
-				.map((link) => link.textContent)
-		).toEqual(["How it works"])
+		expect(railEntries().map((link) => link.textContent)).toEqual([
+			"How it works",
+		])
 	})
 })
 
@@ -791,12 +794,7 @@ describe("ProductPage — pricing", () => {
 		expect(
 			screen.queryByRole("heading", { level: 2, name: "Free and paid" })
 		).not.toBeInTheDocument()
-		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
-		expect(
-			within(rail)
-				.getAllByRole("link")
-				.map((link) => link.textContent)
-		).toEqual(["Overview"])
+		expect(railEntries().map((link) => link.textContent)).toEqual(["Overview"])
 	})
 
 	it("prints a pricing section's note after the cards and before the store button", () => {
@@ -995,13 +993,44 @@ describe("ProductPage — section list", () => {
 			})
 		)
 
-		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
-		const hrefs = within(rail)
-			.getAllByRole("link")
-			.map((link) => link.getAttribute("href"))
+		const hrefs = railEntries().map((link) => link.getAttribute("href"))
 
 		expect(hrefs).toHaveLength(14)
 		expect(hrefs.slice(-2)).toEqual(["#pricing", "#faq"])
+	})
+
+	it("ends the rail with a way back to the top that clears the section from the URL", async () => {
+		// The root layout's `<main>`, which the page renders inside.
+		const main = document.createElement("main")
+		main.id = "main-content"
+		main.tabIndex = -1
+		document.body.append(main)
+		const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+		window.history.replaceState(null, "", "/projects/digest?ref=x#faq")
+
+		try {
+			renderPage(makeProject({ sections: twelveSections }))
+
+			const [rail] = screen.getAllByRole("navigation", {
+				name: "On this page",
+			})
+			const link = within(rail).getByRole("link", { name: "Back to top" })
+
+			// Without JavaScript, the skip link's target.
+			expect(link).toHaveAttribute("href", "#main-content")
+
+			await user.click(link)
+
+			expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
+			expect(window.location.hash).toBe("")
+			expect(window.location.pathname).toBe("/projects/digest")
+			expect(window.location.search).toBe("?ref=x")
+			expect(main).toHaveFocus()
+		} finally {
+			scrollTo.mockRestore()
+			main.remove()
+			window.history.replaceState(null, "", "/")
+		}
 	})
 
 	it("adds a collapsed list for narrow screens", () => {
@@ -1022,10 +1051,7 @@ describe("ProductPage — section list", () => {
 			})
 		)
 
-		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
-		const hrefs = within(rail)
-			.getAllByRole("link")
-			.map((link) => link.getAttribute("href"))
+		const hrefs = railEntries().map((link) => link.getAttribute("href"))
 
 		expect(hrefs).toHaveLength(2)
 		expect(hrefs.at(-1)).toBe("#faq")
