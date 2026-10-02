@@ -4,7 +4,7 @@ import ProductPage from "@/components/projects/product/ProductPage"
 import ProjectContent from "@/components/projects/ProjectContent"
 import { getSiteUrl } from "@/lib/auth/env"
 import { overviewToLinkItems } from "@/lib/content/guideLinks"
-import { markdownToReact, productMarkdownToReact } from "@/lib/content/markdown"
+import { markdownToReact } from "@/lib/content/markdown"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
@@ -17,6 +17,7 @@ import {
 	resolveOgImage,
 } from "@/lib/db/projects"
 import type { Metadata } from "next"
+import type { ReactNode } from "react"
 
 interface Props {
 	params: Promise<{ slug: string }>
@@ -37,6 +38,51 @@ function describeRenderFailure(reason: unknown): {
 	}
 
 	return { reason: String(reason) }
+}
+
+interface MarkdownRows<Row extends { id: number }> {
+	rows: readonly Row[]
+	markdownOf: (row: Row) => string
+	/** Names the rows in the failure log, e.g. "section" or "FAQ". */
+	label: string
+	/** The log field that carries the failed row's id, e.g. "sectionId". */
+	idField: string
+	projectSlug: string
+}
+
+/**
+ * Renders each row's markdown, aligned by index with `rows`. `allSettled`, so
+ * one bad body renders as plain text instead of 500'ing the whole project page:
+ * still readable, still crawlable. The failure goes to the server log with the
+ * row's id, so it's visible while the reader still gets the page.
+ */
+async function renderMarkdownRows<Row extends { id: number }>({
+	rows,
+	markdownOf,
+	label,
+	idField,
+	projectSlug,
+}: MarkdownRows<Row>): Promise<ReactNode[]> {
+	const settlements = await Promise.allSettled(
+		rows.map(async (row) => markdownToReact(markdownOf(row)))
+	)
+
+	return settlements.map((settled, index) => {
+		const row = rows[index]
+
+		if (settled.status === "fulfilled") {
+			return <div key={row.id}>{settled.value}</div>
+		}
+
+		// eslint-disable-next-line no-console
+		console.error(`[ProjectPage] ${label} markdown render failed`, {
+			projectSlug,
+			[idField]: row.id,
+			...describeRenderFailure(settled.reason),
+		})
+
+		return <p key={row.id}>{markdownOf(row)}</p>
+	})
 }
 
 export async function generateStaticParams() {
@@ -77,63 +123,41 @@ export default async function ProjectPage({ params }: Props) {
 	}
 
 	// Own apps get the product page; every other project keeps the tabbed
-	// portfolio entry. The product page renders `### 1. Title` headings in a
-	// section body as numbered steps, so its descriptions go through the
-	// product processor.
+	// portfolio entry.
 	const isProductPage = project.isOwnApp
-	const renderDescription = isProductPage
-		? productMarkdownToReact
-		: markdownToReact
 
-	// Section descriptions are Markdown. `allSettled` (like the FAQ block below)
-	// so one bad description renders an inline plain-text fallback instead of
-	// 500'ing the whole project page. Aligned by index with `project.sections`.
-	const descriptionSettlements = await Promise.allSettled(
-		project.sections.map(async (s) => renderDescription(s.description))
-	)
-	const renderedDescriptions = descriptionSettlements.map((settled, index) => {
-		const section = project.sections[index]
-
-		if (settled.status === "fulfilled") {
-			return <div key={section.id}>{settled.value}</div>
-		}
-
-		// eslint-disable-next-line no-console
-		console.error("[ProjectPage] section markdown render failed", {
-			projectSlug: project.slug,
-			sectionId: section.id,
-			...describeRenderFailure(settled.reason),
-		})
-
-		return <p key={section.id}>{section.description}</p>
+	// Section bodies, step bodies and FAQ answers are all markdown, rendered
+	// here on the server so the client components (the tabs, the accordion, the
+	// carousels) stay free of the pipeline. Each list is aligned by index with
+	// its rows.
+	const projectSlug = project.slug
+	const renderedDescriptions = await renderMarkdownRows({
+		rows: project.sections,
+		markdownOf: (section) => section.description,
+		label: "section",
+		idField: "sectionId",
+		projectSlug,
 	})
-
-	// FAQ answers are Markdown too — render them server-side alongside the
-	// section descriptions so the accordion client component stays free of the
-	// Markdown pipeline. Aligned by index with `project.faqs`. `allSettled` so
-	// a single bad answer renders an inline fallback instead of 500'ing the
-	// whole project page.
-	const faqRenderSettlements = await Promise.allSettled(
-		project.faqs.map(async (f) => markdownToReact(f.answer))
-	)
-	const renderedFaqAnswers = faqRenderSettlements.map((settled, index) => {
-		const faq = project.faqs[index]
-
-		if (settled.status === "fulfilled") {
-			return <div key={faq.id}>{settled.value}</div>
-		}
-
-		// Log the underlying parse error so it's visible in server logs while the
-		// user still sees a readable page. The plain `<p>` keeps the FAQ content
-		// crawlable even when Markdown rendering fails.
-		// eslint-disable-next-line no-console
-		console.error("[ProjectPage] FAQ markdown render failed", {
-			projectSlug: project.slug,
-			faqId: faq.id,
-			...describeRenderFailure(settled.reason),
-		})
-
-		return <p key={faq.id}>{faq.answer}</p>
+	// Only the product page shows steps; the tabbed layout reads sections alone.
+	const renderedItemDescriptions = isProductPage
+		? await Promise.all(
+				project.sections.map((section) =>
+					renderMarkdownRows({
+						rows: section.items,
+						markdownOf: (item) => item.description,
+						label: "step",
+						idField: "itemId",
+						projectSlug,
+					})
+				)
+			)
+		: []
+	const renderedFaqAnswers = await renderMarkdownRows({
+		rows: project.faqs,
+		markdownOf: (faq) => faq.answer,
+		label: "FAQ",
+		idField: "faqId",
+		projectSlug,
 	})
 
 	// Reads the shared guides aggregate, so this page carries the `guides` cache
@@ -162,6 +186,7 @@ export default async function ProjectPage({ params }: Props) {
 				<ProductPage
 					project={project}
 					renderedDescriptions={renderedDescriptions}
+					renderedItemDescriptions={renderedItemDescriptions}
 					renderedFaqAnswers={renderedFaqAnswers}
 					guides={guides}
 				/>

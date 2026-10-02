@@ -1,10 +1,13 @@
-import { ProjectSectionKind } from "@/generated/prisma/enums"
-import { flattenSections } from "@/lib/client/gallery"
+import {
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
+import { flattenGroups } from "@/lib/client/gallery"
 import { resolveHeroImage } from "@/lib/db/projects"
 import { linkCtasFor } from "@/lib/utils/platforms"
 import {
 	groupOffersByPlan,
-	hasNumberedSteps,
+	productGalleryGroups,
 	sectionAnchors,
 } from "@/lib/utils/productPage"
 import ProjectGuides from "../ProjectGuides"
@@ -14,8 +17,9 @@ import ProductFaq from "./ProductFaq"
 import { ProductGalleryProvider } from "./ProductGallery"
 import ProductHero from "./ProductHero"
 import ProductPageStyle from "./ProductPageStyle"
-import ProductPlans from "./ProductPlans"
-import ProductSection, { PRODUCT_H2_CLASS } from "./ProductSection"
+import { ProductPricingSection } from "./ProductPlans"
+import { PRODUCT_PROSE_CLASS, ProductTextSection } from "./ProductSection"
+import ProductStepsSection from "./ProductSteps"
 import { ProductToc, ProductTocCompact } from "./ProductToc"
 import type { Pricing } from "./ProductPlans"
 import type { TocItem } from "./ProductToc"
@@ -27,10 +31,20 @@ interface Props {
 	project: ProjectDetail
 	/** Rendered section bodies, aligned by index with `project.sections`. */
 	renderedDescriptions: readonly ReactNode[]
+	/**
+	 * Rendered step bodies, aligned by index with `project.sections`, then with
+	 * each section's `items`.
+	 */
+	renderedItemDescriptions: readonly (readonly ReactNode[])[]
 	/** Rendered FAQ answers, aligned by index with `project.faqs`. */
 	renderedFaqAnswers: readonly ReactNode[]
 	/** Topic hubs and ungrouped guides naming this project; empty when none. */
 	guides: readonly GuideLinkItem[]
+}
+
+/** An intro or a note left empty is stored as "": nothing to render. */
+function hasText(markdown: string): boolean {
+	return markdown.trim() !== ""
 }
 
 /**
@@ -65,13 +79,14 @@ function pricingFor(project: ProjectDetail): Pricing | null {
  * the section list's current-section marker (`ProductToc`) and the guides
  * block are client components.
  *
- * Order: hero, sections (the plan cards inside the section that holds them, or
- * a "Pricing" section of their own), FAQ, closing, guides, then the disclaimer
- * and the remaining links.
+ * Order: hero, sections (text, steps, and the plan cards in a `pricing`
+ * section, or in an automatic "Pricing" block of their own when there's none),
+ * FAQ, closing, guides, then the disclaimer and the remaining links.
  */
 export default function ProductPage({
 	project,
 	renderedDescriptions,
+	renderedItemDescriptions,
 	renderedFaqAnswers,
 	guides,
 }: Props) {
@@ -80,23 +95,27 @@ export default function ProductPage({
 	const linkCtas = linkCtasFor(project)
 	const storeLinks = linkCtas.filter(({ cta }) => cta.kind !== "plainPill")
 	const otherLinks = linkCtas.filter(({ cta }) => cta.kind === "plainPill")
-	const stepsIndex = sections.findIndex((section) =>
-		hasNumberedSteps(section.description)
+	const stepsIndex = sections.findIndex(
+		(section) => section.kind === ProjectSectionKind.steps
 	)
-	const gallery = flattenSections(sections)
+	const { groups, sectionGroups, stepGroups } = productGalleryGroups(sections)
+	const gallery = flattenGroups(groups)
 	const heroImage = resolveHeroImage(project)
-	// One image on the page loads with `priority`: the hero image when there
-	// is one, else the first screenshot.
-	const priorityImageId = heroImage == null ? (gallery[0]?.id ?? null) : null
 	const pricing = pricingFor(project)
-	const plansIndex = sections.findIndex(
-		(section) => section.kind === ProjectSectionKind.pricing
-	)
-	const hasPricingSection = pricing != null && plansIndex === -1
+	// A `pricing` section with nothing to price (a discontinued app) would be a
+	// heading over nothing, so it's left off the page and the section list.
+	const isShown = (section: (typeof sections)[number]) =>
+		section.kind !== ProjectSectionKind.pricing || pricing != null
+	const hasAutomaticPricing =
+		pricing != null &&
+		!sections.some((section) => section.kind === ProjectSectionKind.pricing)
 	const [primaryStoreLink] = storeLinks
+	// A flex row, so the badge sits at its own width on the left: it carries
+	// `justify-self-center` for the tabbed layout's link grid, which browsers
+	// now apply in block layout too.
 	const storeButton =
 		primaryStoreLink == null ? null : (
-			<div>
+			<div className="flex">
 				<ProjectLinkCta
 					url={primaryStoreLink.link.url}
 					cta={primaryStoreLink.cta}
@@ -105,13 +124,70 @@ export default function ProductPage({
 			</div>
 		)
 	const tocItems: TocItem[] = [
-		...sections.map((section, index) => ({
-			id: anchors[index],
-			title: section.title,
-		})),
-		...(hasPricingSection ? [{ id: "pricing", title: "Pricing" }] : []),
+		...sections.flatMap((section, index) =>
+			isShown(section) ? [{ id: anchors[index], title: section.title }] : []
+		),
+		...(hasAutomaticPricing ? [{ id: "pricing", title: "Pricing" }] : []),
 		...(faqs.length > 0 ? [{ id: "faq", title: "FAQ" }] : []),
 	]
+
+	function renderSection(
+		section: (typeof sections)[number],
+		index: number
+	): ReactNode {
+		const id = anchors[index]
+
+		switch (section.kind) {
+			case ProjectSectionKind.text:
+				return (
+					<ProductTextSection
+						key={section.id}
+						id={id}
+						title={section.title}
+						// A row written before layouts existed rendered stacked.
+						layout={section.layout ?? ProjectSectionLayout.stacked}
+						galleryIndex={sectionGroups[index]}
+						galleryLabel={`${name}: ${section.title}`}
+						body={renderedDescriptions[index]}
+					/>
+				)
+			case ProjectSectionKind.steps:
+				return (
+					<ProductStepsSection
+						key={section.id}
+						id={id}
+						title={section.title}
+						intro={
+							hasText(section.description) ? renderedDescriptions[index] : null
+						}
+						steps={section.items.map((item, itemIndex) => ({
+							id: item.id,
+							title: item.title,
+							body: renderedItemDescriptions[index][itemIndex],
+							galleryIndex: stepGroups[index][itemIndex],
+						}))}
+						projectName={name}
+					/>
+				)
+			case ProjectSectionKind.pricing:
+				return pricing == null ? null : (
+					<ProductPricingSection
+						key={section.id}
+						id={id}
+						title={section.title}
+						pricing={pricing}
+						note={
+							hasText(section.description) ? (
+								<div className={PRODUCT_PROSE_CLASS}>
+									{renderedDescriptions[index]}
+								</div>
+							) : null
+						}
+						storeButton={storeButton}
+					/>
+				)
+		}
+	}
 	const hasMeta = project.disclaimer != null || otherLinks.length > 0
 
 	return (
@@ -145,54 +221,32 @@ export default function ProductPage({
 				<div className="min-w-0">
 					<ProductTocCompact items={tocItems} />
 
+					{/* One image on the page loads with `priority`: the hero image when
+					    there is one, else the first screenshot. */}
 					<ProductGalleryProvider
 						images={gallery}
 						galleryLabel={name}
-						priorityImageId={priorityImageId}
+						isFirstImagePriority={heroImage == null}
 					>
-						{sections.map((section, index) => {
-							const holdsPlans = index === plansIndex && pricing != null
-
-							return (
-								<ProductSection
-									key={section.id}
-									id={anchors[index]}
-									title={section.title}
-									index={index}
-									projectName={name}
-									hasImages={section.images.length > 0}
-									body={renderedDescriptions[index]}
-									beforeBody={
-										holdsPlans ? <ProductPlans pricing={pricing} /> : undefined
-									}
-									afterBody={holdsPlans ? storeButton : undefined}
-								/>
-							)
-						})}
+						{sections.map(renderSection)}
 					</ProductGalleryProvider>
 
-					{hasPricingSection && (
-						<section
+					{hasAutomaticPricing && (
+						<ProductPricingSection
 							id="pricing"
-							aria-labelledby="pricing-title"
-							className="scroll-mt-4 border-t border-(--color-border) py-14 sm:py-[72px]"
-						>
-							<div className="grid gap-7">
-								<h2 id="pricing-title" className={PRODUCT_H2_CLASS}>
-									Pricing
-								</h2>
-								<ProductPlans pricing={pricing} />
-								{pricing.kind === "offers" &&
-									pricing.offers.every(
-										(offer) => offer.priceCurrency === "USD"
-									) && (
-										<p className="text-secondary text-sm">
-											US prices. The App Store shows yours.
-										</p>
-									)}
-								{storeButton}
-							</div>
-						</section>
+							title="Pricing"
+							pricing={pricing}
+							note={
+								(project.offers ?? []).every(
+									(offer) => offer.priceCurrency === "USD"
+								) ? (
+									<p className="text-secondary text-sm">
+										US prices. The App Store shows yours.
+									</p>
+								) : null
+							}
+							storeButton={storeButton}
+						/>
 					)}
 
 					{faqs.length > 0 && (

@@ -1,8 +1,10 @@
 // Pure helpers for the own-app product page (`src/components/projects/product`).
 // Kept free of React and of the data layer so the rules they encode (anchor
-// ids, step detection, price labels, plan grouping) are unit-testable alone.
+// ids, gallery grouping, price labels, plan grouping) are unit-testable alone.
 
+import { ProjectSectionKind } from "@/generated/prisma/enums"
 import { createSlug } from "@/lib/utils/format"
+import type { GalleryGroup } from "@/lib/client/gallery"
 import type { ProjectOffer, ProjectPlan } from "@/lib/db/projects"
 
 /**
@@ -46,14 +48,76 @@ export function sectionAnchors(
 	})
 }
 
-// A step heading in a section body: `### 1. Title`. Mirrors what
-// `rehypeNumberedSteps` turns into the numbered list, so the hero's "See how
-// it works" link only appears when the page has steps to land on.
-const STEP_HEADING_LINE = /^###[ \t]+\d+\.[ \t]+\S/m
+type GalleryGroupImage = GalleryGroup["images"][number]
 
-/** True when a section's markdown body holds at least one numbered step. */
-export function hasNumberedSteps(markdown: string): boolean {
-	return STEP_HEADING_LINE.test(markdown)
+/** The minimum a section needs to expose for {@link productGalleryGroups}. */
+interface GalleryGroupSection {
+	title: string
+	kind: ProjectSectionKind
+	images: readonly GalleryGroupImage[]
+	items: readonly { title: string; images: readonly GalleryGroupImage[] }[]
+}
+
+export interface ProductGalleryGroups {
+	/** Every gallery on the page, in page order; flatten with `flattenGroups`. */
+	groups: GalleryGroup[]
+	/** Each section's gallery, by index into `groups`; null for none. */
+	sectionGroups: (number | null)[]
+	/** Each section's steps' galleries, by index into `groups`; null for none. */
+	stepGroups: (number | null)[][]
+}
+
+/**
+ * The page's galleries, in page order: one for each `text` section with images
+ * and one for each step with images. A `steps` section shows its images on its
+ * steps, and a `pricing` section has none. Images go in their own table per
+ * kind, so each group prefixes its image keys with the table it came from.
+ */
+export function productGalleryGroups(
+	sections: readonly GalleryGroupSection[]
+): ProductGalleryGroups {
+	const groups: GalleryGroup[] = []
+	const sectionGroups: (number | null)[] = []
+	const stepGroups: (number | null)[][] = []
+
+	function addGroup(
+		title: string,
+		keyPrefix: string,
+		images: readonly GalleryGroupImage[]
+	): number | null {
+		if (images.length === 0) {
+			return null
+		}
+
+		groups.push({ title, keyPrefix, images })
+
+		return groups.length - 1
+	}
+
+	for (const section of sections) {
+		switch (section.kind) {
+			case ProjectSectionKind.text:
+				sectionGroups.push(
+					addGroup(section.title, "section-image", section.images)
+				)
+				stepGroups.push([])
+				break
+			case ProjectSectionKind.steps:
+				sectionGroups.push(null)
+				stepGroups.push(
+					section.items.map((item) =>
+						addGroup(item.title, "step-image", item.images)
+					)
+				)
+				break
+			case ProjectSectionKind.pricing:
+				sectionGroups.push(null)
+				stepGroups.push([])
+				break
+		}
+	}
+
+	return { groups, sectionGroups, stepGroups }
 }
 
 /**

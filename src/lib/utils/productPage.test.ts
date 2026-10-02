@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest"
+import { ProjectSectionKind } from "@/generated/prisma/enums"
 import {
 	formatPrice,
 	groupOffersByPlan,
-	hasNumberedSteps,
 	priceLabel,
+	productGalleryGroups,
 	RESERVED_ANCHORS,
 	sectionAnchors,
 } from "./productPage"
@@ -44,23 +45,65 @@ describe("sectionAnchors", () => {
 
 // #endregion
 
-// #region hasNumberedSteps
+// #region productGalleryGroups
 
-describe("hasNumberedSteps", () => {
-	it("finds a `### 1. Title` line anywhere in the body", () => {
-		expect(hasNumberedSteps("Intro.\n\n### 1. Log a meal\n\nBody.")).toBe(true)
+describe("productGalleryGroups", () => {
+	function image(id: number) {
+		return { id, url: `/${id}.png`, caption: null, alt: null }
+	}
+
+	it("gives each text section with images, and each step with images, a gallery in page order", () => {
+		const { groups, sectionGroups, stepGroups } = productGalleryGroups([
+			{
+				title: "Guessing",
+				kind: ProjectSectionKind.text,
+				images: [image(1)],
+				items: [],
+			},
+			{
+				title: "How it works",
+				kind: ProjectSectionKind.steps,
+				images: [],
+				items: [
+					{ title: "Log", images: [image(2), image(3)] },
+					{ title: "Feel", images: [] },
+					{ title: "Wait", images: [image(4)] },
+				],
+			},
+			{
+				title: "Test a suspect",
+				kind: ProjectSectionKind.text,
+				images: [],
+				items: [],
+			},
+			{
+				title: "Free and paid",
+				kind: ProjectSectionKind.pricing,
+				images: [],
+				items: [],
+			},
+		])
+
+		expect(groups.map(({ title, keyPrefix }) => [title, keyPrefix])).toEqual([
+			["Guessing", "section-image"],
+			["Log", "step-image"],
+			["Wait", "step-image"],
+		])
+		expect(sectionGroups).toEqual([0, null, null, null])
+		expect(stepGroups).toEqual([[], [1, null, 2], [], []])
 	})
 
-	it("ignores an unnumbered `###` heading", () => {
-		expect(hasNumberedSteps("### Log a meal")).toBe(false)
-	})
-
-	it("ignores numbered `##` and `####` headings", () => {
-		expect(hasNumberedSteps("## 1. Big\n#### 2. Small")).toBe(false)
-	})
-
-	it("ignores a number with no title after it", () => {
-		expect(hasNumberedSteps("### 1.")).toBe(false)
+	it("returns no galleries for a page without images", () => {
+		expect(
+			productGalleryGroups([
+				{
+					title: "A",
+					kind: ProjectSectionKind.text,
+					images: [],
+					items: [],
+				},
+			])
+		).toEqual({ groups: [], sectionGroups: [null], stepGroups: [[]] })
 	})
 })
 

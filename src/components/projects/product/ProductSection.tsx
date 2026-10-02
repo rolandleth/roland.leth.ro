@@ -1,43 +1,46 @@
-import { ProductSectionGallery } from "./ProductGallery"
+import { ProjectSectionLayout } from "@/generated/prisma/enums"
+import { ProductGroupGallery } from "./ProductGallery"
 import type { ReactNode } from "react"
-
-interface Props {
-	id: string
-	title: string
-	index: number
-	/** Project name, for the carousel's accessible name. */
-	projectName: string
-	hasImages: boolean
-	/** The rendered markdown body. */
-	body: ReactNode
-	/** Shown between the heading and the body: the plan cards. */
-	beforeBody?: ReactNode
-	/** Shown after the body: the store button that follows the plans. */
-	afterBody?: ReactNode
-}
 
 /** The shared heading style for a product page `h2`. */
 export const PRODUCT_H2_CLASS =
 	"font-serif text-[30px] leading-[1.12] font-normal tracking-[-0.015em] text-balance sm:text-[36px]"
 
+/** Markdown text in a section or a step: the reading measure. */
+export const PRODUCT_PROSE_CLASS = "prose dark:prose-invert max-w-[40em]"
+
 /**
- * One stacked section of an own-app page. A section with images (or the plan
- * cards, which need the width) stacks heading, pictures and text. A text-only
- * section puts its heading beside the text from 640px, so a run of them reads
- * as a change of pace rather than a row of gaps.
+ * Where a gallery sits under text, in a split section's right column or under
+ * a step: 32rem at most, which is the split column's width on a full-width page.
  */
-export default function ProductSection({
+export const NARROW_GALLERY_CLASS = "w-full max-w-[32rem]"
+export const NARROW_GALLERY_SIZES =
+	"(max-width: 640px) calc(100vw - 2rem), 512px"
+
+// A stacked section's gallery spans the content column: 840px at most; below
+// 640px the page has 16px gutters.
+const WIDE_GALLERY_SIZES = "(max-width: 640px) calc(100vw - 2rem), 840px"
+
+interface ShellProps {
+	id: string
+	title: string
+	/** Title in a narrow left column from 640px, the content beside it. */
+	isSplit?: boolean
+	children: ReactNode
+}
+
+/**
+ * The frame every product page section shares: its anchor, the rule above it,
+ * the `h2`, and a column for the content. Stacked by default; split puts the
+ * title beside the content from 640px, so a run of short sections reads as a
+ * change of pace rather than a row of gaps.
+ */
+export function ProductSectionShell({
 	id,
 	title,
-	index,
-	projectName,
-	hasImages,
-	body,
-	beforeBody,
-	afterBody,
-}: Props) {
-	const isSplit = !hasImages && beforeBody == null
-
+	isSplit = false,
+	children,
+}: ShellProps) {
 	return (
 		<section
 			id={id}
@@ -55,19 +58,68 @@ export default function ProductSection({
 					{title}
 				</h2>
 
-				{hasImages && (
-					<ProductSectionGallery
-						sectionIndex={index}
-						label={`${projectName}: ${title}`}
-					/>
-				)}
-
-				<div className="flex min-w-0 flex-col gap-7">
-					{beforeBody}
-					<div className="prose dark:prose-invert max-w-[40em]">{body}</div>
-					{afterBody}
-				</div>
+				<div className="flex min-w-0 flex-col gap-7">{children}</div>
 			</div>
 		</section>
+	)
+}
+
+interface TextSectionProps {
+	id: string
+	title: string
+	layout: ProjectSectionLayout
+	/** The section's gallery (`productGalleryGroups`); null when it has none. */
+	galleryIndex: number | null
+	/** The carousel's accessible name, before "screenshots". */
+	galleryLabel: string
+	/** The rendered markdown body. */
+	body: ReactNode
+}
+
+/**
+ * A `text` section. Stacked: title, gallery, text. Split: title on the left;
+ * text on the right with its gallery under it, at the column's width.
+ */
+export function ProductTextSection({
+	id,
+	title,
+	layout,
+	galleryIndex,
+	galleryLabel,
+	body,
+}: TextSectionProps) {
+	const isSplit = layout === ProjectSectionLayout.split
+	const prose = <div className={PRODUCT_PROSE_CLASS}>{body}</div>
+
+	if (galleryIndex == null) {
+		return (
+			<ProductSectionShell id={id} title={title} isSplit={isSplit}>
+				{prose}
+			</ProductSectionShell>
+		)
+	}
+
+	const gallery = (
+		<ProductGroupGallery
+			groupIndex={galleryIndex}
+			label={galleryLabel}
+			sizes={isSplit ? NARROW_GALLERY_SIZES : WIDE_GALLERY_SIZES}
+		/>
+	)
+
+	return (
+		<ProductSectionShell id={id} title={title} isSplit={isSplit}>
+			{isSplit ? (
+				<>
+					{prose}
+					<div className={NARROW_GALLERY_CLASS}>{gallery}</div>
+				</>
+			) : (
+				<>
+					{gallery}
+					{prose}
+				</>
+			)}
+		</ProductSectionShell>
 	)
 }

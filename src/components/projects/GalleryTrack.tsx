@@ -109,7 +109,7 @@ export default function GalleryTrack({
 
 				return (
 					<div
-						key={image.id}
+						key={image.key}
 						className="relative h-full shrink-0 basis-full"
 						// Only the centred slide is exposed to assistive tech; the rest sit
 						// off-screen in the strip and would otherwise be announced too.

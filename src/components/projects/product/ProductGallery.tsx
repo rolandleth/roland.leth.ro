@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState } from "react"
-import { firstIndexOfSection } from "@/lib/client/gallery"
+import { firstIndexOfGroup } from "@/lib/client/gallery"
 import ProjectImageLightbox from "../ProjectImageLightbox"
 import ProjectSectionCarousel from "../ProjectSectionCarousel"
 import type { GalleryImage } from "@/lib/client/gallery"
@@ -9,67 +9,70 @@ import type { ReactNode } from "react"
 
 interface GalleryContextValue {
 	images: GalleryImage[]
-	priorityImageId: number | null
-	/** Each section's current slide, by section index; absent means the first. */
-	slideBySection: Readonly<Record<number, number>>
-	selectSlide: (sectionIndex: number, localIndex: number) => void
-	openLightbox: (sectionIndex: number) => void
+	isFirstImagePriority: boolean
+	/** Each group's current slide, by group index; absent means the first. */
+	slideByGroup: Readonly<Record<number, number>>
+	selectSlide: (groupIndex: number, localIndex: number) => void
+	openLightbox: (groupIndex: number) => void
 }
 
 const GalleryContext = createContext<GalleryContextValue | null>(null)
 
 interface ProviderProps {
-	/** Every section's images, flattened in page order (`flattenSections`). */
+	/**
+	 * Every gallery's images, flattened in page order (`productGalleryGroups`,
+	 * then `flattenGroups`).
+	 */
 	images: GalleryImage[]
 	/** Project name, for the lightbox's accessible label. */
 	galleryLabel: string
 	/**
-	 * The one image on the page that loads with `priority`, when it's a
-	 * screenshot; null when the hero image has it instead.
+	 * True when the first image on the page loads with `priority`: there's no
+	 * hero image to take it.
 	 */
-	priorityImageId: number | null
+	isFirstImagePriority: boolean
 	children: ReactNode
 }
 
 /**
- * The state behind the product page's screenshots: one carousel per section,
- * each on its own slide, and a single lightbox that walks every image on the
- * page. Opening the lightbox from a section starts on that section's current
- * slide; paging through it moves the owning section's carousel along, so
- * closing it leaves the page showing the last image viewed.
+ * The state behind the product page's screenshots: one carousel per gallery (a
+ * section's, or a step's), each on its own slide, and a single lightbox that
+ * walks every image on the page. Opening the lightbox from a gallery starts on
+ * that gallery's current slide; paging through it moves the owning gallery
+ * along, so closing it leaves the page showing the last image viewed.
  *
  * The sections themselves are server-rendered and passed through as
- * `children`; only the carousels (`ProductSectionGallery`) read this context.
+ * `children`; only the carousels (`ProductGroupGallery`) read this context.
  */
 export function ProductGalleryProvider({
 	images,
 	galleryLabel,
-	priorityImageId,
+	isFirstImagePriority,
 	children,
 }: ProviderProps) {
-	const [slideBySection, setSlideBySection] = useState<
+	const [slideByGroup, setSlideByGroup] = useState<
 		Readonly<Record<number, number>>
 	>({})
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-	function selectSlide(sectionIndex: number, localIndex: number) {
-		setSlideBySection((previous) => ({
+	function selectSlide(groupIndex: number, localIndex: number) {
+		setSlideByGroup((previous) => ({
 			...previous,
-			[sectionIndex]: localIndex,
+			[groupIndex]: localIndex,
 		}))
 	}
 
-	function openLightbox(sectionIndex: number) {
-		const first = firstIndexOfSection(images, sectionIndex)
+	function openLightbox(groupIndex: number) {
+		const first = firstIndexOfGroup(images, groupIndex)
 
 		if (first === -1) {
 			return
 		}
 
-		setLightboxIndex(first + (slideBySection[sectionIndex] ?? 0))
+		setLightboxIndex(first + (slideByGroup[groupIndex] ?? 0))
 	}
 
-	// Pages with wrap-around across every section, like the tabbed layout's
+	// Pages with wrap-around across every gallery, like the tabbed layout's
 	// lightbox, and keeps the image's own carousel in step.
 	function stepLightbox(direction: 1 | -1) {
 		if (lightboxIndex == null || images.length === 0) {
@@ -82,15 +85,15 @@ export function ProductGalleryProvider({
 		const image = images[next]
 
 		setLightboxIndex(next)
-		selectSlide(image.sectionIndex, image.localIndex)
+		selectSlide(image.groupIndex, image.localIndex)
 	}
 
 	return (
 		<GalleryContext.Provider
 			value={{
 				images,
-				priorityImageId,
-				slideBySection,
+				isFirstImagePriority,
+				slideByGroup,
 				selectSlide,
 				openLightbox,
 			}}
@@ -113,55 +116,57 @@ export function ProductGalleryProvider({
 	)
 }
 
-interface SectionGalleryProps {
-	sectionIndex: number
+interface GroupGalleryProps {
+	groupIndex: number
 	/** The carousel's accessible name, before "screenshots". */
 	label: string
+	/** The `sizes` for the carousel's images, for where this gallery sits. */
+	sizes: string
 }
 
-// The content column is 840px at most; below 640px the page has 16px gutters.
-const SECTION_IMAGE_SIZES = "(max-width: 640px) calc(100vw - 2rem), 840px"
-
 /**
- * One section's carousel, or nothing when the section has no images. Must sit
+ * One gallery's carousel, or nothing when the group has no images. Must sit
  * inside `ProductGalleryProvider`.
  */
-export function ProductSectionGallery({
-	sectionIndex,
+export function ProductGroupGallery({
+	groupIndex,
 	label,
-}: SectionGalleryProps) {
+	sizes,
+}: GroupGalleryProps) {
 	const gallery = useContext(GalleryContext)
 
 	if (gallery == null) {
 		throw new Error(
-			"ProductSectionGallery rendered outside ProductGalleryProvider"
+			"ProductGroupGallery rendered outside ProductGalleryProvider"
 		)
 	}
 
-	const sectionImages = gallery.images.filter(
-		(image) => image.sectionIndex === sectionIndex
+	const groupImages = gallery.images.filter(
+		(image) => image.groupIndex === groupIndex
 	)
 
-	if (sectionImages.length === 0) {
+	if (groupImages.length === 0) {
 		return null
 	}
 
-	const priorityIndex = sectionImages.findIndex(
-		(image) => image.id === gallery.priorityImageId
-	)
+	// The page's first image is this group's first one only when no group
+	// comes before it.
+	const isPriorityGroup =
+		gallery.isFirstImagePriority &&
+		firstIndexOfGroup(gallery.images, groupIndex) === 0
 
 	return (
 		<ProjectSectionCarousel
-			images={sectionImages}
-			index={gallery.slideBySection[sectionIndex] ?? 0}
-			canNavigate={sectionImages.length > 1}
+			images={groupImages}
+			index={gallery.slideByGroup[groupIndex] ?? 0}
+			canNavigate={groupImages.length > 1}
 			galleryLabel={label}
 			onSelectImage={(localIndex) =>
-				gallery.selectSlide(sectionIndex, localIndex)
+				gallery.selectSlide(groupIndex, localIndex)
 			}
-			onEnlarge={() => gallery.openLightbox(sectionIndex)}
-			sizes={SECTION_IMAGE_SIZES}
-			priorityIndex={priorityIndex === -1 ? undefined : priorityIndex}
+			onEnlarge={() => gallery.openLightbox(groupIndex)}
+			sizes={sizes}
+			priorityIndex={isPriorityGroup ? 0 : undefined}
 			isLazy
 			stageClassName="product-shot aspect-[1270/760] w-full rounded-xl"
 		/>

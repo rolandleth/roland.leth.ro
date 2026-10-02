@@ -148,12 +148,13 @@ export default function ProjectSectionCarousel({
 	}
 
 	const current = images[index]
-	// Dots stay scoped to the *current* section even though the strip spans the
-	// whole gallery, so a project with many sections doesn't sprout a runaway row
-	// of dots. The section's first slide sits `localIndex` back from here.
+	// Dots stay scoped to the *current* group (a section, or a product page step)
+	// even though the strip spans the whole gallery, so a project with many
+	// sections doesn't sprout a runaway row of dots. The group's first slide
+	// sits `localIndex` back from here.
 	const sectionStart = index - current.localIndex
 	const sectionImages = images.filter(
-		(image) => image.sectionIndex === current.sectionIndex
+		(image) => image.groupIndex === current.groupIndex
 	)
 	const isMultiple = sectionImages.length > 1
 

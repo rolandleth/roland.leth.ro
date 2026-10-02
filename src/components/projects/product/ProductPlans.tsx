@@ -1,6 +1,8 @@
 import { formatPrice, priceLabel } from "@/lib/utils/productPage"
+import { ProductSectionShell } from "./ProductSection"
 import type { ProjectOffer } from "@/lib/db/projects"
 import type { PlanWithOffers } from "@/lib/utils/productPage"
+import type { ReactNode } from "react"
 
 /**
  * What the page prices: plan cards when the project has plans, or a single
@@ -13,6 +15,36 @@ export type Pricing =
 
 interface Props {
 	pricing: Pricing
+}
+
+interface PricingSectionProps {
+	id: string
+	title: string
+	pricing: Pricing
+	/** Shown under the cards; null for none. */
+	note: ReactNode | null
+	/** The store button that follows the plans; null without a store link. */
+	storeButton: ReactNode | null
+}
+
+/**
+ * Where the plans go: a `pricing` section, or the automatic "Pricing" block
+ * before the FAQ when the project has none. Title, cards, note, store button.
+ */
+export function ProductPricingSection({
+	id,
+	title,
+	pricing,
+	note,
+	storeButton,
+}: PricingSectionProps) {
+	return (
+		<ProductSectionShell id={id} title={title}>
+			<ProductPlans pricing={pricing} />
+			{note}
+			{storeButton}
+		</ProductSectionShell>
+	)
 }
 
 /**
@@ -87,6 +119,11 @@ function PriceList({ offers, label, isLast }: PriceListProps) {
 						</span>
 						{text != null && (
 							<span className="product-plan__label text-[13px]">{text}</span>
+						)}
+						{offer.note != null && (
+							<span className="product-plan__label text-[13px]">
+								{offer.note}
+							</span>
 						)}
 					</li>
 				)

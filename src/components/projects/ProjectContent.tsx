@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
-import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
+import { firstIndexOfGroup, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel, linkCtasFor } from "@/lib/utils/platforms"
 import ProjectAccentStyle from "./ProjectAccentStyle"
@@ -104,7 +104,7 @@ export default function ProjectContent({
 	function goToSection(index: number) {
 		setActiveTab(index)
 
-		const first = firstIndexOfSection(galleryImages, index)
+		const first = firstIndexOfGroup(galleryImages, index)
 
 		if (first !== -1) {
 			setGalleryIndex(first)
@@ -121,7 +121,9 @@ export default function ProjectContent({
 
 		const clamped = Math.max(0, Math.min(flatIndex, galleryCount - 1))
 		setGalleryIndex(clamped)
-		setActiveTab(galleryImages[clamped].sectionIndex)
+		// One group per section here (`flattenSections`), so a group index is the
+		// tab index.
+		setActiveTab(galleryImages[clamped].groupIndex)
 	}
 
 	// Page one slide with wrap-around across the whole gallery (arrows / keys).

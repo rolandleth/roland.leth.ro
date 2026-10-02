@@ -10,7 +10,6 @@ import {
 	capDescription,
 	collapseWhitespace,
 } from "@/lib/content/descriptionRules"
-import { rehypeNumberedSteps } from "@/lib/content/rehypeNumberedSteps"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -35,17 +34,6 @@ const markdownProcessor = unified()
 	.use(remarkRehype)
 	.use(rehypePrettyCode, prettyCodeOptions)
 
-// Used by productMarkdownToReact (own-app product page section bodies). The
-// page processor plus `rehypeNumberedSteps`, which turns `### 1. Title`
-// headings into the numbered steps. Separate so a post or guide with a
-// numbered `###` keeps its plain heading.
-const productMarkdownProcessor = unified()
-	.use(remarkParse)
-	.use(remarkGfm)
-	.use(remarkRehype)
-	.use(rehypeNumberedSteps)
-	.use(rehypePrettyCode, prettyCodeOptions)
-
 // Used by markdownToHtml (Atom feed <content>). Produces plain HTML without
 // Shiki spans so the markup is self-contained and renders cleanly in any feed
 // reader, which won't have access to the site's stylesheet.
@@ -62,20 +50,6 @@ const textOnlyProcessor = unified().use(remarkParse).use(remarkGfm)
 /** Renders markdown to React nodes for display on blog pages. Includes Shiki syntax highlighting. */
 export async function markdownToReact(content: string): Promise<ReactNode> {
 	const hast = await markdownProcessor.run(markdownProcessor.parse(content))
-
-	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
-}
-
-/**
- * `markdownToReact` for an own-app product page section, with `### 1. Title`
- * headings rendered as numbered steps (see `rehypeNumberedSteps`).
- */
-export async function productMarkdownToReact(
-	content: string
-): Promise<ReactNode> {
-	const hast = await productMarkdownProcessor.run(
-		productMarkdownProcessor.parse(content)
-	)
 
 	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
 }

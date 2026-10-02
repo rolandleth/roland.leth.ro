@@ -1,26 +1,35 @@
 /**
- * A single screenshot flattened out of its section into one continuous gallery,
- * carrying enough context to slide across section boundaries and to keep the
- * active tab, the dot indicators, and the fallback alt text in sync.
+ * A single screenshot flattened out of its group into one continuous gallery,
+ * carrying enough context to slide across group boundaries and to keep the
+ * active tab, the dot indicators, and the fallback alt text in sync. A group is
+ * one carousel: a section on the tabbed layout; a section or a step on the
+ * own-app product page.
  */
 export interface GalleryImage {
-	id: number
+	/**
+	 * Unique across the whole gallery. Not the row id alone: the product page's
+	 * images come from two tables (section images and step images), whose ids
+	 * can repeat.
+	 */
+	key: string
 	url: string
 	caption: string | null
 	/** Alt text when it differs from the caption; see {@link galleryImageAlt}. */
 	alt: string | null
-	/** Index of the owning section, so navigation can follow the active tab. */
-	sectionIndex: number
-	/** Position within the owning section, for the section-scoped dots. */
+	/** Index of the owning group, so navigation can follow the active tab. */
+	groupIndex: number
+	/** Position within the owning group, for the group-scoped dots. */
 	localIndex: number
-	/** Owning section's title, used for the fallback alt when a caption is absent. */
-	sectionTitle: string
+	/** Owning group's title, used for the fallback alt when a caption is absent. */
+	groupTitle: string
 }
 
-/** The minimum a section needs to expose for {@link flattenSections}. */
-interface FlattenableSection {
+/** One carousel's worth of images, for {@link flattenGroups}. */
+export interface GalleryGroup {
 	title: string
-	images: {
+	/** Prefixes each image's `key`: names the table its rows came from. */
+	keyPrefix: string
+	images: readonly {
 		id: number
 		url: string
 		caption: string | null
@@ -28,42 +37,62 @@ interface FlattenableSection {
 	}[]
 }
 
+/** The minimum a section needs to expose for {@link flattenSections}. */
+interface FlattenableSection {
+	title: string
+	images: GalleryGroup["images"]
+}
+
 /**
- * Flattens every section's images into one ordered gallery. Image-less sections
+ * Flattens every group's images into one ordered gallery. Image-less groups
  * contribute nothing (their `map` over `[]` is empty), so the gallery only ever
- * holds real slides while the tabs still list those sections for their prose.
+ * holds real slides.
  */
-export function flattenSections(
-	sections: FlattenableSection[]
-): GalleryImage[] {
-	return sections.flatMap((section, sectionIndex) =>
-		section.images.map((image, localIndex) => ({
-			id: image.id,
+export function flattenGroups(groups: readonly GalleryGroup[]): GalleryImage[] {
+	return groups.flatMap((group, groupIndex) =>
+		group.images.map((image, localIndex) => ({
+			key: `${group.keyPrefix}-${image.id}`,
 			url: image.url,
 			caption: image.caption,
 			alt: image.alt ?? null,
-			sectionIndex,
+			groupIndex,
 			localIndex,
-			sectionTitle: section.title,
+			groupTitle: group.title,
 		}))
 	)
 }
 
 /**
- * Flat index of the first slide belonging to `sectionIndex`, or `-1` when that
- * section has no images. Used to jump the continuous track to a section when its
- * tab is clicked.
+ * The tabbed layout's gallery: one group per section, so a group index is a
+ * section index and the tabs still list image-less sections for their prose.
  */
-export function firstIndexOfSection(
-	images: GalleryImage[],
-	sectionIndex: number
+export function flattenSections(
+	sections: readonly FlattenableSection[]
+): GalleryImage[] {
+	return flattenGroups(
+		sections.map((section) => ({
+			title: section.title,
+			keyPrefix: "section-image",
+			images: section.images,
+		}))
+	)
+}
+
+/**
+ * Flat index of the first slide belonging to `groupIndex`, or `-1` when that
+ * group has no images. Used to jump the continuous track to a group when its
+ * tab is clicked, or to open the lightbox on it.
+ */
+export function firstIndexOfGroup(
+	images: readonly GalleryImage[],
+	groupIndex: number
 ): number {
-	return images.findIndex((image) => image.sectionIndex === sectionIndex)
+	return images.findIndex((image) => image.groupIndex === groupIndex)
 }
 
 /**
  * Resolves a slide's alt text: the alt when set, else the caption, else
- * "{section title} screenshot". Blank counts as unset. The admin form used to
+ * "{group title} screenshot". Blank counts as unset. The admin form used to
  * store an empty caption as "", and an empty alt marks an image decorative,
  * which would hide a screenshot from screen readers.
  */
@@ -71,7 +100,7 @@ export function galleryImageAlt(image: GalleryImage): string {
 	return (
 		nonBlank(image.alt) ??
 		nonBlank(image.caption) ??
-		`${image.sectionTitle} screenshot`
+		`${image.groupTitle} screenshot`
 	)
 }
 

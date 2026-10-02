@@ -20,33 +20,33 @@ vi.mock("next/image", () => ({
 	},
 }))
 
-// One section's worth of the flat gallery (all `sectionIndex: 0`).
+// One section's worth of the flat gallery (all `groupIndex: 0`).
 const images: GalleryImage[] = [
 	{
-		id: 1,
+		key: "section-image-1",
 		url: "/a.jpg",
 		caption: "First slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 0,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
 		alt: null,
 	},
 	{
-		id: 2,
+		key: "section-image-2",
 		url: "/b.jpg",
 		caption: "Second slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 1,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
 		alt: null,
 	},
 	{
-		id: 3,
+		key: "section-image-3",
 		url: "/c.jpg",
 		caption: null,
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 2,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
 		alt: null,
 	},
 ]
@@ -120,30 +120,30 @@ describe("ProjectSectionCarousel", () => {
 		// first section) so the parent moves the continuous strip correctly.
 		const twoSections: GalleryImage[] = [
 			{
-				id: 1,
+				key: "section-image-1",
 				url: "/a.jpg",
 				caption: "Alpha one",
-				sectionIndex: 0,
+				groupIndex: 0,
 				localIndex: 0,
-				sectionTitle: "Alpha",
+				groupTitle: "Alpha",
 				alt: null,
 			},
 			{
-				id: 2,
+				key: "section-image-2",
 				url: "/b.jpg",
 				caption: "Beta one",
-				sectionIndex: 1,
+				groupIndex: 1,
 				localIndex: 0,
-				sectionTitle: "Beta",
+				groupTitle: "Beta",
 				alt: null,
 			},
 			{
-				id: 3,
+				key: "section-image-3",
 				url: "/c.jpg",
 				caption: "Beta two",
-				sectionIndex: 1,
+				groupIndex: 1,
 				localIndex: 1,
-				sectionTitle: "Beta",
+				groupTitle: "Beta",
 				alt: null,
 			},
 		]
@@ -200,12 +200,12 @@ describe("ProjectSectionCarousel", () => {
 		renderCarousel({
 			images: [
 				{
-					id: 1,
+					key: "section-image-1",
 					url: "/only.jpg",
 					caption: "Only one",
-					sectionIndex: 0,
+					groupIndex: 0,
 					localIndex: 0,
-					sectionTitle: "MyApp",
+					groupTitle: "MyApp",
 					alt: null,
 				},
 			],

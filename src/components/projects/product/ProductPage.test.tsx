@@ -4,6 +4,7 @@ import {
 	PlatformBucket,
 	PlatformTag,
 	ProjectSectionKind,
+	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
@@ -103,6 +104,50 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 	}
 }
 
+type Step = Section["items"][number]
+
+function makeStepImage(id: number, alt: string): Step["images"][number] {
+	return {
+		id,
+		itemId: 1,
+		url: `/step-${id}.png`,
+		caption: null,
+		alt,
+		sortOrder: 0,
+	}
+}
+
+function makeStep(
+	id: number,
+	title: string,
+	overrides: Partial<Step> = {}
+): Step {
+	return {
+		id,
+		sectionId: 1,
+		title,
+		description: `Body of step ${title}.`,
+		sortOrder: id,
+		images: [],
+		...overrides,
+	}
+}
+
+function makeStepsSection(
+	id: number,
+	title: string,
+	steps: Step[],
+	overrides: Partial<Section> = {}
+): Section {
+	return makeSection(id, title, {
+		kind: ProjectSectionKind.steps,
+		layout: null,
+		description: "",
+		items: steps,
+		...overrides,
+	})
+}
+
 function renderPage(project: ProjectDetail) {
 	return render(
 		<ProductPage
@@ -110,6 +155,9 @@ function renderPage(project: ProjectDetail) {
 			renderedDescriptions={project.sections.map((section) => (
 				<p key={section.id}>{section.description}</p>
 			))}
+			renderedItemDescriptions={project.sections.map((section) =>
+				section.items.map((item) => <p key={item.id}>{item.description}</p>)
+			)}
 			renderedFaqAnswers={project.faqs.map((faq) => (
 				<p key={faq.id}>{faq.answer}</p>
 			))}
@@ -196,14 +244,15 @@ describe("ProductPage — hero", () => {
 		).toBeInTheDocument()
 	})
 
-	it("links 'See how it works' to the section with numbered steps", () => {
+	it("links 'See how it works' to the first steps section", () => {
 		renderPage(
 			makeProject({
 				sections: [
 					makeSection(1, "Guessing cuts too much"),
-					makeSection(2, "How it works", {
-						description: "### 1. Log a meal\n\nBody.",
-					}),
+					makeStepsSection(2, "How it works", [
+						makeStep(1, "Log a meal"),
+						makeStep(2, "Then how you feel"),
+					]),
 				],
 			})
 		)
@@ -378,6 +427,229 @@ describe("ProductPage — sections", () => {
 			within(alpha).getByRole("button", { name: "Go to image 2" })
 		).toHaveAttribute("aria-current", "true")
 	})
+
+	it("puts a stacked section's gallery before its text, and a split section's after it", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeSection(1, "Stacked", {
+						images: [makeImage(11, "Stacked shot.")],
+					}),
+					makeSection(2, "Split", {
+						layout: ProjectSectionLayout.split,
+						images: [makeImage(21, "Split shot.")],
+					}),
+				],
+			})
+		)
+
+		function isBefore(first: HTMLElement, second: HTMLElement): boolean {
+			return Boolean(
+				first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING
+			)
+		}
+
+		expect(
+			isBefore(
+				screen.getByAltText("Stacked shot."),
+				screen.getByText("Body of Stacked.")
+			)
+		).toBe(true)
+		expect(
+			isBefore(
+				screen.getByText("Body of Split."),
+				screen.getByAltText("Split shot.")
+			)
+		).toBe(true)
+	})
+
+	it("renders a section written before layouts existed as stacked", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeSection(1, "Old", {
+						layout: null,
+						images: [makeImage(11, "Old shot.")],
+					}),
+				],
+			})
+		)
+
+		expect(
+			screen
+				.getByAltText("Old shot.")
+				.compareDocumentPosition(screen.getByText("Body of Old.")) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+	})
+})
+
+// #endregion
+
+// #region Steps
+
+describe("ProductPage — steps", () => {
+	it("renders the steps as a numbered list, each title read as '1. Title' with its body", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeStepsSection(1, "How it works", [
+						makeStep(1, "Log a meal"),
+						makeStep(2, "Then how you feel"),
+					]),
+				],
+			})
+		)
+
+		const section = screen
+			.getByRole("heading", { level: 2, name: "How it works" })
+			.closest("section") as HTMLElement
+		const steps = within(within(section).getByRole("list")).getAllByRole(
+			"listitem"
+		)
+
+		expect(steps).toHaveLength(2)
+		expect(
+			within(steps[0]).getByRole("heading", { level: 3 }).textContent
+		).toBe("1. Log a meal")
+		expect(
+			within(steps[1]).getByRole("heading", { level: 3 }).textContent
+		).toBe("2. Then how you feel")
+		expect(
+			within(steps[1]).getByText("Body of step Then how you feel.")
+		).toBeInTheDocument()
+	})
+
+	it("shows the intro above the steps only when there is one", () => {
+		const steps = [makeStep(1, "Log a meal"), makeStep(2, "Then how you feel")]
+		const { unmount } = renderPage(
+			makeProject({
+				sections: [
+					makeStepsSection(1, "How it works", steps, {
+						description: "Three things, every day.",
+					}),
+				],
+			})
+		)
+
+		expect(screen.getByText("Three things, every day.")).toBeInTheDocument()
+		unmount()
+
+		const { container } = renderPage(
+			makeProject({ sections: [makeStepsSection(1, "How it works", steps)] })
+		)
+		const section = container.querySelector("#how-it-works") as HTMLElement
+
+		// The empty intro renders nothing, not an empty paragraph.
+		expect(section.querySelectorAll(".prose")).toHaveLength(2)
+	})
+
+	it("gives each step with images its own carousel under its body, and leaves the others without", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeStepsSection(1, "How it works", [
+						makeStep(1, "Log a meal", {
+							images: [makeStepImage(1, "The log sheet.")],
+						}),
+						makeStep(2, "Then how you feel"),
+					]),
+				],
+			})
+		)
+
+		const carousel = screen.getByRole("group", {
+			name: "Digest: Log a meal screenshots",
+		})
+		expect(within(carousel).getByAltText("The log sheet.")).toBeInTheDocument()
+		expect(
+			screen
+				.getByText("Body of step Log a meal.")
+				.compareDocumentPosition(carousel) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(
+			screen.queryByRole("group", { name: /Then how you feel screenshots/ })
+		).not.toBeInTheDocument()
+	})
+
+	it("walks section and step images in one lightbox, in page order", async () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeSection(1, "Guessing", { images: [makeImage(5, "Guess shot.")] }),
+					makeStepsSection(2, "How it works", [
+						// The same id as the section image: they come from two tables.
+						makeStep(1, "Log a meal", {
+							images: [makeStepImage(5, "The log sheet.")],
+						}),
+						makeStep(2, "Then how you feel", {
+							images: [makeStepImage(6, "The symptom sheet.")],
+						}),
+					]),
+				],
+			})
+		)
+
+		await user.click(
+			screen.getByRole("button", { name: "Enlarge Guess shot." })
+		)
+		const dialog = screen.getByRole("dialog")
+		const next = within(dialog).getByRole("button", { name: /next image/i })
+
+		await user.click(next)
+		expect(within(dialog).getByAltText("The log sheet.")).toBeInTheDocument()
+
+		await user.click(next)
+		expect(
+			within(dialog).getByAltText("The symptom sheet.")
+		).toBeInTheDocument()
+	})
+
+	it("gives `priority` to a step's image when it's the first on the page", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeStepsSection(1, "How it works", [
+						makeStep(1, "Log a meal", {
+							images: [makeStepImage(1, "The log sheet.")],
+						}),
+						makeStep(2, "Then how you feel", {
+							images: [makeStepImage(2, "The symptom sheet.")],
+						}),
+					]),
+				],
+			})
+		)
+
+		expect(screen.getByAltText("The log sheet.")).toHaveAttribute(
+			"data-priority",
+			"true"
+		)
+		expect(screen.getByAltText("The symptom sheet.")).not.toHaveAttribute(
+			"data-priority"
+		)
+	})
+
+	it("lists a steps section in the rail once, not each step", () => {
+		renderPage(
+			makeProject({
+				sections: [
+					makeStepsSection(1, "How it works", [
+						makeStep(1, "Log a meal"),
+						makeStep(2, "Then how you feel"),
+					]),
+				],
+			})
+		)
+
+		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
+
+		expect(
+			within(rail)
+				.getAllByRole("link")
+				.map((link) => link.textContent)
+		).toEqual(["How it works"])
+	})
 })
 
 // #endregion
@@ -480,6 +752,125 @@ describe("ProductPage — pricing", () => {
 			screen.queryByRole("link", { name: "Download on the App Store" })
 		).not.toBeInTheDocument()
 		expect(screen.getByText("Discontinued")).toBeInTheDocument()
+	})
+
+	it("leaves a discontinued app's pricing section off the page and the rail", () => {
+		// With nothing to price it would be a heading over a note.
+		renderPage(
+			makeProject({
+				isDiscontinued: true,
+				plans,
+				offers,
+				sections: [
+					makeSection(1, "Overview"),
+					makeSection(2, "Free and paid", PRICING_SECTION),
+				],
+			})
+		)
+
+		expect(
+			screen.queryByRole("heading", { level: 2, name: "Free and paid" })
+		).not.toBeInTheDocument()
+		const [rail] = screen.getAllByRole("navigation", { name: "On this page" })
+		expect(
+			within(rail)
+				.getAllByRole("link")
+				.map((link) => link.textContent)
+		).toEqual(["Overview"])
+	})
+
+	it("prints a pricing section's note after the cards and before the store button", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers,
+				sections: [
+					makeSection(1, "Free and paid", {
+						...PRICING_SECTION,
+						description: "Prices are for the US.",
+					}),
+				],
+			})
+		)
+
+		const section = screen
+			.getByRole("heading", { level: 2, name: "Free and paid" })
+			.closest("section") as HTMLElement
+		const cards = within(section).getByRole("heading", {
+			level: 3,
+			name: "Insights",
+		})
+		const note = within(section).getByText("Prices are for the US.")
+		const button = within(section).getByRole("link", {
+			name: "Download on the App Store",
+		})
+
+		expect(
+			cards.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(
+			note.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+	})
+
+	it("prints an offer's note with its price", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: [
+					offers[0],
+					{
+						...offers[1],
+						name: "Insights, yearly",
+						price: "39.99",
+						billingPeriod: "P1Y",
+						note: "14-day free trial",
+					},
+				],
+			})
+		)
+
+		const insights = screen
+			.getByRole("heading", { level: 3, name: "Insights" })
+			.closest(".product-plan") as HTMLElement
+		const price = within(insights).getByText("$39.99").closest("li")
+
+		expect(price).toHaveTextContent("$39.99a year14-day free trial")
+	})
+
+	it("puts everything for a single upfront price in one card", () => {
+		renderPage(
+			makeProject({
+				plans: [{ name: "Reckon", features: ["Syncs over iCloud."] }],
+				offers: [
+					{
+						name: "One-time purchase",
+						plan: "Reckon",
+						price: "3.99",
+						priceCurrency: "USD",
+					},
+				],
+			})
+		)
+
+		const cards = document.querySelectorAll(".product-plan")
+
+		expect(cards).toHaveLength(1)
+		expect(cards[0]).toHaveTextContent("$3.99")
+		expect(cards[0]).toHaveTextContent("once")
+		expect(cards[0]).toHaveTextContent("Syncs over iCloud.")
+	})
+
+	it("notes US prices under the automatic Pricing block's plan cards", () => {
+		renderPage(makeProject({ plans, offers }))
+
+		const pricing = screen
+			.getByRole("heading", { level: 2, name: "Pricing" })
+			.closest("section") as HTMLElement
+
+		expect(
+			within(pricing).getByText("US prices. The App Store shows yours.")
+		).toBeInTheDocument()
 	})
 })
 

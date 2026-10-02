@@ -1,7 +1,11 @@
 import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+} from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import ProductPage from "./ProductPage"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -71,7 +75,38 @@ const project: ProjectDetail = {
 				sortOrder: 0,
 			},
 		]),
-		section(2, "How it works"),
+		{
+			...section(2, "How it works"),
+			kind: ProjectSectionKind.steps,
+			layout: null,
+			items: [
+				{
+					id: 21,
+					sectionId: 2,
+					title: "Log a meal in 10 seconds",
+					description: "Type it.",
+					sortOrder: 0,
+					images: [
+						{
+							id: 11,
+							itemId: 21,
+							url: "/log.png",
+							caption: null,
+							alt: "The log sheet.",
+							sortOrder: 0,
+						},
+					],
+				},
+				{
+					id: 22,
+					sectionId: 2,
+					title: "Then how you feel",
+					description: "Log it.",
+					sortOrder: 1,
+					images: [],
+				},
+			],
+		},
 		section(3, "What Digest doesn't do"),
 	],
 	links: [],
@@ -95,6 +130,11 @@ describe("ProductPage — server HTML", () => {
 			renderedDescriptions: project.sections.map((s) =>
 				createElement("p", { key: s.id }, s.description)
 			),
+			renderedItemDescriptions: project.sections.map((s) =>
+				s.items.map((item) =>
+					createElement("p", { key: item.id }, item.description)
+				)
+			),
 			renderedFaqAnswers: project.faqs.map((faq) =>
 				createElement("p", { key: faq.id }, faq.answer)
 			),
@@ -106,13 +146,25 @@ describe("ProductPage — server HTML", () => {
 	const escaped = (text: string) => text.replace(/'/g, "&#x27;")
 
 	it("holds every section's heading, anchor and text", () => {
-		for (const { title, description } of project.sections) {
+		for (const { title, description, kind } of project.sections) {
 			expect(html).toContain(`${escaped(title)}</h2>`)
-			expect(html).toContain(`<p>${escaped(description)}</p>`)
+
+			// A steps section's text is its steps; its intro is empty here.
+			if (kind === ProjectSectionKind.text) {
+				expect(html).toContain(`<p>${escaped(description)}</p>`)
+			}
 		}
 
 		expect(html).toContain('id="guessing-cuts-too-much"')
 		expect(html).toContain('id="what-digest-doesnt-do"')
+	})
+
+	it("holds every step's title and text, and a step's image alt text", () => {
+		expect(html).toContain("<span>Log a meal in 10 seconds</span>")
+		expect(html).toContain("<p>Type it.</p>")
+		expect(html).toContain("<span>Then how you feel</span>")
+		expect(html).toContain("<p>Log it.</p>")
+		expect(html).toContain('alt="The log sheet."')
 	})
 
 	it("holds the price and the FAQ answers as text", () => {
