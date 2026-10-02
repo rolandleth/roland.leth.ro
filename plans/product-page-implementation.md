@@ -88,6 +88,56 @@ Each phase is one commit on the `product-page` branch in the main checkout.
 2. Dark theme: every project with a palette sets both themes. Digest keeps a deep band; Reckon and Continuum have light tinted bands with dark variants. All small-text pairs checked at 4.5:1 or better.
 3. Numbered steps come from the `### 1. Title` pattern in the markdown, not from a separate field.
 
+## Revision 2: section kinds (decided 2026-10-02)
+
+Seen in a browser, the first build fell short of the design in three places: steps lived in markdown and couldn't hold their own images, pricing only worked with a `plans` list, and whether a section sat side by side depended on it having no image. This revision replaces decision 3 above, the `hasPlans` flag, the "no image means side by side" rule and the section-list threshold (the rail now shows on every product page, already built).
+
+**Sections** stay one ordered list. Every section has a required `kind`:
+
+| Kind | Layout | Rail |
+|---|---|---|
+| `text`, `layout: "stacked"` | Title, gallery, text. The main sections, as in the mock. | One entry |
+| `text`, `layout: "split"` | Title on the left; text on the right with its gallery under it. "Test a suspect" and its siblings. | One entry |
+| `steps` | Title on its own line, then the numbered steps at full column width: a number, an `h3` title, text, and the step's own gallery under its text. | One entry for the section; steps aren't listed |
+| `pricing` | Title, plan cards, the section text as a note, store button. As in the mock. | One entry |
+
+- A gallery is one component everywhere: one image shows as is, several become a carousel, every image opens the page's single lightbox.
+- `layout` is required for `text` and absent for the other kinds. A `text` row stored before this change has no layout and renders stacked.
+- A `steps` section has no images of its own; Digest's "log" image moves to step 1.
+- `pricing` is optional and can sit anywhere. Without one, the cards go in an automatic "Pricing" block before the FAQ.
+- Hero, FAQ, closing, guides and the links row stay fixed parts of the page.
+
+**Data model**
+- `ProjectSection`: `kind ProjectSectionKind @default(text)` (`text | steps | pricing`), `layout ProjectSectionLayout?` (`stacked | split`), `items`. `hasPlans` goes; it only ever existed on this branch.
+- `ProjectSectionItem` (new): `sectionId`, `title`, `description` (markdown), `sortOrder`, `images`. Generic, so a later list-shaped kind reuses it.
+- `ProjectSectionItemImage` (new): `url`, `caption`, `alt`, `sortOrder`. A separate table so the legacy layout and the card and OG fallbacks keep reading section images only.
+- Offers (JSON) get an optional `note`, shown with the price (Continuum's 14-day trial).
+
+**Validation**
+- `text` needs a body, takes images, no items.
+- `steps` needs 2 or more items, each with a title and a body, and takes no section images; its body is an optional intro.
+- `pricing` takes no images and no items; its body is the optional note.
+- At most one `pricing` section, and only when the project has offers.
+- An own app with offers must have plans: the import and the admin reject it otherwise. The existing offer-to-plan checks stay.
+
+**Rendering**
+- `ProductSection` switches on kind and layout.
+- Galleries are keyed by section or step, not by section index, and the lightbox walks every image in page order.
+- Step and item bodies render through the normal markdown processor. `rehypeNumberedSteps`, the product markdown processor and `hasNumberedSteps` go.
+- "See how it works" links to the first `steps` section. The one `priority` image is the first image on the page when there's no hero image.
+
+**Admin.** A kind picker and a layout picker per section. Steps survive a save untouched and are edited in the manifest; a step editor comes later.
+
+**Import.** One shared image walker for section and step images, used to list, upload and keep blobs, so the prune after an import can't delete step images.
+
+**Phases**, one commit each:
+7. Data layer: schema, Zod, types, mappers, `projectInclude`, API routes, the import walker.
+8. Rendering: the four section shapes, galleries per section and step, the pricing section, offer notes, removing the markdown steps parser.
+9. Admin: the kind and layout pickers, items passed through.
+10. Manifests: Digest converted mechanically. Reckon and Continuum get a content pass under the writing and SEO rules (step titles, plan features, alt text), drafted as proposals.
+
+**After the code:** window crops for the step images, and a hero image without the baked-in headline (Reckon's and Continuum's hero art repeats the page's headline).
+
 ## Needs you
 
 - `yarn db:push` against the development database, then production before the deploy. I won't run it: `prisma.config.ts` loads `.env`, which holds production credentials.
@@ -96,6 +146,6 @@ Each phase is one commit on the `product-page` branch in the main checkout.
 ## Release order
 
 1. Push the schema to the development database; check the pages locally.
-2. Push the schema to production. Additive and nullable, so the live code, which never reads the new columns, keeps working.
+2. Push the schema to production. Additive and nullable, so the live code, which never reads the new columns, keeps working. Production never had `hasPlans`, so revision 2 reaches it as one additive push; only the development database, pushed during the first build, asks for `--accept-data-loss` when `hasPlans` goes.
 3. Re-import Reckon and Continuum from this branch, so they get their palettes.
 4. Merge into `release` and deploy. The build reads the new columns, so it fails if step 2 hasn't happened.
