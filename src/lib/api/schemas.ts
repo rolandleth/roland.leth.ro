@@ -229,6 +229,10 @@ const projectOfferSchema = z.object({
 	// A short line printed with the price on the product page, e.g. "14-day
 	// free trial". The JSON-LD ignores it.
 	note: z.string().trim().min(1).max(80).optional(),
+	// The price the product page marks "Best value". `refineBestValueOffer`
+	// keeps it to one paid price that has another paid price in its plan to
+	// beat. The JSON-LD ignores it.
+	isBestValue: z.boolean().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -433,7 +437,7 @@ const projectFields = {
 type PlanRefineInput = {
 	isOwnApp?: boolean
 	plans?: { name: string; isHighlighted?: boolean }[]
-	offers?: { plan?: string }[]
+	offers?: { plan?: string; price: string; isBestValue?: boolean }[]
 	sections?: { kind: ProjectSectionKind }[]
 }
 
@@ -446,7 +450,8 @@ type PlanRefineInput = {
 //   - an own app with offers has plans, since the product page prints prices
 //     only inside plan cards;
 //   - at most one `pricing` section, and only on a project with offers, or it
-//     would be a heading over nothing.
+//     would be a heading over nothing;
+//   - at most one best-value price, paid, with another paid price in its plan.
 // Like `refineBucketTagCoherence`, each rule only fires when the fields it
 // compares are in the payload. The one exception is the create path: there the
 // whole project is in the payload, so an offer naming a plan with no `plans`
@@ -465,6 +470,7 @@ function refineProjectPlans(
 
 	refineOwnAppPlans(value, ctx, isPartial)
 	refinePricingSections(sections, offers, ctx, isPartial)
+	refineBestValueOffer(offers, ctx)
 
 	if (plans != null) {
 		const names = plans.map((plan) => plan.name)
@@ -582,6 +588,63 @@ function refinePricingSections(
 			message: "A pricing section needs the project to have offers",
 		})
 	}
+}
+
+// "Best value" is a comparison, so the flagged price needs something to beat:
+// another paid price in the same plan, or among the offers when none names a
+// plan. A free price is never it. Offers alone decide this, so a partial
+// update that sends them can be checked whole.
+function refineBestValueOffer(
+	offers: PlanRefineInput["offers"],
+	ctx: z.RefinementCtx
+): void {
+	if (offers == null) {
+		return
+	}
+
+	const flagged = offers.filter((offer) => offer.isBestValue === true)
+
+	if (flagged.length > 1) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["offers"],
+			message: "At most one offer can be the best value",
+		})
+	}
+
+	offers.forEach((offer, index) => {
+		if (offer.isBestValue !== true) {
+			return
+		}
+
+		if (!isPaidPrice(offer.price)) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["offers", index, "isBestValue"],
+				message: "A free price can't be the best value",
+			})
+
+			return
+		}
+
+		const hasRival = offers.some(
+			(other) =>
+				other !== offer && other.plan === offer.plan && isPaidPrice(other.price)
+		)
+
+		if (!hasRival) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["offers", index, "isBestValue"],
+				message:
+					"A best-value price needs another paid price in its plan to compare against",
+			})
+		}
+	})
+}
+
+function isPaidPrice(price: string): boolean {
+	return Number(price) > 0
 }
 
 // `superRefine` is layered on the base object schemas so each surface keeps

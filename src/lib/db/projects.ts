@@ -53,6 +53,8 @@ export interface ProjectOffer {
 	plan?: string
 	/** A short line printed with the price on the product page. */
 	note?: string
+	/** The price the product page marks "Best value"; at most one per project. */
+	isBestValue?: boolean
 	sortOrder?: number
 }
 

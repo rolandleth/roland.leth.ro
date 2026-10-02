@@ -1635,6 +1635,105 @@ describe("projectCreateSchema — product-page fields", () => {
 		).toBe(false)
 	})
 
+	// #region Best value
+
+	const proPlans = [
+		plans[0],
+		{ name: "Pro", features: ["Everything."], sortOrder: 2 },
+	]
+	const proOffers = [
+		offers[0],
+		{
+			name: "Pro, monthly",
+			plan: "Pro",
+			price: "12.00",
+			priceCurrency: "USD",
+			billingPeriod: "P1M",
+		},
+		{
+			name: "Pro, yearly",
+			plan: "Pro",
+			price: "108.00",
+			priceCurrency: "USD",
+			billingPeriod: "P1Y",
+		},
+	]
+
+	function withBestValue(flagged: readonly number[], offerList = proOffers) {
+		return {
+			...base,
+			plans: proPlans,
+			offers: offerList.map((offer, index) =>
+				flagged.includes(index) ? { ...offer, isBestValue: true } : offer
+			),
+		}
+	}
+
+	it("accepts a best-value price beside another paid price in its plan", () => {
+		expect(projectCreateSchema.safeParse(withBestValue([2])).success).toBe(true)
+	})
+
+	it("keeps the flag through the parse, so the import stores it", () => {
+		const result = projectCreateSchema.safeParse(withBestValue([2]))
+
+		expect(result.success && result.data.offers?.[2].isBestValue).toBe(true)
+	})
+
+	it("rejects two best-value prices", () => {
+		expect(issueMessages(withBestValue([1, 2]))).toContain(
+			"At most one offer can be the best value"
+		)
+	})
+
+	it("rejects a free price as the best value", () => {
+		expect(issueMessages(withBestValue([0]))).toContain(
+			"A free price can't be the best value"
+		)
+	})
+
+	it("rejects a best-value price that is its plan's only paid price", () => {
+		const message =
+			"A best-value price needs another paid price in its plan to compare against"
+
+		// Alone in its plan, though the project has other prices.
+		expect(
+			issueMessages(withBestValue([1], [proOffers[0], proOffers[1]]))
+		).toContain(message)
+		// The only other price in its plan is free.
+		expect(
+			issueMessages(
+				withBestValue(
+					[1],
+					[proOffers[0], proOffers[1], { ...proOffers[2], price: "0" }]
+				)
+			)
+		).toContain(message)
+	})
+
+	it("compares across all offers when none names a plan", () => {
+		const unplanned = [
+			{ name: "Monthly", price: "2.99", priceCurrency: "USD" },
+			{ name: "Lifetime", price: "19.99", priceCurrency: "USD" },
+		]
+
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				offers: [unplanned[0], { ...unplanned[1], isBestValue: true }],
+			}).success
+		).toBe(true)
+		expect(
+			issueMessages({
+				...base,
+				offers: [{ ...unplanned[1], isBestValue: true }],
+			})
+		).toContain(
+			"A best-value price needs another paid price in its plan to compare against"
+		)
+	})
+
+	// #endregion
+
 	it("rejects a palette value that isn't a hex colour, which would otherwise reach the page's CSS", () => {
 		expect(
 			projectCreateSchema.safeParse({
@@ -1866,6 +1965,22 @@ describe("projectUpdateSchema — product-page fields", () => {
 			plans: [{ name: "Free", features: ["Meals."] }],
 			offers: [{ name: "Pro", plan: "Pro", price: "9", priceCurrency: "USD" }],
 		})
+		expect(result.success).toBe(false)
+	})
+
+	it("checks the best-value price on an offers-only update, since offers alone decide it", () => {
+		const result = projectUpdateSchema.safeParse({
+			offers: [
+				{
+					name: "Pro",
+					plan: "Pro",
+					price: "9",
+					priceCurrency: "USD",
+					isBestValue: true,
+				},
+			],
+		})
+
 		expect(result.success).toBe(false)
 	})
 })
