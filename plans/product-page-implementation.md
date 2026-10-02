@@ -131,10 +131,12 @@ Seen in a browser, the first build fell short of the design in three places: ste
 **Import.** One shared image walker for section and step images, used to list, upload and keep blobs, so the prune after an import can't delete step images.
 
 **Phases**, one commit each:
-7. Data layer: schema, Zod, types, mappers, `projectInclude`, API routes, the import walker.
-8. Rendering: the four section shapes, galleries per section and step, the pricing section, offer notes, removing the markdown steps parser.
-9. Admin: the kind and layout pickers, items passed through.
-10. Manifests: Digest converted mechanically. Reckon and Continuum get a content pass under the writing and SEO rules (step titles, plan features, alt text), drafted as proposals.
+7. Data layer: schema, Zod, types, mappers, `projectInclude`, API routes, the import walker. Built, with phase 9 folded in: the API contract changed here, so the admin had to change in the same commit to keep saving.
+8. Rendering: the four section shapes, galleries per section and step, the pricing section, offer notes, removing the markdown steps parser. Built; `GalleryImage` now carries a `key` unique across both image tables and a `groupIndex` (a section or a step) in place of `sectionIndex`.
+9. Admin: the kind and layout pickers, items passed through. Built in phase 7.
+10. Manifests: Digest converted mechanically (no copy changes). Reckon and Continuum get a content pass under the writing and SEO rules (step titles, plan features, alt text), drafted as `project.proposal.json` next to each manifest.
+
+Not yet seen in a browser: the development database needs `db:push` (with `--accept-data-loss` for `hasPlans`) and a re-import first.
 
 **After the code:** window crops for the step images, and a hero image without the baked-in headline (Reckon's and Continuum's hero art repeats the page's headline).
 
