@@ -84,8 +84,12 @@ export default function RootLayout({
 	children: React.ReactNode
 }>) {
 	return (
+		// `data-scroll-behavior`: Next.js turns smooth scrolling off for the
+		// scroll-to-top of a route change when this is set, so the smooth in-page
+		// jumps on product pages (globals.css) don't animate every navigation too.
 		<html
 			lang="en"
+			data-scroll-behavior="smooth"
 			className={`${newsreader.variable} ${inter.variable} ${jetBrainsMono.variable} h-full antialiased`}
 			suppressHydrationWarning
 		>

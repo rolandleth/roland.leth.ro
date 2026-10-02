@@ -858,6 +858,65 @@ describe("ProductPage — pricing", () => {
 		expect(price).toHaveTextContent("$39.99a year14-day free trial")
 	})
 
+	it("marks the best-value price, and gives every price in every card the badge's row", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: [offers[0], offers[1], { ...offers[2], isBestValue: true }],
+			})
+		)
+
+		const prices = ["$0", "$6.99", "$89.99"].map(
+			(price) => screen.getByText(price).closest("li") as HTMLElement
+		)
+		const badge = screen.getByText("Best value")
+
+		expect(prices[2]).toContainElement(badge)
+		expect(prices[2]).toHaveTextContent("Best value$89.99once")
+		// The free card's price and the monthly one hold an empty row of the same
+		// height, so all three sit level.
+		for (const price of prices.slice(0, 2)) {
+			const row = price.firstElementChild as HTMLElement
+
+			expect(row).toHaveAttribute("aria-hidden")
+			expect(row).toBeEmptyDOMElement()
+			expect(row.className).toBe(
+				badge.className.replace("product-plan__badge ", "")
+			)
+		}
+	})
+
+	it("adds no badge row when no price is the best value", () => {
+		renderPage(makeProject({ plans, offers }))
+
+		expect(screen.queryByText("Best value")).not.toBeInTheDocument()
+		expect(
+			(screen.getByText("$6.99").closest("li") as HTMLElement).firstElementChild
+		).toHaveTextContent("$6.99")
+	})
+
+	it("centres the prices in a row of cards, and keeps a lone card's under its name", () => {
+		const { unmount } = renderPage(makeProject({ plans, offers }))
+
+		expect(screen.getByText("$6.99").closest("ul")).toHaveClass(
+			"justify-center"
+		)
+		unmount()
+
+		renderPage(
+			makeProject({
+				plans: [{ name: "Reckon", features: ["Syncs over iCloud."] }],
+				offers: [
+					{ name: "Once", plan: "Reckon", price: "3.99", priceCurrency: "USD" },
+				],
+			})
+		)
+
+		expect(screen.getByText("$3.99").closest("ul")).not.toHaveClass(
+			"justify-center"
+		)
+	})
+
 	it("puts everything for a single upfront price in one card", () => {
 		renderPage(
 			makeProject({
@@ -981,6 +1040,40 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 			screen.getByRole("heading", { level: 3, name: "What is Digest?" })
 		).toBeInTheDocument()
 		expect(screen.getByText("On your device.")).toBeInTheDocument()
+	})
+
+	it("opens and closes an answer with its question, keeping a closed one out of reach", async () => {
+		renderPage(
+			makeProject({
+				faqs: [
+					{
+						id: 1,
+						projectId: 1,
+						question: "What is Digest?",
+						answer: "A journal.",
+						sortOrder: 0,
+					},
+				],
+			})
+		)
+
+		const button = screen.getByRole("button", { name: "What is Digest?" })
+		const panel = document.getElementById(
+			button.getAttribute("aria-controls") ?? ""
+		)
+
+		expect(button.closest("h3")).not.toBeNull()
+		expect(button).toHaveAttribute("aria-expanded", "false")
+		expect(panel).toHaveAttribute("inert")
+		expect(panel).toHaveTextContent("A journal.")
+
+		await user.click(button)
+		expect(button).toHaveAttribute("aria-expanded", "true")
+		expect(panel).not.toHaveAttribute("inert")
+
+		await user.click(button)
+		expect(button).toHaveAttribute("aria-expanded", "false")
+		expect(panel).toHaveAttribute("inert")
 	})
 
 	it("closes with the closing headline, the name above it, and the store button", () => {

@@ -56,9 +56,11 @@ export function ProductToc({ items }: Props) {
 		// `self-start`: a grid item stretches to the row's full height by
 		// default, which leaves a sticky element no room to stick, so it scrolled
 		// away with the page. `top-14` keeps it below the fixed site header.
+		// `pb-12` matches the top: a sticky element stops at its column's end, so
+		// without it the last entry touched the closing band as that scrolled in.
 		<nav
 			aria-label="On this page"
-			className="sticky top-14 hidden self-start pt-12 min-[1080px]:block"
+			className="sticky top-14 hidden self-start pt-12 pb-12 min-[1080px]:block"
 		>
 			<p className="text-primary mb-2.5 text-[13px] font-semibold">
 				On this page

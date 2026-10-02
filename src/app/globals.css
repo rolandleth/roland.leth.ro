@@ -268,13 +268,31 @@ code[data-theme*=" "] span {
 		color-mix(in srgb, var(--product-shot-edge) 12%, transparent);
 }
 
-/* Plan cards. The highlighted plan takes the band colours. */
+/* Plan cards. The highlighted plan takes the band colours, and its border the
+   band's highlight: with no border of its own it drew less attention than the
+   plain card's grey outline. */
 .product-plan {
 	padding: 26px 26px 28px;
 	border: 1px solid var(--color-border-value);
 	border-radius: 14px;
 	background: var(--product-surface);
 	color: var(--color-primary-value);
+}
+
+/* "Best value" over one price (`ProductPlans`), filled in the card's accent. */
+.product-plan__badge {
+	padding: 0 8px;
+	border-radius: 999px;
+	background: var(--product-accent-text);
+	color: var(--product-surface);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1;
+}
+
+.product-plan--highlighted .product-plan__badge {
+	background: var(--product-band-hi);
+	color: var(--product-band-surface);
 }
 
 .product-plan__prices {
@@ -294,7 +312,7 @@ code[data-theme*=" "] span {
 }
 
 .product-plan--highlighted {
-	border-color: transparent;
+	border-color: var(--product-band-hi);
 	background: var(--product-band-surface);
 	color: var(--product-band-ink);
 }
@@ -340,19 +358,17 @@ code[data-theme*=" "] span {
    title. The list sits outside `.prose`; each step's text is a `.prose` of its
    own, whose first and last margins typography already drops. */
 .product-steps {
+	display: grid;
+	gap: 44px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
+/* Steps are set apart by space, not rules: a rule over the first step sat
+   right under the section's title, with the section's own rule just above. */
 .product-step {
 	margin: 0;
-	padding: 22px 0;
-	border-top: 1px solid var(--color-border-value);
-}
-
-.product-step:last-child {
-	padding-bottom: 0;
 }
 
 .product-step__title {
@@ -396,8 +412,16 @@ code[data-theme*=" "] span {
 }
 
 /* The page's one load moment: the hero rises in, 0.25s, staggered a little.
-   Off when the reader asks for less motion. */
+   Off when the reader asks for less motion. In-page jumps (the section rail,
+   "See how it works") scroll there instead of cutting, on product pages only;
+   `data-scroll-behavior` on `<html>` keeps route changes instant. The FAQ's
+   answers animate in `FaqItem`, with Framer: CSS can animate a height to
+   `auto` only in Chromium. */
 @media (prefers-reduced-motion: no-preference) {
+	html:has(.product-page) {
+		scroll-behavior: smooth;
+	}
+
 	.product-hero-fade {
 		animation: product-hero-up 0.25s ease-out both;
 	}

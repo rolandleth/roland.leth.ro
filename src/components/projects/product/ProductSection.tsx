@@ -6,8 +6,18 @@ import type { ReactNode } from "react"
 export const PRODUCT_H2_CLASS =
 	"font-serif text-[30px] leading-[1.12] font-normal tracking-[-0.015em] text-balance sm:text-[36px]"
 
+/**
+ * Drops the outer margins of rendered markdown. Each body arrives wrapped in a
+ * `<div>` (it carries the React key), so typography's own "no margin on the
+ * first and last child" rule lands on the wrapper, and the first paragraph kept
+ * its top margin: text sat lower than the title beside it, and further from
+ * the image above it, than the layout means.
+ */
+export const TRIM_RENDERED_MARKDOWN =
+	"[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0"
+
 /** Markdown text in a section or a step: the reading measure. */
-export const PRODUCT_PROSE_CLASS = "prose dark:prose-invert max-w-[40em]"
+export const PRODUCT_PROSE_CLASS = `prose dark:prose-invert max-w-[40em] ${TRIM_RENDERED_MARKDOWN}`
 
 // A split section's gallery sits under its text in the right column: 32rem at
 // most, which is that column's width on a full-width page.
@@ -27,10 +37,11 @@ interface ShellProps {
 }
 
 /**
- * The frame every product page section shares: its anchor, the rule above it,
- * the `h2`, and a column for the content. Stacked by default; split puts the
- * title beside the content from 640px, so a run of short sections reads as a
- * change of pace rather than a row of gaps.
+ * The frame every product page section shares: its anchor, the `h2`, and a
+ * column for the content. Stacked by default; split puts the title beside the
+ * content from 640px, so a run of short sections reads as a change of pace
+ * rather than a row of gaps. Sections are set apart by space alone: a rule
+ * above each one doubled up with the first step's, right under a title.
  */
 export function ProductSectionShell({
 	id,
@@ -42,7 +53,7 @@ export function ProductSectionShell({
 		<section
 			id={id}
 			aria-labelledby={`${id}-title`}
-			className="scroll-mt-4 border-t border-(--color-border) py-14 first:border-t-0 sm:py-[72px]"
+			className="scroll-mt-4 py-14 sm:py-[72px]"
 		>
 			<div
 				className={
