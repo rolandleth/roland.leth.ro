@@ -31,7 +31,7 @@ export default function ProductClosing({
 			aria-labelledby="get-title"
 			className="product-band scroll-mt-4 bg-(--product-band-surface) text-(--product-band-ink)"
 		>
-			<div className="mx-auto flex w-full max-w-[1200px] flex-col items-center px-4 py-20 text-center sm:px-8 lg:px-12 lg:pt-[88px] lg:pb-24">
+			<div className="product-frame flex flex-col items-center py-20 text-center lg:pt-[88px] lg:pb-24">
 				{icon != null && (
 					<Image
 						src={icon}

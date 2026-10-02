@@ -1,4 +1,5 @@
 import { flattenSections } from "@/lib/client/gallery"
+import { resolveHeroImage } from "@/lib/db/projects"
 import { linkCtasFor } from "@/lib/utils/platforms"
 import {
 	groupOffersByPlan,
@@ -6,16 +7,15 @@ import {
 	sectionAnchors,
 	TOC_MIN_SECTIONS,
 } from "@/lib/utils/productPage"
-import ProjectAccentStyle from "../ProjectAccentStyle"
 import ProjectGuides from "../ProjectGuides"
 import ProjectLinkCta from "../ProjectLinkCta"
 import ProductClosing from "./ProductClosing"
 import ProductFaq from "./ProductFaq"
 import { ProductGalleryProvider } from "./ProductGallery"
 import ProductHero from "./ProductHero"
+import ProductPageStyle from "./ProductPageStyle"
 import ProductPlans from "./ProductPlans"
 import ProductSection, { PRODUCT_H2_CLASS } from "./ProductSection"
-import ProductThemeStyle from "./ProductThemeStyle"
 import { ProductToc, ProductTocCompact } from "./ProductToc"
 import type { Pricing } from "./ProductPlans"
 import type { TocItem } from "./ProductToc"
@@ -84,10 +84,10 @@ export default function ProductPage({
 		hasNumberedSteps(section.description)
 	)
 	const gallery = flattenSections(sections)
+	const heroImage = resolveHeroImage(project)
 	// One image on the page loads with `priority`: the hero image when there
 	// is one, else the first screenshot.
-	const priorityImageId =
-		project.heroImage == null ? (gallery[0]?.id ?? null) : null
+	const priorityImageId = heroImage == null ? (gallery[0]?.id ?? null) : null
 	const pricing = pricingFor(project)
 	const plansIndex = sections.findIndex((section) => section.hasPlans)
 	const hasPricingSection = pricing != null && plansIndex === -1
@@ -115,8 +115,7 @@ export default function ProductPage({
 
 	return (
 		<div className="product-page flex flex-1 flex-col">
-			<ProjectAccentStyle accentColor={project.accentColor} />
-			<ProductThemeStyle
+			<ProductPageStyle
 				accentColor={project.accentColor}
 				palette={project.palette}
 			/>
@@ -127,7 +126,7 @@ export default function ProductPage({
 				eyebrow={project.heroEyebrow}
 				headline={project.heroHeadline}
 				summary={project.summary}
-				heroImage={project.heroImage}
+				heroImage={heroImage}
 				heroImageAlt={project.heroImageAlt}
 				isDiscontinued={project.isDiscontinued}
 				storeLinks={storeLinks}
@@ -135,16 +134,19 @@ export default function ProductPage({
 				storeNote={project.storeNote}
 			/>
 
+			{/* A long page puts the section list in a 200px first column of the
+			    frame, which leaves 840px for the sections at full width. A short
+			    page centres that same 840px column. */}
 			<div
-				className={`mx-auto w-full px-4 sm:px-8 lg:px-12 ${
+				className={`product-frame ${
 					hasToc
-						? "max-w-[1200px] min-[1080px]:grid min-[1080px]:grid-cols-[200px_minmax(0,1fr)] min-[1080px]:gap-16"
-						: "max-w-[936px]"
+						? "min-[1080px]:grid min-[1080px]:grid-cols-[200px_minmax(0,1fr)] min-[1080px]:gap-16"
+						: ""
 				}`}
 			>
 				{hasToc && <ProductToc items={tocItems} />}
 
-				<div className="min-w-0">
+				<div className={hasToc ? "min-w-0" : "mx-auto max-w-[840px] min-w-0"}>
 					{hasToc && <ProductTocCompact items={tocItems} />}
 
 					<ProductGalleryProvider
@@ -213,7 +215,7 @@ export default function ProductPage({
 			/>
 
 			{(guides.length > 0 || hasMeta) && (
-				<div className="mx-auto w-full max-w-[1200px] px-4 pb-16 sm:px-8 lg:px-12">
+				<div className="product-frame pb-16">
 					{guides.length > 0 && (
 						<ProjectGuides items={guides} accent="var(--project-accent)" />
 					)}

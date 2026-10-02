@@ -21,12 +21,20 @@ export default function Header() {
 		return pathname === href || pathname.startsWith(href + "/")
 	}
 
+	// `data-site-header`, `--site-max-width` and `--site-gutter` are hooks for a
+	// page that reframes the header: the own-app product page sets the two
+	// variables to its own frame (globals.css), so the logo lines up with its
+	// hero, and gives the header the hero's band colour, so the band runs up
+	// under the bar (`ProductPageStyle`).
 	return (
 		<>
-			<header className="border-border fixed top-0 right-0 left-0 z-50 border-b bg-(--color-header-bg)/90 backdrop-blur-xl">
+			<header
+				data-site-header
+				className="border-border fixed top-0 right-0 left-0 z-50 border-b bg-(--color-header-bg)/90 backdrop-blur-xl"
+			>
 				<nav
 					aria-label="Main"
-					className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4"
+					className="mx-auto flex h-14 max-w-[var(--site-max-width,56rem)] items-center justify-between px-[var(--site-gutter,1rem)]"
 				>
 					<Link
 						href="/"

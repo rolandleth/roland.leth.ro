@@ -316,6 +316,30 @@ describe("ProductPage — sections", () => {
 		)
 	})
 
+	it.each([
+		["card", { cardImage: "/card.png", ogImage: "/og.png" }, "/card.png"],
+		["OG", { cardImage: null, ogImage: "/og.png" }, "/og.png"],
+	])(
+		"falls back to the %s image beside the hero, and gives it `priority`",
+		(_label, images, expected) => {
+			renderPage(
+				makeProject({
+					...images,
+					sections: [
+						makeSection(1, "One", { images: [makeImage(11, "First shot.")] }),
+					],
+				})
+			)
+			const heroImage = screen.getByAltText("Digest screenshot")
+
+			expect(heroImage).toHaveAttribute("src", expected)
+			expect(heroImage).toHaveAttribute("data-priority", "true")
+			expect(screen.getByAltText("First shot.")).not.toHaveAttribute(
+				"data-priority"
+			)
+		}
+	)
+
 	it("walks every section's images in one lightbox and leaves the carousel on the last one viewed", async () => {
 		renderPage(
 			makeProject({
@@ -618,14 +642,60 @@ describe("ProductPage — theme style", () => {
 		expect(css).toContain(".dark .product-page{--product-band:#1b3329")
 	})
 
-	it("writes only the accent without a palette", () => {
+	it("gives the site header each theme's band colour and inks", () => {
+		const light = {
+			band: "#f3ede4",
+			bandInk: "#2a241e",
+			bandInk2: "#6b6158",
+			bandHighlight: "#9a532b",
+			accentText: "#9a532b",
+		}
+		const dark = {
+			band: "#2a211b",
+			bandInk: "#f3ede4",
+			bandInk2: "#c9bbae",
+			bandHighlight: "#e0a27a",
+			accentText: "#e0a27a",
+		}
+		const { container } = renderPage(makeProject({ palette: { light, dark } }))
+		const css = [...container.querySelectorAll("style")]
+			.map((style) => style.textContent)
+			.join("")
+
+		expect(css).toContain(
+			"[data-site-header]{--color-header-bg:#f3ede4;--color-primary-value:#2a241e;--color-secondary-value:#6b6158;--color-accent:#9a532b;"
+		)
+		expect(css).toContain(
+			".dark [data-site-header]{--color-header-bg:#2a211b;--color-primary-value:#f3ede4;--color-secondary-value:#c9bbae;--color-accent:#e0a27a;"
+		)
+	})
+
+	it("writes only the accent without a palette, and tints the header with it", () => {
 		const { container } = renderPage(makeProject())
 		const css = [...container.querySelectorAll("style")]
 			.map((style) => style.textContent)
 			.join("")
 
 		expect(css).toContain(".product-page{--project-accent:#405A55}")
+		expect(css).toContain(
+			"[data-site-header]{--color-header-bg:color-mix(in srgb,#405A55 9%,var(--color-background-value))}"
+		)
 		expect(css).not.toContain("--product-band")
+		expect(css).not.toContain("--color-primary-value")
+	})
+
+	it("tints the header with the site accent when the project has no accent", () => {
+		const { container } = renderPage(makeProject({ accentColor: null }))
+		const css = [...container.querySelectorAll("style")]
+			.map((style) => style.textContent)
+			.join("")
+
+		expect(css).toContain(
+			".product-page{--project-accent:var(--color-accent-value)}"
+		)
+		expect(css).toContain(
+			"color-mix(in srgb,var(--color-accent-value) 9%,var(--color-background-value))"
+		)
 	})
 })
 

@@ -253,6 +253,20 @@ export function resolveOgImage(project: {
 }
 
 /**
+ * The image beside the own-app product page's hero: `heroImage`, else the card
+ * image, else the OG image. A card or OG asset is a landscape showcase made
+ * for the project (Reckon's and Continuum's are hero compositions), which suits
+ * the slot; a section screenshot doesn't, and would repeat lower on the page.
+ */
+export function resolveHeroImage(project: {
+	heroImage: string | null
+	cardImage: string | null
+	ogImage: string | null
+}): string | null {
+	return firstImage([project.heroImage, project.cardImage, project.ogImage])
+}
+
+/**
  * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
  * image precedence into a single `featuredImage` and dropping the raw image
  * columns the list surfaces don't render.

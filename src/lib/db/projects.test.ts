@@ -11,6 +11,7 @@ import {
 	loadProject,
 	loadProjectForAdmin,
 	resolveCardImage,
+	resolveHeroImage,
 	resolveOgImage,
 	revalidateProject,
 	toProjectFormInitialData,
@@ -331,6 +332,45 @@ describe("resolveCardImage / resolveOgImage", () => {
 		}
 
 		expect(resolveCardImage(project)).toBe("/card.png")
+	})
+})
+
+// #endregion
+
+// #region resolveHeroImage
+
+describe("resolveHeroImage", () => {
+	it.each([
+		[
+			"the hero image",
+			{ heroImage: "/hero.png", cardImage: "/card.png", ogImage: "/og.png" },
+			"/hero.png",
+		],
+		[
+			"the card image",
+			{ heroImage: null, cardImage: "/card.png", ogImage: "/og.png" },
+			"/card.png",
+		],
+		[
+			"the OG image",
+			{ heroImage: null, cardImage: null, ogImage: "/og.png" },
+			"/og.png",
+		],
+		[
+			"the card image past a blank hero",
+			{ heroImage: "  ", cardImage: "/card.png", ogImage: null },
+			"/card.png",
+		],
+	])("picks %s", (_label, project, expected) => {
+		expect(resolveHeroImage(project)).toBe(expected)
+	})
+
+	it("returns null rather than reaching for a section screenshot", () => {
+		// The sections show their own screenshots lower on the page; the hero
+		// stays text-only rather than repeat one.
+		expect(
+			resolveHeroImage({ heroImage: null, cardImage: "", ogImage: null })
+		).toBeNull()
 	})
 })
 

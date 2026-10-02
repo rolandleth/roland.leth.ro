@@ -23,8 +23,8 @@ interface Props {
 }
 
 /**
- * The top of an own-app page, on the band colour when the project has a
- * palette. One `h1` holds the name, the eyebrow and the headline, joined for
+ * The top of an own-app page, on the band colour (the palette's, or an accent
+ * tint). One `h1` holds the name, the eyebrow and the headline, joined for
  * screen readers and text extraction by visually hidden ": " and ". ", so it
  * reads "Digest: Food and symptom journal for iPhone and iPad. Find which
  * foods to suspect" instead of three words run together.
@@ -49,10 +49,13 @@ export default function ProductHero({
 	const isBare = eyebrow == null && headline == null
 	const iconSize = isBare ? 64 : 44
 
+	// The band runs up under the fixed site header: `-mt-14` pulls it over the
+	// header's 3.5rem spacer, and the top padding adds the same back so the text
+	// starts below the bar. `ProductPageStyle` gives the header the band colour.
 	return (
-		<section className="product-band bg-(--product-band) text-(--product-band-ink)">
+		<section className="product-band -mt-14 bg-(--product-band) text-(--product-band-ink)">
 			<div
-				className={`mx-auto grid w-full max-w-[1200px] items-center gap-12 px-4 pt-16 pb-20 sm:px-8 lg:gap-16 lg:px-12 lg:pt-[88px] lg:pb-24 ${
+				className={`product-frame grid items-center gap-12 pt-[7.5rem] pb-20 lg:gap-16 lg:pt-[calc(88px+3.5rem)] lg:pb-24 ${
 					heroImage == null
 						? ""
 						: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]"
