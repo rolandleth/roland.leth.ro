@@ -17,18 +17,21 @@ describe("toSectionCreate", () => {
 		expect(toSectionCreate(undefined)).toBeUndefined()
 	})
 
-	it("maps each section to a create clause with defaults applied", () => {
+	it("maps a text section with its layout and images, defaults applied", () => {
 		const result = toSectionCreate([
-			{ title: "T", description: "D" },
+			{ title: "T", description: "D", kind: "text", layout: "stacked" },
 			{
 				title: "T2",
 				description: "D2",
 				sortOrder: 5,
+				kind: "text",
+				layout: "split",
 				images: [
 					{ url: "https://example.com/a.png" },
 					{
 						url: "https://example.com/b.png",
 						caption: "cap",
+						alt: "A long description of the screenshot.",
 						sortOrder: 2,
 					},
 				],
@@ -41,14 +44,16 @@ describe("toSectionCreate", () => {
 					title: "T",
 					description: "D",
 					sortOrder: 0,
-					hasPlans: false,
+					kind: "text",
+					layout: "stacked",
 					images: undefined,
 				},
 				{
 					title: "T2",
 					description: "D2",
 					sortOrder: 5,
-					hasPlans: false,
+					kind: "text",
+					layout: "split",
 					images: {
 						create: [
 							{
@@ -60,7 +65,7 @@ describe("toSectionCreate", () => {
 							{
 								url: "https://example.com/b.png",
 								caption: "cap",
-								alt: null,
+								alt: "A long description of the screenshot.",
 								sortOrder: 2,
 							},
 						],
@@ -70,26 +75,109 @@ describe("toSectionCreate", () => {
 		})
 	})
 
-	it("carries the plans flag and the image alt text through", () => {
+	it("orders images without a sortOrder by their position", () => {
+		// A shared 0 would leave their order to the database.
 		const result = toSectionCreate([
 			{
-				title: "Free and paid",
+				title: "T",
 				description: "D",
-				hasPlans: true,
+				kind: "text",
+				layout: "stacked",
 				images: [
+					{ url: "https://example.com/a.png" },
+					{ url: "https://example.com/b.png" },
+				],
+			},
+		])
+		const section = result?.create[0]
+
+		expect(
+			section != null && "images" in section
+				? section.images?.create.map((image) => image.sortOrder)
+				: null
+		).toEqual([0, 1])
+	})
+
+	it("maps a steps section to its items, each with its own images", () => {
+		const result = toSectionCreate([
+			{
+				title: "How it works",
+				kind: "steps",
+				items: [
 					{
-						url: "https://example.com/a.png",
-						caption: null,
-						alt: "A long description of the screenshot.",
+						title: "Log a meal",
+						description: "Type it.",
+						images: [
+							{ url: "https://example.com/log.png", alt: "The log sheet." },
+						],
 					},
+					{ title: "Then how you feel", description: "Log it.", sortOrder: 7 },
 				],
 			},
 		])
 
-		expect(result?.create[0].hasPlans).toBe(true)
-		expect(result?.create[0].images?.create[0].alt).toBe(
-			"A long description of the screenshot."
-		)
+		expect(result).toEqual({
+			create: [
+				{
+					title: "How it works",
+					description: "",
+					sortOrder: 0,
+					kind: "steps",
+					layout: null,
+					items: {
+						create: [
+							{
+								title: "Log a meal",
+								description: "Type it.",
+								sortOrder: 0,
+								images: {
+									create: [
+										{
+											url: "https://example.com/log.png",
+											caption: null,
+											alt: "The log sheet.",
+											sortOrder: 0,
+										},
+									],
+								},
+							},
+							{
+								title: "Then how you feel",
+								description: "Log it.",
+								sortOrder: 7,
+								images: undefined,
+							},
+						],
+					},
+				},
+			],
+		})
+	})
+
+	it("maps a pricing section to its note alone", () => {
+		const result = toSectionCreate([
+			{ title: "Free and paid", kind: "pricing", description: "US prices." },
+			{ title: "Pricing", kind: "pricing" },
+		])
+
+		expect(result).toEqual({
+			create: [
+				{
+					title: "Free and paid",
+					description: "US prices.",
+					sortOrder: 0,
+					kind: "pricing",
+					layout: null,
+				},
+				{
+					title: "Pricing",
+					description: "",
+					sortOrder: 0,
+					kind: "pricing",
+					layout: null,
+				},
+			],
+		})
 	})
 })
 

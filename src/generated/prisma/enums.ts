@@ -50,3 +50,20 @@ export const PlatformTag = {
 } as const
 
 export type PlatformTag = (typeof PlatformTag)[keyof typeof PlatformTag]
+
+
+export const ProjectSectionKind = {
+  text: 'text',
+  steps: 'steps',
+  pricing: 'pricing'
+} as const
+
+export type ProjectSectionKind = (typeof ProjectSectionKind)[keyof typeof ProjectSectionKind]
+
+
+export const ProjectSectionLayout = {
+  stacked: 'stacked',
+  split: 'split'
+} as const
+
+export type ProjectSectionLayout = (typeof ProjectSectionLayout)[keyof typeof ProjectSectionLayout]

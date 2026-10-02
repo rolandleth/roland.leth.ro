@@ -1,4 +1,9 @@
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
 import type {
@@ -38,6 +43,24 @@ export const EMPTY_PRODUCT_PAGE_FIELDS = {
 	| "plans"
 	| "palette"
 >
+
+/**
+ * The kind fields of a plain section row: a stacked text section with no
+ * steps. Spread into every section fixture (the `ProjectDetail`, Prisma row and
+ * admin form shapes alike), so a section fixture only spells out its content.
+ * A function, so no two fixtures share one `items` array.
+ */
+export function textSectionFields(): {
+	kind: ProjectSectionKind
+	layout: ProjectSectionLayout | null
+	items: never[]
+} {
+	return {
+		kind: ProjectSectionKind.text,
+		layout: ProjectSectionLayout.stacked,
+		items: [],
+	}
+}
 
 /** Fixed so `updatedAt` assertions don't depend on wall-clock time. */
 const FIXTURE_DATE = new Date("2026-07-01T12:00:00.000Z")

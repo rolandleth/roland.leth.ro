@@ -1,5 +1,10 @@
 import { z } from "zod"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import {
 	collapseWhitespace,
 	DESCRIPTION_MAX_CHARS,
@@ -23,6 +28,10 @@ const PLATFORM_BUCKETS = Object.values(PlatformBucket) as [
 const PLATFORM_TAGS = Object.values(PlatformTag) as [
 	PlatformTag,
 	...PlatformTag[],
+]
+const PROJECT_SECTION_LAYOUTS = Object.values(ProjectSectionLayout) as [
+	ProjectSectionLayout,
+	...ProjectSectionLayout[],
 ]
 
 // Frozen Set per bucket so the coherence superRefine doesn't rebuild on every
@@ -217,6 +226,9 @@ const projectOfferSchema = z.object({
 	// plan's prices inside its card; `refineProjectPlans` rejects a name no plan
 	// has. The JSON-LD ignores it.
 	plan: z.string().trim().min(1).max(60).optional(),
+	// A short line printed with the price on the product page, e.g. "14-day
+	// free trial". The JSON-LD ignores it.
+	note: z.string().trim().min(1).max(80).optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -244,13 +256,62 @@ const projectSectionImageSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
-const projectSectionSchema = z.object({
-	title: z.string().min(1).max(200),
-	description: z.string().min(1).max(100_000),
+const sectionMarkdown = z.string().min(1).max(100_000)
+// The intro of a steps section and the note of a pricing section. "" means
+// none: the admin form sends it for an empty editor.
+const optionalSectionMarkdown = z.string().max(100_000).optional()
+
+const projectSectionItemSchema = z.object({
+	title: z.string().trim().min(1).max(200),
+	description: sectionMarkdown,
 	sortOrder: z.number().int().min(0).optional(),
-	hasPlans: z.boolean().optional(),
 	images: z.array(projectSectionImageSchema).optional(),
 })
+
+// A field a kind doesn't take is rejected with a message rather than stripped
+// like an unknown key, so a manifest can't drop its images without saying so.
+// An empty array passes: the admin form sends one for every section. `never`
+// rather than `unknown` keeps the parsed type an empty image list, so code that
+// walks every section's images (`forEachSectionImage`) takes any kind.
+function unusedList(message: string) {
+	return z.array(z.never({ error: message })).optional()
+}
+
+const sectionFields = {
+	title: z.string().min(1).max(200),
+	sortOrder: z.number().int().min(0).optional(),
+}
+
+// What a section holds on the own-app product page (see `ProjectSectionKind`
+// in the Prisma schema). The tabbed layout reads every kind as plain text.
+const projectSectionSchema = z.discriminatedUnion("kind", [
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.text),
+		layout: z.enum(PROJECT_SECTION_LAYOUTS),
+		description: sectionMarkdown,
+		images: z.array(projectSectionImageSchema).optional(),
+		items: unusedList("A text section has no items"),
+	}),
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.steps),
+		// An optional intro above the steps.
+		description: optionalSectionMarkdown,
+		images: unusedList(
+			"A steps section has no images of its own; put them on its steps"
+		),
+		items: z.array(projectSectionItemSchema).min(2).max(10),
+	}),
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.pricing),
+		// An optional note under the plan cards.
+		description: optionalSectionMarkdown,
+		images: unusedList("A pricing section has no images"),
+		items: unusedList("A pricing section has no items"),
+	}),
+])
 
 // Accepts CSS hex color in #rgb, #rrggbb, #rgba, or #rrggbbaa form.
 // A non-hex value renders a broken accent color on the project page, so
@@ -370,9 +431,10 @@ const projectFields = {
 }
 
 type PlanRefineInput = {
+	isOwnApp?: boolean
 	plans?: { name: string; isHighlighted?: boolean }[]
 	offers?: { plan?: string }[]
-	sections?: { hasPlans?: boolean }[]
+	sections?: { kind: ProjectSectionKind }[]
 }
 
 // Cross-field rules for the plan cards:
@@ -381,11 +443,14 @@ type PlanRefineInput = {
 //   - with plans present, every offer names one of them, or that price would
 //     print in no card;
 //   - an offer that names a plan needs plans to exist;
-//   - at most one section holds the cards.
+//   - an own app with offers has plans, since the product page prints prices
+//     only inside plan cards;
+//   - at most one `pricing` section, and only on a project with offers, or it
+//     would be a heading over nothing.
 // Like `refineBucketTagCoherence`, each rule only fires when the fields it
 // compares are in the payload. The one exception is the create path: there the
 // whole project is in the payload, so an offer naming a plan with no `plans`
-// sent is a dangling reference, not a field left out.
+// sent is a dangling reference, and an absent `plans` or `offers` means none.
 function projectPlansRefinement(isPartial: boolean) {
 	return (value: PlanRefineInput, ctx: z.RefinementCtx) =>
 		refineProjectPlans(value, ctx, isPartial)
@@ -397,6 +462,9 @@ function refineProjectPlans(
 	isPartial: boolean
 ): void {
 	const { plans, offers, sections } = value
+
+	refineOwnAppPlans(value, ctx, isPartial)
+	refinePricingSections(sections, offers, ctx, isPartial)
 
 	if (plans != null) {
 		const names = plans.map((plan) => plan.name)
@@ -452,15 +520,66 @@ function refineProjectPlans(
 			}
 		})
 	}
+}
 
-	if (
-		sections != null &&
-		sections.filter((section) => section.hasPlans === true).length > 1
-	) {
+function refineOwnAppPlans(
+	value: PlanRefineInput,
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	const { isOwnApp, plans, offers } = value
+
+	if (isOwnApp !== true || offers == null || offers.length === 0) {
+		return
+	}
+
+	// A partial update that leaves `plans` out isn't saying there are none.
+	if (plans == null && isPartial) {
+		return
+	}
+
+	if (plans == null || plans.length === 0) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["plans"],
+			message:
+				"An own app with offers needs plans: the product page prints prices inside plan cards",
+		})
+	}
+}
+
+function refinePricingSections(
+	sections: PlanRefineInput["sections"],
+	offers: PlanRefineInput["offers"],
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	if (sections == null) {
+		return
+	}
+
+	const pricingCount = sections.filter(
+		(section) => section.kind === ProjectSectionKind.pricing
+	).length
+
+	if (pricingCount > 1) {
 		ctx.addIssue({
 			code: "custom",
 			path: ["sections"],
-			message: "At most one section can hold the plans",
+			message: "At most one section can be a pricing section",
+		})
+	}
+
+	// A partial update that leaves `offers` out isn't saying there are none.
+	if (offers == null && isPartial) {
+		return
+	}
+
+	if (pricingCount > 0 && (offers == null || offers.length === 0)) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["sections"],
+			message: "A pricing section needs the project to have offers",
 		})
 	}
 }

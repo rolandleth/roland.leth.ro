@@ -5,7 +5,7 @@ import { markdownToReact, productMarkdownToReact } from "@/lib/content/markdown"
 import { ogImageEntry } from "@/lib/content/metadata"
 import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
-import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import ProjectPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/projects", async (importOriginal) => ({
@@ -105,7 +105,7 @@ describe("ProjectPage", () => {
 		title: "How it works",
 		description: "### 1. Log a meal",
 		sortOrder: 0,
-		hasPlans: false,
+		...textSectionFields(),
 		images: [],
 	}
 
@@ -235,7 +235,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Good",
 					description: "Good section.",
 					sortOrder: 0,
-					hasPlans: false,
+					...textSectionFields(),
 					images: [],
 				},
 				{
@@ -244,7 +244,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Broken",
 					description: "Broken section raw text.",
 					sortOrder: 1,
-					hasPlans: false,
+					...textSectionFields(),
 					images: [],
 				},
 			],

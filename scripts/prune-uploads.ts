@@ -77,12 +77,15 @@ const ROW_READERS: Record<
 	Project: (prisma) => prisma.project.findMany(),
 	ProjectSection: (prisma) => prisma.projectSection.findMany(),
 	ProjectSectionImage: (prisma) => prisma.projectSectionImage.findMany(),
+	ProjectSectionItem: (prisma) => prisma.projectSectionItem.findMany(),
+	ProjectSectionItemImage: (prisma) =>
+		prisma.projectSectionItemImage.findMany(),
 	ProjectLink: (prisma) => prisma.projectLink.findMany(),
 	ProjectFaq: (prisma) => prisma.projectFaq.findMany(),
 }
 
 /**
- * Every row of every model. Sequential rather than `Promise.all`: eight reads
+ * Every row of every model. Sequential rather than `Promise.all`: ten reads
  * don't need a pool, and Prisma Postgres rejects bursts of connections.
  */
 async function readAllRows(prisma: PrismaClient): Promise<object[]> {

@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
 
@@ -52,11 +57,43 @@ const initialData = {
 	heroHeadline: null,
 	sections: [
 		{
-			id: 1,
-			title: "Free and paid",
-			description: "Prices.",
+			id: 2,
+			title: "How it works",
+			description: "",
 			sortOrder: 0,
-			hasPlans: true,
+			kind: ProjectSectionKind.steps,
+			layout: null,
+			images: [],
+			items: [
+				{
+					title: "Log a meal",
+					description: "Type it.",
+					sortOrder: 0,
+					images: [
+						{
+							url: "https://example.com/log.png",
+							caption: null,
+							alt: "The log sheet.",
+							sortOrder: 0,
+						},
+					],
+				},
+				{
+					title: "Then how you feel",
+					description: "Log it.",
+					sortOrder: 1,
+					images: [],
+				},
+			],
+		},
+		{
+			id: 1,
+			title: "Every suspect shows its work",
+			description: "Evidence.",
+			sortOrder: 1,
+			kind: ProjectSectionKind.text,
+			layout: ProjectSectionLayout.split,
+			items: [],
 			images: [
 				{
 					id: 10,
@@ -183,16 +220,30 @@ describe("ProjectForm — product page group", () => {
 describe("ProjectForm — section fields survive a save", () => {
 	// The PUT route replaces every section, so anything the form doesn't send
 	// back is deleted on save.
-	it("sends the plans flag and each image's alt text back", async () => {
+	it("sends each section's kind, layout and steps back", async () => {
 		render(<ProjectForm initialData={initialData} />)
 
 		const payload = await saveAndReadPayload()
-		const [section] = payload.sections as {
-			hasPlans: boolean
+		const [steps, text] = payload.sections as {
+			kind: string
+			layout: string | null
+			items: unknown[]
+		}[]
+
+		expect(steps).toMatchObject({ kind: "steps", layout: null })
+		// The form doesn't edit steps; they go back exactly as loaded.
+		expect(steps.items).toEqual(initialData.sections[0].items)
+		expect(text).toMatchObject({ kind: "text", layout: "split", items: [] })
+	})
+
+	it("sends each image's alt text back", async () => {
+		render(<ProjectForm initialData={initialData} />)
+
+		const payload = await saveAndReadPayload()
+		const [, section] = payload.sections as {
 			images: { alt: string | null }[]
 		}[]
 
-		expect(section.hasPlans).toBe(true)
 		expect(section.images.map((image) => image.alt)).toEqual([
 			"A long description.",
 			// Empty goes out as null: stored as "", it would make the image
@@ -206,7 +257,9 @@ describe("ProjectForm — section fields survive a save", () => {
 		await user.type(screen.getAllByLabelText("Alt text")[1], "Second shot")
 
 		const payload = await saveAndReadPayload()
-		const [section] = payload.sections as { images: { alt: string | null }[] }[]
+		const [, section] = payload.sections as {
+			images: { alt: string | null }[]
+		}[]
 
 		expect(section.images[1].alt).toBe("Second shot")
 	})

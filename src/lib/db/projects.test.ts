@@ -1,6 +1,10 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+} from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import {
 	getAllProjects,
@@ -17,7 +21,11 @@ import {
 	toProjectFormInitialData,
 	type AdminProjectDetail,
 } from "@/lib/db/projects"
-import { EMPTY_PRODUCT_PAGE_FIELDS, makeProjectListItem } from "@/test/fixtures"
+import {
+	EMPTY_PRODUCT_PAGE_FIELDS,
+	makeProjectListItem,
+	textSectionFields,
+} from "@/test/fixtures"
 
 vi.mock("next/cache", async () => {
 	const { nextCacheSpyFactory } = await import("@/test/mocks/nextCache")
@@ -582,6 +590,10 @@ describe("loadProjectForAdmin", () => {
 		// silent narrowing of `include` would starve the admin form of data.
 		expect(call.include).toHaveProperty("sections")
 		expect(call.include).toHaveProperty("links")
+		// The form sends steps back as loaded, so a section loaded without them
+		// would lose them on the next save.
+		expect(call.include).toHaveProperty("sections.include.images")
+		expect(call.include).toHaveProperty("sections.include.items.include.images")
 	})
 
 	it("returns null when no matching project exists", async () => {
@@ -628,7 +640,7 @@ describe("toProjectFormInitialData", () => {
 					title: "Section",
 					description: "Desc",
 					sortOrder: 0,
-					hasPlans: false,
+					...textSectionFields(),
 					images: [
 						{
 							id: 100,
@@ -684,11 +696,40 @@ describe("toProjectFormInitialData", () => {
 		expect(data.sections[0].images[1].alt).toBe("Stored alt.")
 	})
 
-	it("passes the plans flag through to the form", () => {
+	it("passes the kind, the layout and the steps through to the form", () => {
+		// The form doesn't edit steps; it sends them back as loaded, so a save
+		// from the admin can't drop them.
 		const detail = makeAdminDetail()
-		detail.sections[0].hasPlans = true
+		const step = {
+			id: 300,
+			sectionId: 10,
+			title: "Log a meal",
+			description: "Type it.",
+			sortOrder: 0,
+			images: [
+				{
+					id: 400,
+					itemId: 300,
+					url: "https://example.com/log.png",
+					caption: null,
+					alt: "The log sheet.",
+					sortOrder: 0,
+				},
+			],
+		}
+		detail.sections[0] = {
+			...detail.sections[0],
+			kind: ProjectSectionKind.steps,
+			layout: null,
+			images: [],
+			items: [step],
+		}
 
-		expect(toProjectFormInitialData(detail).sections[0].hasPlans).toBe(true)
+		const [section] = toProjectFormInitialData(detail).sections
+
+		expect(section.kind).toBe(ProjectSectionKind.steps)
+		expect(section.layout).toBeNull()
+		expect(section.items).toEqual([step])
 	})
 
 	it("preserves top-level project fields untouched", () => {

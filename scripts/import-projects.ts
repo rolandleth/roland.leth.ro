@@ -59,6 +59,7 @@ import { isMissingPathError } from "@/lib/import/fsErrors"
 import {
 	blobKeyFor,
 	contentHashFor,
+	forEachSectionImage,
 	isDraftManifest,
 	listManifestImagePaths,
 	parseManifest,
@@ -242,9 +243,10 @@ async function resolveImageUrls(
 
 /**
  * Collects every image URL the validated project data references — icon,
- * cardImage, ogImage, hero, and section images — i.e. the set of blobs that
- * must survive the post-import orphan sweep. Omitting one here deletes a
- * freshly-uploaded blob as "orphaned".
+ * cardImage, ogImage, hero, and the section and step images — i.e. the set of
+ * blobs that must survive the post-import orphan sweep. Omitting one here
+ * deletes a freshly-uploaded blob as "orphaned", which is why the sections go
+ * through the same `forEachSectionImage` walk as the upload.
  */
 function referencedImageUrls(
 	data: ReturnType<typeof projectCreateSchema.parse>
@@ -260,12 +262,7 @@ function referencedImageUrls(
 	add(data.cardImage)
 	add(data.ogImage)
 	add(data.heroImage)
-
-	for (const section of data.sections ?? []) {
-		for (const image of section.images ?? []) {
-			add(image.url)
-		}
-	}
+	forEachSectionImage(data.sections, (image) => add(image.url))
 
 	return urls
 }

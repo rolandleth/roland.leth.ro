@@ -402,6 +402,8 @@ export const ModelName = {
   Guide: 'Guide',
   Project: 'Project',
   ProjectSection: 'ProjectSection',
+  ProjectSectionItem: 'ProjectSectionItem',
+  ProjectSectionItemImage: 'ProjectSectionItemImage',
   ProjectSectionImage: 'ProjectSectionImage',
   ProjectLink: 'ProjectLink',
   ProjectFaq: 'ProjectFaq'
@@ -420,7 +422,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "post" | "guideTopic" | "guide" | "project" | "projectSection" | "projectSectionImage" | "projectLink" | "projectFaq"
+    modelProps: "post" | "guideTopic" | "guide" | "project" | "projectSection" | "projectSectionItem" | "projectSectionItemImage" | "projectSectionImage" | "projectLink" | "projectFaq"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -794,6 +796,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ProjectSectionItem: {
+      payload: Prisma.$ProjectSectionItemPayload<ExtArgs>
+      fields: Prisma.ProjectSectionItemFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProjectSectionItemFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProjectSectionItemFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        findFirst: {
+          args: Prisma.ProjectSectionItemFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProjectSectionItemFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        findMany: {
+          args: Prisma.ProjectSectionItemFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>[]
+        }
+        create: {
+          args: Prisma.ProjectSectionItemCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        createMany: {
+          args: Prisma.ProjectSectionItemCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProjectSectionItemCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>[]
+        }
+        delete: {
+          args: Prisma.ProjectSectionItemDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        update: {
+          args: Prisma.ProjectSectionItemUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        deleteMany: {
+          args: Prisma.ProjectSectionItemDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProjectSectionItemUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProjectSectionItemUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>[]
+        }
+        upsert: {
+          args: Prisma.ProjectSectionItemUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemPayload>
+        }
+        aggregate: {
+          args: Prisma.ProjectSectionItemAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProjectSectionItem>
+        }
+        groupBy: {
+          args: Prisma.ProjectSectionItemGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectSectionItemGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProjectSectionItemCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectSectionItemCountAggregateOutputType> | number
+        }
+      }
+    }
+    ProjectSectionItemImage: {
+      payload: Prisma.$ProjectSectionItemImagePayload<ExtArgs>
+      fields: Prisma.ProjectSectionItemImageFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProjectSectionItemImageFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProjectSectionItemImageFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        findFirst: {
+          args: Prisma.ProjectSectionItemImageFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProjectSectionItemImageFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        findMany: {
+          args: Prisma.ProjectSectionItemImageFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>[]
+        }
+        create: {
+          args: Prisma.ProjectSectionItemImageCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        createMany: {
+          args: Prisma.ProjectSectionItemImageCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProjectSectionItemImageCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>[]
+        }
+        delete: {
+          args: Prisma.ProjectSectionItemImageDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        update: {
+          args: Prisma.ProjectSectionItemImageUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        deleteMany: {
+          args: Prisma.ProjectSectionItemImageDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProjectSectionItemImageUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProjectSectionItemImageUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>[]
+        }
+        upsert: {
+          args: Prisma.ProjectSectionItemImageUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectSectionItemImagePayload>
+        }
+        aggregate: {
+          args: Prisma.ProjectSectionItemImageAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProjectSectionItemImage>
+        }
+        groupBy: {
+          args: Prisma.ProjectSectionItemImageGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectSectionItemImageGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProjectSectionItemImageCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectSectionItemImageCountAggregateOutputType> | number
+        }
+      }
+    }
     ProjectSectionImage: {
       payload: Prisma.$ProjectSectionImagePayload<ExtArgs>
       fields: Prisma.ProjectSectionImageFieldRefs
@@ -1152,10 +1302,34 @@ export const ProjectSectionScalarFieldEnum = {
   title: 'title',
   description: 'description',
   sortOrder: 'sortOrder',
-  hasPlans: 'hasPlans'
+  kind: 'kind',
+  layout: 'layout'
 } as const
 
 export type ProjectSectionScalarFieldEnum = (typeof ProjectSectionScalarFieldEnum)[keyof typeof ProjectSectionScalarFieldEnum]
+
+
+export const ProjectSectionItemScalarFieldEnum = {
+  id: 'id',
+  sectionId: 'sectionId',
+  title: 'title',
+  description: 'description',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ProjectSectionItemScalarFieldEnum = (typeof ProjectSectionItemScalarFieldEnum)[keyof typeof ProjectSectionItemScalarFieldEnum]
+
+
+export const ProjectSectionItemImageScalarFieldEnum = {
+  id: 'id',
+  itemId: 'itemId',
+  url: 'url',
+  caption: 'caption',
+  alt: 'alt',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ProjectSectionItemImageScalarFieldEnum = (typeof ProjectSectionItemImageScalarFieldEnum)[keyof typeof ProjectSectionItemImageScalarFieldEnum]
 
 
 export const ProjectSectionImageScalarFieldEnum = {
@@ -1345,6 +1519,34 @@ export type EnumPlatformTagFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
 
 
 /**
+ * Reference to a field of type 'ProjectSectionKind'
+ */
+export type EnumProjectSectionKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectSectionKind'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectSectionKind[]'
+ */
+export type ListEnumProjectSectionKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectSectionKind[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectSectionLayout'
+ */
+export type EnumProjectSectionLayoutFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectSectionLayout'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectSectionLayout[]'
+ */
+export type ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectSectionLayout[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1513,6 +1715,8 @@ export type GlobalOmitConfig = {
   guide?: Prisma.GuideOmit
   project?: Prisma.ProjectOmit
   projectSection?: Prisma.ProjectSectionOmit
+  projectSectionItem?: Prisma.ProjectSectionItemOmit
+  projectSectionItemImage?: Prisma.ProjectSectionItemImageOmit
   projectSectionImage?: Prisma.ProjectSectionImageOmit
   projectLink?: Prisma.ProjectLinkOmit
   projectFaq?: Prisma.ProjectFaqOmit

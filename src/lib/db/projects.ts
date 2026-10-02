@@ -1,7 +1,12 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { Prisma } from "@/generated/prisma/client"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
@@ -46,6 +51,8 @@ export interface ProjectOffer {
 	billingPeriod?: string
 	/** The `ProjectPlan.name` this price belongs to, on the product page. */
 	plan?: string
+	/** A short line printed with the price on the product page. */
+	note?: string
 	sortOrder?: number
 }
 
@@ -120,7 +127,8 @@ export interface ProjectDetail {
 		title: string
 		description: string
 		sortOrder: number
-		hasPlans: boolean
+		kind: ProjectSectionKind
+		layout: ProjectSectionLayout | null
 		images: {
 			id: number
 			sectionId: number
@@ -128,6 +136,21 @@ export interface ProjectDetail {
 			caption: string | null
 			alt: string | null
 			sortOrder: number
+		}[]
+		items: {
+			id: number
+			sectionId: number
+			title: string
+			description: string
+			sortOrder: number
+			images: {
+				id: number
+				itemId: number
+				url: string
+				caption: string | null
+				alt: string | null
+				sortOrder: number
+			}[]
 		}[]
 	}[]
 	links: {
@@ -386,11 +409,20 @@ export {
 	type ProjectSectionInput,
 } from "./projectMappers"
 
-/** Prisma `include` clause for fetching sections (with images) and links, ordered by sortOrder. */
+/**
+ * Prisma `include` clause for fetching sections (with their images, and their
+ * items with theirs), links and FAQs, each ordered by sortOrder.
+ */
 export const projectInclude = {
 	sections: {
 		orderBy: { sortOrder: "asc" as const },
-		include: { images: { orderBy: { sortOrder: "asc" as const } } },
+		include: {
+			images: { orderBy: { sortOrder: "asc" as const } },
+			items: {
+				orderBy: { sortOrder: "asc" as const },
+				include: { images: { orderBy: { sortOrder: "asc" as const } } },
+			},
+		},
 	},
 	links: { orderBy: { sortOrder: "asc" as const } },
 	faqs: { orderBy: { sortOrder: "asc" as const } },

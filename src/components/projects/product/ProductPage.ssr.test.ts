@@ -2,7 +2,7 @@ import { createElement } from "react"
 import { renderToString } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
-import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import ProductPage from "./ProductPage"
 import type { ProjectDetail } from "@/lib/db/projects"
 
@@ -30,7 +30,7 @@ function section(
 		title,
 		description: `Body of ${title}.`,
 		sortOrder: id,
-		hasPlans: false,
+		...textSectionFields(),
 		images,
 	}
 }

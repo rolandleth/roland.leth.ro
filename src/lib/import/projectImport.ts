@@ -3,7 +3,8 @@
 // imperative shell that reads files, uploads to Blob, and writes to the DB.
 //
 // A manifest mirrors the `projectCreateSchema` shape, except image fields
-// (`icon`, `cardImage`, `ogImage`, `heroImage`, every `sections[].images[].url`) hold a LOCAL path
+// (`icon`, `cardImage`, `ogImage`, `heroImage`, every section image and step
+// image `url`) hold a LOCAL path
 // relative to the manifest's folder. The script uploads each local image, then
 // rewrites these refs to the resulting Blob URLs before validating against
 // `projectCreateSchema`. Refs that are already `http(s)` URLs pass through
@@ -33,11 +34,52 @@ export type ManifestSectionImage = {
 	sortOrder?: number
 }
 
-export type ManifestSection = {
+/** A step of a `steps` section. */
+export type ManifestSectionItem = {
 	title: string
 	description: string
 	sortOrder?: number
 	images?: ManifestSectionImage[]
+}
+
+export type ManifestSection = {
+	kind?: string
+	layout?: string
+	title: string
+	description?: string
+	sortOrder?: number
+	images?: ManifestSectionImage[]
+	items?: ManifestSectionItem[]
+}
+
+/**
+ * Visits every image the sections hold, in page order: each section's own
+ * images, then each of its items' images. Takes the raw manifest and the parsed
+ * `projectCreateSchema` data alike. The single walk behind listing, resolving
+ * and keeping a project's images: a new place an image can live is added here
+ * once, since a walk that missed one would leave it un-uploaded, or let the
+ * post-import prune delete a blob it just uploaded.
+ */
+export function forEachSectionImage<Image extends { url: string }>(
+	sections:
+		| readonly {
+				images?: readonly Image[]
+				items?: readonly { images?: readonly Image[] }[]
+		  }[]
+		| undefined,
+	visit: (image: Image) => void
+): void {
+	for (const section of sections ?? []) {
+		for (const image of section.images ?? []) {
+			visit(image)
+		}
+
+		for (const item of section.items ?? []) {
+			for (const image of item.images ?? []) {
+				visit(image)
+			}
+		}
+	}
 }
 
 export type ManifestLink = {
@@ -394,8 +436,8 @@ export function syntheticBlobUrl(slug: string, relativePath: string): string {
 
 /**
  * Collects every distinct local image path referenced by the manifest, in
- * first-seen order (icon, hero, then each section's images). Deduped so the
- * same file referenced twice uploads once.
+ * first-seen order (icon, card, OG, hero, then the section and step images).
+ * Deduped so the same file referenced twice uploads once.
  */
 export function listManifestImagePaths(manifest: ProjectManifest): string[] {
 	const paths: string[] = []
@@ -410,12 +452,7 @@ export function listManifestImagePaths(manifest: ProjectManifest): string[] {
 	add(manifest.cardImage)
 	add(manifest.ogImage)
 	add(manifest.heroImage)
-
-	for (const section of manifest.sections ?? []) {
-		for (const image of section.images ?? []) {
-			add(image.url)
-		}
-	}
+	forEachSectionImage(manifest.sections, (image) => add(image.url))
 
 	return [...new Set(paths)]
 }
@@ -435,18 +472,22 @@ export function resolveManifestImageRefs(
 	): string | null | undefined =>
 		isLocalImageRef(value) ? resolve(value) : value
 
+	// A deep copy, so rewriting the URLs in place leaves the caller's manifest
+	// as it was; it's resolved twice, with different URLs each time.
+	const sections = structuredClone(manifest.sections)
+
+	forEachSectionImage(sections, (image) => {
+		if (isLocalImageRef(image.url)) {
+			image.url = resolve(image.url)
+		}
+	})
+
 	return {
 		...manifest,
 		icon: mapRef(manifest.icon),
 		cardImage: mapRef(manifest.cardImage),
 		ogImage: mapRef(manifest.ogImage),
 		heroImage: mapRef(manifest.heroImage),
-		sections: manifest.sections?.map((section) => ({
-			...section,
-			images: section.images?.map((image) => ({
-				...image,
-				url: isLocalImageRef(image.url) ? resolve(image.url) : image.url,
-			})),
-		})),
+		sections,
 	}
 }

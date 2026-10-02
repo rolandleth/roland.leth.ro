@@ -1,3 +1,4 @@
+import { ProjectSectionKind } from "@/generated/prisma/enums"
 import { flattenSections } from "@/lib/client/gallery"
 import { resolveHeroImage } from "@/lib/db/projects"
 import { linkCtasFor } from "@/lib/utils/platforms"
@@ -88,7 +89,9 @@ export default function ProductPage({
 	// is one, else the first screenshot.
 	const priorityImageId = heroImage == null ? (gallery[0]?.id ?? null) : null
 	const pricing = pricingFor(project)
-	const plansIndex = sections.findIndex((section) => section.hasPlans)
+	const plansIndex = sections.findIndex(
+		(section) => section.kind === ProjectSectionKind.pricing
+	)
 	const hasPricingSection = pricing != null && plansIndex === -1
 	const [primaryStoreLink] = storeLinks
 	const storeButton =

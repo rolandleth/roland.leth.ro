@@ -503,6 +503,8 @@ describe("projectCreateSchema", () => {
 					title: "Overview",
 					description: "The main overview section.",
 					sortOrder: 0,
+					kind: "text",
+					layout: "stacked",
 					images: [
 						{
 							url: "https://example.com/screenshot.png",
@@ -778,6 +780,8 @@ describe("projectCreateSchema", () => {
 				{
 					title: "Section",
 					description: "Desc",
+					kind: "text",
+					layout: "stacked",
 					images: [{ url: "ftp://bad.example.com/img.png" }],
 				},
 			],
@@ -1296,6 +1300,8 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 				{
 					title: "S",
 					description: "D",
+					kind: "text",
+					layout: "stacked",
 					images: [
 						{ url: "https://example.com/i.png", caption: "x".repeat(301) },
 					],
@@ -1308,7 +1314,14 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 	it("rejects a section title longer than 200 characters", () => {
 		const result = projectCreateSchema.safeParse({
 			...baseProject,
-			sections: [{ title: "x".repeat(201), description: "D" }],
+			sections: [
+				{
+					title: "x".repeat(201),
+					description: "D",
+					kind: "text",
+					layout: "stacked",
+				},
+			],
 		})
 		expect(result.success).toBe(false)
 	})
@@ -1404,9 +1417,10 @@ describe("projectCreateSchema — product-page fields", () => {
 		return result.success ? [] : result.error.issues.map((i) => i.message)
 	}
 
-	it("accepts a full product page: text fields, plans, offers with plans, palette, a plans section, image alt", () => {
+	it("accepts a full product page: text fields, plans, offers with plans and notes, palette, every section kind", () => {
 		const result = projectCreateSchema.safeParse({
 			...base,
+			isOwnApp: true,
 			metaDescription: "Digest is a food and symptom journal for iPhone.",
 			heroEyebrow: "Food and symptom journal for iPhone and iPad",
 			heroHeadline: "Find which foods to suspect",
@@ -1416,13 +1430,14 @@ describe("projectCreateSchema — product-page fields", () => {
 			closingBody: "Three weeks of this is the cheap way to find out.",
 			disclaimer: "Digest is not a medical device.",
 			plans,
-			offers,
+			offers: [offers[0], { ...offers[1], note: "14-day free trial" }],
 			palette: { light: theme, dark: theme },
 			sections: [
 				{
-					title: "Free and paid",
-					description: "Prices are for the US.",
-					hasPlans: true,
+					title: "Guessing cuts too much",
+					description: "A guess takes out more than it needs to.",
+					kind: "text",
+					layout: "stacked",
 					images: [
 						{
 							url: "https://example.com/a.png",
@@ -1430,6 +1445,29 @@ describe("projectCreateSchema — product-page fields", () => {
 							alt: "A long description.",
 						},
 					],
+				},
+				{
+					title: "How it works",
+					kind: "steps",
+					items: [
+						{
+							title: "Log a meal in 10 seconds",
+							description: "Type it.",
+							images: [{ url: "https://example.com/log.png", alt: "Log." }],
+						},
+						{ title: "Then how you feel", description: "Log it." },
+					],
+				},
+				{
+					title: "Test a suspect",
+					description: "Stop eating it for a while.",
+					kind: "text",
+					layout: "split",
+				},
+				{
+					title: "Free and paid",
+					description: "Prices are for the US.",
+					kind: "pricing",
 				},
 			],
 		})
@@ -1528,7 +1566,22 @@ describe("projectCreateSchema — product-page fields", () => {
 		)
 	})
 
-	it("accepts offers without plans when the project has none (Reckon, Continuum today)", () => {
+	it("rejects an own app with offers and no plans, since its prices print only inside plan cards", () => {
+		const oneTime = [{ name: "One-time", price: "3.99", priceCurrency: "USD" }]
+		const message =
+			"An own app with offers needs plans: the product page prints prices inside plan cards"
+
+		expect(
+			issueMessages({ ...base, isOwnApp: true, offers: oneTime })
+		).toContain(message)
+		expect(
+			issueMessages({ ...base, isOwnApp: true, offers: oneTime, plans: [] })
+		).toContain(message)
+	})
+
+	it("accepts offers without plans on a project that isn't an own app", () => {
+		// The tabbed layout prints offers on their own; only the product page
+		// needs plans.
 		expect(
 			projectCreateSchema.safeParse({
 				...base,
@@ -1537,16 +1590,49 @@ describe("projectCreateSchema — product-page fields", () => {
 		).toBe(true)
 	})
 
-	it("rejects two sections that both hold the plans", () => {
+	it("accepts an own app with no offers and no plans", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, isOwnApp: true }).success
+		).toBe(true)
+	})
+
+	it("rejects two pricing sections", () => {
 		expect(
 			issueMessages({
 				...base,
+				plans,
+				offers,
 				sections: [
-					{ title: "A", description: "a", hasPlans: true },
-					{ title: "B", description: "b", hasPlans: true },
+					{ title: "A", kind: "pricing" },
+					{ title: "B", kind: "pricing" },
 				],
 			})
-		).toContain("At most one section can hold the plans")
+		).toContain("At most one section can be a pricing section")
+	})
+
+	it("rejects a pricing section on a project without offers, a heading over nothing", () => {
+		expect(
+			issueMessages({
+				...base,
+				sections: [{ title: "Pricing", kind: "pricing" }],
+			})
+		).toContain("A pricing section needs the project to have offers")
+	})
+
+	it("accepts an offer note and rejects an empty or long one", () => {
+		const withNote = (note: string) => ({
+			...base,
+			plans,
+			offers: [offers[0], { ...offers[1], note }],
+		})
+
+		expect(
+			projectCreateSchema.safeParse(withNote("14-day free trial")).success
+		).toBe(true)
+		expect(projectCreateSchema.safeParse(withNote("  ")).success).toBe(false)
+		expect(
+			projectCreateSchema.safeParse(withNote("x".repeat(81))).success
+		).toBe(false)
 	})
 
 	it("rejects a palette value that isn't a hex colour, which would otherwise reach the page's CSS", () => {
@@ -1569,7 +1655,200 @@ describe("projectCreateSchema — product-page fields", () => {
 	})
 })
 
+describe("projectCreateSchema — section kinds", () => {
+	const base = {
+		name: "Digest",
+		slug: "digest",
+		summary: "A food and symptom journal.",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
+	}
+	const steps = [
+		{ title: "Log a meal", description: "Type it." },
+		{ title: "Then how you feel", description: "Log it." },
+	]
+
+	function parseSections(sections: unknown[]) {
+		return projectCreateSchema.safeParse({ ...base, sections })
+	}
+
+	function sectionMessages(sections: unknown[]): string[] {
+		const result = parseSections(sections)
+
+		return result.success ? [] : result.error.issues.map((i) => i.message)
+	}
+
+	it("rejects a section without a kind, so none is taken for granted", () => {
+		expect(
+			parseSections([{ title: "A", description: "a", layout: "stacked" }])
+				.success
+		).toBe(false)
+	})
+
+	it("rejects a text section without a layout, or with an unknown one", () => {
+		expect(
+			parseSections([{ title: "A", description: "a", kind: "text" }]).success
+		).toBe(false)
+		expect(
+			parseSections([
+				{ title: "A", description: "a", kind: "text", layout: "horizontal" },
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects a text section with an empty body", () => {
+		expect(
+			parseSections([
+				{ title: "A", description: "", kind: "text", layout: "stacked" },
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects steps on a text section", () => {
+		expect(
+			sectionMessages([
+				{
+					title: "A",
+					description: "a",
+					kind: "text",
+					layout: "split",
+					items: steps,
+				},
+			])
+		).toContain("A text section has no items")
+	})
+
+	it("needs 2 to 10 steps in a steps section", () => {
+		expect(
+			parseSections([{ title: "How", kind: "steps", items: steps.slice(0, 1) }])
+				.success
+		).toBe(false)
+		expect(
+			parseSections([{ title: "How", kind: "steps", items: steps }]).success
+		).toBe(true)
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: Array.from({ length: 11 }, () => steps[0]),
+				},
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects a step without a title or a body", () => {
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: [{ title: " ", description: "Type it." }, steps[1]],
+				},
+			]).success
+		).toBe(false)
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: [{ title: "Log a meal", description: "" }, steps[1]],
+				},
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects images on a steps section itself, pointing at its steps", () => {
+		expect(
+			sectionMessages([
+				{
+					title: "How",
+					kind: "steps",
+					items: steps,
+					images: [{ url: "https://example.com/a.png" }],
+				},
+			])
+		).toContain(
+			"A steps section has no images of its own; put them on its steps"
+		)
+	})
+
+	it("rejects images and items on a pricing section", () => {
+		const pricing = {
+			...base,
+			isOwnApp: false,
+			offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+		}
+		const messages = (section: object) => {
+			const result = projectCreateSchema.safeParse({
+				...pricing,
+				sections: [{ title: "Pricing", kind: "pricing", ...section }],
+			})
+
+			return result.success ? [] : result.error.issues.map((i) => i.message)
+		}
+
+		expect(
+			messages({ images: [{ url: "https://example.com/a.png" }] })
+		).toContain("A pricing section has no images")
+		expect(messages({ items: steps })).toContain(
+			"A pricing section has no items"
+		)
+	})
+
+	it("accepts the empty lists and the empty body the admin form sends", () => {
+		// The form sends `images: []` and `items: []` for every section, and ""
+		// for an empty intro.
+		expect(
+			parseSections([
+				{
+					title: "How",
+					description: "",
+					kind: "steps",
+					images: [],
+					items: steps,
+				},
+				{
+					title: "A",
+					description: "a",
+					kind: "text",
+					layout: "stacked",
+					items: [],
+				},
+			]).success
+		).toBe(true)
+	})
+})
+
 describe("projectUpdateSchema — product-page fields", () => {
+	it("doesn't require plans of an own app when a partial update leaves them out", () => {
+		// The stored plans aren't in the payload; an absent field isn't "none".
+		expect(
+			projectUpdateSchema.safeParse({
+				isOwnApp: true,
+				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(true)
+	})
+
+	it("still rejects an own app's offers sent with an empty plans list", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				isOwnApp: true,
+				plans: [],
+				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(false)
+	})
+
+	it("accepts a pricing section when a partial update leaves the offers out", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				sections: [{ title: "Pricing", kind: "pricing" }],
+			}).success
+		).toBe(true)
+	})
+
 	it("accepts offers that name plans without the plans in the same payload", () => {
 		// A partial update can't see the stored plans; judging the offers against
 		// an absent field would reject every offers-only PUT.

@@ -7,6 +7,7 @@
 
 import { Prisma } from "@/generated/prisma/client"
 import type { ProjectPalette, ProjectPlan } from "./projects"
+import type { ProjectSectionLayout } from "@/generated/prisma/enums"
 
 export type ProductPageInput = {
 	metaDescription?: string | null
@@ -46,18 +47,42 @@ export function toProductPageCreate(input: ProductPageInput) {
 	}
 }
 
-export type ProjectSectionInput = {
+export type ProjectImageInput = {
+	url: string
+	caption?: string | null
+	alt?: string | null
+	sortOrder?: number
+}
+
+export type ProjectSectionItemInput = {
 	title: string
 	description: string
 	sortOrder?: number
-	hasPlans?: boolean
-	images?: {
-		url: string
-		caption?: string | null
-		alt?: string | null
-		sortOrder?: number
-	}[]
+	images?: ProjectImageInput[]
 }
+
+type SectionBaseInput = {
+	title: string
+	sortOrder?: number
+}
+
+/** Mirrors `projectSectionSchema`: one shape per `ProjectSectionKind`. */
+export type ProjectSectionInput =
+	| (SectionBaseInput & {
+			kind: "text"
+			layout: ProjectSectionLayout
+			description: string
+			images?: ProjectImageInput[]
+	  })
+	| (SectionBaseInput & {
+			kind: "steps"
+			description?: string
+			items: ProjectSectionItemInput[]
+	  })
+	| (SectionBaseInput & {
+			kind: "pricing"
+			description?: string
+	  })
 
 export type ProjectLinkInput = {
 	label: string
@@ -74,28 +99,67 @@ export type ProjectFaqInput = {
 /**
  * Maps validated section inputs into a Prisma nested-create clause,
  * defaulting `sortOrder` and nested image fields so callers don't have to.
+ * Each kind writes only what it holds: `layout` and images for `text`, the
+ * steps for `steps`. A missing body (the optional intro or note) is stored as
+ * "", since the column isn't nullable.
  */
 export function toSectionCreate(sections: ProjectSectionInput[] | undefined) {
 	if (sections == null) {
 		return undefined
 	}
 
+	return { create: sections.map(toOneSectionCreate) }
+}
+
+function toOneSectionCreate(section: ProjectSectionInput) {
+	const base = {
+		title: section.title,
+		description: section.description ?? "",
+		sortOrder: section.sortOrder ?? 0,
+		kind: section.kind,
+	}
+
+	switch (section.kind) {
+		case "text":
+			return {
+				...base,
+				layout: section.layout,
+				images: toImageCreate(section.images),
+			}
+		case "steps":
+			return {
+				...base,
+				layout: null,
+				items: {
+					create: section.items.map((item, index) => ({
+						title: item.title,
+						description: item.description,
+						sortOrder: item.sortOrder ?? index,
+						images: toImageCreate(item.images),
+					})),
+				},
+			}
+		case "pricing":
+			return { ...base, layout: null }
+	}
+}
+
+/**
+ * Image rows for a section or a step. A missing `sortOrder` falls back to the
+ * image's position, so a manifest can list images in order without numbering
+ * them; a shared 0 would leave their order to the database.
+ */
+function toImageCreate(images: ProjectImageInput[] | undefined) {
+	if (images == null) {
+		return undefined
+	}
+
 	return {
-		create: sections.map((s) => ({
-			title: s.title,
-			description: s.description,
-			sortOrder: s.sortOrder ?? 0,
-			hasPlans: s.hasPlans ?? false,
-			images: s.images
-				? {
-						create: s.images.map((img) => ({
-							url: img.url,
-							caption: img.caption ?? null,
-							alt: img.alt ?? null,
-							sortOrder: img.sortOrder ?? 0,
-						})),
-					}
-				: undefined,
+		create: images.map((image, index) => ({
+			url: image.url,
+			caption: image.caption ?? null,
+			alt: image.alt ?? null,
+			sortOrder: image.sortOrder ?? index,
 		})),
 	}
 }

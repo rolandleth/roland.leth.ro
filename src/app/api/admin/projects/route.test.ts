@@ -239,10 +239,23 @@ describe("POST /api/admin/projects", () => {
 				palette: { light: theme, dark: theme },
 				sections: [
 					{
-						title: "Free and paid",
-						description: "Prices.",
-						hasPlans: true,
+						title: "Every suspect shows its work",
+						description: "Evidence.",
+						kind: "text",
+						layout: "split",
 						images: [{ url: "https://example.com/a.png", alt: "Alt." }],
+					},
+					{
+						title: "How it works",
+						kind: "steps",
+						items: [
+							{
+								title: "Log a meal",
+								description: "Type it.",
+								images: [{ url: "https://example.com/log.png", alt: "Log." }],
+							},
+							{ title: "Then how you feel", description: "Log it." },
+						],
 					},
 				],
 			})
@@ -260,9 +273,25 @@ describe("POST /api/admin/projects", () => {
 		expect(data.sections).toEqual({
 			create: [
 				expect.objectContaining({
-					hasPlans: true,
+					kind: "text",
+					layout: "split",
 					images: {
 						create: [expect.objectContaining({ alt: "Alt." })],
+					},
+				}),
+				expect.objectContaining({
+					kind: "steps",
+					layout: null,
+					items: {
+						create: [
+							expect.objectContaining({
+								title: "Log a meal",
+								images: {
+									create: [expect.objectContaining({ alt: "Log." })],
+								},
+							}),
+							expect.objectContaining({ title: "Then how you feel" }),
+						],
 					},
 				}),
 			],
@@ -380,6 +409,8 @@ describe("POST /api/admin/projects", () => {
 					{
 						title: "Overview",
 						description: "Main overview.",
+						kind: "text",
+						layout: "stacked",
 						images: [{ url: "https://example.com/img.png" }],
 					},
 				],
@@ -438,6 +469,8 @@ describe("POST /api/admin/projects", () => {
 					{
 						title: "S",
 						description: "D",
+						kind: "text",
+						layout: "stacked",
 						// eslint-disable-next-line sonarjs/no-clear-text-protocols
 						images: [{ url: "ftp://bad.com/img.png" }],
 					},

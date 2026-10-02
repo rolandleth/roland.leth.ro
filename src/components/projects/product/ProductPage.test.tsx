@@ -1,7 +1,11 @@
 import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
-import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectSectionKind,
+} from "@/generated/prisma/enums"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProductPage from "./ProductPage"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -23,6 +27,12 @@ vi.mock("next/image", () => ({
 
 type Section = ProjectDetail["sections"][number]
 type SectionImage = Section["images"][number]
+
+/** The overrides that turn `makeSection` into the section the plans go in. */
+const PRICING_SECTION: Partial<Section> = {
+	kind: ProjectSectionKind.pricing,
+	layout: null,
+}
 
 function makeImage(id: number, alt: string): SectionImage {
 	return {
@@ -46,7 +56,7 @@ function makeSection(
 		title,
 		description: `Body of ${title}.`,
 		sortOrder: id,
-		hasPlans: false,
+		...textSectionFields(),
 		images: [],
 		...overrides,
 	}
@@ -382,7 +392,7 @@ describe("ProductPage — pricing", () => {
 				offers,
 				sections: [
 					makeSection(1, "Free and paid", {
-						hasPlans: true,
+						...PRICING_SECTION,
 						description: "Prices are for the US.",
 					}),
 				],
@@ -461,7 +471,7 @@ describe("ProductPage — pricing", () => {
 				isDiscontinued: true,
 				plans,
 				offers,
-				sections: [makeSection(1, "Free and paid", { hasPlans: true })],
+				sections: [makeSection(1, "Free and paid", PRICING_SECTION)],
 			})
 		)
 

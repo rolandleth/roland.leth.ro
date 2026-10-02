@@ -264,6 +264,27 @@ enum PlatformTag {
   Extension
 }
 
+// What a section holds, on the own-app product page. The kind names the
+// content, not its look, so a redesign changes the renderer, not the data.
+// Renaming a value later is a manual `ALTER TYPE`: `db push` can't tell a
+// rename from a drop plus an add.
+enum ProjectSectionKind {
+  // Markdown body and a gallery, laid out by `layout`.
+  text
+  // Numbered steps (`items`), each with its own body and gallery.
+  steps
+  // Where the plan cards go; the body is a note under them.
+  pricing
+}
+
+// How a `text` section is laid out on the product page.
+enum ProjectSectionLayout {
+  // Title, gallery, body.
+  stacked
+  // Title on the left; body on the right with its gallery under it.
+  split
+}
+
 model ProjectSection {
   id          Int                   @id @default(autoincrement())
   projectId   Int
@@ -271,11 +292,40 @@ model ProjectSection {
   title       String
   description String
   sortOrder   Int                   @default(0)
-  // The section the plan cards render in, on the own-app layout. At most one
-  // per project (`projectCreateSchema`); with none, the cards get a section of
-  // their own before the FAQ.
-  hasPlans    Boolean               @default(false)
+  // Read by the own-app layout only; the tabbed layout treats every section
+  // as text. Existing rows default to `text`.
+  kind        ProjectSectionKind    @default(text)
+  // Required for `text` and null for the other kinds (`projectCreateSchema`).
+  // A `text` row written before the column existed is null, and renders
+  // stacked, which is how it rendered then.
+  layout      ProjectSectionLayout?
   images      ProjectSectionImage[]
+  items       ProjectSectionItem[]
+}
+
+// An entry inside a section: a step of a `steps` section today, and any later
+// list-shaped kind. Its images live in their own table so the tabbed layout and
+// the card and OG fallbacks, which read section images, never see them.
+model ProjectSectionItem {
+  id          Int                       @id @default(autoincrement())
+  sectionId   Int
+  section     ProjectSection            @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title       String
+  // Markdown, rendered on read (mirrors `ProjectSection.description`).
+  description String
+  sortOrder   Int                       @default(0)
+  images      ProjectSectionItemImage[]
+}
+
+model ProjectSectionItemImage {
+  id        Int                @id @default(autoincrement())
+  itemId    Int
+  item      ProjectSectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  // As on `ProjectSectionImage`: alt text when it should differ from the caption.
+  alt       String?
+  sortOrder Int                @default(0)
 }
 
 model ProjectSectionImage {

@@ -3,6 +3,7 @@ import {
 	blobKeyFor,
 	blobPrefixFor,
 	contentHashFor,
+	forEachSectionImage,
 	isLocalImageRef,
 	listManifestImagePaths,
 	isDraftManifest,
@@ -533,6 +534,67 @@ describe("listManifestImagePaths", () => {
 		}
 		expect(listManifestImagePaths(manifest)).toEqual(["./shared.png"])
 	})
+
+	it("collects step images, so they get uploaded", () => {
+		const manifest: ProjectManifest = {
+			name: "Digest",
+			sections: [
+				{
+					kind: "steps",
+					title: "How it works",
+					items: [
+						{
+							title: "Log",
+							description: "l",
+							images: [{ url: "./log-1.png" }, { url: "./log-2.png" }],
+						},
+						{ title: "Feel", description: "f" },
+						{
+							title: "Wait",
+							description: "w",
+							images: [{ url: "./wait.png" }],
+						},
+					],
+				},
+			],
+		}
+		expect(listManifestImagePaths(manifest)).toEqual([
+			"./log-1.png",
+			"./log-2.png",
+			"./wait.png",
+		])
+	})
+})
+
+// #endregion
+
+// #region forEachSectionImage
+
+describe("forEachSectionImage", () => {
+	it("visits each section's own images, then its steps' images, in page order", () => {
+		const visited: string[] = []
+
+		forEachSectionImage(
+			[
+				{ images: [{ url: "a" }] },
+				{
+					items: [{ images: [{ url: "b1" }, { url: "b2" }] }, {}],
+				},
+				{ images: [{ url: "c" }], items: [{ images: [{ url: "c1" }] }] },
+			],
+			(image) => visited.push(image.url)
+		)
+
+		expect(visited).toEqual(["a", "b1", "b2", "c", "c1"])
+	})
+
+	it("visits nothing for no sections", () => {
+		const visited: string[] = []
+
+		forEachSectionImage(undefined, (image) => visited.push(image.url))
+
+		expect(visited).toEqual([])
+	})
 })
 
 // #endregion
@@ -586,6 +648,13 @@ describe("resolveManifestImageRefs", () => {
 			icon: "./icon.png",
 			sections: [
 				{ title: "A", description: "a", images: [{ url: "./a1.png" }] },
+				{
+					kind: "steps",
+					title: "How",
+					items: [
+						{ title: "Log", description: "l", images: [{ url: "./log.png" }] },
+					],
+				},
 			],
 		}
 
@@ -593,6 +662,44 @@ describe("resolveManifestImageRefs", () => {
 
 		expect(manifest.icon).toBe("./icon.png")
 		expect(manifest.sections?.[0].images?.[0].url).toBe("./a1.png")
+		// The import resolves the same manifest twice, synthetic URLs first.
+		expect(manifest.sections?.[1].items?.[0].images?.[0].url).toBe("./log.png")
+	})
+
+	it("replaces step image refs, leaving hosted ones and the rest of the step as they were", () => {
+		const manifest: ProjectManifest = {
+			name: "Digest",
+			sections: [
+				{
+					kind: "steps",
+					title: "How it works",
+					items: [
+						{
+							title: "Log",
+							description: "l",
+							images: [
+								{ url: "./log.png", caption: null, sortOrder: 0 },
+								{ url: "https://cdn.example.com/hosted.png" },
+							],
+						},
+					],
+				},
+			],
+		}
+
+		const resolved = resolveManifestImageRefs(
+			manifest,
+			(path) => `https://blob/${path.replace("./", "")}`
+		)
+
+		expect(resolved.sections?.[0].items?.[0]).toEqual({
+			title: "Log",
+			description: "l",
+			images: [
+				{ url: "https://blob/log.png", caption: null, sortOrder: 0 },
+				{ url: "https://cdn.example.com/hosted.png" },
+			],
+		})
 	})
 
 	it("carries FAQs through untouched (they hold no image refs)", () => {
