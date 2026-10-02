@@ -858,7 +858,7 @@ describe("ProductPage — pricing", () => {
 		expect(price).toHaveTextContent("$39.99a year14-day free trial")
 	})
 
-	it("marks the best-value price, and gives every price in every card the badge's row", () => {
+	it("puts the best-value price in its tile with the badge, and every other price in every card in the same tile, unmarked", () => {
 		renderPage(
 			makeProject({
 				plans,
@@ -869,30 +869,56 @@ describe("ProductPage — pricing", () => {
 		const prices = ["$0", "$6.99", "$89.99"].map(
 			(price) => screen.getByText(price).closest("li") as HTMLElement
 		)
-		const badge = screen.getByText("Best value")
 
-		expect(prices[2]).toContainElement(badge)
+		expect(prices[2]).toContainElement(screen.getByText("Best value"))
 		expect(prices[2]).toHaveTextContent("Best value$89.99once")
-		// The free card's price and the monthly one hold an empty row of the same
-		// height, so all three sit level.
+		expect(prices[2]).toHaveClass(
+			"product-plan__price",
+			"product-plan__price--best"
+		)
+		// The free card's price and the monthly one get the same tile, unmarked,
+		// so all three sit level.
 		for (const price of prices.slice(0, 2)) {
-			const row = price.firstElementChild as HTMLElement
-
-			expect(row).toHaveAttribute("aria-hidden")
-			expect(row).toBeEmptyDOMElement()
-			expect(row.className).toBe(
-				badge.className.replace("product-plan__badge ", "")
-			)
+			expect(price).toHaveClass("product-plan__price")
+			expect(price).not.toHaveClass("product-plan__price--best")
 		}
+		// A one-time price has no per-month cost to compare.
+		expect(screen.queryByText(/^Save/)).not.toBeInTheDocument()
 	})
 
-	it("adds no badge row when no price is the best value", () => {
+	it("says how much the best value saves against the monthly price", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: [
+					offers[0],
+					offers[1],
+					{
+						name: "Insights, yearly",
+						plan: "Insights",
+						price: "41.94",
+						priceCurrency: "USD",
+						billingPeriod: "P1Y",
+						note: "14-day free trial",
+						isBestValue: true,
+					},
+				],
+			})
+		)
+
+		// 41.94 against 12 × 6.99 = 83.88 is exactly half.
+		expect(
+			screen.getByText("$41.94").closest("li") as HTMLElement
+		).toHaveTextContent("Best value$41.94a yearSave 50%14-day free trial")
+	})
+
+	it("adds no tiles and no badge when no price is the best value", () => {
 		renderPage(makeProject({ plans, offers }))
 
 		expect(screen.queryByText("Best value")).not.toBeInTheDocument()
-		expect(
-			(screen.getByText("$6.99").closest("li") as HTMLElement).firstElementChild
-		).toHaveTextContent("$6.99")
+		expect(screen.getByText("$6.99").closest("li")).not.toHaveClass(
+			"product-plan__price"
+		)
 	})
 
 	it("centres the prices in a row of cards, and keeps a lone card's under its name", () => {

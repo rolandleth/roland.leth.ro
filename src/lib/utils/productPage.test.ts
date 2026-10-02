@@ -7,6 +7,7 @@ import {
 	productGalleryGroups,
 	reservedAnchors,
 	RESERVED_ANCHORS,
+	savingsPercent,
 	sectionAnchors,
 } from "./productPage"
 
@@ -167,6 +168,67 @@ describe("priceLabel", () => {
 
 	it("gives a period it can't read no label rather than a wrong one", () => {
 		expect(priceLabel({ price: "9", billingPeriod: "P1Y6M" })).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region savingsPercent
+
+describe("savingsPercent", () => {
+	const monthly = { price: "12.00", priceCurrency: "USD", billingPeriod: "P1M" }
+	const yearly = { price: "108.00", priceCurrency: "USD", billingPeriod: "P1Y" }
+	const lifetime = { price: "249.00", priceCurrency: "USD" }
+
+	it("compares a yearly price against the monthly one, per month", () => {
+		expect(savingsPercent(yearly, [monthly, yearly, lifetime])).toBe(25)
+	})
+
+	it("rounds down, so it never overstates the saving", () => {
+		// 39.99 against 12 × 6.99 = 83.88 is 52.3% off.
+		expect(
+			savingsPercent({ ...yearly, price: "39.99" }, [
+				{ ...monthly, price: "6.99" },
+			])
+		).toBe(52)
+	})
+
+	it("compares against the shortest period when there are several", () => {
+		// The year is $9 a month: 10% under the quarter's $10, 25% under the
+		// monthly $12. The base is the monthly price, the shortest period.
+		const quarterly = { ...monthly, price: "30.00", billingPeriod: "P3M" }
+
+		expect(savingsPercent(yearly, [quarterly, monthly])).toBe(25)
+	})
+
+	it("says nothing for a one-time price, which has no per-month cost", () => {
+		expect(savingsPercent(lifetime, [monthly, yearly])).toBeNull()
+	})
+
+	it("says nothing without a shorter paid price in the same currency", () => {
+		expect(savingsPercent(yearly, [yearly, lifetime])).toBeNull()
+		expect(
+			savingsPercent(yearly, [{ ...monthly, priceCurrency: "EUR" }])
+		).toBeNull()
+		expect(savingsPercent(yearly, [{ ...monthly, price: "0" }])).toBeNull()
+		// The monthly price is the shorter one: it saves nothing against the year.
+		expect(savingsPercent(monthly, [monthly, yearly])).toBeNull()
+	})
+
+	it("says nothing for a period it can't turn into months", () => {
+		expect(
+			savingsPercent(yearly, [{ ...monthly, billingPeriod: "P1W" }])
+		).toBeNull()
+		expect(
+			savingsPercent({ ...yearly, billingPeriod: "P1Y6M" }, [monthly])
+		).toBeNull()
+	})
+
+	it("says nothing when the longer period costs as much or more", () => {
+		expect(savingsPercent({ ...yearly, price: "144.00" }, [monthly])).toBeNull()
+		expect(savingsPercent({ ...yearly, price: "150.00" }, [monthly])).toBeNull()
+		// 143.00 against 144.00 is 0.7%: under 1%, so nothing.
+		expect(savingsPercent({ ...yearly, price: "143.00" }, [monthly])).toBeNull()
 	})
 })
 

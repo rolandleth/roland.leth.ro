@@ -1,12 +1,12 @@
-import { formatPrice, priceLabel } from "@/lib/utils/productPage"
+import {
+	formatPrice,
+	priceLabel,
+	savingsPercent,
+} from "@/lib/utils/productPage"
 import { ProductSectionShell } from "./ProductSection"
 import type { ProjectOffer } from "@/lib/db/projects"
 import type { PlanWithOffers } from "@/lib/utils/productPage"
 import type { ReactNode } from "react"
-
-// The row above each price: the "Best value" badge, or the empty space that keeps
-// the other prices level with it. Fixed height, so both are the same.
-const BADGE_ROW_CLASS = "mb-1.5 inline-flex h-5 items-center"
 
 /**
  * What the page prices: plan cards when the project has plans, or a single
@@ -65,7 +65,7 @@ export default function ProductPlans({ pricing }: Props) {
 				<PriceList
 					offers={pricing.offers}
 					label={(offer) => offer.name}
-					hasBadgeRow={hasBestValue(pricing.offers)}
+					hasTiles={hasBestValue(pricing.offers)}
 					isCentered={false}
 					isLast
 				/>
@@ -73,9 +73,9 @@ export default function ProductPlans({ pricing }: Props) {
 		)
 	}
 
-	// One flag for every card, so a card without the badge keeps its row too and
-	// its prices stay level with the badged card's.
-	const hasBadgeRow = hasBestValue(
+	// One flag for every card, so a card without the best value still boxes its
+	// prices the same way, and they stay level with the other card's.
+	const hasTiles = hasBestValue(
 		pricing.plans.flatMap((planWithOffers) => planWithOffers.offers)
 	)
 	const [singlePlan] = pricing.plans
@@ -95,7 +95,7 @@ export default function ProductPlans({ pricing }: Props) {
 					<PriceList
 						offers={singlePlan.offers}
 						label={priceLabel}
-						hasBadgeRow={hasBadgeRow}
+						hasTiles={hasTiles}
 						isCentered={false}
 						isLast
 					/>
@@ -119,7 +119,7 @@ export default function ProductPlans({ pricing }: Props) {
 					<PriceList
 						offers={offers}
 						label={priceLabel}
-						hasBadgeRow={hasBadgeRow}
+						hasTiles={hasTiles}
 						isCentered
 						isLast={false}
 					/>
@@ -160,10 +160,11 @@ interface PriceListProps {
 	offers: readonly ProjectOffer[]
 	label: (offer: ProjectOffer) => string | null
 	/**
-	 * Some price on the page is the best value: every price gets a row above it,
-	 * holding the badge or an empty space of the same height.
+	 * Some price on the page is the best value: every price sits in a tile of
+	 * the same size, and only the best value's tile shows, so all of them stay
+	 * level. The tiles' own padding replaces most of the gap between prices.
 	 */
-	hasBadgeRow: boolean
+	hasTiles: boolean
 	isCentered: boolean
 	/** The last block in its card: no divider under it. */
 	isLast: boolean
@@ -172,38 +173,42 @@ interface PriceListProps {
 function PriceList({
 	offers,
 	label,
-	hasBadgeRow,
+	hasTiles,
 	isCentered,
 	isLast,
 }: PriceListProps) {
 	return (
 		<ul
 			role="list"
-			className={`flex flex-wrap content-start gap-x-8 gap-y-2 ${
-				isCentered ? "justify-center text-center" : ""
-			} ${isLast ? "" : "product-plan__prices mb-5 pb-5"}`}
+			className={`flex flex-wrap content-start gap-y-2 ${
+				hasTiles ? "gap-x-2" : "gap-x-8"
+			} ${isCentered ? "justify-center text-center" : ""} ${
+				isLast ? "" : "product-plan__prices mb-5 pb-5"
+			}`}
 		>
 			{offers.map((offer) => {
 				const text = label(offer)
+				const isBest = offer.isBestValue === true
+				const saving = isBest ? savingsPercent(offer, offers) : null
 
 				return (
 					<li
 						key={offer.name}
-						className={`flex flex-col gap-0.5 ${isCentered ? "items-center" : ""}`}
+						className={`flex flex-col gap-0.5 ${isCentered ? "items-center" : ""} ${
+							hasTiles ? "product-plan__price" : ""
+						} ${isBest ? "product-plan__price--best" : ""}`}
 					>
-						{hasBadgeRow &&
-							(offer.isBestValue === true ? (
-								<span className={`product-plan__badge ${BADGE_ROW_CLASS}`}>
-									Best value
-								</span>
-							) : (
-								<span aria-hidden className={BADGE_ROW_CLASS} />
-							))}
-						<span className="font-serif text-[32px] leading-[1.1] tracking-[-0.015em] tabular-nums">
+						{isBest && <span className="product-plan__badge">Best value</span>}
+						<span className="product-plan__amount font-serif text-[32px] leading-[1.1] tracking-[-0.015em] tabular-nums">
 							{formatPrice(offer.price, offer.priceCurrency)}
 						</span>
 						{text != null && (
 							<span className="product-plan__label text-[13px]">{text}</span>
+						)}
+						{saving != null && (
+							<span className="product-plan__saving text-[13px]">
+								Save {saving}%
+							</span>
 						)}
 						{offer.note != null && (
 							<span className="product-plan__label text-[13px]">

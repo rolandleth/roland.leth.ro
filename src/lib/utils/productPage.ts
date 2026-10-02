@@ -191,6 +191,84 @@ export function priceLabel(offer: {
 	return count === 1 ? `a ${singular}` : `every ${count} ${plural}`
 }
 
+interface SavingsOffer {
+	price: string
+	priceCurrency: string
+	billingPeriod?: string
+}
+
+/**
+ * How much cheaper `offer` is per month than the shortest-billed paid price
+ * beside it in the same currency, as a whole percentage rounded down, so it
+ * never overstates: 25 for $108 a year against $12 a month. Null when there's
+ * nothing honest to say: `offer` isn't billed in months or years (a one-time
+ * price, a weekly one), no other price is, or the saving is under 1%. Cents
+ * and integers throughout, so float error can't round 25 down to 24.
+ */
+export function savingsPercent(
+	offer: SavingsOffer,
+	others: readonly SavingsOffer[]
+): number | null {
+	const months = billingMonths(offer.billingPeriod)
+
+	if (months == null) {
+		return null
+	}
+
+	const base = others
+		.filter(
+			(other) =>
+				other !== offer &&
+				other.priceCurrency === offer.priceCurrency &&
+				Number(other.price) > 0
+		)
+		.map((other) => ({
+			cents: priceInCents(other.price),
+			months: billingMonths(other.billingPeriod),
+		}))
+		.filter(
+			(other): other is { cents: number; months: number } =>
+				other.months != null && other.months < months
+		)
+		.sort((a, b) => a.months - b.months)[0]
+
+	if (base == null) {
+		return null
+	}
+
+	// 1 - (offer per month) / (base per month), both sides scaled to integers.
+	const baseTotal = base.cents * months
+	const offerTotal = priceInCents(offer.price) * base.months
+	const percent = Math.floor((100 * (baseTotal - offerTotal)) / baseTotal)
+
+	return percent >= 1 ? percent : null
+}
+
+/** `P1M` → 1, `P3M` → 3, `P1Y` → 12; null for no period, days, weeks, or `P1Y6M`. */
+function billingMonths(billingPeriod: string | undefined): number | null {
+	const match =
+		billingPeriod == null ? null : SIMPLE_DURATION.exec(billingPeriod)
+
+	if (match == null) {
+		return null
+	}
+
+	const count = Number(match[1])
+
+	switch (match[2]) {
+		case "M":
+			return count
+		case "Y":
+			return count * 12
+		default:
+			return null
+	}
+}
+
+function priceInCents(price: string): number {
+	return Math.round(Number(price) * 100)
+}
+
 export interface PlanWithOffers {
 	plan: ProjectPlan
 	offers: ProjectOffer[]
