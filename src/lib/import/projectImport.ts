@@ -304,11 +304,12 @@ function draftFlag(manifest: Record<string, unknown>): boolean {
 }
 
 /**
- * Parses a manifest file's text: the JSON, then `assertRequiredFlags`. The
- * import script reads every manifest through this, so the flag check runs
- * first — before the schema, any upload and the dry-run exit — and can't be
- * dropped from the script without dropping the parse with it. The flags come
- * back typed as booleans, which is what lets the write skip a `?? false`.
+ * Parses a manifest file's text: the JSON, then `assertRequiredFlags` and
+ * `assertNoPlaceholders`. The import script reads every manifest through this,
+ * so both checks run first — before the schema, any upload and the dry-run
+ * exit — and can't be dropped from the script without dropping the parse with
+ * it. The flags come back typed as booleans, which is what lets the write skip
+ * a `?? false`.
  *
  * A draft (`isDraftManifest`) is refused: the script skips drafts before it
  * gets here, so one reaching this point means that check went missing, and
@@ -328,8 +329,70 @@ export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
 	const manifest = parsed as ProjectManifest
 
 	assertRequiredFlags(manifest)
+	assertNoPlaceholders(parsed)
 
 	return manifest
+}
+
+// Markers the writing workflow leaves for the author: `[VERIFY: …]` on a claim
+// still to check, `[ASIDE: …]` on a slot still to fill, and the to-do marker
+// (the word in capitals, then a colon) on a value not known yet. None of them
+// means anything to a reader, and the import would publish them as written: a
+// `[VERIFY: …]` note reached Reckon's page once.
+const PLACEHOLDER_PATTERN = /\[VERIFY\b|\[ASIDE\b|\bTODO:/
+
+// How much of the text around a placeholder the error quotes.
+const PLACEHOLDER_CONTEXT_CHARS = 60
+
+/**
+ * Throws, naming each field, when any text in the manifest still holds a
+ * placeholder. Runs inside `parseManifest`, so a dry run reports it before any
+ * upload. Drafts are skipped before this point, so a draft can hold them.
+ */
+function assertNoPlaceholders(manifest: Record<string, unknown>): void {
+	const found = findPlaceholders(manifest, "")
+
+	if (found.length > 0) {
+		throw new Error(
+			`The manifest still holds placeholders, which would be published as written:\n${found
+				.map((entry) => `  ${entry}`)
+				.join("\n")}`
+		)
+	}
+}
+
+/** Every string under `value` that holds a placeholder, as `path: …excerpt…`. */
+function findPlaceholders(value: unknown, path: string): string[] {
+	if (typeof value === "string") {
+		const match = PLACEHOLDER_PATTERN.exec(value)
+
+		if (match == null) {
+			return []
+		}
+
+		const excerpt = value.slice(
+			match.index,
+			match.index + PLACEHOLDER_CONTEXT_CHARS
+		)
+
+		return [
+			`${path}: ${excerpt}${excerpt.length < value.length - match.index ? "…" : ""}`,
+		]
+	}
+
+	if (Array.isArray(value)) {
+		return value.flatMap((item, index) =>
+			findPlaceholders(item, `${path}[${index}]`)
+		)
+	}
+
+	if (typeof value === "object" && value !== null) {
+		return Object.entries(value).flatMap(([key, item]) =>
+			findPlaceholders(item, path === "" ? key : `${path}.${key}`)
+		)
+	}
+
+	return []
 }
 
 /**

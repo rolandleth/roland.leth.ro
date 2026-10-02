@@ -291,6 +291,71 @@ describe("parseManifest", () => {
 
 		expect(parseManifest(raw).name).toBe("Digest")
 	})
+
+	it("refuses placeholders anywhere in the text, naming each field", () => {
+		// A `[VERIFY: …]` note in a section body once reached the live page.
+		const raw = JSON.stringify({
+			name: "Reckon",
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+			sections: [
+				{
+					kind: "text",
+					layout: "split",
+					title: "Why it exists",
+					description:
+						"Shipping for 15 years [VERIFY: the 15 years], making calls.",
+				},
+				{
+					kind: "steps",
+					title: "How it works",
+					items: [{ title: "Log", description: "[ASIDE: a detail]" }],
+				},
+			],
+			links: [{ label: "Support", url: "TODO: support URL" }],
+		})
+
+		let message = ""
+
+		try {
+			parseManifest(raw)
+		} catch (error) {
+			message = error instanceof Error ? error.message : String(error)
+		}
+
+		expect(message).toMatch(/still holds placeholders/)
+		expect(message).toContain(
+			"sections[0].description: [VERIFY: the 15 years], making calls."
+		)
+		expect(message).toContain("sections[1].items[0].description: [ASIDE")
+		expect(message).toContain("links[0].url: TODO: support URL")
+	})
+
+	it("doesn't take ordinary text for a placeholder", () => {
+		// A to-do app, brackets and the word "verify" in a sentence are copy.
+		const raw = JSON.stringify({
+			name: "Todo",
+			summary: "Verify your list [daily]; a TODO list that waits.",
+			isFeatured: false,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+
+		expect(parseManifest(raw).name).toBe("Todo")
+	})
+
+	it("quotes a long placeholder's start, not the whole text", () => {
+		const raw = JSON.stringify({
+			name: "Reckon",
+			summary: `[VERIFY: ${"x".repeat(200)}]`,
+			isFeatured: true,
+			isDiscontinued: false,
+			isOwnApp: true,
+		})
+
+		expect(() => parseManifest(raw)).toThrow(/summary: \[VERIFY: x+…/)
+	})
 })
 
 // #endregion
