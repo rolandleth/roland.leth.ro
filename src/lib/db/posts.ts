@@ -51,6 +51,20 @@ const postArchiveItemSelect = {
 	datetime: true,
 } as const
 
+/** Also the detail cache key's shape part; see `wrapNullableDetail`. */
+const postDetailSelect = {
+	id: true,
+	title: true,
+	slug: true,
+	section: true,
+	datetime: true,
+	body: true,
+	description: true,
+	imageUrl: true,
+	readingTime: true,
+	updatedAt: true,
+} as const
+
 export interface PostListItem {
 	id: number
 	title: string
@@ -352,21 +366,11 @@ function fetchPostRow(
 		() =>
 			prisma.post.findFirst({
 				where: { section, slug, published: true },
-				select: {
-					id: true,
-					title: true,
-					slug: true,
-					section: true,
-					datetime: true,
-					body: true,
-					description: true,
-					imageUrl: true,
-					readingTime: true,
-					updatedAt: true,
-				},
+				select: postDetailSelect,
 			}),
 		[postTag(section, slug)],
-		[postTag(section, slug), POST_PAGES_TAG]
+		[postTag(section, slug), POST_PAGES_TAG],
+		postDetailSelect
 	)
 }
 
