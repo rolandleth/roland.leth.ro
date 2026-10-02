@@ -52,13 +52,17 @@ export default function ProductHero({
 	// The band runs up under the fixed site header: `-mt-14` pulls it over the
 	// header's 3.5rem spacer, and the top padding adds the same back so the text
 	// starts below the bar. `ProductPageStyle` gives the header the band colour.
+	//
+	// From 1280px the frame is at its full width, and the image takes a larger
+	// share (about 600px against 460px of text) and a smaller gap. Below that,
+	// the two split about evenly, so a 66px headline keeps room for its words.
 	return (
 		<section className="product-band -mt-14 bg-(--product-band) text-(--product-band-ink)">
 			<div
 				className={`product-frame grid items-center gap-12 pt-[7.5rem] pb-20 lg:gap-16 lg:pt-[calc(88px+3.5rem)] lg:pb-24 ${
 					heroImage == null
 						? ""
-						: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]"
+						: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] xl:gap-12"
 				}`}
 			>
 				<div className="product-hero-fade min-w-0">
