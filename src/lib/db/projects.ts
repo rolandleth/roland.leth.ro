@@ -442,6 +442,26 @@ function projectTag(slug: string): string {
 /** Rides on every project detail wrapper; busted only by `revalidateAllProjects`. */
 const PROJECT_PAGES_TAG = "project-pages"
 
+/**
+ * The detail cache key's shape part: every column of every model the detail
+ * query reads, plus the include that joins them. `unstable_cache` keys on the
+ * wrapper's source and its key parts, and the wrapper (`wrapNullableDetail`)
+ * never changes, so without this an entry written by older code is served to
+ * newer code that expects more: when sections gained kinds and steps, cached
+ * rows without `items` crashed the page until revalidated. A schema change now
+ * moves the key by itself, at the cost of one cold fetch per project.
+ */
+const PROJECT_DETAIL_SHAPE = JSON.stringify([
+	Object.values(Prisma.ProjectScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionImageScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionItemScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionItemImageScalarFieldEnum),
+	Object.values(Prisma.ProjectLinkScalarFieldEnum),
+	Object.values(Prisma.ProjectFaqScalarFieldEnum),
+	projectInclude,
+])
+
 // One cache wrapper per slug, built lazily on first access and reused for every
 // subsequent call. Preserves the per-project tag used by targeted revalidation
 // while avoiding the "new wrapper per call" cost and the revalidation log
@@ -485,7 +505,7 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 				palette: row.palette as unknown as ProjectPalette | null,
 			}
 		},
-		[projectTag(slug)],
+		[projectTag(slug), PROJECT_DETAIL_SHAPE],
 		[projectTag(slug), PROJECT_PAGES_TAG]
 	)
 }

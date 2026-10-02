@@ -536,6 +536,25 @@ describe("getProjectBySlug", () => {
 		expect(result?.plans).toEqual(plans)
 		expect(result?.palette).toEqual({ light: theme, dark: theme })
 	})
+
+	it("keys the cache on the row's shape, so an entry in an older shape is never served", async () => {
+		// The wrapper's source never changes, so the key parts are all the cache
+		// sees. A slug no other test uses: wrappers are built once per slug.
+		vi.mocked(prisma.project.findUnique).mockResolvedValue(
+			fullProject as Awaited<ReturnType<typeof prisma.project.findUnique>>
+		)
+
+		await getProjectBySlug("shape-keyed")
+
+		const [, keyParts] = vi.mocked(unstable_cache).mock.calls.at(-1) ?? []
+		const [tag, shape] = keyParts ?? []
+
+		expect(tag).toBe("project-shape-keyed")
+		// The columns and the join that sections gained with kinds and steps.
+		for (const part of ['"kind"', '"layout"', '"items"', '"itemId"']) {
+			expect(shape).toContain(part)
+		}
+	})
 })
 
 // #endregion
