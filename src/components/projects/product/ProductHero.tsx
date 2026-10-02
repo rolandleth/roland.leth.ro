@@ -30,8 +30,10 @@ interface Props {
  * foods to suspect" instead of three words run together.
  *
  * With neither an eyebrow nor a headline, the name itself takes the headline
- * size. With a hero image, text and image sit side by side from 1024px; the
- * image is the one picture on the page that loads with `priority`.
+ * size. With a hero image, from 1024px the title runs across the top, with
+ * the summary and buttons under it on the left and the image on the right,
+ * their tops level. The image is the one picture on the page that loads with
+ * `priority`.
  */
 export default function ProductHero({
 	name,
@@ -48,24 +50,28 @@ export default function ProductHero({
 }: Props) {
 	const isBare = eyebrow == null && headline == null
 	const iconSize = isBare ? 64 : 44
+	const hasImage = heroImage != null
 
 	// The band runs up under the fixed site header: `-mt-14` pulls it over the
 	// header's 3.5rem spacer, and the top padding adds the same back so the text
 	// starts below the bar. `ProductPageStyle` gives the header the band colour.
 	//
-	// From 1280px the frame is at its full width, and the image takes a larger
-	// share (about 600px against 460px of text) and a smaller gap. Below that,
-	// the two split about evenly, so a 66px headline keeps room for its words.
+	// Stacked, the summary sits 24px under the title and the image 48px under
+	// the buttons, as margins rather than the grid's gap. From 1024px the grid's
+	// gap takes over: 40px under the title, 64px between text and image. The
+	// image takes about 590px of the full frame against 450px of text.
 	return (
 		<section className="product-band -mt-14 bg-(--product-band) text-(--product-band-ink)">
 			<div
-				className={`product-frame grid items-center gap-12 pt-[7.5rem] pb-20 lg:gap-16 lg:pt-[calc(88px+3.5rem)] lg:pb-24 ${
-					heroImage == null
-						? ""
-						: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] xl:gap-12"
+				className={`product-frame grid items-start pt-[7.5rem] pb-20 lg:pt-[calc(88px+3.5rem)] lg:pb-24 ${
+					hasImage
+						? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-x-16 lg:gap-y-10"
+						: ""
 				}`}
 			>
-				<div className="product-hero-fade min-w-0">
+				<div
+					className={`product-hero-fade min-w-0 ${hasImage ? "lg:col-span-2" : ""}`}
+				>
 					<h1 className="flex flex-col gap-4 font-normal">
 						<span
 							className={`flex items-center font-serif leading-none tracking-[-0.015em] ${
@@ -111,8 +117,12 @@ export default function ProductHero({
 							Discontinued
 						</p>
 					)}
+				</div>
 
-					<p className="mt-6 max-w-[34em] text-lg leading-relaxed text-pretty text-(--product-band-ink2) sm:text-[19px]">
+				<div
+					className={`product-hero-fade mt-6 min-w-0 ${hasImage ? "lg:mt-0" : ""}`}
+				>
+					<p className="max-w-[34em] text-lg leading-relaxed text-pretty text-(--product-band-ink2) sm:text-[19px]">
 						{summary}
 					</p>
 
@@ -146,7 +156,7 @@ export default function ProductHero({
 				</div>
 
 				{heroImage != null && (
-					<figure className="product-hero-fade m-0 min-w-0">
+					<figure className="product-hero-fade m-0 mt-12 min-w-0 lg:mt-0">
 						<div className="product-shot relative aspect-[1270/760] overflow-hidden rounded-[14px]">
 							<Image
 								src={heroImage}
