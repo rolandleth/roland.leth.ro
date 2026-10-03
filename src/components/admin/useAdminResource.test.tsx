@@ -1,39 +1,16 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
-import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { rememberAdminListUrl } from "@/lib/client/adminListReturn"
+import {
+	mockFetchError,
+	mockFetchOk,
+	mockRouter,
+} from "@/test/mocks/adminRequests"
 import { useAdminResource } from "./useAdminResource"
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
 }))
-
-function mockRouter() {
-	const push = vi.fn()
-	const refresh = vi.fn()
-	vi.mocked(useRouter).mockReturnValue({
-		push,
-		refresh,
-	} as unknown as ReturnType<typeof useRouter>)
-	return { push, refresh }
-}
-
-function mockFetchOk() {
-	global.fetch = vi.fn().mockResolvedValue({
-		ok: true,
-		headers: new Headers(),
-		json: () => Promise.resolve({}),
-	})
-}
-
-function mockFetchError(status: number, body: unknown = {}) {
-	global.fetch = vi.fn().mockResolvedValue({
-		ok: false,
-		status,
-		headers: new Headers({ "content-type": "application/json" }),
-		json: () => Promise.resolve(body),
-	})
-}
 
 beforeEach(() => {
 	vi.resetAllMocks()
@@ -232,6 +209,125 @@ describe("useAdminResource.save", () => {
 		// the form is debuggable without opening DevTools.
 		expect(result.current.error).toBe("Missing title (HTTP 400)")
 		expect(result.current.isSubmitting).toBe(false)
+	})
+
+	it("shows a network failure, re-enables Save, stays put, and warns with the resource tag", async () => {
+		// The server never saw the request, so this warn is the only trace.
+		const { push } = mockRouter()
+		const networkError = new TypeError("Failed to fetch")
+		global.fetch = vi.fn().mockRejectedValue(networkError)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "guides", id: 4 })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.error).toBe("Failed to fetch")
+		expect(result.current.isSubmitting).toBe(false)
+		expect(result.current.hasSucceeded).toBe(false)
+		expect(push).not.toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			"[admin:guides] save failed",
+			networkError
+		)
+	})
+
+	it("falls back to the generic message for a rejection that isn't an Error", async () => {
+		mockRouter()
+		global.fetch = vi.fn().mockRejectedValue("offline")
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.error).toBe("Something went wrong. Please try again.")
+	})
+
+	it("warns on a failed HTTP response too", async () => {
+		mockRouter()
+		mockFetchError(409, { error: "Slug taken" })
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(console.warn).toHaveBeenCalledWith(
+			"[admin:posts] save failed",
+			expect.objectContaining({ message: "Slug taken (HTTP 409)" })
+		)
+	})
+
+	it("neither shows nor warns about a superseded save's real failure, but traces it", async () => {
+		// The first save fails for a real reason after a second one took over;
+		// the second owns the UI, so the first must not overwrite its state.
+		mockRouter()
+		const debug = vi.spyOn(console, "debug").mockImplementation(() => {})
+		const rejecters: Array<(reason: unknown) => void> = []
+		global.fetch = vi.fn().mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					// Ignore the abort signal, so the first request fails on its
+					// own rather than as an AbortError.
+					rejecters.push(reject)
+				})
+		)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		let firstSave: Promise<void> = Promise.resolve()
+		await act(async () => {
+			firstSave = result.current.save({ n: 1 })
+		})
+		await act(async () => {
+			void result.current.save({ n: 2 })
+		})
+
+		const staleError = new Error("Server exploded")
+		await act(async () => {
+			rejecters[0](staleError)
+			await firstSave
+		})
+
+		expect(result.current.error).toBeNull()
+		expect(result.current.isSubmitting).toBe(true)
+		expect(console.warn).not.toHaveBeenCalled()
+		expect(debug).toHaveBeenCalledWith(
+			"[admin:posts] save superseded request failed",
+			staleError
+		)
+	})
+
+	it("stays silent about an abort", async () => {
+		mockRouter()
+		global.fetch = vi
+			.fn()
+			.mockRejectedValue(
+				Object.assign(new Error("aborted"), { name: "AbortError" })
+			)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: null })
+		)
+
+		await act(async () => {
+			await result.current.save({})
+		})
+
+		expect(result.current.error).toBeNull()
+		expect(console.warn).not.toHaveBeenCalled()
 	})
 
 	it("keeps the button disabled when a superseded save settles before the latest resolves", async () => {
@@ -451,6 +547,45 @@ describe("useAdminResource.remove", () => {
 			expect(result.current.error).toBe("DB offline (HTTP 500)")
 		)
 		expect(result.current.isSubmitting).toBe(false)
+	})
+
+	it("shows a network failure on delete, stays put, and warns with the resource tag", async () => {
+		const { push } = mockRouter()
+		const networkError = new TypeError("Failed to fetch")
+		global.fetch = vi.fn().mockRejectedValue(networkError)
+		window.confirm = vi.fn().mockReturnValue(true)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "projects", id: 1 })
+		)
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(result.current.error).toBe("Failed to fetch")
+		expect(result.current.isSubmitting).toBe(false)
+		expect(push).not.toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			"[admin:projects] delete failed",
+			networkError
+		)
+	})
+
+	it("falls back to the delete message for a rejection that isn't an Error", async () => {
+		mockRouter()
+		global.fetch = vi.fn().mockRejectedValue("offline")
+		window.confirm = vi.fn().mockReturnValue(true)
+
+		const { result } = renderHook(() =>
+			useAdminResource({ resource: "posts", id: 1 })
+		)
+
+		await act(async () => {
+			await result.current.remove()
+		})
+
+		expect(result.current.error).toBe("Delete failed. Please try again.")
 	})
 })
 

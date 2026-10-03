@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
+import { expectFailedSave } from "@/test/adminForms"
+import {
+	mockFetchError,
+	mockFetchOk,
+	mockRouter,
+} from "@/test/mocks/adminRequests"
 import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import PostForm from "./PostForm"
@@ -50,26 +55,6 @@ vi.mock("@/lib/utils/format", async (importOriginal) => {
 	const mod = await importOriginal<typeof import("@/lib/utils/format")>()
 	return { ...mod, currentDatetimeString: vi.fn(() => "2025-01-01-1200") }
 })
-
-function mockRouter() {
-	const push = vi.fn()
-	const refresh = vi.fn()
-	vi.mocked(useRouter).mockReturnValue({
-		push,
-		refresh,
-	} as unknown as ReturnType<typeof useRouter>)
-	return { push, refresh }
-}
-
-function mockFetch(ok: boolean, body: object = {}) {
-	// `useAdminResource.readErrorMessage` inspects the `content-type` header
-	// before parsing the body, so a bare `{ok, json}` object isn't enough.
-	global.fetch = vi.fn().mockResolvedValue({
-		ok,
-		headers: new Headers({ "content-type": "application/json" }),
-		json: () => Promise.resolve(body),
-	})
-}
 
 const initialData = {
 	id: 7,
@@ -141,7 +126,7 @@ describe("PostForm — create mode", () => {
 		// The edits are stored; a tab close before the list renders must not
 		// warn about them.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 		render(<PostForm />)
 
 		await user.type(screen.getByLabelText(/title/i), "A new post")
@@ -150,23 +135,26 @@ describe("PostForm — create mode", () => {
 		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
 
-	it("keeps guarding when the save fails", async () => {
-		mockRouter()
-		mockFetch(false, { error: "Validation error" })
+	// The assertions are in `expectFailedSave`, which the lint rule can't see into.
+	// eslint-disable-next-line sonarjs/assertions-in-tests
+	it("shows the API's error and stays on the form, still guarded, when the save fails", async () => {
+		const { push } = mockRouter()
+		mockFetchError(400, { error: "Validation error" })
 		render(<PostForm />)
 
 		await user.type(screen.getByLabelText(/title/i), "A new post")
 		await user.click(screen.getByRole("button", { name: /save post/i }))
 
-		await waitFor(() =>
-			expect(screen.getByText(/Validation error/)).toBeInTheDocument()
-		)
-		expect(isUnloadGuarded()).toBe(true)
+		await expectFailedSave({
+			message: "Validation error (HTTP 400)",
+			push,
+			saveButton: /save post/i,
+		})
 	})
 
 	it("sends a POST request to /api/admin/posts on submit", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.type(screen.getByLabelText(/title/i), "A new post")
@@ -181,7 +169,7 @@ describe("PostForm — create mode", () => {
 
 	it("fills the slug from the title and sends it", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.type(screen.getByLabelText(/title/i), "A new post")
@@ -223,26 +211,13 @@ describe("PostForm — create mode", () => {
 
 	it("navigates to /admin after a successful save", async () => {
 		const { push } = mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.type(screen.getByLabelText(/title/i), "New post")
 		await user.click(screen.getByRole("button", { name: /save post/i }))
 
 		await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"))
-	})
-
-	it("displays the error message returned by the API on failure", async () => {
-		mockRouter()
-		mockFetch(false, { error: "Validation error" })
-
-		render(<PostForm />)
-		await user.type(screen.getByLabelText(/title/i), "New post")
-		await user.click(screen.getByRole("button", { name: /save post/i }))
-
-		await waitFor(() =>
-			expect(screen.getByText(/Validation error/)).toBeInTheDocument()
-		)
 	})
 
 	it("shows 'Saving…' while the request is in-flight", async () => {
@@ -258,7 +233,7 @@ describe("PostForm — create mode", () => {
 
 	it("sends an empty description and a null image when neither is filled in", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.type(screen.getByLabelText(/title/i), "A new post")
@@ -276,7 +251,7 @@ describe("PostForm — create mode", () => {
 
 	it("sends an image URL that was set in the widget", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.type(screen.getByLabelText(/title/i), "A new post")
@@ -321,7 +296,7 @@ describe("PostForm — create mode", () => {
 		// Saving mid-upload persisted the row without the image and navigated
 		// away, aborting the request: the picked file was lost with nothing shown.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm />)
 		await user.click(screen.getByRole("button", { name: /start upload/i }))
@@ -366,7 +341,7 @@ describe("PostForm — edit mode", () => {
 
 	it("sends a PUT request to /api/admin/posts/:id on submit", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm initialData={initialData} />)
 		await user.click(screen.getByRole("button", { name: /save post/i }))
@@ -391,7 +366,7 @@ describe("PostForm — edit mode", () => {
 
 	it("does not send a slug on update", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm initialData={initialData} />)
 		await user.click(screen.getByRole("button", { name: /save post/i }))
@@ -405,7 +380,7 @@ describe("PostForm — edit mode", () => {
 		// The route counts an unchanged description as untouched, so an authored
 		// one survives a body edit.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm initialData={initialData} />)
 		await user.click(screen.getByRole("button", { name: /save post/i }))
@@ -419,7 +394,7 @@ describe("PostForm — edit mode", () => {
 		// An omitted key is skipped by the edit route, which left the old image on
 		// the post.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(
 			<PostForm
@@ -436,7 +411,7 @@ describe("PostForm — edit mode", () => {
 
 	it("sends null for a post with no image", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm initialData={{ ...initialData, imageUrl: null }} />)
 		await user.click(screen.getByRole("button", { name: /save post/i }))
@@ -449,7 +424,7 @@ describe("PostForm — edit mode", () => {
 	it("sends an emptied description as an empty string, which the route derives from", async () => {
 		// Omitting the key would read as "not sent" and keep the old description.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<PostForm initialData={initialData} />)
 		await user.clear(screen.getByLabelText(/description/i))
@@ -462,7 +437,7 @@ describe("PostForm — edit mode", () => {
 
 	it("navigates to /admin after a successful delete", async () => {
 		const { push } = mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 		vi.stubGlobal("confirm", vi.fn().mockReturnValue(true))
 
 		render(<PostForm initialData={initialData} />)
@@ -473,7 +448,7 @@ describe("PostForm — edit mode", () => {
 
 	it("does not delete when the user cancels the confirm dialog", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
 
 		render(<PostForm initialData={initialData} />)

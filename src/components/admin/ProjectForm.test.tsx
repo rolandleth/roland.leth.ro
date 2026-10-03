@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DISCONTINUED_PLACEMENT_HINT } from "@/components/admin/projectPlacement"
@@ -9,6 +8,12 @@ import {
 	ProjectPageLayout,
 	ProjectProminence,
 } from "@/generated/prisma/enums"
+import { expectFailedSave } from "@/test/adminForms"
+import {
+	mockFetchError,
+	mockFetchOk,
+	mockRouter,
+} from "@/test/mocks/adminRequests"
 import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
@@ -117,26 +122,6 @@ vi.mock("@/components/ui/PresetOrFreeformInput", () => ({
 	),
 }))
 
-function mockRouter() {
-	const push = vi.fn()
-	const refresh = vi.fn()
-	vi.mocked(useRouter).mockReturnValue({
-		push,
-		refresh,
-	} as unknown as ReturnType<typeof useRouter>)
-	return { push, refresh }
-}
-
-function mockFetch(ok: boolean, body: object = {}) {
-	// `useAdminResource.readErrorMessage` inspects the `content-type` header
-	// before parsing the body, so a bare `{ok, json}` object isn't enough.
-	global.fetch = vi.fn().mockResolvedValue({
-		ok,
-		headers: new Headers({ "content-type": "application/json" }),
-		json: () => Promise.resolve(body),
-	})
-}
-
 const initialData = {
 	id: 3,
 	name: "Existing App",
@@ -243,7 +228,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("sends a POST request to /api/admin/projects on submit", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -258,7 +243,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("fills the slug from the name and sends it", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -300,7 +285,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("sends the default placement when left untouched", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -317,7 +302,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("sends the chosen prominence and page layout", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -340,7 +325,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("navigates to the Projects tab after a successful save", async () => {
 		const { push } = mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -357,7 +342,7 @@ describe("ProjectForm — create mode", () => {
 		// `required` input used to guard. Form is now the gate.
 		mockPickerConfig.autoFill = "off"
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -378,7 +363,7 @@ describe("ProjectForm — create mode", () => {
 		// belt-and-braces check, so the form must too.
 		mockPickerConfig.autoFill = "bucket-only"
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -388,19 +373,6 @@ describe("ProjectForm — create mode", () => {
 			await screen.findByText(/pick at least one platform tag/i)
 		).toBeInTheDocument()
 		expect(global.fetch).not.toHaveBeenCalled()
-	})
-
-	it("displays the error message from the API on failure", async () => {
-		mockRouter()
-		mockFetch(false, { error: "Name already taken" })
-
-		render(<ProjectForm />)
-		await fillRequiredFields()
-		await clickSave()
-
-		await waitFor(() =>
-			expect(screen.getByText(/Name already taken/)).toBeInTheDocument()
-		)
 	})
 
 	it("shows 'Saving…' while the request is in-flight", async () => {
@@ -416,7 +388,7 @@ describe("ProjectForm — create mode", () => {
 
 	it("includes an added FAQ (without the client-only _key) in the POST body", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm />)
 		await fillRequiredFields()
@@ -540,7 +512,7 @@ describe("ProjectForm — unsaved changes", () => {
 
 	it("stops guarding once the save succeeds", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 		render(<ProjectForm initialData={initialData} />)
 
 		await user.type(screen.getByLabelText(/^name$/i), " 2")
@@ -552,18 +524,21 @@ describe("ProjectForm — unsaved changes", () => {
 		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
 
-	it("keeps guarding when the save fails", async () => {
-		mockRouter()
-		mockFetch(false, { error: "Name already taken" })
+	// The assertions are in `expectFailedSave`, which the lint rule can't see into.
+	// eslint-disable-next-line sonarjs/assertions-in-tests
+	it("shows the API's error and stays on the form, still guarded, when the save fails", async () => {
+		const { push } = mockRouter()
+		mockFetchError(409, { error: "Name already taken" })
 		render(<ProjectForm initialData={initialData} />)
 
 		await user.type(screen.getByLabelText(/^name$/i), " 2")
 		await clickSave()
 
-		await waitFor(() =>
-			expect(screen.getByText(/Name already taken/)).toBeInTheDocument()
-		)
-		expect(isUnloadGuarded()).toBe(true)
+		await expectFailedSave({
+			message: "Name already taken (HTTP 409)",
+			push,
+			saveButton: /save project/i,
+		})
 	})
 })
 
@@ -653,7 +628,7 @@ describe("ProjectForm — edit mode", () => {
 
 	it("sends the toggled Own app checkbox as isOwnApp in the payload", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		await user.click(screen.getByRole("checkbox", { name: "Own app" }))
@@ -672,7 +647,7 @@ describe("ProjectForm — edit mode", () => {
 
 	it("sends a PUT request to /api/admin/projects/:id on submit", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		await clickSave()
@@ -697,7 +672,7 @@ describe("ProjectForm — edit mode", () => {
 
 	it("does not send a slug on update", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		await clickSave()
@@ -723,7 +698,7 @@ describe("ProjectForm — edit mode", () => {
 
 	it("does not delete when the user cancels the confirm dialog", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 		vi.stubGlobal("confirm", vi.fn().mockReturnValue(false))
 
 		render(<ProjectForm initialData={initialData} />)
@@ -740,7 +715,7 @@ describe("ProjectForm — edit mode", () => {
 describe("ProjectForm — sortOrder field", () => {
 	it("commits a valid digit-only value to the payload", async () => {
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
@@ -759,7 +734,7 @@ describe("ProjectForm — sortOrder field", () => {
 		// value. Now invalid input is held in the display until blur, then
 		// snaps back to the last committed value, leaving state untouched.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
@@ -783,7 +758,7 @@ describe("ProjectForm — sortOrder field", () => {
 		// is the happy case — verifying the re-snap doesn't break the
 		// already-committed value.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)
@@ -806,7 +781,7 @@ describe("ProjectForm — sortOrder field", () => {
 		// already-committed value (still 5 because the empty isn't valid).
 		// Net effect either way is the user sees the snap-back in the input.
 		mockRouter()
-		mockFetch(true)
+		mockFetchOk()
 
 		render(<ProjectForm initialData={initialData} />)
 		const sortOrder = screen.getByLabelText<HTMLInputElement>(/sort order/i)

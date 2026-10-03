@@ -121,19 +121,11 @@ export function useAdminResource<TPayload>({
 			isNavigating = true
 			goBackToAdmin()
 		} catch (err) {
-			if (!isMountedRef.current || abortRef.current !== controller) {
-				return
-			}
-
-			// Aborts are silent: the unmount or a newer save already moved on.
-			if (isAbortError(err)) {
-				return
-			}
-
-			setError(
-				err instanceof Error
-					? err.message
-					: "Something went wrong. Please try again."
+			reportFailure(
+				err,
+				controller,
+				"save",
+				"Something went wrong. Please try again."
 			)
 		} finally {
 			// Only the latest request clears the flag; a superseded save must not
@@ -194,16 +186,11 @@ export function useAdminResource<TPayload>({
 			isNavigating = true
 			goBackToAdmin()
 		} catch (err) {
-			if (!isMountedRef.current || abortRef.current !== controller) {
-				return
-			}
-
-			if (isAbortError(err)) {
-				return
-			}
-
-			setError(
-				err instanceof Error ? err.message : "Delete failed. Please try again."
+			reportFailure(
+				err,
+				controller,
+				"delete",
+				"Delete failed. Please try again."
 			)
 		} finally {
 			// Only the latest request clears the flag; a superseded remove must not
@@ -217,6 +204,38 @@ export function useAdminResource<TPayload>({
 				setIsSubmitting(false)
 			}
 		}
+	}
+
+	/**
+	 * Routes a failed save or delete. An abort is silent: the unmount or a newer
+	 * request already moved on. A real failure that a newer request or an unmount
+	 * superseded must not reach the UI, but is traced at debug level so a flaky
+	 * backend under rapid re-submits stays diagnosable. Anything else is warned
+	 * and shown — the server logs its own side, but a network failure never
+	 * reaches the server.
+	 */
+	function reportFailure(
+		err: unknown,
+		controller: AbortController,
+		action: "save" | "delete",
+		fallbackMessage: string
+	) {
+		if (isAbortError(err)) {
+			return
+		}
+
+		const logTag = `[admin:${resource}] ${action}`
+
+		if (!isMountedRef.current || abortRef.current !== controller) {
+			// eslint-disable-next-line no-console
+			console.debug(`${logTag} superseded request failed`, err)
+
+			return
+		}
+
+		// eslint-disable-next-line no-console
+		console.warn(`${logTag} failed`, err)
+		setError(err instanceof Error ? err.message : fallbackMessage)
 	}
 
 	return { save, remove, isSubmitting, hasSucceeded, error }

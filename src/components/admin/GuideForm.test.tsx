@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
+import { expectFailedSave } from "@/test/adminForms"
+import {
+	mockFetchError,
+	mockFetchOk,
+	mockRouter,
+} from "@/test/mocks/adminRequests"
 import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import GuideForm from "./GuideForm"
@@ -18,10 +23,7 @@ vi.mock("@/components/admin/MarkdownEditor", () => ({
 
 beforeEach(() => {
 	vi.resetAllMocks()
-	vi.mocked(useRouter).mockReturnValue({
-		push: vi.fn(),
-		refresh: vi.fn(),
-	} as unknown as ReturnType<typeof useRouter>)
+	mockRouter()
 })
 
 // #region Description
@@ -94,11 +96,7 @@ describe("GuideForm — unsaved changes", () => {
 	})
 
 	it("stops guarding once the save succeeds", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			headers: new Headers(),
-			json: () => Promise.resolve({}),
-		})
+		mockFetchOk()
 		render(<GuideForm initialData={initialData} topics={[]} projects={[]} />)
 
 		await user.type(screen.getByLabelText(/^title/i), " again")
@@ -110,22 +108,21 @@ describe("GuideForm — unsaved changes", () => {
 		await waitFor(() => expect(isUnloadGuarded()).toBe(false))
 	})
 
-	it("keeps guarding when the save fails", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: false,
-			status: 409,
-			headers: new Headers({ "content-type": "application/json" }),
-			json: () => Promise.resolve({ error: "Slug already taken" }),
-		})
+	// The assertions are in `expectFailedSave`, which the lint rule can't see into.
+	// eslint-disable-next-line sonarjs/assertions-in-tests
+	it("shows the API's error and stays on the form, still guarded, when the save fails", async () => {
+		const { push } = mockRouter()
+		mockFetchError(409, { error: "Slug already taken" })
 		render(<GuideForm initialData={initialData} topics={[]} projects={[]} />)
 
 		await user.type(screen.getByLabelText(/^title/i), " again")
 		await user.click(screen.getByRole("button", { name: /save guide/i }))
 
-		await waitFor(() =>
-			expect(screen.getByText(/Slug already taken/)).toBeInTheDocument()
-		)
-		expect(isUnloadGuarded()).toBe(true)
+		await expectFailedSave({
+			message: "Slug already taken (HTTP 409)",
+			push,
+			saveButton: /save guide/i,
+		})
 	})
 })
 
