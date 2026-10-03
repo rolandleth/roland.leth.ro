@@ -1,16 +1,12 @@
 import AnimatedCard from "@/components/AnimatedCard"
-import PageGlow from "@/components/PageGlow"
-import CompactProjectCard from "@/components/projects/CompactProjectCard"
-import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
+import AppTile from "@/components/projects/gallery/AppTile"
+import AppTileStyle from "@/components/projects/gallery/AppTileStyle"
+import EarlierProjects from "@/components/projects/gallery/EarlierProjects"
+import WorkCard from "@/components/projects/gallery/WorkCard"
 import { buildPageMetadata } from "@/lib/content/metadata"
-import {
-	type ProjectGalleryItem,
-	getProjectsGalleryCached,
-} from "@/lib/db/projects"
-import { groupByBucket, isCompactLabelRedundant } from "@/lib/utils/platforms"
+import { getProjectsGalleryCached } from "@/lib/db/projects"
+import { gallerySections, isWideAppTile } from "@/lib/utils/projectsGallery"
 import type { Metadata } from "next"
-
-type CompactProject = ProjectGalleryItem & { showPlatformCapsule: boolean }
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Projects",
@@ -21,99 +17,84 @@ export const metadata: Metadata = buildPageMetadata({
 	path: "/projects",
 })
 
+// The fade-in's stagger between tiles and cards, in seconds.
+const STAGGER = 0.05
+
+// The space above a section that follows another.
+const SECTION_GAP_CLASS = "mt-[88px]"
+
+/**
+ * The projects gallery: the own apps first, each on its product page's
+ * colours, then the work projects, then everything else under "Earlier
+ * projects", collapsed. Which section a project lands in follows from its
+ * featured and own-app flags (`gallerySections`).
+ *
+ * The apps and the work projects have no heading of their own, only the space
+ * between them: each section is named for screen readers only, and each tile's
+ * and card's title is an `h2`, so the outline doesn't skip a level.
+ */
 export default async function ProjectsPage() {
-	const allProjects = await getProjectsGalleryCached()
-	// Single pass: partition featured vs. others AND precompute the per-card
-	// `showPlatformCapsule` boolean (pure function of bucket+tags, no reason
-	// to recompute it on every render). Mirrors the existing `for ... push`
-	// pattern below — `.reduce`/`.map` with a mutated accumulator trips the
-	// React Compiler's immutability rule (see the comment above
-	// `groupsWithStaggerStart`).
-	const featured: ProjectGalleryItem[] = []
-	const others: CompactProject[] = []
-
-	for (const project of allProjects) {
-		if (project.isFeatured) {
-			featured.push(project)
-			continue
-		}
-
-		others.push({
-			...project,
-			showPlatformCapsule: !isCompactLabelRedundant(
-				project.bucket,
-				project.platformTags
-			),
-		})
-	}
-
-	const bucketGroups = groupByBucket(others)
-
-	// Precompute a running stagger offset per group so each card's animation
-	// index is unique across every group, independent of group size. A plain
-	// for-of loop keeps the running sum local — assigning into a `let`
-	// captured inside a `.map` callback trips the React Compiler's
-	// `react-hooks/immutability` rule.
-	const groupsWithStaggerStart: Array<
-		(typeof bucketGroups)[number] & { startIndex: number }
-	> = []
-	let offset = featured.length
-
-	for (const group of bucketGroups) {
-		groupsWithStaggerStart.push({ ...group, startIndex: offset })
-		offset += group.projects.length
-	}
+	const { apps, work, earlier } = gallerySections(
+		await getProjectsGalleryCached()
+	)
 
 	return (
-		<div className="relative mx-auto max-w-5xl px-4 py-12">
-			<PageGlow />
+		<div className="product-frame pt-8 pb-24 sm:pt-12">
+			<h1 className="text-primary mb-8 font-serif text-[34px] leading-none font-normal tracking-[-0.02em] min-[900px]:text-[40px]">
+				Projects
+			</h1>
 
-			<div className="mb-10">
-				<h1 className="text-primary text-3xl font-bold">Projects</h1>
-			</div>
+			{apps.length > 0 && (
+				<section id="my-apps" aria-label="My apps">
+					<AppTileStyle apps={apps} />
 
-			{/* Featured projects */}
-			{featured.length > 0 && (
-				<section className="mb-16">
-					<h2 className="text-secondary mb-6 text-xs font-semibold tracking-widest uppercase">
-						Featured
-					</h2>
+					<div className="grid gap-4 min-[900px]:grid-cols-2">
+						{apps.map((project, index) => {
+							const isWide = isWideAppTile(index, apps.length)
 
-					<div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-						{featured.map((project, i) => (
-							<AnimatedCard key={project.id} index={i} delayMultiplier={0.05}>
-								<FeaturedProjectCard project={project} isPriority={i === 0} />
+							return (
+								<AnimatedCard
+									key={project.id}
+									index={index}
+									delayMultiplier={STAGGER}
+									className={isWide ? "min-[900px]:col-span-2" : ""}
+								>
+									<AppTile
+										project={project}
+										isWide={isWide}
+										isImagePriority={index === 0}
+									/>
+								</AnimatedCard>
+							)
+						})}
+					</div>
+				</section>
+			)}
+
+			{work.length > 0 && (
+				<section
+					id="work"
+					aria-label="Work"
+					className={apps.length > 0 ? SECTION_GAP_CLASS : ""}
+				>
+					<div className="flex flex-col gap-4">
+						{work.map((project, index) => (
+							<AnimatedCard
+								key={project.id}
+								index={apps.length + index}
+								delayMultiplier={STAGGER}
+							>
+								<WorkCard project={project} />
 							</AnimatedCard>
 						))}
 					</div>
 				</section>
 			)}
 
-			{/* Other projects grouped by bucket */}
-			{groupsWithStaggerStart.map((group) => (
-				<section key={group.bucket} className="mb-12">
-					<h2
-						className={`text-secondary mb-5 text-xs font-semibold tracking-widest ${group.bucket === "iOS" ? "" : "uppercase"}`}
-					>
-						{group.label}
-					</h2>
-
-					<div className="grid grid-cols-4 gap-1 sm:grid-cols-6 md:grid-cols-8">
-						{group.projects.map((project, i) => (
-							<AnimatedCard
-								key={project.id}
-								index={group.startIndex + i}
-								delayMultiplier={0.05}
-							>
-								<CompactProjectCard
-									project={project}
-									showPlatformCapsule={project.showPlatformCapsule}
-								/>
-							</AnimatedCard>
-						))}
-					</div>
-				</section>
-			))}
+			<EarlierProjects
+				projects={earlier}
+				className={apps.length + work.length > 0 ? SECTION_GAP_CLASS : ""}
+			/>
 		</div>
 	)
 }

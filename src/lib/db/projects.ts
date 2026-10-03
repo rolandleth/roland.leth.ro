@@ -36,6 +36,17 @@ export interface ProjectGalleryItem extends ProjectListItem {
 	featuredImage: string | null
 	accentColor: string | null
 	role: string | null
+	isOwnApp: boolean
+	/**
+	 * The product page's hero image, resolved the same way (`resolveHeroImage`):
+	 * an own app's gallery tile shows the picture its page leads with.
+	 */
+	productHeroImage: string | null
+	heroImageAlt: string | null
+	heroEyebrow: string | null
+	heroHeadline: string | null
+	palette: ProjectPalette | null
+	links: { id: number; label: string; url: string }[]
 }
 
 /**
@@ -182,11 +193,21 @@ const gallerySelect = {
 	accentColor: true,
 	isFeatured: true,
 	isDiscontinued: true,
+	isOwnApp: true,
 	sortOrder: true,
 	icon: true,
 	cardImage: true,
 	ogImage: true,
 	heroImage: true,
+	heroImageAlt: true,
+	heroEyebrow: true,
+	heroHeadline: true,
+	palette: true,
+	// The store buttons on an own app's gallery tile.
+	links: {
+		orderBy: { sortOrder: "asc" as const },
+		select: { id: true, label: true, url: true },
+	},
 	// Only the first image of each section (in sortOrder) — enough to resolve the
 	// `firstImage` fallback in `resolveCardImage` without loading entire galleries.
 	sections: {
@@ -293,14 +314,18 @@ export function resolveHeroImage(project: {
 
 /**
  * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
- * image precedence into a single `featuredImage` and dropping the raw image
- * columns the list surfaces don't render.
+ * image precedence into a single `featuredImage`, and the hero's into
+ * `productHeroImage`, and dropping the raw image columns the list surfaces
+ * don't render. The `palette` cast is the one `getProjectBySlug` makes, for
+ * the same reason: the write path validates the column against
+ * `projectPaletteSchema`.
  */
 function toGalleryItem({
 	cardImage,
 	ogImage,
 	heroImage,
 	sections,
+	palette,
 	...rest
 }: GalleryRow): ProjectGalleryItem {
 	return {
@@ -311,8 +336,20 @@ function toGalleryItem({
 			heroImage,
 			sections,
 		}),
+		productHeroImage: resolveHeroImage({ heroImage, cardImage, ogImage }),
+		palette: palette as unknown as ProjectPalette | null,
 	}
 }
+
+/**
+ * The gallery cache key's shape part. `unstable_cache` keys on its callback's
+ * source and the key parts, and the callback names `gallerySelect` rather than
+ * spelling it out, so a change to the select would otherwise keep the key and
+ * serve rows from older code to newer code that expects more (the crash
+ * `wrapNullableDetail`'s `shape` prevents on the detail pages). A change to
+ * `toGalleryItem` that changes the item's fields must change this too.
+ */
+const GALLERY_SHAPE = JSON.stringify(gallerySelect)
 
 /**
  * Aggregate tag on the projects gallery/slug-list caches, busted by any project
@@ -337,7 +374,7 @@ const projectsGalleryCache = unstable_cache(
 				],
 			})
 		).map(toGalleryItem),
-	["projects-gallery"],
+	["projects-gallery", GALLERY_SHAPE],
 	{ tags: [PROJECTS_TAG] }
 )
 

@@ -281,9 +281,83 @@ describe("getProjectsForAdmin", () => {
 		// accidentally wraps the admin reader — silently caching admin reads
 		// and hiding fresh edits from the admin UI — this set grows.
 		expect(cacheWrapsAtLoad).toEqual([
-			{ keys: ["projects-gallery"], tags: ["projects"] },
+			{
+				keys: ["projects-gallery", expect.any(String)],
+				tags: ["projects"],
+			},
 			{ keys: ["all-project-slugs"], tags: ["projects"] },
 		])
+	})
+})
+
+describe("getProjectsGalleryCached cache key", () => {
+	it("keys the gallery on its select, so rows from older code are never served", () => {
+		// The callback names `gallerySelect` instead of spelling it out, so its
+		// source, which `unstable_cache` also keys on, doesn't change with it.
+		const [, shape] =
+			cacheWrapsAtLoad.find((wrap) => wrap.keys?.[0] === "projects-gallery")
+				?.keys ?? []
+
+		// The fields the own-app tiles added.
+		for (const field of ['"palette"', '"heroHeadline"', '"links"']) {
+			expect(shape).toContain(field)
+		}
+	})
+})
+
+describe("toGalleryItem, through getProjectsForAdmin", () => {
+	it("resolves the hero image like the product page and passes the tile fields through", async () => {
+		const palette = {
+			light: {
+				band: "#f3ede4",
+				bandInk: "#2a241e",
+				bandInk2: "#6b6158",
+				bandHighlight: "#9a532b",
+				accentText: "#9a532b",
+			},
+			dark: {
+				band: "#2a211b",
+				bandInk: "#f3ede4",
+				bandInk2: "#c9bbae",
+				bandHighlight: "#e0a27a",
+				accentText: "#e0a27a",
+			},
+		}
+		const links = [
+			{ id: 1, label: "App Store", url: "https://apps.apple.com/app/id1" },
+		]
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			{
+				...makeGalleryRow({
+					cardImage: "/card.png",
+					ogImage: "/og.png",
+					heroImage: null,
+					sections: [{ images: [{ url: "/first.png" }] }],
+				}),
+				isOwnApp: true,
+				heroImageAlt: "The app.",
+				heroEyebrow: "Decision journal",
+				heroHeadline: "Find out.",
+				palette,
+				links,
+			},
+		] as unknown as Awaited<ReturnType<typeof prisma.project.findMany>>)
+
+		const [item] = await getProjectsForAdmin()
+
+		// No hero of its own: the card image, as `resolveHeroImage` picks.
+		expect(item.productHeroImage).toBe("/card.png")
+		expect(item).toMatchObject({
+			isOwnApp: true,
+			heroImageAlt: "The app.",
+			heroEyebrow: "Decision journal",
+			heroHeadline: "Find out.",
+			palette,
+			links,
+		})
+		// The raw image columns stay off the item.
+		expect(item).not.toHaveProperty("heroImage")
+		expect(item).not.toHaveProperty("cardImage")
 	})
 })
 

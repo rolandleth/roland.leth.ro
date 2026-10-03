@@ -136,6 +136,13 @@ export function makeProjectGalleryItem(
 		featuredImage: null,
 		accentColor: null,
 		role: null,
+		isOwnApp: false,
+		productHeroImage: null,
+		heroImageAlt: null,
+		heroEyebrow: null,
+		heroHeadline: null,
+		palette: null,
+		links: [],
 		...overrides,
 	}
 }

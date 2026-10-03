@@ -9,6 +9,7 @@
 	--color-background: var(--color-background-value);
 	--color-border: var(--color-border-value);
 	--color-accent: var(--color-accent-value);
+	--color-surface: var(--color-surface-value);
 	--font-sans: var(--font-body);
 	--font-serif: var(--font-heading);
 	--font-mono: var(--font-code);
@@ -25,6 +26,9 @@
 	--color-background-transparent: #f9fafb00;
 	--color-border-value: #e5e7eb;
 	--color-accent-value: #0d8fb5;
+	/* A card raised off the page: white on the light page, a 4% white lift on
+	   the dark one. */
+	--color-surface-value: #ffffff;
 	--color-header-accent: var(--color-accent-value);
 	--color-header-bg: color-mix(
 		in srgb,
@@ -44,6 +48,11 @@
 	--color-background-transparent: #03071200;
 	--color-border-value: #1f2937;
 	--color-accent-value: #12a8da;
+	--color-surface-value: color-mix(
+		in srgb,
+		#ffffff 4%,
+		var(--color-background-value)
+	);
 	--color-header-bg: color-mix(
 		in srgb,
 		var(--color-background-value) 94%,
@@ -214,11 +223,14 @@ code[data-theme*=" "] span {
 	font-weight: normal;
 }
 
-/* Own-app product page (`src/components/projects/product`). The per-project
-   values (`--project-accent`, and the band palette when the project has one)
-   come from `ProductPageStyle`; these are the defaults without a palette: an
-   accent tint behind the hero, the closing and the highlighted plan. */
-.product-page {
+/* Own-app product page (`src/components/projects/product`), and an own app's
+   tile in the gallery, which wears the same colours. The per-project values
+   (`--project-accent`, and the band palette when the project has one) come
+   from `ProductPageStyle` and `AppTileStyle`; these are the defaults without a
+   palette: an accent tint behind the hero, the closing and the highlighted
+   plan, or behind the tile. */
+.product-page,
+.app-tile {
 	--project-accent: var(--color-accent-value);
 	--product-band-surface: color-mix(
 		in srgb,
@@ -233,15 +245,7 @@ code[data-theme*=" "] span {
 	   reach 4.5:1 on both the light and the dark page, so a palette sets one
 	   per theme; without one, the accent is all there is. */
 	--product-accent-text: var(--project-accent);
-	--product-surface: #ffffff;
-}
-
-.dark .product-page {
-	--product-surface: color-mix(
-		in srgb,
-		#ffffff 4%,
-		var(--color-background-value)
-	);
+	--product-surface: var(--color-surface-value);
 }
 
 /* Screenshots: a hairline so a light image's edge doesn't vanish into the page,

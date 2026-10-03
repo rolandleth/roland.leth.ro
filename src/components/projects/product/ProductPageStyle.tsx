@@ -5,7 +5,11 @@ interface Props {
 	palette: ProjectPalette | null
 }
 
-function pageRule(theme: ProjectPaletteTheme): string {
+/**
+ * One theme's band variables, as CSS declarations. Shared by the product page
+ * and the gallery's app tiles (`AppTileStyle`), which wear the same colours.
+ */
+export function bandDeclarations(theme: ProjectPaletteTheme): string {
 	return [
 		`--product-band:${theme.band}`,
 		`--product-band-surface:${theme.band}`,
@@ -58,8 +62,8 @@ export default function ProductPageStyle({ accentColor, palette }: Props) {
 
 	return (
 		<style>
-			{`.product-page{--project-accent:${accent};${pageRule(palette.light)}}` +
-				`.dark .product-page{${pageRule(palette.dark)}}` +
+			{`.product-page{--project-accent:${accent};${bandDeclarations(palette.light)}}` +
+				`.dark .product-page{${bandDeclarations(palette.dark)}}` +
 				`[data-site-header]{${headerRule(palette.light)}}` +
 				`.dark [data-site-header]{${headerRule(palette.dark)}}`}
 		</style>

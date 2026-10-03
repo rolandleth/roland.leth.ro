@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { makeProjectGalleryItem } from "@/test/fixtures"
 import CompactProjectCard from "./CompactProjectCard"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 
@@ -14,22 +15,16 @@ vi.mock("next/image", () => ({
 function makeProject(
 	overrides: Partial<ProjectGalleryItem> = {}
 ): ProjectGalleryItem {
-	return {
+	return makeProjectGalleryItem({
 		id: 1,
 		name: "Test Project",
 		slug: "test",
 		summary: "Summary",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
-		role: null,
-		accentColor: null,
-		isFeatured: false,
-		isDiscontinued: false,
-		sortOrder: 0,
 		icon: "/icon.png",
-		featuredImage: null,
 		...overrides,
-	}
+	})
 }
 
 describe("CompactProjectCard — discontinued scoping (Phase 8 a11y)", () => {

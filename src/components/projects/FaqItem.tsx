@@ -1,10 +1,8 @@
 "use client"
 
-import { motion, useReducedMotion } from "framer-motion"
 import { useState } from "react"
+import CollapsiblePanel from "@/components/ui/CollapsiblePanel"
 import type { ReactNode } from "react"
-
-const PANEL_TRANSITION = { duration: 0.25, ease: "easeOut" } as const
 
 interface Props {
 	id: number
@@ -27,14 +25,9 @@ interface Props {
  * One FAQ question and its answer, shared by the tabbed project layout
  * (`ProjectFaq`) and the product page (`ProductFaq`), which differ only in how
  * they look. Each question opens on its own, so several can be open at once.
- *
- * The answer is always rendered, so it's in the server HTML for search engines
- * and AI answer engines; a closed one is only collapsed. `inert` and
- * `aria-hidden` take a closed answer out of the tab order and the accessibility
- * tree, as a native `<details>` would. Framer measures the height it opens to,
- * which CSS can only do in Chromium; the cost is that an answer can't open
- * without JavaScript, and find-in-page can't open a closed one. Readers who ask
- * for less motion get it open and closed at once.
+ * The answer opens in a `CollapsiblePanel`: always in the HTML, animated by
+ * height, closed to assistive tech while closed. Find-in-page can't open a
+ * closed answer, as it could a `<details>`.
  */
 export default function FaqItem({
 	id,
@@ -46,7 +39,6 @@ export default function FaqItem({
 	answerClassName,
 }: Props) {
 	const [isOpen, setIsOpen] = useState(false)
-	const prefersReducedMotion = useReducedMotion()
 	const buttonId = `faq-button-${id}`
 	const panelId = `faq-panel-${id}`
 
@@ -68,21 +60,14 @@ export default function FaqItem({
 				</button>
 			</h3>
 
-			<motion.div
+			<CollapsiblePanel
+				isOpen={isOpen}
 				id={panelId}
-				role="region"
-				aria-labelledby={buttonId}
-				aria-hidden={!isOpen}
-				inert={!isOpen}
-				initial={false}
-				animate={{ height: isOpen ? "auto" : 0, opacity: isOpen ? 1 : 0 }}
-				transition={
-					prefersReducedMotion === true ? { duration: 0 } : PANEL_TRANSITION
-				}
-				className="overflow-hidden"
+				labelledBy={buttonId}
+				className={answerClassName}
 			>
-				<div className={answerClassName}>{children}</div>
-			</motion.div>
+				{children}
+			</CollapsiblePanel>
 		</div>
 	)
 }
