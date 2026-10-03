@@ -80,9 +80,12 @@ describe("production headers", () => {
 		expect(getDirective(csp, "img-src")).toBe(
 			"img-src 'self' data: https://*.public.blob.vercel-storage.com"
 		)
+		expect(getDirective(csp, "media-src")).toBe(
+			"media-src 'self' https://*.public.blob.vercel-storage.com"
+		)
 		expect(getDirective(csp, "font-src")).toBe("font-src 'self' data:")
 		expect(getDirective(csp, "connect-src")).toBe(
-			"connect-src 'self' https://vitals.vercel-insights.com"
+			"connect-src 'self' https://vitals.vercel-insights.com https://vercel.com/api/blob/"
 		)
 		expect(getDirective(csp, "frame-ancestors")).toBe("frame-ancestors 'none'")
 	})

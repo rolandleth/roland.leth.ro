@@ -65,9 +65,12 @@ const nextConfig: NextConfig = {
 					"style-src 'self' 'unsafe-inline'",
 					// Allow images from self, Vercel Blob, and data URIs (e.g. base64 favicons).
 					`img-src 'self' data: https://*.public.blob.vercel-storage.com${!isProd ? " https://picsum.photos https://fastly.picsum.photos" : ""}`,
+					// Videos in a markdown body: uploaded to Vercel Blob, or served from `public/`.
+					"media-src 'self' https://*.public.blob.vercel-storage.com",
 					"font-src 'self' data:",
-					// Vercel Analytics reporting endpoint.
-					"connect-src 'self' https://vitals.vercel-insights.com",
+					// Vercel Analytics reporting endpoint, and the Vercel Blob API: the
+					// admin's video upload goes from the browser straight to it.
+					"connect-src 'self' https://vitals.vercel-insights.com https://vercel.com/api/blob/",
 					"frame-ancestors 'none'",
 				].join("; "),
 			},
