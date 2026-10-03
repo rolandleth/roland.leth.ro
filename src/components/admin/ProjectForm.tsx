@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import FaqManager, { type FaqItem } from "@/components/admin/FaqManager"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
 import PlatformPicker from "@/components/admin/PlatformPicker"
+import {
+	DISCONTINUED_PLACEMENT_HINT,
+	PAGE_LAYOUT_LABELS,
+	PAGE_LAYOUT_OPTIONS,
+	PROMINENCE_LABELS,
+	PROMINENCE_OPTIONS,
+} from "@/components/admin/projectPlacement"
 import SectionManager, {
 	type SectionImage,
 	type SectionItem,
@@ -16,8 +23,14 @@ import { useFormState } from "@/components/admin/useFormState"
 import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { followTitleSlug } from "@/lib/utils/format"
+import { isPlacementOverridden } from "@/lib/utils/projectsGallery"
 
 type InitialData = {
 	id: number
@@ -32,7 +45,8 @@ type InitialData = {
 	cardImage: string | null
 	ogImage: string | null
 	heroImage: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	date: string | null
@@ -111,7 +125,8 @@ type ProjectPayload = {
 	cardImage: string | null
 	ogImage: string | null
 	heroImage: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	date: string | null
@@ -149,7 +164,8 @@ interface FormState {
 	cardImage: string
 	ogImage: string
 	heroImage: string
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	productPage: Record<ProductPageField, string>
@@ -178,6 +194,7 @@ export default function ProjectForm({ initialData }: Props) {
 	// `_key`, a `crypto.randomUUID()`. The two can't collide as long as no fixed
 	// name is UUID-shaped.
 	const { isUploading, reportUploading } = useUploadTracker()
+	const placementHintId = useId()
 
 	// Single state object so a partial-update setter (`setField`) can stand in
 	// for the thirteen individual `useState` setters this form used to carry.
@@ -199,7 +216,8 @@ export default function ProjectForm({ initialData }: Props) {
 			cardImage: initialData?.cardImage ?? "",
 			ogImage: initialData?.ogImage ?? "",
 			heroImage: initialData?.heroImage ?? "",
-			isFeatured: initialData?.isFeatured ?? false,
+			prominence: initialData?.prominence ?? ProjectProminence.low,
+			pageLayout: initialData?.pageLayout ?? ProjectPageLayout.portfolio,
 			isDiscontinued: initialData?.isDiscontinued ?? false,
 			isOwnApp: initialData?.isOwnApp ?? false,
 			productPage: mapProductPageFields((key) => initialData?.[key] ?? ""),
@@ -294,7 +312,8 @@ export default function ProjectForm({ initialData }: Props) {
 			cardImage: state.cardImage || null,
 			ogImage: state.ogImage || null,
 			heroImage: state.heroImage || null,
-			isFeatured: state.isFeatured,
+			prominence: state.prominence,
+			pageLayout: state.pageLayout,
 			isDiscontinued: state.isDiscontinued,
 			isOwnApp: state.isOwnApp,
 			...mapProductPageFields((key) => textOrNull(state.productPage[key])),
@@ -314,6 +333,8 @@ export default function ProjectForm({ initialData }: Props) {
 			faqs: state.faqs.map(({ _key: _, ...rest }) => rest),
 		})
 	}
+
+	const isPlacementHintShown = isPlacementOverridden(state)
 
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -482,17 +503,61 @@ export default function ProjectForm({ initialData }: Props) {
 				onUploadingChange={(v) => reportUploading("heroImage", v)}
 			/>
 
-			<div className="flex gap-6">
-				<label className="flex cursor-pointer items-center gap-2">
-					<input
-						type="checkbox"
-						checked={state.isFeatured}
-						onChange={(e) => setField("isFeatured", e.target.checked)}
-						className="accent-accent h-4 w-4"
-					/>
-					<span className="text-secondary text-sm font-medium">Featured</span>
-				</label>
+			{/* Two independent choices: how visible the project is on /projects
+			    (High: a big tile, Medium: a card, Low: an icon under More projects;
+			    a discontinued one goes under More projects whatever this says, and
+			    the hint below says so when that overrides the level), and which
+			    page it gets. */}
+			<div className="flex flex-col gap-1.5">
+				<div className="flex flex-wrap gap-4">
+					<label className="flex flex-col gap-1.5">
+						<span className="text-secondary text-sm font-medium">
+							Prominence
+						</span>
+						<select
+							value={state.prominence}
+							onChange={(e) =>
+								setField("prominence", e.target.value as ProjectProminence)
+							}
+							aria-describedby={
+								isPlacementHintShown ? placementHintId : undefined
+							}
+							className="admin-input"
+						>
+							{PROMINENCE_OPTIONS.map((value) => (
+								<option key={value} value={value}>
+									{PROMINENCE_LABELS[value]}
+								</option>
+							))}
+						</select>
+					</label>
 
+					<label className="flex flex-col gap-1.5">
+						<span className="text-secondary text-sm font-medium">Page</span>
+						<select
+							value={state.pageLayout}
+							onChange={(e) =>
+								setField("pageLayout", e.target.value as ProjectPageLayout)
+							}
+							className="admin-input"
+						>
+							{PAGE_LAYOUT_OPTIONS.map((value) => (
+								<option key={value} value={value}>
+									{PAGE_LAYOUT_LABELS[value]}
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+
+				{isPlacementHintShown && (
+					<p id={placementHintId} className="text-secondary text-xs">
+						{DISCONTINUED_PLACEMENT_HINT}
+					</p>
+				)}
+			</div>
+
+			<div className="flex gap-6">
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"
@@ -505,9 +570,10 @@ export default function ProjectForm({ initialData }: Props) {
 					</span>
 				</label>
 
-				{/* Own product, not client or employer work. Decides the store CTAs on the
-				    detail page (`linkCtasFor`): the App Store badge with exactly one
-				    storefront link, `Download on …` pills with several. */}
+				{/* Own product, not client or employer work. Decides only the store CTAs'
+				    wording on the detail page (`linkCtasFor`): the App Store badge with
+				    exactly one storefront link, `Download on …` pills with several.
+				    Placement and layout are the selects above. */}
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"
@@ -519,9 +585,9 @@ export default function ProjectForm({ initialData }: Props) {
 				</label>
 			</div>
 
-			{/* Only own apps render these. Unchecking "Own app" hides the group but
-			    keeps what was typed, and a save still sends it. */}
-			{state.isOwnApp && (
+			{/* Only the product page renders these. Switching to the portfolio page
+			    hides the group but keeps what was typed, and a save still sends it. */}
+			{state.pageLayout === ProjectPageLayout.product && (
 				<fieldset className="border-border flex flex-col gap-4 rounded-lg border p-4">
 					<legend className="text-secondary px-1 text-sm font-medium">
 						Product page

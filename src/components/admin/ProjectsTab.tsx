@@ -1,9 +1,15 @@
 import Link from "next/link"
 import AdminPagination from "@/components/admin/AdminPagination"
 import ProjectAdminGroup from "@/components/admin/ProjectAdminGroup"
+import {
+	PROMINENCE_LABELS,
+	PROMINENCE_OPTIONS,
+} from "@/components/admin/projectPlacement"
+import { ProjectProminence } from "@/generated/prisma/enums"
 import { buildAdminPageUrl } from "@/lib/client/adminPageUrl"
 import { listProjectsForAdmin } from "@/lib/db/projects"
 import { detailLabel, groupByBucket } from "@/lib/utils/platforms"
+import type { ProjectAdminGroupVariant } from "@/components/admin/ProjectAdminGroup"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 
 interface Props {
@@ -11,10 +17,38 @@ interface Props {
 	page: number
 }
 
+/**
+ * The admin layout for a prominence level. A switch with no default, so a new
+ * level fails the type-check here until it picks one.
+ */
+function adminVariantFor(
+	prominence: ProjectProminence
+): ProjectAdminGroupVariant {
+	switch (prominence) {
+		case ProjectProminence.high:
+		case ProjectProminence.medium:
+			return "large"
+		case ProjectProminence.low:
+			return "compact"
+	}
+}
+
+/**
+ * One large group per level that gets one, in declared order, then the rest
+ * as compact groups by platform. Grouped by the stored level, not by where the
+ * public gallery shows the project: this is where the level is edited, and a
+ * discontinued project keeps its level here.
+ */
 function ProjectsGroupedView({ projects }: { projects: ProjectGalleryItem[] }) {
-	const featured = projects.filter((p) => p.isFeatured)
-	const others = projects.filter((p) => !p.isFeatured)
-	const bucketGroups = groupByBucket(others)
+	const largeLevels = PROMINENCE_OPTIONS.filter(
+		(level) => adminVariantFor(level) === "large"
+	)
+	// `!== "large"` rather than `=== "compact"`: a level this code doesn't know
+	// (a database ahead of the deploy) still shows, under its platform.
+	const compact = projects.filter(
+		(p) => adminVariantFor(p.prominence) !== "large"
+	)
+	const bucketGroups = groupByBucket(compact)
 	const totalCount = projects.length
 
 	if (projects.length === 0) {
@@ -23,16 +57,21 @@ function ProjectsGroupedView({ projects }: { projects: ProjectGalleryItem[] }) {
 
 	return (
 		<div className="flex flex-col gap-10">
-			<ProjectAdminGroup
-				label="Featured"
-				projects={featured}
-				totalCount={totalCount}
-			/>
+			{largeLevels.map((level) => (
+				<ProjectAdminGroup
+					key={level}
+					label={PROMINENCE_LABELS[level]}
+					variant="large"
+					projects={projects.filter((p) => p.prominence === level)}
+					totalCount={totalCount}
+				/>
+			))}
 
 			{bucketGroups.map((group) => (
 				<ProjectAdminGroup
 					key={group.bucket}
 					label={group.label}
+					variant="compact"
 					projects={group.projects}
 					totalCount={totalCount}
 				/>
@@ -80,7 +119,7 @@ export default async function ProjectsTab({ query, page }: Props) {
 								</p>
 								<p className="text-secondary mt-0.5 text-xs">
 									{detailLabel(project.bucket, project.platformTags)}
-									{project.isFeatured && " · Featured"}
+									{` · ${PROMINENCE_LABELS[project.prominence]} prominence`}
 								</p>
 							</div>
 							<Link

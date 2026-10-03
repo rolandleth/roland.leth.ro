@@ -13,8 +13,8 @@ interface Props {
 }
 
 /**
- * Optimistic boolean checkbox shared by the post-published and
- * project-isFeatured inline admin toggles. Captures the pre-click value
+ * Optimistic boolean checkbox shared by the post- and guide-published inline
+ * admin toggles. Captures the pre-click value
  * before the optimistic commit so a failed save reverts to the value the
  * user actually toggled away from — not the first-render `initial` prop,
  * which becomes stale after the parent re-renders following a successful

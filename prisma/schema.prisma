@@ -186,18 +186,24 @@ model Project {
   platformTags   PlatformTag[]    @default([])
   role           String?
   accentColor    String?
-  isFeatured     Boolean          @default(false)
+  // How visible the project is on `/projects`. Independent of the page layout
+  // and of ownership, so any project can take any level; a discontinued one
+  // goes to the bottom list whatever its level, which keeps the value for if
+  // it comes back.
+  prominence     ProjectProminence @default(low)
+  // Which detail page the project gets, independent of who owns it.
+  pageLayout     ProjectPageLayout @default(portfolio)
   isDiscontinued Boolean          @default(false)
   // Roland is the creator and publisher: his own product, not an employer's or
-  // client's app he worked on. Decides the store CTAs on the detail page
-  // (`linkCtasFor`): the App Store badge with exactly one storefront link,
-  // `Download on …` pills with several. A flag rather than a value
+  // client's app he worked on. Decides only the store CTAs (`linkCtasFor`): the
+  // App Store badge with exactly one storefront link, `Download on …` pills
+  // with several, `Get on …` for someone else's app. A flag rather than a value
   // derived from `role`, which is free text ("Head of Digital" exists) — copy
   // must not decide behaviour.
   isOwnApp       Boolean          @default(false)
-  // Product-page fields: rendered only by the own-app layout (`isOwnApp`),
-  // every one optional, so a project without them degrades to a bare-name
-  // hero and a closing with no words of its own.
+  // Product-page fields: rendered only by the product layout
+  // (`pageLayout: product`), every one optional, so a project without them
+  // degrades to a bare-name hero and a closing with no words of its own.
   // `metaDescription` is the meta description when set; `summary` stays the
   // hero paragraph and the fallback. The two differ in length: a hero paragraph
   // runs to 300 characters, a result snippet is cut near 160.
@@ -227,6 +233,26 @@ model Project {
   sections       ProjectSection[]
   links          ProjectLink[]
   faqs           ProjectFaq[]
+}
+
+// How visible a project is on `/projects`. The values say how prominent, not
+// how it looks, so a redesign changes the renderer, not the data: today `high`
+// is an app tile, `medium` a card and `low` an icon in "More projects". A new
+// level is a new value plus its place in `sectionForProminence`
+// (`projectsGallery.ts`), whose switch fails the type-check until it's handled. Renaming a value is a manual
+// `ALTER TYPE`: `db push` can't tell a rename from a drop plus an add.
+enum ProjectProminence {
+  high
+  medium
+  low
+}
+
+// Which detail page a project gets on `/projects/[slug]`.
+enum ProjectPageLayout {
+  // The own-app product page: hero, sections by kind, plans, FAQ, closing.
+  product
+  // The tabbed portfolio page (`ProjectContent`).
+  portfolio
 }
 
 // Top-level project category. Drives gallery section grouping and the

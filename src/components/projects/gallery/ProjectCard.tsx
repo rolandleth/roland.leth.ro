@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { compactLabel } from "@/lib/utils/platforms"
+import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "./galleryLayout"
 import ProjectIcon from "./ProjectIcon"
 import ViewProjectLink from "./ViewProjectLink"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
@@ -13,11 +14,12 @@ interface Props {
 const IMAGE_SIZES = "(min-width: 900px) 580px, calc(100vw - 2rem)"
 
 /**
- * A featured project made for an employer or a client, on a plain raised card:
- * the name, "role · platform", the summary and "View project" on the left, and
- * the top-left of its card image set into the card's bottom-right corner.
+ * A medium-prominence project on a plain raised card: the name, "role ·
+ * platform", the summary and "View project" on the left, and the top-left of
+ * its card image set into the card's bottom-right corner. Without a card
+ * image, the text takes the whole card.
  */
-export default function WorkCard({ project }: Props) {
+export default function ProjectCard({ project }: Props) {
 	const { name, slug, icon, role, summary, featuredImage, accentColor } =
 		project
 	const platform = compactLabel(project.bucket, project.platformTags)
@@ -30,11 +32,13 @@ export default function WorkCard({ project }: Props) {
 	return (
 		<article
 			style={accentStyle}
-			className="grid overflow-hidden rounded-3xl border border-(--color-border) bg-(--color-surface) min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
+			className={`grid overflow-hidden rounded-3xl border border-(--color-border) bg-(--color-surface) ${
+				featuredImage == null ? "" : TEXT_BESIDE_IMAGE_COLUMNS_CLASS
+			}`}
 		>
 			<div className="flex flex-col justify-center px-7 py-8 min-[900px]:p-11">
-				{/* An `h2`: the work cards sit under the page's `h1` with no
-				    section heading between, as the app tiles do. */}
+				{/* An `h2`: the cards sit under the page's `h1` with no section
+				    heading between, as the tiles do. */}
 				<h2 className="text-primary flex items-center gap-4 font-serif text-[32px] leading-none font-normal tracking-[-0.02em]">
 					<ProjectIcon
 						name={name}

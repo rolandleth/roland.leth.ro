@@ -11,6 +11,7 @@
 // untouched, so a manifest can mix freshly-staged images with already-hosted ones.
 
 import { createHash } from "node:crypto"
+import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	CANONICAL_SLUG_MESSAGE,
@@ -106,8 +107,8 @@ export type ManifestOffer = {
 // value-level validation is delegated to `projectCreateSchema` (run by the
 // script after image refs are resolved to URLs), so this type only needs to
 // describe the fields the pure helpers below touch. The one exception is the
-// three boolean flags, which the schema leaves optional but the import requires
-// (`assertRequiredFlags`); `parseManifest` returns them typed as booleans.
+// four placement fields, which the schema leaves optional but the import
+// requires (`assertRequiredFields`); `parseManifest` returns them typed.
 export type ProjectManifest = {
 	name: string
 	slug?: string | null
@@ -124,7 +125,8 @@ export type ProjectManifest = {
 	platformTags?: string[]
 	role?: string | null
 	accentColor?: string | null
-	isFeatured?: boolean
+	prominence?: string
+	pageLayout?: string
 	isDiscontinued?: boolean
 	isOwnApp?: boolean
 	/** Manifest-only: a draft is skipped by the import. See `isDraftManifest`. */
@@ -216,40 +218,60 @@ export function selectProjectFolders(
 	return { selected: selected.sort() }
 }
 
-// The boolean flags a manifest has to set explicitly, in the order an error
-// lists them.
-const REQUIRED_FLAGS = ["isFeatured", "isDiscontinued", "isOwnApp"] as const
+// The fields that place a project, which a manifest has to set explicitly, each
+// with its allowed values, in the order an error lists them.
+const REQUIRED_FIELDS = [
+	{ key: "prominence", values: Object.values(ProjectProminence) },
+	{ key: "pageLayout", values: Object.values(ProjectPageLayout) },
+	{ key: "isDiscontinued", values: [true, false] },
+	{ key: "isOwnApp", values: [true, false] },
+] as const
 
-/** The flags every manifest sets explicitly, as `assertRequiredFlags` guarantees them. */
-export type ProjectFlags = {
-	isFeatured: boolean
+/** The placement fields every manifest sets, as `assertRequiredFields` guarantees them. */
+export type RequiredProjectFields = {
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 }
 
 /**
- * Throws unless the manifest sets every flag in `REQUIRED_FLAGS` to a boolean.
- * The import replaces the row wholesale (delete, then create), so a left-out
- * flag would quietly reset whatever the admin set: a project ticked "Own app"
- * in the admin lost its App Store badge on the next import. Checked before any
- * upload, so `--dry-run` catches it too. Only the flags are required: for them
- * `false` is a real answer, so a default can't tell "not a featured project"
- * from "forgot to say", while a left-out text field is just empty.
+ * Throws unless the manifest sets every field in `REQUIRED_FIELDS` to one of
+ * its values, or still sets `isFeatured`. The import replaces the row
+ * wholesale (delete, then create), so a left-out field would quietly reset
+ * whatever the admin set: a project ticked "Own app" in the admin lost its App
+ * Store badge on the next import. Checked before any upload, so `--dry-run`
+ * catches it too. Only these are required: each has no answer that a default
+ * could stand for, while a left-out text field is just empty.
+ *
+ * `isFeatured` became `prominence` and `pageLayout`; a manifest still setting
+ * it was written for the old model, and importing it would silently drop the
+ * author's choice, so it's refused with the replacement named.
  *
  * Private on purpose: `parseManifest` is the only way in, so the check can't be
  * skipped by reaching for the parts separately. Tested through `parseManifest`.
  */
-function assertRequiredFlags(
+function assertRequiredFields(
 	manifest: ProjectManifest
-): asserts manifest is ProjectManifest & ProjectFlags {
-	const missingFlags = REQUIRED_FLAGS.filter(
-		(flag) => typeof manifest[flag] !== "boolean"
-	)
-
-	if (missingFlags.length > 0) {
+): asserts manifest is ProjectManifest & RequiredProjectFields {
+	if ("isFeatured" in manifest) {
 		throw new Error(
-			`Manifest must set ${missingFlags.join(", ")} to true or false. ` +
-				`The import replaces the whole row, so a left-out flag would reset the value set in the admin.`
+			`Manifest still sets "isFeatured", which became "prominence" (high, medium or low) and "pageLayout" (product or portfolio). ` +
+				`Replace it: featured own apps are high and product, other featured projects medium, the rest low.`
+		)
+	}
+
+	const problems = REQUIRED_FIELDS.filter(
+		({ key, values }) =>
+			!(values as readonly unknown[]).includes(
+				(manifest as Record<string, unknown>)[key]
+			)
+	).map(({ key, values }) => `${key} (${values.join(" or ")})`)
+
+	if (problems.length > 0) {
+		throw new Error(
+			`Manifest must set ${problems.join(", ")}. ` +
+				`The import replaces the whole row, so a left-out value would reset the one set in the admin.`
 		)
 	}
 }
@@ -304,18 +326,20 @@ function draftFlag(manifest: Record<string, unknown>): boolean {
 }
 
 /**
- * Parses a manifest file's text: the JSON, then `assertRequiredFlags` and
+ * Parses a manifest file's text: the JSON, then `assertRequiredFields` and
  * `assertNoPlaceholders`. The import script reads every manifest through this,
  * so both checks run first — before the schema, any upload and the dry-run
  * exit — and can't be dropped from the script without dropping the parse with
- * it. The flags come back typed as booleans, which is what lets the write skip
- * a `?? false`.
+ * it. The placement fields come back typed, which is what lets the write skip
+ * a default.
  *
  * A draft (`isDraftManifest`) is refused: the script skips drafts before it
  * gets here, so one reaching this point means that check went missing, and
  * importing a page its author marked as not ready is the wrong way to find out.
  */
-export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
+export function parseManifest(
+	raw: string
+): ProjectManifest & RequiredProjectFields {
 	const parsed = parseManifestObject(raw)
 
 	if (draftFlag(parsed)) {
@@ -325,10 +349,10 @@ export function parseManifest(raw: string): ProjectManifest & ProjectFlags {
 	}
 
 	// Loosely typed on purpose (see `ProjectManifest`): `projectCreateSchema`
-	// validates everything but the flags later.
+	// validates everything but the placement fields later.
 	const manifest = parsed as ProjectManifest
 
-	assertRequiredFlags(manifest)
+	assertRequiredFields(manifest)
 	assertNoPlaceholders(parsed)
 
 	return manifest
@@ -396,12 +420,15 @@ function findPlaceholders(value: unknown, path: string): string[] {
 }
 
 /**
- * Just the three flags. The schema's parse output types them as optional, so
- * the write takes them from the checked manifest instead.
+ * Just the four placement fields. The schema's parse output types them as
+ * optional, so the write takes them from the checked manifest instead.
  */
-export function projectFlags(manifest: ProjectFlags): ProjectFlags {
+export function requiredProjectFields(
+	manifest: RequiredProjectFields
+): RequiredProjectFields {
 	return {
-		isFeatured: manifest.isFeatured,
+		prominence: manifest.prominence,
+		pageLayout: manifest.pageLayout,
 		isDiscontinued: manifest.isDiscontinued,
 		isOwnApp: manifest.isOwnApp,
 	}

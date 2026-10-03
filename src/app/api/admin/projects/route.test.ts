@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Prisma } from "@/generated/prisma/client"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { POST } from "./route"
@@ -62,7 +67,8 @@ const createdProject = {
 	cardImage: null,
 	ogImage: null,
 	heroImage: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
@@ -310,33 +316,46 @@ describe("POST /api/admin/projects", () => {
 		expect(data.palette).toBe(Prisma.DbNull)
 	})
 
-	it("writes isFeatured, isDiscontinued and isOwnApp as false when they're omitted", async () => {
+	it("writes low prominence, the portfolio page and false flags when they're omitted", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(makeRequest(validPayload))
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.isFeatured).toBe(false)
+		expect(data.prominence).toBe(ProjectProminence.low)
+		expect(data.pageLayout).toBe(ProjectPageLayout.portfolio)
 		expect(data.isDiscontinued).toBe(false)
 		expect(data.isOwnApp).toBe(false)
 	})
 
-	it("stores isFeatured, isDiscontinued and isOwnApp when they're set", async () => {
+	it("stores prominence, page layout, isDiscontinued and isOwnApp when they're set", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(
 			makeRequest({
 				...validPayload,
-				isFeatured: true,
+				prominence: ProjectProminence.high,
+				pageLayout: ProjectPageLayout.product,
 				isDiscontinued: true,
 				isOwnApp: true,
 			})
 		)
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.isFeatured).toBe(true)
+		expect(data.prominence).toBe(ProjectProminence.high)
+		expect(data.pageLayout).toBe(ProjectPageLayout.product)
 		expect(data.isDiscontinued).toBe(true)
 		expect(data.isOwnApp).toBe(true)
+	})
+
+	it.each([
+		["prominence", { prominence: "featured" }],
+		["pageLayout", { pageLayout: "magazine" }],
+	])("rejects an unknown %s with a 400", async (_field, fields) => {
+		const res = await POST(makeRequest({ ...validPayload, ...fields }))
+
+		expect(res.status).toBe(400)
+		expect(prisma.project.create).not.toHaveBeenCalled()
 	})
 
 	it("appends after the last project when no sortOrder is provided", async () => {

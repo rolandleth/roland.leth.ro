@@ -2,7 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import { DISCONTINUED_PLACEMENT_HINT } from "@/components/admin/projectPlacement"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
@@ -144,7 +150,8 @@ const initialData = {
 	cardImage: null,
 	ogImage: null,
 	heroImage: null,
-	isFeatured: true,
+	prominence: ProjectProminence.medium,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
 	date: "2023",
@@ -193,11 +200,37 @@ describe("ProjectForm — create mode", () => {
 		expect(screen.getByLabelText(/summary/i)).toBeInTheDocument()
 	})
 
-	it("renders the featured, discontinued, and own-app checkboxes", () => {
+	it("renders the discontinued and own-app checkboxes", () => {
 		mockRouter()
 		render(<ProjectForm />)
 		const checkboxes = screen.getAllByRole("checkbox")
-		expect(checkboxes).toHaveLength(3)
+		expect(checkboxes).toHaveLength(2)
+	})
+
+	it("starts a new project at low prominence on the portfolio page", () => {
+		mockRouter()
+		render(<ProjectForm />)
+
+		expect(screen.getByLabelText("Prominence")).toHaveValue(
+			ProjectProminence.low
+		)
+		expect(screen.getByLabelText("Page")).toHaveValue(
+			ProjectPageLayout.portfolio
+		)
+	})
+
+	it("offers every prominence level and page layout, by name", () => {
+		mockRouter()
+		render(<ProjectForm />)
+
+		const prominence = screen.getByLabelText("Prominence")
+		const page = screen.getByLabelText("Page")
+		expect(
+			Array.from(prominence.querySelectorAll("option"), (o) => o.textContent)
+		).toEqual(["High", "Medium", "Low"])
+		expect(
+			Array.from(page.querySelectorAll("option"), (o) => o.textContent)
+		).toEqual(["Product page", "Portfolio page"])
 	})
 
 	it("does not show a delete button in create mode", () => {
@@ -265,7 +298,7 @@ describe("ProjectForm — create mode", () => {
 		expect(slug).toBeRequired()
 	})
 
-	it("sends isFeatured, isDiscontinued and isOwnApp as false when left unticked", async () => {
+	it("sends the default placement when left untouched", async () => {
 		mockRouter()
 		mockFetch(true)
 
@@ -276,9 +309,33 @@ describe("ProjectForm — create mode", () => {
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
 		const body = JSON.parse(options.body)
-		expect(body.isFeatured).toBe(false)
+		expect(body.prominence).toBe(ProjectProminence.low)
+		expect(body.pageLayout).toBe(ProjectPageLayout.portfolio)
 		expect(body.isDiscontinued).toBe(false)
 		expect(body.isOwnApp).toBe(false)
+	})
+
+	it("sends the chosen prominence and page layout", async () => {
+		mockRouter()
+		mockFetch(true)
+
+		render(<ProjectForm />)
+		await fillRequiredFields()
+		await user.selectOptions(
+			screen.getByLabelText("Prominence"),
+			ProjectProminence.high
+		)
+		await user.selectOptions(
+			screen.getByLabelText("Page"),
+			ProjectPageLayout.product
+		)
+		await clickSave()
+
+		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
+		const [, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+		const body = JSON.parse(options.body)
+		expect(body.prominence).toBe(ProjectProminence.high)
+		expect(body.pageLayout).toBe(ProjectPageLayout.product)
 	})
 
 	it("navigates to the Projects tab after a successful save", async () => {
@@ -523,11 +580,69 @@ describe("ProjectForm — edit mode", () => {
 		)
 	})
 
-	it("checks the Featured checkbox when isFeatured is true", () => {
+	it("selects the stored prominence and page layout", () => {
+		mockRouter()
+		render(
+			<ProjectForm
+				initialData={{
+					...initialData,
+					pageLayout: ProjectPageLayout.product,
+				}}
+			/>
+		)
+
+		expect(screen.getByLabelText("Prominence")).toHaveValue(
+			ProjectProminence.medium
+		)
+		expect(screen.getByLabelText("Page")).toHaveValue(ProjectPageLayout.product)
+	})
+
+	it("says a discontinued project shows under More projects when its level would put it elsewhere", () => {
+		mockRouter()
+		render(
+			<ProjectForm initialData={{ ...initialData, isDiscontinued: true }} />
+		)
+
+		expect(screen.getByLabelText("Prominence")).toHaveAccessibleDescription(
+			DISCONTINUED_PLACEMENT_HINT
+		)
+	})
+
+	it("leaves the hint out for a live project, and for a discontinued one at low", () => {
+		mockRouter()
+		const { unmount } = render(<ProjectForm initialData={initialData} />)
+
+		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
+		unmount()
+
+		render(
+			<ProjectForm
+				initialData={{
+					...initialData,
+					prominence: ProjectProminence.low,
+					isDiscontinued: true,
+				}}
+			/>
+		)
+
+		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
+		expect(screen.getByLabelText("Prominence")).not.toHaveAttribute(
+			"aria-describedby"
+		)
+	})
+
+	it("shows and hides the hint as Discontinued and the level change", async () => {
 		mockRouter()
 		render(<ProjectForm initialData={initialData} />)
-		const [featuredCheckbox] = screen.getAllByRole("checkbox")
-		expect(featuredCheckbox).toBeChecked()
+
+		await user.click(screen.getByRole("checkbox", { name: "Discontinued" }))
+		expect(screen.getByText(DISCONTINUED_PLACEMENT_HINT)).toBeInTheDocument()
+
+		await user.selectOptions(
+			screen.getByLabelText("Prominence"),
+			ProjectProminence.low
+		)
+		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
 	})
 
 	it("checks the Own app checkbox when isOwnApp is true", () => {

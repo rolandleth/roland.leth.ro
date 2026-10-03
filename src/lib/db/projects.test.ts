@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
@@ -563,7 +565,8 @@ describe("getProjectBySlug", () => {
 		heroImage: null,
 		role: null,
 		accentColor: null,
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.portfolio,
 		isDiscontinued: false,
 		isOwnApp: false,
 		...EMPTY_PRODUCT_PAGE_FIELDS,
@@ -649,7 +652,8 @@ describe("loadProject", () => {
 			heroImage: null,
 			role: null,
 			accentColor: null,
-			isFeatured: false,
+			prominence: ProjectProminence.low,
+			pageLayout: ProjectPageLayout.portfolio,
 			isDiscontinued: false,
 			isOwnApp: false,
 			...EMPTY_PRODUCT_PAGE_FIELDS,
@@ -718,7 +722,8 @@ describe("toProjectFormInitialData", () => {
 			cardImage: null,
 			ogImage: null,
 			heroImage: null,
-			isFeatured: false,
+			prominence: ProjectProminence.low,
+			pageLayout: ProjectPageLayout.portfolio,
 			isDiscontinued: false,
 			isOwnApp: false,
 			...EMPTY_PRODUCT_PAGE_FIELDS,
@@ -837,16 +842,18 @@ describe("toProjectFormInitialData", () => {
 
 	// The form reads `initialData?.isOwnApp ?? false`, so a flag dropped here
 	// would show every own app as unticked and clear it on the next save.
-	it("carries the boolean flags through to the form data", () => {
+	it("carries the placement fields through to the form data", () => {
 		const detail = {
 			...makeAdminDetail(),
-			isFeatured: true,
+			prominence: ProjectProminence.high,
+			pageLayout: ProjectPageLayout.product,
 			isDiscontinued: true,
 			isOwnApp: true,
 		}
 		const data = toProjectFormInitialData(detail)
 
-		expect(data.isFeatured).toBe(true)
+		expect(data.prominence).toBe(ProjectProminence.high)
+		expect(data.pageLayout).toBe(ProjectPageLayout.product)
 		expect(data.isDiscontinued).toBe(true)
 		expect(data.isOwnApp).toBe(true)
 	})

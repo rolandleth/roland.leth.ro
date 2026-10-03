@@ -4,7 +4,7 @@ import { useState } from "react"
 import CollapsiblePanel from "@/components/ui/CollapsiblePanel"
 import type { ReactNode } from "react"
 
-// The gallery's one section heading; the apps and the work cards have none.
+// The gallery's one section heading; the tiles and the cards have none.
 const HEADING_CLASS =
 	"text-primary font-serif text-[30px] leading-[1.15] font-normal tracking-[-0.015em]"
 
@@ -19,7 +19,7 @@ interface Props {
 }
 
 /**
- * The open-and-close part of "Earlier projects": the heading is the button,
+ * The open-and-close part of "More projects": the heading is the button,
  * with "Show all N" or "Hide" at its end. Opening collapses the preview row
  * and opens the full list, both by height (`CollapsiblePanel`), so the list
  * grows out of the row it previews.
@@ -27,7 +27,7 @@ interface Props {
  * The count beside the heading is hidden from screen readers, which hear it in
  * "Show all N" instead.
  */
-export default function EarlierProjectsDisclosure({
+export default function MoreProjectsDisclosure({
 	id,
 	count,
 	preview,
@@ -49,7 +49,7 @@ export default function EarlierProjectsDisclosure({
 					className="flex w-full cursor-pointer items-center justify-between gap-6 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-[6px] focus-visible:outline-(--color-accent)"
 				>
 					<span className="flex items-baseline gap-3">
-						Earlier projects
+						More projects
 						<span
 							aria-hidden
 							className="text-secondary font-sans text-[15px] tracking-normal"

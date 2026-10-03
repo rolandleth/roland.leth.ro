@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
 import { projectInclude } from "@/lib/db/projects"
@@ -55,7 +60,8 @@ const existingProject = {
 	ogImage: null,
 	heroImage: null,
 	accentColor: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,

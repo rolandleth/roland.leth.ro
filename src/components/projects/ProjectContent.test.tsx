@@ -1,6 +1,11 @@
 import { render, screen, within } from "@testing-library/react"
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
@@ -72,7 +77,8 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		platformTags: [PlatformTag.iOS],
 		role: null,
 		accentColor: null,
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.portfolio,
 		isDiscontinued: false,
 		isOwnApp: false,
 		...EMPTY_PRODUCT_PAGE_FIELDS,

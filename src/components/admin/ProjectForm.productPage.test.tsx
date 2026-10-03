@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
@@ -48,7 +50,8 @@ const initialData = {
 	cardImage: null,
 	ogImage: null,
 	heroImage: null,
-	isFeatured: false,
+	prominence: ProjectProminence.high,
+	pageLayout: ProjectPageLayout.product,
 	isDiscontinued: false,
 	isOwnApp: true,
 	date: "2026",
@@ -144,7 +147,7 @@ beforeEach(() => {
 // #region Product page group
 
 describe("ProjectForm — product page group", () => {
-	it("shows the group for an own app, prefilled from the stored values", () => {
+	it("shows the group for the product page layout, prefilled from the stored values", () => {
 		render(<ProjectForm initialData={initialData} />)
 
 		expect(screen.getByRole("group", { name: "Product page" })).toBeVisible()
@@ -154,21 +157,34 @@ describe("ProjectForm — product page group", () => {
 		expect(screen.getByLabelText("Hero headline")).toHaveValue("")
 	})
 
-	it("hides the group when the project isn't an own app", () => {
-		render(<ProjectForm initialData={{ ...initialData, isOwnApp: false }} />)
+	it("hides the group for the portfolio page layout", () => {
+		render(
+			<ProjectForm
+				initialData={{
+					...initialData,
+					pageLayout: ProjectPageLayout.portfolio,
+				}}
+			/>
+		)
 
 		expect(
 			screen.queryByRole("group", { name: "Product page" })
 		).not.toBeInTheDocument()
 	})
 
-	it("keeps typed values when Own app is unchecked and checked again", async () => {
+	it("shows the group whoever owns the project: the layout decides alone", () => {
+		render(<ProjectForm initialData={{ ...initialData, isOwnApp: false }} />)
+
+		expect(screen.getByRole("group", { name: "Product page" })).toBeVisible()
+	})
+
+	it("keeps typed values when the layout switches away and back", async () => {
 		render(<ProjectForm initialData={initialData} />)
 		await user.type(screen.getByLabelText("Closing headline"), "10 seconds")
 
-		const ownApp = screen.getByRole("checkbox", { name: "Own app" })
-		await user.click(ownApp)
-		await user.click(ownApp)
+		const page = screen.getByLabelText("Page")
+		await user.selectOptions(page, ProjectPageLayout.portfolio)
+		await user.selectOptions(page, ProjectPageLayout.product)
 
 		expect(screen.getByLabelText("Closing headline")).toHaveValue("10 seconds")
 	})

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
 import {
 	blobKeyFor,
 	blobPrefixFor,
@@ -8,8 +9,8 @@ import {
 	listManifestImagePaths,
 	isDraftManifest,
 	parseManifest,
-	projectFlags,
 	type ProjectManifest,
+	requiredProjectFields,
 	requireManifestSlug,
 	resolveManifestImageRefs,
 	selectProjectFolders,
@@ -164,25 +165,27 @@ describe("selectProjectFolders", () => {
 
 // #endregion
 
-// #region required flags, through parseManifest
+// #region required fields, through parseManifest
 
 // The check is private to the module: `parseManifest` is the only way to read a
 // manifest, which is what stops the script from skipping it.
-describe("parseManifest — required flags", () => {
-	const allFlags = {
+describe("parseManifest — required fields", () => {
+	const allFields = {
 		name: "Reckon",
-		isFeatured: true,
+		prominence: "high",
+		pageLayout: "product",
 		isDiscontinued: false,
 		isOwnApp: true,
 	} satisfies ProjectManifest
 
-	it("accepts a manifest that sets every flag, false included", () => {
-		expect(() => parseManifest(JSON.stringify(allFlags))).not.toThrow()
+	it("accepts a manifest that sets every field, false included", () => {
+		expect(() => parseManifest(JSON.stringify(allFields))).not.toThrow()
 		expect(() =>
 			parseManifest(
 				JSON.stringify({
 					name: "Old client app",
-					isFeatured: false,
+					prominence: "low",
+					pageLayout: "portfolio",
 					isDiscontinued: false,
 					isOwnApp: false,
 				})
@@ -190,34 +193,60 @@ describe("parseManifest — required flags", () => {
 		).not.toThrow()
 	})
 
-	// The import replaces the row, so a left-out flag would silently reset the
+	it.each(["high", "medium", "low"])("accepts prominence %s", (prominence) => {
+		const raw = JSON.stringify({ ...allFields, prominence })
+
+		expect(parseManifest(raw).prominence).toBe(prominence)
+	})
+
+	// The import replaces the row, so a left-out field would silently reset the
 	// value set in the admin.
-	it("names the flag a manifest leaves out", () => {
-		const { isOwnApp: _omitted, ...withoutOwnApp } = allFlags
+	it("names the field a manifest leaves out, with its values", () => {
+		const { isOwnApp: _omitted, ...withoutOwnApp } = allFields
 
 		expect(() => parseManifest(JSON.stringify(withoutOwnApp))).toThrow(
-			/must set isOwnApp to true or false/
+			/must set isOwnApp \(true or false\)/
 		)
 	})
 
-	it("names every missing flag at once", () => {
+	it("names every missing field at once, in order", () => {
 		expect(() => parseManifest(JSON.stringify({ name: "Reckon" }))).toThrow(
-			/isFeatured, isDiscontinued, isOwnApp/
+			"Manifest must set prominence (high or medium or low), pageLayout (product or portfolio), isDiscontinued (true or false), isOwnApp (true or false)."
 		)
 	})
 
-	// The manifest is untrusted JSON, so a string can arrive where the type says
-	// boolean.
-	it("rejects a flag that isn't a boolean", () => {
-		const raw = JSON.stringify({ ...allFlags, isFeatured: "yes" })
+	// The manifest is untrusted JSON, so any value can arrive in any field.
+	it.each([
+		["prominence", "featured"],
+		["prominence", "High"],
+		["pageLayout", "magazine"],
+		["pageLayout", true],
+		["isDiscontinued", "yes"],
+		["isOwnApp", null],
+	])("rejects %s set to %j", (key, value) => {
+		const raw = JSON.stringify({ ...allFields, [key]: value })
 
-		expect(() => parseManifest(raw)).toThrow(/isFeatured/)
+		expect(() => parseManifest(raw)).toThrow(new RegExp(`must set ${key} \\(`))
 	})
 
-	it("rejects a null flag", () => {
-		const raw = JSON.stringify({ ...allFlags, isDiscontinued: null })
+	// A manifest written for the old model: the import would ignore its
+	// `isFeatured` and lose the author's choice without a word, so it's refused
+	// with the replacement named.
+	it.each([true, false])(
+		"refuses a manifest that still sets isFeatured (%s), naming the replacement",
+		(isFeatured) => {
+			const raw = JSON.stringify({ ...allFields, isFeatured })
 
-		expect(() => parseManifest(raw)).toThrow(/isDiscontinued/)
+			expect(() => parseManifest(raw)).toThrow(
+				/still sets "isFeatured", which became "prominence".*"pageLayout"/
+			)
+		}
+	)
+
+	it("refuses isFeatured even when the rest is missing, so the old key is named first", () => {
+		const raw = JSON.stringify({ name: "Reckon", isFeatured: true })
+
+		expect(() => parseManifest(raw)).toThrow(/still sets "isFeatured"/)
 	})
 })
 
@@ -227,27 +256,30 @@ describe("parseManifest — required flags", () => {
 
 describe("parseManifest", () => {
 	// The import script reads every manifest through this, so these pin that the
-	// flag check can't be skipped on the way in, dry run included.
-	it("returns a manifest that sets every flag", () => {
+	// field check can't be skipped on the way in, dry run included.
+	it("returns a manifest that sets every field", () => {
 		const raw = JSON.stringify({
 			name: "Reckon",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
 
 		expect(parseManifest(raw)).toEqual({
 			name: "Reckon",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
 	})
 
-	it("rejects a manifest that leaves a flag out, naming it", () => {
+	it("rejects a manifest that leaves a field out, naming it", () => {
 		const raw = JSON.stringify({
 			name: "Reckon",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 		})
 
@@ -272,7 +304,8 @@ describe("parseManifest", () => {
 		const raw = JSON.stringify({
 			name: "Digest",
 			isDraft: true,
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
@@ -284,7 +317,8 @@ describe("parseManifest", () => {
 		const raw = JSON.stringify({
 			name: "Digest",
 			isDraft: false,
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
@@ -296,7 +330,8 @@ describe("parseManifest", () => {
 		// A `[VERIFY: …]` note in a section body once reached the live page.
 		const raw = JSON.stringify({
 			name: "Reckon",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 			sections: [
@@ -337,7 +372,8 @@ describe("parseManifest", () => {
 		const raw = JSON.stringify({
 			name: "Todo",
 			summary: "Verify your list [daily]; a TODO list that waits.",
-			isFeatured: false,
+			prominence: "low",
+			pageLayout: "portfolio",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
@@ -349,7 +385,8 @@ describe("parseManifest", () => {
 		const raw = JSON.stringify({
 			name: "Reckon",
 			summary: `[VERIFY: ${"x".repeat(200)}]`,
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 		})
@@ -392,23 +429,25 @@ describe("isDraftManifest", () => {
 	})
 })
 
-describe("projectFlags", () => {
+describe("requiredProjectFields", () => {
 	// What this guards is the projection: the write merges the result over the
-	// schema's parse output, which types the flags optional, so anything else
+	// schema's parse output, which types these fields optional, so anything else
 	// riding along here would overwrite a validated field with a raw one. A
-	// missing flag can't reach this function — `parseManifest` rejects it first,
-	// covered above.
-	it("keeps only the three flags, `false` included", () => {
+	// missing field can't reach this function — `parseManifest` rejects it
+	// first, covered above.
+	it("keeps only the four placement fields, `false` included", () => {
 		const manifest = {
 			name: "Reckon",
 			summary: "A summary.",
-			isFeatured: true,
+			prominence: ProjectProminence.medium,
+			pageLayout: ProjectPageLayout.portfolio,
 			isDiscontinued: false,
 			isOwnApp: true,
 		}
 
-		expect(projectFlags(manifest)).toEqual({
-			isFeatured: true,
+		expect(requiredProjectFields(manifest)).toEqual({
+			prominence: ProjectProminence.medium,
+			pageLayout: ProjectPageLayout.portfolio,
 			isDiscontinued: false,
 			isOwnApp: true,
 		})

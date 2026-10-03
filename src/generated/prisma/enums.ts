@@ -17,6 +17,23 @@ export const Section = {
 export type Section = (typeof Section)[keyof typeof Section]
 
 
+export const ProjectProminence = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low'
+} as const
+
+export type ProjectProminence = (typeof ProjectProminence)[keyof typeof ProjectProminence]
+
+
+export const ProjectPageLayout = {
+  product: 'product',
+  portfolio: 'portfolio'
+} as const
+
+export type ProjectPageLayout = (typeof ProjectPageLayout)[keyof typeof ProjectPageLayout]
+
+
 export const PlatformBucket = {
   iOS: 'iOS',
   Mac: 'Mac',

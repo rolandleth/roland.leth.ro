@@ -4,7 +4,7 @@ import {
 	groupByBucket,
 	isCompactLabelRedundant,
 } from "@/lib/utils/platforms"
-import EarlierProjectsDisclosure from "./EarlierProjectsDisclosure"
+import MoreProjectsDisclosure from "./MoreProjectsDisclosure"
 import ProjectIcon from "./ProjectIcon"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 
@@ -22,22 +22,23 @@ const ICON_GRID_CLASS =
 const ICON_SIZE = 56
 
 // The lift on hover live's compact cards have: 2px, and none for readers who
-// ask for less motion. Only these icons lift, since they're links; the app
-// tiles and work cards aren't.
+// ask for less motion. Only these icons lift, since they're links; the tiles
+// and cards above aren't.
 const ICON_LIFT_CLASS =
 	"transition-transform duration-300 motion-safe:hover:-translate-y-0.5"
 
 /**
- * Everything not featured, under one heading with a count, closed at first.
- * Closed, the first row of icons previews what's inside; open, the projects
- * come grouped by platform (iOS, Mac, Web, open source), each icon linking to
- * its page. The lists render here, on the server, and the open-and-close part
- * is `EarlierProjectsDisclosure`, so every link is in the HTML either way.
+ * The low-prominence and discontinued projects, under one heading with a
+ * count, closed at first. Closed, the first row of icons previews what's
+ * inside; open, the projects come grouped by platform (iOS, Mac, Web, open
+ * source), each icon linking to its page. The lists render here, on the
+ * server, and the open-and-close part is `MoreProjectsDisclosure`, so every
+ * link is in the HTML either way.
  *
  * The preview is decoration, hidden from assistive tech, and its icons aren't
  * links: the heading's button opens the real list.
  */
-export default function EarlierProjects({ projects, className = "" }: Props) {
+export default function MoreProjects({ projects, className = "" }: Props) {
 	if (projects.length === 0) {
 		return null
 	}
@@ -48,8 +49,8 @@ export default function EarlierProjects({ projects, className = "" }: Props) {
 		.slice(0, PREVIEW_COUNT)
 
 	return (
-		<EarlierProjectsDisclosure
-			id="earlier-projects"
+		<MoreProjectsDisclosure
+			id="more-projects"
 			count={projects.length}
 			className={className}
 			preview={
@@ -59,8 +60,8 @@ export default function EarlierProjects({ projects, className = "" }: Props) {
 							key={project.id}
 							className="flex min-w-0 flex-col items-center gap-2.5 text-center"
 						>
-							<EarlierIcon project={project} />
-							<EarlierName project={project} />
+							<ListedIcon project={project} />
+							<ListedName project={project} />
 						</li>
 					))}
 				</ul>
@@ -75,22 +76,22 @@ export default function EarlierProjects({ projects, className = "" }: Props) {
 
 						<ul role="list" className={ICON_GRID_CLASS}>
 							{group.projects.map((project) => (
-								<EarlierProject key={project.id} project={project} />
+								<ListedProject key={project.id} project={project} />
 							))}
 						</ul>
 					</div>
 				))}
 			</div>
-		</EarlierProjectsDisclosure>
+		</MoreProjectsDisclosure>
 	)
 }
 
 /**
- * One earlier project: its icon and name, linking to its page, and under them
+ * One listed project: its icon and name, linking to its page, and under them
  * the platform tag when it says more than the group's heading ("Multiplatform"
  * under iOS, "Fullstack" or "React" under Web).
  */
-function EarlierProject({ project }: { project: ProjectGalleryItem }) {
+function ListedProject({ project }: { project: ProjectGalleryItem }) {
 	const { bucket, platformTags } = project
 	const tag = isCompactLabelRedundant(bucket, platformTags)
 		? null
@@ -102,8 +103,8 @@ function EarlierProject({ project }: { project: ProjectGalleryItem }) {
 				href={`/projects/${project.slug}`}
 				className={`group/project flex flex-col items-center gap-2.5 no-underline ${ICON_LIFT_CLASS}`}
 			>
-				<EarlierIcon project={project} />
-				<EarlierName project={project} />
+				<ListedIcon project={project} />
+				<ListedName project={project} />
 			</Link>
 
 			{tag != null && (
@@ -119,7 +120,7 @@ function EarlierProject({ project }: { project: ProjectGalleryItem }) {
  * The icon, greyed out for a discontinued project: the fade sits on the icon
  * alone, so the name keeps its contrast.
  */
-function EarlierIcon({ project }: { project: ProjectGalleryItem }) {
+function ListedIcon({ project }: { project: ProjectGalleryItem }) {
 	return (
 		<ProjectIcon
 			name={project.name}
@@ -131,7 +132,7 @@ function EarlierIcon({ project }: { project: ProjectGalleryItem }) {
 }
 
 /** The name: full contrast for a live project, secondary for a discontinued one. */
-function EarlierName({ project }: { project: ProjectGalleryItem }) {
+function ListedName({ project }: { project: ProjectGalleryItem }) {
 	return (
 		<span
 			className={`text-[13px] leading-[1.3] transition-colors duration-200 group-hover/project:text-(--color-primary) ${

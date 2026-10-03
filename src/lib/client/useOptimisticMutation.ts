@@ -45,8 +45,8 @@ export type MutateResult =
 
 /**
  * Optimistic-mutation hook for inline admin widgets that commit their
- * next-state value before the network resolves (`IsFeaturedToggle`,
- * `ProjectSortOrderInput`).
+ * next-state value before the network resolves (`BooleanFlagToggle`,
+ * `ProjectProminenceSelect`, `ProjectSortOrderInput`).
  *
  * Handles abort-on-unmount, abort-on-supersession, the `isAbortError` guard,
  * and the controller-vs-abort guards on revert + finally so each call site

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 } from "@/generated/prisma/enums"
 import { markdownToReact } from "@/lib/content/markdown"
@@ -67,7 +69,8 @@ const existingProject = {
 	ogImage: null,
 	heroImage: null,
 	accentColor: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
@@ -131,7 +134,7 @@ describe("ProjectPage", () => {
 		],
 	}
 
-	it("renders the tabbed layout for a project that isn't an own app, without steps", async () => {
+	it("renders the tabbed layout for the portfolio page layout, without steps", async () => {
 		vi.mocked(loadProject).mockResolvedValue({
 			...existingProject,
 			sections: [stepsSection],
@@ -148,10 +151,10 @@ describe("ProjectPage", () => {
 		expect(markdownToReact).not.toHaveBeenCalledWith("Type it.")
 	})
 
-	it("renders the product page for an own app, with every step's body", async () => {
+	it("renders the product page for the product page layout, with every step's body", async () => {
 		vi.mocked(loadProject).mockResolvedValue({
 			...existingProject,
-			isOwnApp: true,
+			pageLayout: ProjectPageLayout.product,
 			sections: [stepsSection],
 		})
 
@@ -166,6 +169,46 @@ describe("ProjectPage", () => {
 		expect(markdownToReact).toHaveBeenCalledWith("Log it.")
 	})
 
+	it("picks the page by layout alone, whoever owns the project", async () => {
+		vi.mocked(loadProject).mockResolvedValueOnce({
+			...existingProject,
+			pageLayout: ProjectPageLayout.product,
+			isOwnApp: false,
+		})
+		const product = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(product.getByTestId("product-page")).toBeInTheDocument()
+		product.unmount()
+
+		vi.mocked(loadProject).mockResolvedValueOnce({
+			...existingProject,
+			pageLayout: ProjectPageLayout.portfolio,
+			isOwnApp: true,
+		})
+		const portfolio = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(portfolio.getByTestId("project-content")).toBeInTheDocument()
+		expect(portfolio.queryByTestId("product-page")).not.toBeInTheDocument()
+	})
+
+	it("shows the portfolio page for a layout it doesn't know, and logs it", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			// A database ahead of the deploy: a value this build has no case for.
+			pageLayout: "magazine" as unknown as ProjectPageLayout,
+		})
+
+		const { getByTestId } = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(getByTestId("project-content")).toBeInTheDocument()
+		expect(consoleError).toHaveBeenCalledWith(
+			"[projects:page] unknown page layout, showing the portfolio page",
+			{ slug: "my-app", pageLayout: "magazine" }
+		)
+		consoleError.mockRestore()
+	})
+
 	it("logs a step whose markdown fails to render, with its id", async () => {
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 		vi.mocked(markdownToReact).mockImplementation(async (markdown) => {
@@ -177,7 +220,7 @@ describe("ProjectPage", () => {
 		})
 		vi.mocked(loadProject).mockResolvedValue({
 			...existingProject,
-			isOwnApp: true,
+			pageLayout: ProjectPageLayout.product,
 			sections: [stepsSection],
 		})
 

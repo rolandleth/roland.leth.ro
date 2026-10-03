@@ -165,6 +165,12 @@ There are no migrations. Schema changes go through `db:push`, and there is no
 so it would drop a renamed column's data: rename by hand with `ALTER TABLE … RENAME
 COLUMN` before deploying the schema change.
 
+A change that has to carry data from a dropped column into new ones needs
+hand-written SQL that adds the new columns and fills them from the old one. Run
+it once against each database, before the `db:push` that drops the old column:
+the push only adds and drops, and it would drop the data with the column. The
+SQL is a one-off and isn't kept in the repo.
+
 ## Database schema (posts)
 
 The blog has two sections (`tech` and `life`), stored in a single `posts` table with a `section` field.

@@ -63,9 +63,9 @@ import {
 	isDraftManifest,
 	listManifestImagePaths,
 	parseManifest,
-	type ProjectFlags,
-	projectFlags,
 	type ProjectManifest,
+	requiredProjectFields,
+	type RequiredProjectFields,
 	requireManifestSlug,
 	resolveManifestImageRefs,
 	selectProjectFolders,
@@ -280,10 +280,10 @@ function referencedImageUrls(
 async function writeProject(
 	prisma: PrismaClient,
 	slug: string,
-	// The flags come from `parseManifest`, typed as booleans: the schema leaves
-	// them optional, and a `?? false` here would read as a default the import
-	// doesn't have.
-	data: ReturnType<typeof projectCreateSchema.parse> & ProjectFlags
+	// The placement fields come from `parseManifest`, typed: the schema leaves
+	// them optional, and a default here would read as one the import doesn't
+	// have.
+	data: ReturnType<typeof projectCreateSchema.parse> & RequiredProjectFields
 ): Promise<void> {
 	// Serializable matches the API routes (`POST /api/admin/projects` and `PUT
 	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
@@ -327,7 +327,8 @@ async function writeProject(
 					// fall through to the first section image at render time, so a null
 					// hero never yields an empty card.
 					heroImage: data.heroImage ?? null,
-					isFeatured: data.isFeatured,
+					prominence: data.prominence,
+					pageLayout: data.pageLayout,
 					isDiscontinued: data.isDiscontinued,
 					isOwnApp: data.isOwnApp,
 					date: data.date ?? null,
@@ -352,7 +353,7 @@ async function writeProject(
 
 type ManifestRead =
 	| { isDraft: true }
-	| { isDraft: false; manifest: ProjectManifest & ProjectFlags }
+	| { isDraft: false; manifest: ProjectManifest & RequiredProjectFields }
 
 /**
  * Reads a manifest. A draft (`isDraftManifest`) comes back as one with no
@@ -467,7 +468,10 @@ async function processProject(
 			throw new Error("No database client for a non-dry-run import")
 		}
 
-		await writeProject(prisma, slug, { ...data, ...projectFlags(manifest) })
+		await writeProject(prisma, slug, {
+			...data,
+			...requiredProjectFields(manifest),
+		})
 		console.log(`  ✓ imported "${manifest.name}"`)
 
 		if (!isPruneDisabled) {

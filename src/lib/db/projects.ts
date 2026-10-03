@@ -4,6 +4,8 @@ import { Prisma } from "@/generated/prisma/client"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
@@ -19,7 +21,7 @@ export interface ProjectListItem {
 	slug: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
-	isFeatured: boolean
+	prominence: ProjectProminence
 	isDiscontinued: boolean
 	sortOrder: number
 	icon: string | null
@@ -117,7 +119,8 @@ export interface ProjectDetail {
 	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	metaDescription: string | null
@@ -191,7 +194,7 @@ const gallerySelect = {
 	platformTags: true,
 	role: true,
 	accentColor: true,
-	isFeatured: true,
+	prominence: true,
 	isDiscontinued: true,
 	isOwnApp: true,
 	sortOrder: true,
@@ -425,7 +428,7 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 			slug: true,
 			bucket: true,
 			platformTags: true,
-			isFeatured: true,
+			prominence: true,
 			isDiscontinued: true,
 			sortOrder: true,
 			icon: true,

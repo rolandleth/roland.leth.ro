@@ -50,7 +50,8 @@ export type ProjectMinAggregateOutputType = {
   bucket: $Enums.PlatformBucket | null
   role: string | null
   accentColor: string | null
-  isFeatured: boolean | null
+  prominence: $Enums.ProjectProminence | null
+  pageLayout: $Enums.ProjectPageLayout | null
   isDiscontinued: boolean | null
   isOwnApp: boolean | null
   metaDescription: string | null
@@ -81,7 +82,8 @@ export type ProjectMaxAggregateOutputType = {
   bucket: $Enums.PlatformBucket | null
   role: string | null
   accentColor: string | null
-  isFeatured: boolean | null
+  prominence: $Enums.ProjectProminence | null
+  pageLayout: $Enums.ProjectPageLayout | null
   isDiscontinued: boolean | null
   isOwnApp: boolean | null
   metaDescription: string | null
@@ -115,7 +117,8 @@ export type ProjectCountAggregateOutputType = {
   platformTags: number
   role: number
   accentColor: number
-  isFeatured: number
+  prominence: number
+  pageLayout: number
   isDiscontinued: number
   isOwnApp: number
   metaDescription: number
@@ -160,7 +163,8 @@ export type ProjectMinAggregateInputType = {
   bucket?: true
   role?: true
   accentColor?: true
-  isFeatured?: true
+  prominence?: true
+  pageLayout?: true
   isDiscontinued?: true
   isOwnApp?: true
   metaDescription?: true
@@ -191,7 +195,8 @@ export type ProjectMaxAggregateInputType = {
   bucket?: true
   role?: true
   accentColor?: true
-  isFeatured?: true
+  prominence?: true
+  pageLayout?: true
   isDiscontinued?: true
   isOwnApp?: true
   metaDescription?: true
@@ -225,7 +230,8 @@ export type ProjectCountAggregateInputType = {
   platformTags?: true
   role?: true
   accentColor?: true
-  isFeatured?: true
+  prominence?: true
+  pageLayout?: true
   isDiscontinued?: true
   isOwnApp?: true
   metaDescription?: true
@@ -348,7 +354,8 @@ export type ProjectGroupByOutputType = {
   platformTags: $Enums.PlatformTag[]
   role: string | null
   accentColor: string | null
-  isFeatured: boolean
+  prominence: $Enums.ProjectProminence
+  pageLayout: $Enums.ProjectPageLayout
   isDiscontinued: boolean
   isOwnApp: boolean
   metaDescription: string | null
@@ -407,7 +414,8 @@ export type ProjectWhereInput = {
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
   role?: Prisma.StringNullableFilter<"Project"> | string | null
   accentColor?: Prisma.StringNullableFilter<"Project"> | string | null
-  isFeatured?: Prisma.BoolFilter<"Project"> | boolean
+  prominence?: Prisma.EnumProjectProminenceFilter<"Project"> | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFilter<"Project"> | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
   metaDescription?: Prisma.StringNullableFilter<"Project"> | string | null
@@ -446,7 +454,8 @@ export type ProjectOrderByWithRelationInput = {
   platformTags?: Prisma.SortOrder
   role?: Prisma.SortOrderInput | Prisma.SortOrder
   accentColor?: Prisma.SortOrderInput | Prisma.SortOrder
-  isFeatured?: Prisma.SortOrder
+  prominence?: Prisma.SortOrder
+  pageLayout?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
   metaDescription?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -488,7 +497,8 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
   role?: Prisma.StringNullableFilter<"Project"> | string | null
   accentColor?: Prisma.StringNullableFilter<"Project"> | string | null
-  isFeatured?: Prisma.BoolFilter<"Project"> | boolean
+  prominence?: Prisma.EnumProjectProminenceFilter<"Project"> | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFilter<"Project"> | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolFilter<"Project"> | boolean
   metaDescription?: Prisma.StringNullableFilter<"Project"> | string | null
@@ -527,7 +537,8 @@ export type ProjectOrderByWithAggregationInput = {
   platformTags?: Prisma.SortOrder
   role?: Prisma.SortOrderInput | Prisma.SortOrder
   accentColor?: Prisma.SortOrderInput | Prisma.SortOrder
-  isFeatured?: Prisma.SortOrder
+  prominence?: Prisma.SortOrder
+  pageLayout?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
   metaDescription?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -571,7 +582,8 @@ export type ProjectScalarWhereWithAggregatesInput = {
   platformTags?: Prisma.EnumPlatformTagNullableListFilter<"Project">
   role?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
   accentColor?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
-  isFeatured?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
+  prominence?: Prisma.EnumProjectProminenceWithAggregatesFilter<"Project"> | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutWithAggregatesFilter<"Project"> | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   isOwnApp?: Prisma.BoolWithAggregatesFilter<"Project"> | boolean
   metaDescription?: Prisma.StringNullableWithAggregatesFilter<"Project"> | string | null
@@ -606,7 +618,8 @@ export type ProjectCreateInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -645,7 +658,8 @@ export type ProjectUncheckedCreateInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -683,7 +697,8 @@ export type ProjectUpdateInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -722,7 +737,8 @@ export type ProjectUncheckedUpdateInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -761,7 +777,8 @@ export type ProjectCreateManyInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -796,7 +813,8 @@ export type ProjectUpdateManyMutationInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -832,7 +850,8 @@ export type ProjectUncheckedUpdateManyInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -884,7 +903,8 @@ export type ProjectCountOrderByAggregateInput = {
   platformTags?: Prisma.SortOrder
   role?: Prisma.SortOrder
   accentColor?: Prisma.SortOrder
-  isFeatured?: Prisma.SortOrder
+  prominence?: Prisma.SortOrder
+  pageLayout?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
   metaDescription?: Prisma.SortOrder
@@ -922,7 +942,8 @@ export type ProjectMaxOrderByAggregateInput = {
   bucket?: Prisma.SortOrder
   role?: Prisma.SortOrder
   accentColor?: Prisma.SortOrder
-  isFeatured?: Prisma.SortOrder
+  prominence?: Prisma.SortOrder
+  pageLayout?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
   metaDescription?: Prisma.SortOrder
@@ -953,7 +974,8 @@ export type ProjectMinOrderByAggregateInput = {
   bucket?: Prisma.SortOrder
   role?: Prisma.SortOrder
   accentColor?: Prisma.SortOrder
-  isFeatured?: Prisma.SortOrder
+  prominence?: Prisma.SortOrder
+  pageLayout?: Prisma.SortOrder
   isDiscontinued?: Prisma.SortOrder
   isOwnApp?: Prisma.SortOrder
   metaDescription?: Prisma.SortOrder
@@ -1000,6 +1022,14 @@ export type EnumPlatformBucketFieldUpdateOperationsInput = {
 export type ProjectUpdateplatformTagsInput = {
   set?: $Enums.PlatformTag[]
   push?: $Enums.PlatformTag | $Enums.PlatformTag[]
+}
+
+export type EnumProjectProminenceFieldUpdateOperationsInput = {
+  set?: $Enums.ProjectProminence
+}
+
+export type EnumProjectPageLayoutFieldUpdateOperationsInput = {
+  set?: $Enums.ProjectPageLayout
 }
 
 export type ProjectCreateNestedOneWithoutSectionsInput = {
@@ -1060,7 +1090,8 @@ export type ProjectCreateWithoutSectionsInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1098,7 +1129,8 @@ export type ProjectUncheckedCreateWithoutSectionsInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1151,7 +1183,8 @@ export type ProjectUpdateWithoutSectionsInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1189,7 +1222,8 @@ export type ProjectUncheckedUpdateWithoutSectionsInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1226,7 +1260,8 @@ export type ProjectCreateWithoutLinksInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1264,7 +1299,8 @@ export type ProjectUncheckedCreateWithoutLinksInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1317,7 +1353,8 @@ export type ProjectUpdateWithoutLinksInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1355,7 +1392,8 @@ export type ProjectUncheckedUpdateWithoutLinksInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1392,7 +1430,8 @@ export type ProjectCreateWithoutFaqsInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1430,7 +1469,8 @@ export type ProjectUncheckedCreateWithoutFaqsInput = {
   platformTags?: Prisma.ProjectCreateplatformTagsInput | $Enums.PlatformTag[]
   role?: string | null
   accentColor?: string | null
-  isFeatured?: boolean
+  prominence?: $Enums.ProjectProminence
+  pageLayout?: $Enums.ProjectPageLayout
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: string | null
@@ -1483,7 +1523,8 @@ export type ProjectUpdateWithoutFaqsInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1521,7 +1562,8 @@ export type ProjectUncheckedUpdateWithoutFaqsInput = {
   platformTags?: Prisma.ProjectUpdateplatformTagsInput | $Enums.PlatformTag[]
   role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   accentColor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  isFeatured?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  prominence?: Prisma.EnumProjectProminenceFieldUpdateOperationsInput | $Enums.ProjectProminence
+  pageLayout?: Prisma.EnumProjectPageLayoutFieldUpdateOperationsInput | $Enums.ProjectPageLayout
   isDiscontinued?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isOwnApp?: Prisma.BoolFieldUpdateOperationsInput | boolean
   metaDescription?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1608,7 +1650,8 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   platformTags?: boolean
   role?: boolean
   accentColor?: boolean
-  isFeatured?: boolean
+  prominence?: boolean
+  pageLayout?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: boolean
@@ -1648,7 +1691,8 @@ export type ProjectSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   platformTags?: boolean
   role?: boolean
   accentColor?: boolean
-  isFeatured?: boolean
+  prominence?: boolean
+  pageLayout?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: boolean
@@ -1684,7 +1728,8 @@ export type ProjectSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   platformTags?: boolean
   role?: boolean
   accentColor?: boolean
-  isFeatured?: boolean
+  prominence?: boolean
+  pageLayout?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: boolean
@@ -1720,7 +1765,8 @@ export type ProjectSelectScalar = {
   platformTags?: boolean
   role?: boolean
   accentColor?: boolean
-  isFeatured?: boolean
+  prominence?: boolean
+  pageLayout?: boolean
   isDiscontinued?: boolean
   isOwnApp?: boolean
   metaDescription?: boolean
@@ -1739,7 +1785,7 @@ export type ProjectSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "isFeatured" | "isDiscontinued" | "isOwnApp" | "metaDescription" | "heroEyebrow" | "heroHeadline" | "heroImageAlt" | "storeNote" | "closingHeadline" | "closingBody" | "disclaimer" | "plans" | "palette" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
+export type ProjectOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "slug" | "summary" | "metaTitle" | "keywords" | "offers" | "applicationCategory" | "icon" | "cardImage" | "ogImage" | "heroImage" | "bucket" | "platformTags" | "role" | "accentColor" | "prominence" | "pageLayout" | "isDiscontinued" | "isOwnApp" | "metaDescription" | "heroEyebrow" | "heroHeadline" | "heroImageAlt" | "storeNote" | "closingHeadline" | "closingBody" | "disclaimer" | "plans" | "palette" | "date" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["project"]>
 export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sections?: boolean | Prisma.Project$sectionsArgs<ExtArgs>
   links?: boolean | Prisma.Project$linksArgs<ExtArgs>
@@ -1773,7 +1819,8 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     platformTags: $Enums.PlatformTag[]
     role: string | null
     accentColor: string | null
-    isFeatured: boolean
+    prominence: $Enums.ProjectProminence
+    pageLayout: $Enums.ProjectPageLayout
     isDiscontinued: boolean
     isOwnApp: boolean
     metaDescription: string | null
@@ -2232,7 +2279,8 @@ export interface ProjectFieldRefs {
   readonly platformTags: Prisma.FieldRef<"Project", 'PlatformTag[]'>
   readonly role: Prisma.FieldRef<"Project", 'String'>
   readonly accentColor: Prisma.FieldRef<"Project", 'String'>
-  readonly isFeatured: Prisma.FieldRef<"Project", 'Boolean'>
+  readonly prominence: Prisma.FieldRef<"Project", 'ProjectProminence'>
+  readonly pageLayout: Prisma.FieldRef<"Project", 'ProjectPageLayout'>
   readonly isDiscontinued: Prisma.FieldRef<"Project", 'Boolean'>
   readonly isOwnApp: Prisma.FieldRef<"Project", 'Boolean'>
   readonly metaDescription: Prisma.FieldRef<"Project", 'String'>

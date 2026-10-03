@@ -2,6 +2,8 @@ import { z } from "zod"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
@@ -32,6 +34,14 @@ const PLATFORM_TAGS = Object.values(PlatformTag) as [
 const PROJECT_SECTION_LAYOUTS = Object.values(ProjectSectionLayout) as [
 	ProjectSectionLayout,
 	...ProjectSectionLayout[],
+]
+const PROJECT_PROMINENCES = Object.values(ProjectProminence) as [
+	ProjectProminence,
+	...ProjectProminence[],
+]
+const PROJECT_PAGE_LAYOUTS = Object.values(ProjectPageLayout) as [
+	ProjectPageLayout,
+	...ProjectPageLayout[],
 ]
 
 // Frozen Set per bucket so the coherence superRefine doesn't rebuild on every
@@ -410,10 +420,12 @@ const projectFields = {
 	cardImage: httpUrl.nullable().optional(),
 	ogImage: httpUrl.nullable().optional(),
 	heroImage: httpUrl.nullable().optional(),
-	isFeatured: z.boolean().optional(),
+	prominence: z.enum(PROJECT_PROMINENCES).optional(),
+	pageLayout: z.enum(PROJECT_PAGE_LAYOUTS).optional(),
 	isDiscontinued: z.boolean().optional(),
 	isOwnApp: z.boolean().optional(),
-	// Product-page fields, rendered only on own apps. See the Prisma schema.
+	// Product-page fields, rendered only by the product layout. See the Prisma
+	// schema.
 	metaDescription: collapsedWhitespace
 		.pipe(z.string().min(1).max(DESCRIPTION_MAX_CHARS))
 		.nullable()
@@ -435,7 +447,7 @@ const projectFields = {
 }
 
 type PlanRefineInput = {
-	isOwnApp?: boolean
+	pageLayout?: ProjectPageLayout
 	plans?: { name: string; isHighlighted?: boolean }[]
 	offers?: { plan?: string; price: string; isBestValue?: boolean }[]
 	sections?: { kind: ProjectSectionKind }[]
@@ -447,8 +459,8 @@ type PlanRefineInput = {
 //   - with plans present, every offer names one of them, or that price would
 //     print in no card;
 //   - an offer that names a plan needs plans to exist;
-//   - an own app with offers has plans, since the product page prints prices
-//     only inside plan cards;
+//   - a project with the product page and offers has plans, since the product
+//     page prints prices only inside plan cards;
 //   - at most one `pricing` section, and only on a project with offers, or it
 //     would be a heading over nothing;
 //   - at most one best-value price, paid, with another paid price in its plan.
@@ -468,7 +480,7 @@ function refineProjectPlans(
 ): void {
 	const { plans, offers, sections } = value
 
-	refineOwnAppPlans(value, ctx, isPartial)
+	refineProductPagePlans(value, ctx, isPartial)
 	refinePricingSections(sections, offers, ctx, isPartial)
 	refineBestValueOffer(offers, ctx)
 
@@ -528,14 +540,20 @@ function refineProjectPlans(
 	}
 }
 
-function refineOwnAppPlans(
+// Keyed to the page, not to ownership: it's the product page that prints
+// prices only inside plan cards.
+function refineProductPagePlans(
 	value: PlanRefineInput,
 	ctx: z.RefinementCtx,
 	isPartial: boolean
 ): void {
-	const { isOwnApp, plans, offers } = value
+	const { pageLayout, plans, offers } = value
 
-	if (isOwnApp !== true || offers == null || offers.length === 0) {
+	if (
+		pageLayout !== ProjectPageLayout.product ||
+		offers == null ||
+		offers.length === 0
+	) {
 		return
 	}
 
@@ -549,7 +567,7 @@ function refineOwnAppPlans(
 			code: "custom",
 			path: ["plans"],
 			message:
-				"An own app with offers needs plans: the product page prints prices inside plan cards",
+				"A product page with offers needs plans: it prints prices inside plan cards",
 		})
 	}
 }

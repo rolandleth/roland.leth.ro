@@ -1,4 +1,4 @@
-import BooleanFlagToggle from "@/components/admin/BooleanFlagToggle"
+import ProjectProminenceSelect from "@/components/admin/ProjectProminenceSelect"
 import ProjectSortOrderInput from "@/components/admin/ProjectSortOrderInput"
 import type { ProjectListItem } from "@/lib/db/projects"
 
@@ -8,18 +8,19 @@ interface Props {
 }
 
 /**
- * Inline editor pair (Featured toggle + sort-order input) rendered inside each
- * admin project card. Keyed by `sortOrder` so the input resets when a neighbour
- * shifts the card's position after a save.
+ * Inline editor pair (prominence picker + sort-order input) rendered inside
+ * each admin project card. Each is keyed by the value it edits, so it resets
+ * when the server's value changes under it: a neighbour shifting the card's
+ * position, or the edit form changing the prominence.
  */
 export default function ProjectAdminControls({ project, totalCount }: Props) {
 	return (
 		<>
-			<BooleanFlagToggle
-				initial={project.isFeatured}
-				url={`/api/admin/projects/${project.id}`}
-				payloadKey="isFeatured"
-				label="Featured"
+			<ProjectProminenceSelect
+				key={`${project.id}-${project.prominence}`}
+				projectId={project.id}
+				initial={project.prominence}
+				isDiscontinued={project.isDiscontinued}
 			/>
 			<ProjectSortOrderInput
 				key={`${project.id}-${project.sortOrder}`}

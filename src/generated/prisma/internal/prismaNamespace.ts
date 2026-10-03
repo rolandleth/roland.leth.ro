@@ -1274,7 +1274,8 @@ export const ProjectScalarFieldEnum = {
   platformTags: 'platformTags',
   role: 'role',
   accentColor: 'accentColor',
-  isFeatured: 'isFeatured',
+  prominence: 'prominence',
+  pageLayout: 'pageLayout',
   isDiscontinued: 'isDiscontinued',
   isOwnApp: 'isOwnApp',
   metaDescription: 'metaDescription',
@@ -1515,6 +1516,34 @@ export type ListEnumPlatformTagFieldRefInput<$PrismaModel> = FieldRefInputType<$
  * Reference to a field of type 'PlatformTag'
  */
 export type EnumPlatformTagFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PlatformTag'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectProminence'
+ */
+export type EnumProjectProminenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectProminence'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectProminence[]'
+ */
+export type ListEnumProjectProminenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectProminence[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectPageLayout'
+ */
+export type EnumProjectPageLayoutFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectPageLayout'>
+    
+
+
+/**
+ * Reference to a field of type 'ProjectPageLayout[]'
+ */
+export type ListEnumProjectPageLayoutFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProjectPageLayout[]'>
     
 
 

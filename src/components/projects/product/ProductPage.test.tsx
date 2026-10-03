@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
@@ -81,7 +83,8 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		platformTags: [PlatformTag.iOS],
 		role: null,
 		accentColor: "#405A55",
-		isFeatured: false,
+		prominence: ProjectProminence.high,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: false,
 		isOwnApp: true,
 		...EMPTY_PRODUCT_PAGE_FIELDS,

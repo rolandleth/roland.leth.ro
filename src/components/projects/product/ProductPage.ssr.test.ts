@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
 	ProjectSectionKind,
 } from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
@@ -56,7 +58,8 @@ const project: ProjectDetail = {
 	platformTags: [PlatformTag.iOS],
 	role: null,
 	accentColor: null,
-	isFeatured: false,
+	prominence: ProjectProminence.high,
+	pageLayout: ProjectPageLayout.product,
 	isDiscontinued: false,
 	isOwnApp: true,
 	...EMPTY_PRODUCT_PAGE_FIELDS,

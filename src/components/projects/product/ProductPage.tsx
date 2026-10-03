@@ -72,8 +72,8 @@ function pricingFor(project: ProjectDetail): Pricing | null {
 }
 
 /**
- * The project page of an app Roland makes and sells (`isOwnApp`): a product
- * page rather than the tabbed portfolio entry. Every section is on the page at
+ * The project page for `pageLayout: product`: a product page rather than the
+ * tabbed portfolio entry. Every section is on the page at
  * once, each with its own `h2` and anchor, so search engines and answer engines
  * read all of it; prices print as text; the page ends on the store button.
  *

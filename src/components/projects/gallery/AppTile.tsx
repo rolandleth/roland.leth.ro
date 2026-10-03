@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { linkCtasFor } from "@/lib/utils/platforms"
 import ProjectLinkCta from "../ProjectLinkCta"
+import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "./galleryLayout"
 import ProjectIcon from "./ProjectIcon"
 import ViewProjectLink from "./ViewProjectLink"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
@@ -19,11 +20,12 @@ const WIDE_IMAGE_SIZES = "(min-width: 900px) 560px, calc(100vw - 2rem)"
 const HALF_IMAGE_SIZES = "(min-width: 900px) 460px, calc(100vw - 2rem)"
 
 /**
- * One own app on the gallery, on its product page's band colours
- * (`AppTileStyle`). Both kinds have the name and the eyebrow, the summary, the
- * store buttons and "View project". A wide tile adds the product page's
- * headline, with the full hero image beside it all; a half tile has the top of
- * the hero image rising from its bottom edge.
+ * One high-prominence project on the gallery, on its product page's band
+ * colours (`AppTileStyle`; the site's defaults without a palette). Both kinds
+ * have the name and the eyebrow, the summary, the store buttons and "View
+ * project". A wide tile adds the product page's headline, with the full hero
+ * image beside it all; a half tile has the top of the hero image rising from
+ * its bottom edge. Without a hero image, the text takes the whole tile.
  *
  * No price: a store note can't speak for several (a monthly, a yearly and a
  * lifetime one), and the product page has the plans. Not one big link, since
@@ -61,7 +63,9 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 		return (
 			<article
 				data-app-tile={project.slug}
-				className="app-tile product-band grid gap-8 overflow-hidden rounded-3xl bg-(--product-band) px-7 py-9 text-(--product-band-ink) min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] min-[900px]:items-center min-[900px]:gap-12 min-[900px]:p-11"
+				className={`app-tile product-band grid gap-8 overflow-hidden rounded-3xl bg-(--product-band) px-7 py-9 text-(--product-band-ink) min-[900px]:items-center min-[900px]:gap-12 min-[900px]:p-11 ${
+					image == null ? "" : TEXT_BESIDE_IMAGE_COLUMNS_CLASS
+				}`}
 			>
 				<div className="min-w-0">
 					<TileTitle project={project} isWide />
@@ -91,10 +95,14 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 		)
 	}
 
+	// The image closes a half tile at its bottom edge; without one, the tile
+	// pads its bottom as it pads its top.
 	return (
 		<article
 			data-app-tile={project.slug}
-			className="app-tile product-band flex h-full flex-col overflow-hidden rounded-3xl bg-(--product-band) px-7 pt-9 text-(--product-band-ink) min-[900px]:px-11 min-[900px]:pt-11"
+			className={`app-tile product-band flex h-full flex-col overflow-hidden rounded-3xl bg-(--product-band) px-7 pt-9 text-(--product-band-ink) min-[900px]:px-11 min-[900px]:pt-11 ${
+				image == null ? "pb-9 min-[900px]:pb-11" : ""
+			}`}
 		>
 			<TileTitle project={project} isWide={false} />
 

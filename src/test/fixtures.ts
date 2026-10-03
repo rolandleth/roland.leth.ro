@@ -1,6 +1,7 @@
 import {
 	PlatformBucket,
 	PlatformTag,
+	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
@@ -119,7 +120,7 @@ export function makeProjectListItem(
 		slug: "my-app",
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
-		isFeatured: false,
+		prominence: ProjectProminence.low,
 		isDiscontinued: false,
 		sortOrder: 0,
 		icon: null,

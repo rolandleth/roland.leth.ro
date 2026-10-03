@@ -1,8 +1,8 @@
 import AnimatedCard from "@/components/AnimatedCard"
 import AppTile from "@/components/projects/gallery/AppTile"
 import AppTileStyle from "@/components/projects/gallery/AppTileStyle"
-import EarlierProjects from "@/components/projects/gallery/EarlierProjects"
-import WorkCard from "@/components/projects/gallery/WorkCard"
+import MoreProjects from "@/components/projects/gallery/MoreProjects"
+import ProjectCard from "@/components/projects/gallery/ProjectCard"
 import { buildPageMetadata } from "@/lib/content/metadata"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 import { gallerySections, isWideAppTile } from "@/lib/utils/projectsGallery"
@@ -24,17 +24,16 @@ const STAGGER = 0.05
 const SECTION_GAP_CLASS = "mt-[88px]"
 
 /**
- * The projects gallery: the own apps first, each on its product page's
- * colours, then the work projects, then everything else under "Earlier
- * projects", collapsed. Which section a project lands in follows from its
- * featured and own-app flags (`gallerySections`).
+ * The projects gallery, by prominence (`gallerySections`): high as big tiles,
+ * each on its product page's colours, then medium as cards, then low and
+ * discontinued under "More projects", collapsed.
  *
- * The apps and the work projects have no heading of their own, only the space
+ * The tiles and the cards have no heading of their own, only the space
  * between them: each section is named for screen readers only, and each tile's
  * and card's title is an `h2`, so the outline doesn't skip a level.
  */
 export default async function ProjectsPage() {
-	const { apps, work, earlier } = gallerySections(
+	const { high, medium, more } = gallerySections(
 		await getProjectsGalleryCached()
 	)
 
@@ -44,13 +43,13 @@ export default async function ProjectsPage() {
 				Projects
 			</h1>
 
-			{apps.length > 0 && (
-				<section id="my-apps" aria-label="My apps">
-					<AppTileStyle apps={apps} />
+			{high.length > 0 && (
+				<section id="featured-projects" aria-label="Featured projects">
+					<AppTileStyle apps={high} />
 
 					<div className="grid gap-4 min-[900px]:grid-cols-2">
-						{apps.map((project, index) => {
-							const isWide = isWideAppTile(index, apps.length)
+						{high.map((project, index) => {
+							const isWide = isWideAppTile(index, high.length)
 
 							return (
 								<AnimatedCard
@@ -71,29 +70,29 @@ export default async function ProjectsPage() {
 				</section>
 			)}
 
-			{work.length > 0 && (
+			{medium.length > 0 && (
 				<section
-					id="work"
-					aria-label="Work"
-					className={apps.length > 0 ? SECTION_GAP_CLASS : ""}
+					id="selected-projects"
+					aria-label="Selected projects"
+					className={high.length > 0 ? SECTION_GAP_CLASS : ""}
 				>
 					<div className="flex flex-col gap-4">
-						{work.map((project, index) => (
+						{medium.map((project, index) => (
 							<AnimatedCard
 								key={project.id}
-								index={apps.length + index}
+								index={high.length + index}
 								delayMultiplier={STAGGER}
 							>
-								<WorkCard project={project} />
+								<ProjectCard project={project} />
 							</AnimatedCard>
 						))}
 					</div>
 				</section>
 			)}
 
-			<EarlierProjects
-				projects={earlier}
-				className={apps.length + work.length > 0 ? SECTION_GAP_CLASS : ""}
+			<MoreProjects
+				projects={more}
+				className={high.length + medium.length > 0 ? SECTION_GAP_CLASS : ""}
 			/>
 		</div>
 	)

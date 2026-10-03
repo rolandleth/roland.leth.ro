@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import JsonLdScript from "@/components/JsonLdScript"
 import ProductPage from "@/components/projects/product/ProductPage"
 import ProjectContent from "@/components/projects/ProjectContent"
+import { ProjectPageLayout } from "@/generated/prisma/enums"
 import { getSiteUrl } from "@/lib/auth/env"
 import { overviewToLinkItems } from "@/lib/content/guideLinks"
 import { markdownToReact } from "@/lib/content/markdown"
@@ -122,9 +123,8 @@ export default async function ProjectPage({ params }: Props) {
 		notFound()
 	}
 
-	// Own apps get the product page; every other project keeps the tabbed
-	// portfolio entry.
-	const isProductPage = project.isOwnApp
+	// The page layout is the project's own choice, independent of who owns it.
+	const isProductPage = project.pageLayout === ProjectPageLayout.product
 
 	// Section bodies, step bodies and FAQ answers are all markdown, rendered
 	// here on the server so the client components (the tabs, the accordion, the
@@ -177,12 +177,22 @@ export default async function ProjectPage({ params }: Props) {
 		getSiteUrl()
 	)
 
-	return (
-		<>
-			<JsonLdScript data={faqJsonLd} />
-			<JsonLdScript data={softwareJsonLd} />
+	const portfolioPage = (
+		<ProjectContent
+			project={project}
+			renderedDescriptions={renderedDescriptions}
+			renderedFaqAnswers={renderedFaqAnswers}
+			guides={guides}
+		/>
+	)
+	let page: ReactNode
 
-			{isProductPage ? (
+	// A switch, not a ternary: a new layout fails the type-check here until it
+	// has a page. One this code doesn't know (a database ahead of the deploy)
+	// gets the portfolio page, and the log says so.
+	switch (project.pageLayout) {
+		case ProjectPageLayout.product:
+			page = (
 				<ProductPage
 					project={project}
 					renderedDescriptions={renderedDescriptions}
@@ -190,14 +200,28 @@ export default async function ProjectPage({ params }: Props) {
 					renderedFaqAnswers={renderedFaqAnswers}
 					guides={guides}
 				/>
-			) : (
-				<ProjectContent
-					project={project}
-					renderedDescriptions={renderedDescriptions}
-					renderedFaqAnswers={renderedFaqAnswers}
-					guides={guides}
-				/>
-			)}
+			)
+			break
+		case ProjectPageLayout.portfolio:
+			page = portfolioPage
+			break
+		default: {
+			const unknown: never = project.pageLayout
+			// eslint-disable-next-line no-console
+			console.error(
+				"[projects:page] unknown page layout, showing the portfolio page",
+				{ slug: project.slug, pageLayout: unknown }
+			)
+			page = portfolioPage
+		}
+	}
+
+	return (
+		<>
+			<JsonLdScript data={faqJsonLd} />
+			<JsonLdScript data={softwareJsonLd} />
+
+			{page}
 		</>
 	)
 }

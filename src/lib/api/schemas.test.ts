@@ -486,6 +486,37 @@ describe("projectCreateSchema", () => {
 		).toBe(false)
 	})
 
+	it.each(["high", "medium", "low"])("takes prominence %s", (prominence) => {
+		const result = projectCreateSchema.safeParse({ ...valid, prominence })
+
+		expect(result.success && result.data.prominence).toBe(prominence)
+	})
+
+	it.each(["product", "portfolio"])("takes page layout %s", (pageLayout) => {
+		const result = projectCreateSchema.safeParse({ ...valid, pageLayout })
+
+		expect(result.success && result.data.pageLayout).toBe(pageLayout)
+	})
+
+	it.each([
+		["prominence", "featured"],
+		["prominence", "High"],
+		["prominence", true],
+		["pageLayout", "magazine"],
+		["pageLayout", null],
+	])("rejects %s set to %j", (key, value) => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, [key]: value }).success
+		).toBe(false)
+	})
+
+	it("leaves prominence and page layout unset when they're omitted, for the route to default", () => {
+		const result = projectCreateSchema.safeParse(valid)
+
+		expect(result.success && result.data.prominence).toBeUndefined()
+		expect(result.success && result.data.pageLayout).toBeUndefined()
+	})
+
 	it("accepts a fully-populated payload with sections and links", () => {
 		const result = projectCreateSchema.safeParse({
 			...valid,
@@ -493,7 +524,8 @@ describe("projectCreateSchema", () => {
 			accentColor: "#6366f1",
 			icon: "https://example.com/icon.png",
 			heroImage: "https://example.com/hero.png",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 			date: "2024",
@@ -1420,6 +1452,7 @@ describe("projectCreateSchema — product-page fields", () => {
 	it("accepts a full product page: text fields, plans, offers with plans and notes, palette, every section kind", () => {
 		const result = projectCreateSchema.safeParse({
 			...base,
+			pageLayout: "product",
 			isOwnApp: true,
 			metaDescription: "Digest is a food and symptom journal for iPhone.",
 			heroEyebrow: "Food and symptom journal for iPhone and iPad",
@@ -1566,33 +1599,61 @@ describe("projectCreateSchema — product-page fields", () => {
 		)
 	})
 
-	it("rejects an own app with offers and no plans, since its prices print only inside plan cards", () => {
-		const oneTime = [{ name: "One-time", price: "3.99", priceCurrency: "USD" }]
-		const message =
-			"An own app with offers needs plans: the product page prints prices inside plan cards"
+	const oneTime = [{ name: "One-time", price: "3.99", priceCurrency: "USD" }]
+	const plansMessage =
+		"A product page with offers needs plans: it prints prices inside plan cards"
 
+	it("rejects a product page with offers and no plans, since its prices print only inside plan cards", () => {
 		expect(
-			issueMessages({ ...base, isOwnApp: true, offers: oneTime })
-		).toContain(message)
+			issueMessages({ ...base, pageLayout: "product", offers: oneTime })
+		).toContain(plansMessage)
 		expect(
-			issueMessages({ ...base, isOwnApp: true, offers: oneTime, plans: [] })
-		).toContain(message)
+			issueMessages({
+				...base,
+				pageLayout: "product",
+				offers: oneTime,
+				plans: [],
+			})
+		).toContain(plansMessage)
 	})
 
-	it("accepts offers without plans on a project that isn't an own app", () => {
+	it("asks for plans by page layout alone, whoever owns the project", () => {
+		expect(
+			issueMessages({
+				...base,
+				pageLayout: "product",
+				isOwnApp: false,
+				offers: oneTime,
+			})
+		).toContain(plansMessage)
+		expect(
+			issueMessages({
+				...base,
+				pageLayout: "portfolio",
+				isOwnApp: true,
+				offers: oneTime,
+			})
+		).not.toContain(plansMessage)
+	})
+
+	it("accepts offers without plans on the portfolio page", () => {
 		// The tabbed layout prints offers on their own; only the product page
 		// needs plans.
 		expect(
+			projectCreateSchema.safeParse({ ...base, offers: oneTime }).success
+		).toBe(true)
+		expect(
 			projectCreateSchema.safeParse({
 				...base,
-				offers: [{ name: "One-time", price: "3.99", priceCurrency: "USD" }],
+				pageLayout: "portfolio",
+				offers: oneTime,
 			}).success
 		).toBe(true)
 	})
 
-	it("accepts an own app with no offers and no plans", () => {
+	it("accepts a product page with no offers and no plans", () => {
 		expect(
-			projectCreateSchema.safeParse({ ...base, isOwnApp: true }).success
+			projectCreateSchema.safeParse({ ...base, pageLayout: "product" }).success
 		).toBe(true)
 	})
 
@@ -1875,7 +1936,7 @@ describe("projectCreateSchema — section kinds", () => {
 	it("rejects images and items on a pricing section", () => {
 		const pricing = {
 			...base,
-			isOwnApp: false,
+			pageLayout: "portfolio",
 			offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
 		}
 		const messages = (section: object) => {
@@ -1920,20 +1981,20 @@ describe("projectCreateSchema — section kinds", () => {
 })
 
 describe("projectUpdateSchema — product-page fields", () => {
-	it("doesn't require plans of an own app when a partial update leaves them out", () => {
+	it("doesn't require plans of a product page when a partial update leaves them out", () => {
 		// The stored plans aren't in the payload; an absent field isn't "none".
 		expect(
 			projectUpdateSchema.safeParse({
-				isOwnApp: true,
+				pageLayout: "product",
 				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
 			}).success
 		).toBe(true)
 	})
 
-	it("still rejects an own app's offers sent with an empty plans list", () => {
+	it("still rejects a product page's offers sent with an empty plans list", () => {
 		expect(
 			projectUpdateSchema.safeParse({
-				isOwnApp: true,
+				pageLayout: "product",
 				plans: [],
 				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
 			}).success
