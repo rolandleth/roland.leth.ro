@@ -62,6 +62,7 @@ import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
+import { blobStore } from "@/lib/import/blobStore"
 import { listBlobs, type ListedBlob } from "@/lib/import/blobSync"
 import { readFileInFolder } from "@/lib/import/localFiles"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
@@ -87,7 +88,6 @@ import {
 	writtenBodies,
 	writtenSlugs,
 } from "@/lib/import/postMediaRun"
-import { scriptBlobStore } from "@/lib/import/scriptBlobStore"
 import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { parsePostScriptArgs } from "@/lib/import/sectionArg"
 import { errorMessage } from "@/lib/utils/errorMessage"
@@ -253,7 +253,7 @@ function makeMediaListing(section: Section): () => Promise<ListedBlob[]> {
 	let listing: Promise<ListedBlob[]> | null = null
 
 	return () => {
-		listing ??= listBlobs(scriptBlobStore, postMediaSectionPrefix(section))
+		listing ??= listBlobs(blobStore, postMediaSectionPrefix(section))
 
 		return listing
 	}
@@ -297,7 +297,7 @@ async function pruneWrittenMedia(
 	for (const [slug, body] of bodyBySlug) {
 		try {
 			await prunePostMedia({
-				store: scriptBlobStore,
+				store: blobStore,
 				listing,
 				prefix: postMediaPrefixFor(section, slug),
 				body,
@@ -397,7 +397,7 @@ async function main(): Promise<void> {
 			// A missing file skips its one post. Any other read failure, and a
 			// path that leaves the folder, stops the run as it is.
 			read: (relativePath) => readFileInFolder(folder, relativePath),
-			store: scriptBlobStore,
+			store: blobStore,
 			listStored: getListing,
 			isDryRun,
 			log: console.log,

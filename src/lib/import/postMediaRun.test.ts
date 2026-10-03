@@ -3,6 +3,7 @@ import { buildPostFile, setFrontmatterSlug } from "@/lib/import/frontmatter"
 import { parsePostFiles } from "@/lib/import/postImport"
 import { postMediaPrefixFor } from "@/lib/import/postMedia"
 import {
+	deletePostMedia,
 	loadPostMedia,
 	type LoadedPostMedia,
 	logPendingUploads,
@@ -15,7 +16,11 @@ import {
 	writtenBodies,
 	writtenSlugs,
 } from "@/lib/import/postMediaRun"
-import { FAKE_STORE_ORIGIN, makeStore } from "@/test/blobStore"
+import {
+	FAKE_STORE_ORIGIN,
+	makeStore,
+	makeStoreHolding,
+} from "@/test/blobStore"
 import { ftypBox } from "@/test/mediaBytes"
 import type { BlobStore, ListedBlob, StoredBlob } from "@/lib/import/blobSync"
 import type { ExistingPost, ImportPlan } from "@/lib/import/postImport"
@@ -962,6 +967,138 @@ describe("prunePostMedia", () => {
 				prefix: PREFIX,
 				body: "Text only.",
 				isDryRun: false,
+				log: vi.fn(),
+			})
+		).rejects.toThrow("del down")
+	})
+})
+
+// #endregion
+
+// #region deletePostMedia
+
+describe("deletePostMedia", () => {
+	const current = listed("posts/tech/my-post/aaaa-shot.png")
+	const staleVersion = listed("posts/tech/my-post/bbbb-shot.png")
+	const nested = listed("posts/tech/my-post/media/cccc-demo.mp4")
+	const BODY = `![Shot](${current.url})\n\n![Demo](${nested.url})`
+
+	/** Deletes the tech post `my-post` with `body`, from a store holding `blobs`. */
+	async function deleteFrom(blobs: ListedBlob[], body = BODY) {
+		const store = makeStoreHolding(blobs)
+		const count = await deletePostMedia({
+			store,
+			section: "tech",
+			slug: "my-post",
+			body,
+			log: vi.fn(),
+		})
+		const deleted = vi.mocked(store.del).mock.calls.flatMap(([urls]) => urls)
+
+		return { store, count, deleted }
+	}
+
+	it("deletes everything under the post's prefix, a stale version included", async () => {
+		// The stale version is named by nothing, and no row is left to sweep it.
+		const { count, deleted } = await deleteFrom([current, staleVersion, nested])
+
+		expect(count).toBe(3)
+		expect(deleted.sort()).toEqual(
+			[current.url, staleVersion.url, nested.url].sort()
+		)
+	})
+
+	it("deletes the post's media even when the body names none of it", async () => {
+		const { deleted } = await deleteFrom([current], "Text only.")
+
+		expect(deleted).toEqual([current.url])
+	})
+
+	it("leaves the media of other posts", async () => {
+		const otherPost = listed("posts/tech/other-post/dddd-shot.png")
+		const longerSlug = listed("posts/tech/my-post-two/eeee-shot.png")
+		const project = listed("projects/my-post/ffff-icon.png")
+		const { deleted } = await deleteFrom([
+			current,
+			otherPost,
+			longerSlug,
+			project,
+		])
+
+		expect(deleted).toEqual([current.url])
+	})
+
+	it("deletes media left under another section when the body names it", async () => {
+		// The post was imported into life, then moved to tech in the admin. Its
+		// media stayed where the import put it.
+		const moved = listed("posts/life/my-post/gggg-shot.png")
+		const { deleted } = await deleteFrom([moved], `![Shot](${moved.url})`)
+
+		expect(deleted).toEqual([moved.url])
+	})
+
+	it("leaves another section's post with the same slug alone", async () => {
+		// A slug is unique only within its section: this is a different post.
+		const namesake = listed("posts/life/my-post/hhhh-shot.png")
+		const { count, deleted } = await deleteFrom([current, namesake])
+
+		expect(count).toBe(1)
+		expect(deleted).toEqual([current.url])
+	})
+
+	it("makes no delete call when the post has no media", async () => {
+		const { store, count } = await deleteFrom([], "Text only.")
+
+		expect(count).toBe(0)
+		expect(store.del).not.toHaveBeenCalled()
+	})
+
+	it("logs each deleted blob", async () => {
+		const log = vi.fn()
+
+		await deletePostMedia({
+			store: makeStoreHolding([current]),
+			section: "tech",
+			slug: "my-post",
+			body: BODY,
+			log,
+		})
+
+		expect(log).toHaveBeenCalledWith(`  × ${current.pathname} (deleted)`)
+	})
+
+	it("lets a list failure propagate, and deletes nothing", async () => {
+		const store = makeStore({
+			list: vi.fn(async () => {
+				throw new Error("list down")
+			}),
+		})
+
+		await expect(
+			deletePostMedia({
+				store,
+				section: "tech",
+				slug: "my-post",
+				body: BODY,
+				log: vi.fn(),
+			})
+		).rejects.toThrow("list down")
+		expect(store.del).not.toHaveBeenCalled()
+	})
+
+	it("lets a delete failure propagate", async () => {
+		const store = makeStoreHolding([current], {
+			del: vi.fn(async () => {
+				throw new Error("del down")
+			}),
+		})
+
+		await expect(
+			deletePostMedia({
+				store,
+				section: "tech",
+				slug: "my-post",
+				body: BODY,
 				log: vi.fn(),
 			})
 		).rejects.toThrow("del down")

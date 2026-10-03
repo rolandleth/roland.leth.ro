@@ -3,10 +3,12 @@
 // `scripts/import-posts.ts` passes in the file system and the real Blob store;
 // the tests pass in-memory fakes. The decisions live in `postMedia.ts`.
 
+import { type Section, SECTIONS } from "@/lib/db/sections"
 import {
 	type BlobStore,
 	deleteBlobs,
 	formatBytes,
+	listBlobs,
 	type ListedBlob,
 	type LoadedImage,
 	type Logger,
@@ -27,11 +29,11 @@ import {
 	mediaFileProblem,
 	orphanedPostMedia,
 	postMediaKeyFor,
+	postMediaPrefixFor,
 	rewriteLocalMedia,
 	scanLocalMedia,
 } from "@/lib/import/postMedia"
 import { contentHashFor, placeholderBlobUrl } from "@/lib/import/projectImport"
-import type { Section } from "@/lib/db/sections"
 
 /**
  * Reads one media file by its path relative to the post's folder. Resolves to
@@ -414,4 +416,43 @@ export async function prunePostMedia(options: {
 	}
 
 	return orphans.length
+}
+
+/**
+ * Deletes the media of a post that was just deleted, and returns how many
+ * blobs went. Everything under the post's own prefix goes, stale versions
+ * included: no row is left to name any of it.
+ *
+ * A post whose section was changed in the admin after its import still has its
+ * media under the old section's prefix. That prefix can also belong to a
+ * different post, since a slug is only unique within its section. So under
+ * another section's prefix for the same slug, only the blobs the deleted body
+ * names are deleted.
+ *
+ * Only call it once the row is gone. Errors propagate raw; the caller decides
+ * what a failed cleanup means (the row is deleted either way).
+ */
+export async function deletePostMedia(options: {
+	store: Pick<BlobStore, "list" | "del">
+	section: Section
+	slug: string
+	body: string
+	log: Logger
+}): Promise<number> {
+	const { store, section, slug, body, log } = options
+	const doomed: ListedBlob[] = []
+
+	for (const candidate of SECTIONS) {
+		const blobs = await listBlobs(store, postMediaPrefixFor(candidate, slug))
+
+		doomed.push(
+			...(candidate === section
+				? blobs
+				: blobs.filter((blob) => body.includes(blob.url)))
+		)
+	}
+
+	await deleteBlobs(store, doomed, log, "deleted")
+
+	return doomed.length
 }

@@ -42,6 +42,7 @@ import {
 	toSectionCreate,
 } from "@/lib/db/projectMappers"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
+import { blobStore } from "@/lib/import/blobStore"
 import {
 	formatBytes,
 	listProjectBlobs,
@@ -68,7 +69,6 @@ import {
 	selectProjectFolders,
 	syntheticBlobUrl,
 } from "@/lib/import/projectImport"
-import { scriptBlobStore } from "@/lib/import/scriptBlobStore"
 import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { errorMessage } from "@/lib/utils/errorMessage"
 
@@ -167,7 +167,7 @@ async function listExistingBlobs(
 	slug: string
 ): Promise<Map<string, StoredBlob>> {
 	try {
-		return await listProjectBlobs(scriptBlobStore, slug)
+		return await listProjectBlobs(blobStore, slug)
 	} catch (error) {
 		if (isBlobConfigError(error)) {
 			throw error
@@ -198,7 +198,7 @@ async function resolveImageUrls(
 		? new Map<string, StoredBlob>()
 		: await listExistingBlobs(slug)
 
-	return syncImages(scriptBlobStore, imagePaths, loaded, existing, console.log)
+	return syncImages(blobStore, imagePaths, loaded, existing, console.log)
 }
 
 /**
@@ -442,7 +442,7 @@ async function processProject(
 			// but doesn't fail the import — the rows are already live.
 			try {
 				const pruned = await pruneOrphans(
-					scriptBlobStore,
+					blobStore,
 					slug,
 					referencedImageUrls(data),
 					console.log

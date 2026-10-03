@@ -218,6 +218,16 @@ downloads the file. The CSP allows media from `'self'` and the Blob host
 (`media-src`), and the browser upload to `https://vercel.com/api/blob/`
 (`connect-src`).
 
+Deleting a post or a project in the admin also deletes the media the import
+scripts uploaded for it: everything under `posts/<section>/<slug>/` or
+`projects/<slug>/` (`src/lib/api/mediaCleanup.ts`). A post whose section was
+changed after its import has its media under the old section, where only the
+blobs its body names are deleted, because that prefix can belong to another
+post with the same slug. The cleanup runs after the row is gone and never fails
+the delete; a failure is a warning in the route's log. Files uploaded through
+the admin have UUID keys at the store root and are left to
+`blob:prune-uploads`.
+
 ## Legacy URL handling
 
 All rules live in `src/lib/routing/legacyRoutes.ts` and are wired into `next.config.ts` via `redirects()` and `rewrites()`. Vercel compiles both into its routing layer, so they resolve **without a function invocation** — and `redirects()` runs ahead of middleware, so a legacy hit never reaches one. Keep them there; moving any of this back into `src/proxy.ts` puts it back on billed compute.
