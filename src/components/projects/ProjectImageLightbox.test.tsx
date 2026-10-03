@@ -16,28 +16,31 @@ vi.mock("next/image", () => ({
 
 const images: GalleryImage[] = [
 	{
-		id: 1,
+		key: "section-image-1",
 		url: "/a.jpg",
 		caption: "First slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 0,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 	{
-		id: 2,
+		key: "section-image-2",
 		url: "/b.jpg",
 		caption: "Second slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 1,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 	{
-		id: 3,
+		key: "section-image-3",
 		url: "/c.jpg",
 		caption: null,
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 2,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 ]
 

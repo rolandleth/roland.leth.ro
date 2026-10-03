@@ -1,7 +1,14 @@
 import { revalidateTag, unstable_cache } from "next/cache"
 import { cache } from "react"
 import { Prisma } from "@/generated/prisma/client"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
@@ -14,7 +21,7 @@ export interface ProjectListItem {
 	slug: string
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
-	isFeatured: boolean
+	prominence: ProjectProminence
 	isDiscontinued: boolean
 	sortOrder: number
 	icon: string | null
@@ -31,6 +38,17 @@ export interface ProjectGalleryItem extends ProjectListItem {
 	featuredImage: string | null
 	accentColor: string | null
 	role: string | null
+	isOwnApp: boolean
+	/**
+	 * The product page's hero image, resolved the same way (`resolveHeroImage`):
+	 * an own app's gallery tile shows the picture its page leads with.
+	 */
+	productHeroImage: string | null
+	heroImageAlt: string | null
+	heroEyebrow: string | null
+	heroHeadline: string | null
+	palette: ProjectPalette | null
+	links: { id: number; label: string; url: string }[]
 }
 
 /**
@@ -44,7 +62,44 @@ export interface ProjectOffer {
 	price: string
 	priceCurrency: string
 	billingPeriod?: string
+	/** The `ProjectPlan.name` this price belongs to, on the product page. */
+	plan?: string
+	/** A short line printed with the price on the product page. */
+	note?: string
+	/** The price the product page marks "Best value"; at most one per project. */
+	isBestValue?: boolean
 	sortOrder?: number
+}
+
+/**
+ * One plan card on the own-app product page, stored in the `plans` Json column.
+ * Mirrors `projectPlanSchema`; narrowed from `JsonValue` in `getProjectBySlug`
+ * the same way `offers` is.
+ *
+ * `type`, not `interface`, here and in the two palette types below: these are
+ * written back into Json columns (`toProductPageCreate`), and only a type alias
+ * satisfies Prisma's index-signature `InputJsonObject`.
+ */
+export type ProjectPlan = {
+	name: string
+	isHighlighted?: boolean
+	features: string[]
+	sortOrder?: number
+}
+
+/** One theme's band and small-text colours. Mirrors `paletteThemeSchema`. */
+export type ProjectPaletteTheme = {
+	band: string
+	bandInk: string
+	bandInk2: string
+	bandHighlight: string
+	accentText: string
+}
+
+/** The `palette` Json column. Mirrors `projectPaletteSchema`. */
+export type ProjectPalette = {
+	light: ProjectPaletteTheme
+	dark: ProjectPaletteTheme
 }
 
 export interface ProjectDetail {
@@ -64,9 +119,20 @@ export interface ProjectDetail {
 	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
+	metaDescription: string | null
+	heroEyebrow: string | null
+	heroHeadline: string | null
+	heroImageAlt: string | null
+	storeNote: string | null
+	closingHeadline: string | null
+	closingBody: string | null
+	disclaimer: string | null
+	plans: ProjectPlan[] | null
+	palette: ProjectPalette | null
 	date: string | null
 	sortOrder: number
 	createdAt: Date
@@ -77,12 +143,30 @@ export interface ProjectDetail {
 		title: string
 		description: string
 		sortOrder: number
+		kind: ProjectSectionKind
+		layout: ProjectSectionLayout | null
 		images: {
 			id: number
 			sectionId: number
 			url: string
 			caption: string | null
+			alt: string | null
 			sortOrder: number
+		}[]
+		items: {
+			id: number
+			sectionId: number
+			title: string
+			description: string
+			sortOrder: number
+			images: {
+				id: number
+				itemId: number
+				url: string
+				caption: string | null
+				alt: string | null
+				sortOrder: number
+			}[]
 		}[]
 	}[]
 	links: {
@@ -110,13 +194,23 @@ const gallerySelect = {
 	platformTags: true,
 	role: true,
 	accentColor: true,
-	isFeatured: true,
+	prominence: true,
 	isDiscontinued: true,
+	isOwnApp: true,
 	sortOrder: true,
 	icon: true,
 	cardImage: true,
 	ogImage: true,
 	heroImage: true,
+	heroImageAlt: true,
+	heroEyebrow: true,
+	heroHeadline: true,
+	palette: true,
+	// The store buttons on an own app's gallery tile.
+	links: {
+		orderBy: { sortOrder: "asc" as const },
+		select: { id: true, label: true, url: true },
+	},
 	// Only the first image of each section (in sortOrder) — enough to resolve the
 	// `firstImage` fallback in `resolveCardImage` without loading entire galleries.
 	sections: {
@@ -208,15 +302,33 @@ export function resolveOgImage(project: {
 }
 
 /**
+ * The image beside the own-app product page's hero: `heroImage`, else the card
+ * image, else the OG image. A card or OG asset is a landscape showcase made
+ * for the project (Reckon's and Continuum's are hero compositions), which suits
+ * the slot; a section screenshot doesn't, and would repeat lower on the page.
+ */
+export function resolveHeroImage(project: {
+	heroImage: string | null
+	cardImage: string | null
+	ogImage: string | null
+}): string | null {
+	return firstImage([project.heroImage, project.cardImage, project.ogImage])
+}
+
+/**
  * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
- * image precedence into a single `featuredImage` and dropping the raw image
- * columns the list surfaces don't render.
+ * image precedence into a single `featuredImage`, and the hero's into
+ * `productHeroImage`, and dropping the raw image columns the list surfaces
+ * don't render. The `palette` cast is the one `getProjectBySlug` makes, for
+ * the same reason: the write path validates the column against
+ * `projectPaletteSchema`.
  */
 function toGalleryItem({
 	cardImage,
 	ogImage,
 	heroImage,
 	sections,
+	palette,
 	...rest
 }: GalleryRow): ProjectGalleryItem {
 	return {
@@ -227,8 +339,20 @@ function toGalleryItem({
 			heroImage,
 			sections,
 		}),
+		productHeroImage: resolveHeroImage({ heroImage, cardImage, ogImage }),
+		palette: palette as unknown as ProjectPalette | null,
 	}
 }
+
+/**
+ * The gallery cache key's shape part. `unstable_cache` keys on its callback's
+ * source and the key parts, and the callback names `gallerySelect` rather than
+ * spelling it out, so a change to the select would otherwise keep the key and
+ * serve rows from older code to newer code that expects more (the crash
+ * `wrapNullableDetail`'s `shape` prevents on the detail pages). A change to
+ * `toGalleryItem` that changes the item's fields must change this too.
+ */
+const GALLERY_SHAPE = JSON.stringify(gallerySelect)
 
 /**
  * Aggregate tag on the projects gallery/slug-list caches, busted by any project
@@ -253,7 +377,7 @@ const projectsGalleryCache = unstable_cache(
 				],
 			})
 		).map(toGalleryItem),
-	["projects-gallery"],
+	["projects-gallery", GALLERY_SHAPE],
 	{ tags: [PROJECTS_TAG] }
 )
 
@@ -304,7 +428,7 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 			slug: true,
 			bucket: true,
 			platformTags: true,
-			isFeatured: true,
+			prominence: true,
 			isDiscontinued: true,
 			sortOrder: true,
 			icon: true,
@@ -319,17 +443,28 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 export {
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
+	type ProductPageInput,
 	type ProjectFaqInput,
 	type ProjectLinkInput,
 	type ProjectSectionInput,
 } from "./projectMappers"
 
-/** Prisma `include` clause for fetching sections (with images) and links, ordered by sortOrder. */
+/**
+ * Prisma `include` clause for fetching sections (with their images, and their
+ * items with theirs), links and FAQs, each ordered by sortOrder.
+ */
 export const projectInclude = {
 	sections: {
 		orderBy: { sortOrder: "asc" as const },
-		include: { images: { orderBy: { sortOrder: "asc" as const } } },
+		include: {
+			images: { orderBy: { sortOrder: "asc" as const } },
+			items: {
+				orderBy: { sortOrder: "asc" as const },
+				include: { images: { orderBy: { sortOrder: "asc" as const } } },
+			},
+		},
 	},
 	links: { orderBy: { sortOrder: "asc" as const } },
 	faqs: { orderBy: { sortOrder: "asc" as const } },
@@ -348,6 +483,23 @@ function projectTag(slug: string): string {
 
 /** Rides on every project detail wrapper; busted only by `revalidateAllProjects`. */
 const PROJECT_PAGES_TAG = "project-pages"
+
+/**
+ * What decides the cached project row's fields (see `wrapNullableDetail`): the
+ * query has no `select`, so every column of every model it reads, plus the
+ * include that joins them. A schema change moves the cache key by itself, at
+ * the cost of one cold fetch per project.
+ */
+const PROJECT_DETAIL_SHAPE = [
+	Object.values(Prisma.ProjectScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionImageScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionItemScalarFieldEnum),
+	Object.values(Prisma.ProjectSectionItemImageScalarFieldEnum),
+	Object.values(Prisma.ProjectLinkScalarFieldEnum),
+	Object.values(Prisma.ProjectFaqScalarFieldEnum),
+	projectInclude,
+]
 
 // One cache wrapper per slug, built lazily on first access and reused for every
 // subsequent call. Preserves the per-project tag used by targeted revalidation
@@ -383,13 +535,18 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 			// shaped decimal string with no re-check. A row written around the
 			// schema (raw SQL, a future importer that skips the parse) breaks that
 			// assumption here, not at the consumer.
+			// `plans` and `palette` are the same kind of column, narrowed for the
+			// same reason, against `projectPlanSchema` and `projectPaletteSchema`.
 			return {
 				...row,
 				offers: row.offers as unknown as ProjectOffer[] | null,
+				plans: row.plans as unknown as ProjectPlan[] | null,
+				palette: row.palette as unknown as ProjectPalette | null,
 			}
 		},
 		[projectTag(slug)],
-		[projectTag(slug), PROJECT_PAGES_TAG]
+		[projectTag(slug), PROJECT_PAGES_TAG],
+		PROJECT_DETAIL_SHAPE
 	)
 }
 
@@ -479,6 +636,7 @@ export function toProjectFormInitialData(project: AdminProjectDetail) {
 			images: section.images.map((image) => ({
 				...image,
 				caption: image.caption ?? "",
+				alt: image.alt ?? "",
 			})),
 		})),
 	}

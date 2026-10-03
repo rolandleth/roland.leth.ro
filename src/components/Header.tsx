@@ -21,12 +21,19 @@ export default function Header() {
 		return pathname === href || pathname.startsWith(href + "/")
 	}
 
+	// The bar sits on the site frame (`--site-max-width`, `--site-gutter` in
+	// globals.css), the same one the product page lays its hero on.
+	// `data-site-header` is the hook the product page uses to give the bar its
+	// hero's band colour, so the band runs up under it (`ProductPageStyle`).
 	return (
 		<>
-			<header className="border-border fixed top-0 right-0 left-0 z-50 border-b bg-(--color-header-bg)/90 backdrop-blur-xl">
+			<header
+				data-site-header
+				className="border-border fixed top-0 right-0 left-0 z-50 border-b bg-(--color-header-bg)/90 backdrop-blur-xl"
+			>
 				<nav
 					aria-label="Main"
-					className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4"
+					className="mx-auto flex h-14 max-w-(--site-max-width) items-center justify-between px-(--site-gutter)"
 				>
 					<Link
 						href="/"

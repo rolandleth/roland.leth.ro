@@ -9,6 +9,7 @@
 	--color-background: var(--color-background-value);
 	--color-border: var(--color-border-value);
 	--color-accent: var(--color-accent-value);
+	--color-surface: var(--color-surface-value);
 	--font-sans: var(--font-body);
 	--font-serif: var(--font-heading);
 	--font-mono: var(--font-code);
@@ -25,6 +26,9 @@
 	--color-background-transparent: #f9fafb00;
 	--color-border-value: #e5e7eb;
 	--color-accent-value: #0d8fb5;
+	/* A card raised off the page: white on the light page, a 4% white lift on
+	   the dark one. */
+	--color-surface-value: #ffffff;
 	--color-header-accent: var(--color-accent-value);
 	--color-header-bg: color-mix(
 		in srgb,
@@ -44,6 +48,11 @@
 	--color-background-transparent: #03071200;
 	--color-border-value: #1f2937;
 	--color-accent-value: #12a8da;
+	--color-surface-value: color-mix(
+		in srgb,
+		#ffffff 4%,
+		var(--color-background-value)
+	);
 	--color-header-bg: color-mix(
 		in srgb,
 		var(--color-background-value) 94%,
@@ -52,6 +61,23 @@
 	--blob2-opacity-from: 0.08;
 	--blob2-opacity-to: 0.1;
 	--blob3-opacity-from: 0.08;
+}
+
+/* The site frame, from the product page design: 1200px wide, with a gutter
+   that grows from 16 to 32 to 48px. The site header uses it on every page, so
+   the bar doesn't change width between pages; the product page lays its hero
+   and sections on it (`.product-frame`), so its logo lines up with the hero. */
+:root {
+	--site-max-width: 1200px;
+	--site-gutter: 1rem;
+
+	@variant sm {
+		--site-gutter: 2rem;
+	}
+
+	@variant lg {
+		--site-gutter: 3rem;
+	}
 }
 
 body {
@@ -197,6 +223,260 @@ code[data-theme*=" "] span {
 	font-weight: normal;
 }
 
+/* Own-app product page (`src/components/projects/product`), and an own app's
+   tile in the gallery, which wears the same colours. The per-project values
+   (`--project-accent`, and the band palette when the project has one) come
+   from `ProductPageStyle` and `AppTileStyle`; these are the defaults without a
+   palette: an accent tint behind the hero, the closing and the highlighted
+   plan, or behind the tile. */
+.product-page,
+.app-tile {
+	--project-accent: var(--color-accent-value);
+	--product-band-surface: color-mix(
+		in srgb,
+		var(--project-accent) 9%,
+		var(--color-background-value)
+	);
+	--product-band: var(--product-band-surface);
+	--product-band-ink: var(--color-primary-value);
+	--product-band-ink2: var(--color-secondary-value);
+	--product-band-hi: var(--project-accent);
+	/* Small accent-coloured text and marks. The project's one accent can't
+	   reach 4.5:1 on both the light and the dark page, so a palette sets one
+	   per theme; without one, the accent is all there is. */
+	--product-accent-text: var(--project-accent);
+	--product-surface: var(--color-surface-value);
+}
+
+/* Screenshots: a hairline so a light image's edge doesn't vanish into the page,
+   and a soft shadow under it. The hairline is the text colour at low alpha, so
+   it turns light on a dark page or band. Dark mode drops the shadow, which
+   doesn't show on a near-black page. */
+.product-shot {
+	--product-shot-edge: var(--color-primary-value);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--product-shot-edge) 8%, transparent),
+		0 2px 4px rgb(3 7 18 / 0.04),
+		0 18px 40px -16px rgb(3 7 18 / 0.3);
+}
+
+.product-band .product-shot {
+	--product-shot-edge: var(--product-band-ink);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--product-shot-edge) 12%, transparent),
+		0 28px 56px -20px rgb(0 0 0 / 0.45);
+}
+
+.dark .product-shot {
+	box-shadow: 0 0 0 1px
+		color-mix(in srgb, var(--product-shot-edge) 12%, transparent);
+}
+
+/* Plan cards. The highlighted plan takes the band colours, and its border the
+   band's highlight: with no border of its own it drew less attention than the
+   plain card's grey outline. */
+.product-plan {
+	padding: 26px 26px 28px;
+	border: 1px solid var(--color-border-value);
+	border-radius: 14px;
+	background: var(--product-surface);
+	color: var(--color-primary-value);
+}
+
+/* The best-value price (`ProductPlans`): a tile with the accent border, the
+   price in the accent, and the "Best value" badge sitting on the tile's top
+   edge. Every price on the page gets the same tile, invisible, so they stay
+   level; the top padding leaves the badge room. */
+.product-plan__price {
+	position: relative;
+	padding: 22px 10px 10px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+}
+
+.product-plan__price--best {
+	--best-value-accent: var(--product-accent-text);
+
+	border-color: var(--best-value-accent);
+	background: var(--product-surface);
+}
+
+.product-plan--highlighted .product-plan__price--best {
+	--best-value-accent: var(--product-band-hi);
+}
+
+.product-plan__price--best .product-plan__amount,
+.product-plan__saving {
+	color: var(--best-value-accent);
+}
+
+.product-plan__saving {
+	font-weight: 600;
+}
+
+.product-plan__badge {
+	position: absolute;
+	top: 0;
+	left: 50%;
+	translate: -50% -50%;
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: var(--best-value-accent);
+	color: var(--product-surface);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.1;
+	white-space: nowrap;
+}
+
+.product-plan__prices {
+	border-bottom: 1px solid var(--color-border-value);
+}
+
+.product-plan__label {
+	color: var(--color-secondary-value);
+}
+
+.product-plan__features {
+	list-style: disc;
+}
+
+.product-plan__features li::marker {
+	color: var(--product-accent-text);
+}
+
+.product-plan--highlighted {
+	border-color: var(--product-band-hi);
+	background: var(--product-band-surface);
+	color: var(--product-band-ink);
+}
+
+.product-plan--highlighted .product-plan__prices {
+	border-bottom-color: color-mix(
+		in srgb,
+		var(--product-band-ink) 16%,
+		transparent
+	);
+}
+
+/* A lone plan's features, beside its name and prices from 640px: the divider
+   is the same line as under the prices of a card in a row, turned upright. */
+.product-plan__aside {
+	padding-top: 20px;
+	border-top: 1px solid var(--color-border-value);
+}
+
+@media (min-width: 640px) {
+	.product-plan__aside {
+		padding-top: 0;
+		padding-left: 40px;
+		border-top: 0;
+		border-left: 1px solid var(--color-border-value);
+	}
+}
+
+.product-plan--highlighted .product-plan__aside {
+	border-color: color-mix(in srgb, var(--product-band-ink) 16%, transparent);
+}
+
+.product-plan--highlighted .product-plan__label {
+	color: var(--product-band-ink2);
+}
+
+.product-plan--highlighted .product-plan__features li::marker {
+	color: var(--product-band-hi);
+}
+
+/* Numbered steps, a `steps` section's items (`ProductStepsSection`): the
+   number beside the title, the text and the step's gallery indented under the
+   title. The list sits outside `.prose`; each step's text is a `.prose` of its
+   own, whose first and last margins typography already drops. */
+.product-steps {
+	display: grid;
+	gap: 44px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Steps are set apart by space, not rules: a rule over the first step sat
+   right under the section's title, with the section's own rule just above. */
+.product-step {
+	margin: 0;
+}
+
+.product-step__title {
+	display: grid;
+	grid-template-columns: 44px minmax(0, 1fr);
+	gap: 14px;
+	align-items: center;
+	margin: 0;
+	font-family: var(--font-body);
+	font-size: 19px;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.product-step__num {
+	font-family: var(--font-heading);
+	font-size: 40px;
+	font-weight: 400;
+	line-height: 1;
+	color: var(--product-accent-text);
+}
+
+.product-step__body {
+	margin-top: 8px;
+	margin-left: 58px;
+}
+
+@media (max-width: 639px) {
+	.product-step__title {
+		grid-template-columns: 32px minmax(0, 1fr);
+		gap: 10px;
+	}
+
+	.product-step__num {
+		font-size: 32px;
+	}
+
+	.product-step__body {
+		margin-left: 42px;
+	}
+}
+
+/* The page's one load moment: the hero rises in, 0.25s, staggered a little.
+   Off when the reader asks for less motion. In-page jumps (the section rail,
+   "See how it works") scroll there instead of cutting, on product pages only;
+   `data-scroll-behavior` on `<html>` keeps route changes instant. The FAQ's
+   answers animate in `FaqItem`, with Framer: CSS can animate a height to
+   `auto` only in Chromium. */
+@media (prefers-reduced-motion: no-preference) {
+	html:has(.product-page) {
+		scroll-behavior: smooth;
+	}
+
+	.product-hero-fade {
+		animation: product-hero-up 0.25s ease-out both;
+	}
+
+	.product-hero-fade + .product-hero-fade {
+		animation-delay: 120ms;
+	}
+}
+
+@keyframes product-hero-up {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
 @layer components {
 	.admin-input {
 		@apply border-border bg-background text-primary focus:border-accent rounded-md border px-3 py-2 text-sm transition-colors outline-none;
@@ -208,6 +488,10 @@ code[data-theme*=" "] span {
 
 	.admin-delete-btn {
 		@apply text-sm text-red-500 transition-opacity hover:opacity-75 disabled:cursor-not-allowed disabled:opacity-50;
+	}
+
+	.product-frame {
+		@apply mx-auto w-full max-w-(--site-max-width) px-(--site-gutter);
 	}
 
 }

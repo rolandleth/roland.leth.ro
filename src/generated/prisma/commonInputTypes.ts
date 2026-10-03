@@ -250,6 +250,20 @@ export type EnumPlatformBucketFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel> | $Enums.PlatformBucket
 }
 
+export type EnumProjectProminenceFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectProminence | Prisma.EnumProjectProminenceFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel> | $Enums.ProjectProminence
+}
+
+export type EnumProjectPageLayoutFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectPageLayout | Prisma.EnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel> | $Enums.ProjectPageLayout
+}
+
 export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
 | Prisma.PatchUndefined<
     Prisma.Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
@@ -285,6 +299,60 @@ export type EnumPlatformBucketWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
   _max?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
+}
+
+export type EnumProjectProminenceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectProminence | Prisma.EnumProjectProminenceFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectProminenceWithAggregatesFilter<$PrismaModel> | $Enums.ProjectProminence
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel>
+}
+
+export type EnumProjectPageLayoutWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectPageLayout | Prisma.EnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectPageLayoutWithAggregatesFilter<$PrismaModel> | $Enums.ProjectPageLayout
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel>
+}
+
+export type EnumProjectSectionKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionKind | Prisma.EnumProjectSectionKindFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel> | $Enums.ProjectSectionKind
+}
+
+export type EnumProjectSectionLayoutNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionLayout | Prisma.EnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel> | $Enums.ProjectSectionLayout | null
+}
+
+export type EnumProjectSectionKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionKind | Prisma.EnumProjectSectionKindFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectSectionKindWithAggregatesFilter<$PrismaModel> | $Enums.ProjectSectionKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel>
+}
+
+export type EnumProjectSectionLayoutNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionLayout | Prisma.EnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumProjectSectionLayoutNullableWithAggregatesFilter<$PrismaModel> | $Enums.ProjectSectionLayout | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel>
 }
 
 export type NestedIntFilter<$PrismaModel = never> = {
@@ -512,6 +580,20 @@ export type NestedEnumPlatformBucketFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel> | $Enums.PlatformBucket
 }
 
+export type NestedEnumProjectProminenceFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectProminence | Prisma.EnumProjectProminenceFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel> | $Enums.ProjectProminence
+}
+
+export type NestedEnumProjectPageLayoutFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectPageLayout | Prisma.EnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel> | $Enums.ProjectPageLayout
+}
+
 export type NestedJsonNullableFilter<$PrismaModel = never> =
 | Prisma.PatchUndefined<
     Prisma.Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
@@ -544,6 +626,60 @@ export type NestedEnumPlatformBucketWithAggregatesFilter<$PrismaModel = never> =
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
   _max?: Prisma.NestedEnumPlatformBucketFilter<$PrismaModel>
+}
+
+export type NestedEnumProjectProminenceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectProminence | Prisma.EnumProjectProminenceFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectProminence[] | Prisma.ListEnumProjectProminenceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectProminenceWithAggregatesFilter<$PrismaModel> | $Enums.ProjectProminence
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectProminenceFilter<$PrismaModel>
+}
+
+export type NestedEnumProjectPageLayoutWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectPageLayout | Prisma.EnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectPageLayout[] | Prisma.ListEnumProjectPageLayoutFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectPageLayoutWithAggregatesFilter<$PrismaModel> | $Enums.ProjectPageLayout
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectPageLayoutFilter<$PrismaModel>
+}
+
+export type NestedEnumProjectSectionKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionKind | Prisma.EnumProjectSectionKindFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel> | $Enums.ProjectSectionKind
+}
+
+export type NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionLayout | Prisma.EnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel> | $Enums.ProjectSectionLayout | null
+}
+
+export type NestedEnumProjectSectionKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionKind | Prisma.EnumProjectSectionKindFieldRefInput<$PrismaModel>
+  in?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ProjectSectionKind[] | Prisma.ListEnumProjectSectionKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumProjectSectionKindWithAggregatesFilter<$PrismaModel> | $Enums.ProjectSectionKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectSectionKindFilter<$PrismaModel>
+}
+
+export type NestedEnumProjectSectionLayoutNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ProjectSectionLayout | Prisma.EnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  in?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.ProjectSectionLayout[] | Prisma.ListEnumProjectSectionLayoutFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumProjectSectionLayoutNullableWithAggregatesFilter<$PrismaModel> | $Enums.ProjectSectionLayout | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumProjectSectionLayoutNullableFilter<$PrismaModel>
 }
 
 

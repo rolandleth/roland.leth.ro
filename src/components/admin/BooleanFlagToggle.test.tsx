@@ -38,7 +38,8 @@ function mockFetchRejected(reason: unknown) {
 }
 
 // Convenience wrappers so each test reads at the intent level — "Published
-// toggle" / "Featured toggle" — instead of repeating the four props inline.
+// toggle" / "Discontinued toggle" — instead of repeating the four props inline.
+// No admin list toggles Discontinued today; it stands in for any second key.
 function renderPublished(
 	props: { initial: boolean; postId?: number } = { initial: false }
 ) {
@@ -53,7 +54,7 @@ function renderPublished(
 	)
 }
 
-function renderFeatured(
+function renderDiscontinued(
 	props: { initial: boolean; projectId?: number } = { initial: false }
 ) {
 	const projectId = props.projectId ?? 1
@@ -61,8 +62,8 @@ function renderFeatured(
 		<BooleanFlagToggle
 			initial={props.initial}
 			url={`/api/admin/projects/${projectId}`}
-			payloadKey="isFeatured"
-			label="Featured"
+			payloadKey="isDiscontinued"
+			label="Discontinued"
 		/>
 	)
 }
@@ -107,18 +108,18 @@ describe("BooleanFlagToggle save behaviour", () => {
 		expect(JSON.parse(options.body)).toEqual({ published: true })
 	})
 
-	it("supports an alternate payload key (isFeatured) without code duplication", async () => {
+	it("supports an alternate payload key (isDiscontinued) without code duplication", async () => {
 		mockRouter()
 		mockFetchResolved(true)
 
-		renderFeatured({ initial: false, projectId: 7 })
+		renderDiscontinued({ initial: false, projectId: 7 })
 		await user.click(screen.getByRole("checkbox"))
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
 		const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock
 			.calls[0]
 		expect(url).toBe("/api/admin/projects/7")
-		expect(JSON.parse(options.body)).toEqual({ isFeatured: true })
+		expect(JSON.parse(options.body)).toEqual({ isDiscontinued: true })
 	})
 
 	it("calls router.refresh on success", async () => {
@@ -249,7 +250,7 @@ describe("BooleanFlagToggle save behaviour", () => {
 				() => new Promise((resolve) => (resolveFetch = resolve))
 			)
 
-		renderFeatured({ initial: false })
+		renderDiscontinued({ initial: false })
 		await user.click(screen.getByRole("checkbox"))
 		await user.click(screen.getByRole("checkbox"))
 

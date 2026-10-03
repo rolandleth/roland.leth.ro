@@ -486,6 +486,37 @@ describe("projectCreateSchema", () => {
 		).toBe(false)
 	})
 
+	it.each(["high", "medium", "low"])("takes prominence %s", (prominence) => {
+		const result = projectCreateSchema.safeParse({ ...valid, prominence })
+
+		expect(result.success && result.data.prominence).toBe(prominence)
+	})
+
+	it.each(["product", "portfolio"])("takes page layout %s", (pageLayout) => {
+		const result = projectCreateSchema.safeParse({ ...valid, pageLayout })
+
+		expect(result.success && result.data.pageLayout).toBe(pageLayout)
+	})
+
+	it.each([
+		["prominence", "featured"],
+		["prominence", "High"],
+		["prominence", true],
+		["pageLayout", "magazine"],
+		["pageLayout", null],
+	])("rejects %s set to %j", (key, value) => {
+		expect(
+			projectCreateSchema.safeParse({ ...valid, [key]: value }).success
+		).toBe(false)
+	})
+
+	it("leaves prominence and page layout unset when they're omitted, for the route to default", () => {
+		const result = projectCreateSchema.safeParse(valid)
+
+		expect(result.success && result.data.prominence).toBeUndefined()
+		expect(result.success && result.data.pageLayout).toBeUndefined()
+	})
+
 	it("accepts a fully-populated payload with sections and links", () => {
 		const result = projectCreateSchema.safeParse({
 			...valid,
@@ -493,7 +524,8 @@ describe("projectCreateSchema", () => {
 			accentColor: "#6366f1",
 			icon: "https://example.com/icon.png",
 			heroImage: "https://example.com/hero.png",
-			isFeatured: true,
+			prominence: "high",
+			pageLayout: "product",
 			isDiscontinued: false,
 			isOwnApp: true,
 			date: "2024",
@@ -503,6 +535,8 @@ describe("projectCreateSchema", () => {
 					title: "Overview",
 					description: "The main overview section.",
 					sortOrder: 0,
+					kind: "text",
+					layout: "stacked",
 					images: [
 						{
 							url: "https://example.com/screenshot.png",
@@ -778,6 +812,8 @@ describe("projectCreateSchema", () => {
 				{
 					title: "Section",
 					description: "Desc",
+					kind: "text",
+					layout: "stacked",
 					images: [{ url: "ftp://bad.example.com/img.png" }],
 				},
 			],
@@ -1296,6 +1332,8 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 				{
 					title: "S",
 					description: "D",
+					kind: "text",
+					layout: "stacked",
 					images: [
 						{ url: "https://example.com/i.png", caption: "x".repeat(301) },
 					],
@@ -1308,7 +1346,14 @@ describe("projectCreateSchema — role/accentColor/nested field bounds", () => {
 	it("rejects a section title longer than 200 characters", () => {
 		const result = projectCreateSchema.safeParse({
 			...baseProject,
-			sections: [{ title: "x".repeat(201), description: "D" }],
+			sections: [
+				{
+					title: "x".repeat(201),
+					description: "D",
+					kind: "text",
+					layout: "stacked",
+				},
+			],
 		})
 		expect(result.success).toBe(false)
 	})
@@ -1356,6 +1401,648 @@ describe("projectCreateSchema — accentColor hex validation", () => {
 			accentColor: null,
 		})
 		expect(result.success).toBe(true)
+	})
+})
+
+// #endregion
+
+// #region Product-page fields
+
+describe("projectCreateSchema — product-page fields", () => {
+	const base = {
+		name: "Digest",
+		slug: "digest",
+		summary: "A food and symptom journal.",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
+	}
+	const theme = {
+		band: "#24443a",
+		bandInk: "#f4f1e8",
+		bandInk2: "#c9d3cc",
+		bandHighlight: "#cfa75a",
+		accentText: "#2e7d5b",
+	}
+	const plans = [
+		{ name: "Free, forever", features: ["Meals."], sortOrder: 1 },
+		{
+			name: "Insights",
+			isHighlighted: true,
+			features: ["Suspects."],
+			sortOrder: 2,
+		},
+	]
+	const offers = [
+		{ name: "Free", plan: "Free, forever", price: "0", priceCurrency: "USD" },
+		{
+			name: "Insights, monthly",
+			plan: "Insights",
+			price: "6.99",
+			priceCurrency: "USD",
+			billingPeriod: "P1M",
+		},
+	]
+
+	function issueMessages(input: unknown): string[] {
+		const result = projectCreateSchema.safeParse(input)
+
+		return result.success ? [] : result.error.issues.map((i) => i.message)
+	}
+
+	it("accepts a full product page: text fields, plans, offers with plans and notes, palette, every section kind", () => {
+		const result = projectCreateSchema.safeParse({
+			...base,
+			pageLayout: "product",
+			isOwnApp: true,
+			metaDescription: "Digest is a food and symptom journal for iPhone.",
+			heroEyebrow: "Food and symptom journal for iPhone and iPad",
+			heroHeadline: "Find which foods to suspect",
+			heroImageAlt: "Four cards from Digest.",
+			storeNote: "Logging is free, forever.",
+			closingHeadline: "10 seconds a meal",
+			closingBody: "Three weeks of this is the cheap way to find out.",
+			disclaimer: "Digest is not a medical device.",
+			plans,
+			offers: [offers[0], { ...offers[1], note: "14-day free trial" }],
+			palette: { light: theme, dark: theme },
+			sections: [
+				{
+					title: "Guessing cuts too much",
+					description: "A guess takes out more than it needs to.",
+					kind: "text",
+					layout: "stacked",
+					images: [
+						{
+							url: "https://example.com/a.png",
+							caption: null,
+							alt: "A long description.",
+						},
+					],
+				},
+				{
+					title: "How it works",
+					kind: "steps",
+					items: [
+						{
+							title: "Log a meal in 10 seconds",
+							description: "Type it.",
+							images: [{ url: "https://example.com/log.png", alt: "Log." }],
+						},
+						{ title: "Then how you feel", description: "Log it." },
+					],
+				},
+				{
+					title: "Test a suspect",
+					description: "Stop eating it for a while.",
+					kind: "text",
+					layout: "split",
+				},
+				{
+					title: "Free and paid",
+					description: "Prices are for the US.",
+					kind: "pricing",
+				},
+			],
+		})
+
+		expect(result.success).toBe(true)
+	})
+
+	it("collapses whitespace in the meta description and caps it at the description limit", () => {
+		const collapsed = projectCreateSchema.safeParse({
+			...base,
+			metaDescription: "Two\nlines.",
+		})
+		expect(collapsed.success && collapsed.data.metaDescription).toBe(
+			"Two lines."
+		)
+
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				metaDescription: "x".repeat(DESCRIPTION_MAX_CHARS + 1),
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an empty hero line rather than storing an empty heading part", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, heroEyebrow: "   " }).success
+		).toBe(false)
+	})
+
+	it("rejects text fields past their limits", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, heroHeadline: "x".repeat(81) })
+				.success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({ ...base, storeNote: "x".repeat(121) })
+				.success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({ ...base, closingBody: "x".repeat(201) })
+				.success
+		).toBe(false)
+	})
+
+	it("rejects two plans with the same name, since offers point at plans by name", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans: [plans[0], { ...plans[1], name: "Free, forever" }],
+			})
+		).toContain("Duplicate plan names: Free, forever")
+	})
+
+	it("rejects more than one highlighted plan", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans: [{ ...plans[0], isHighlighted: true }, plans[1]],
+			})
+		).toContain("At most one plan can be highlighted")
+	})
+
+	it("rejects a plan with no features", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [{ name: "Free", features: [] }],
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects an offer that names no plan when the project has plans", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans,
+				offers: [{ name: "Free", price: "0", priceCurrency: "USD" }],
+			})
+		).toContain("Every offer needs a plan when the project has plans")
+	})
+
+	it("rejects an offer that names a plan that doesn't exist", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans,
+				offers: [{ ...offers[0], plan: "Pro" }],
+			})
+		).toContain('No plan is named "Pro"')
+	})
+
+	it("rejects an offer naming a plan when a create sends no plans at all", () => {
+		expect(issueMessages({ ...base, offers })).toEqual(
+			expect.arrayContaining(['No plan is named "Free, forever"'])
+		)
+	})
+
+	const oneTime = [{ name: "One-time", price: "3.99", priceCurrency: "USD" }]
+	const plansMessage =
+		"A product page with offers needs plans: it prints prices inside plan cards"
+
+	it("rejects a product page with offers and no plans, since its prices print only inside plan cards", () => {
+		expect(
+			issueMessages({ ...base, pageLayout: "product", offers: oneTime })
+		).toContain(plansMessage)
+		expect(
+			issueMessages({
+				...base,
+				pageLayout: "product",
+				offers: oneTime,
+				plans: [],
+			})
+		).toContain(plansMessage)
+	})
+
+	it("asks for plans by page layout alone, whoever owns the project", () => {
+		expect(
+			issueMessages({
+				...base,
+				pageLayout: "product",
+				isOwnApp: false,
+				offers: oneTime,
+			})
+		).toContain(plansMessage)
+		expect(
+			issueMessages({
+				...base,
+				pageLayout: "portfolio",
+				isOwnApp: true,
+				offers: oneTime,
+			})
+		).not.toContain(plansMessage)
+	})
+
+	it("accepts offers without plans on the portfolio page", () => {
+		// The tabbed layout prints offers on their own; only the product page
+		// needs plans.
+		expect(
+			projectCreateSchema.safeParse({ ...base, offers: oneTime }).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				pageLayout: "portfolio",
+				offers: oneTime,
+			}).success
+		).toBe(true)
+	})
+
+	it("accepts a product page with no offers and no plans", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, pageLayout: "product" }).success
+		).toBe(true)
+	})
+
+	it("rejects two pricing sections", () => {
+		expect(
+			issueMessages({
+				...base,
+				plans,
+				offers,
+				sections: [
+					{ title: "A", kind: "pricing" },
+					{ title: "B", kind: "pricing" },
+				],
+			})
+		).toContain("At most one section can be a pricing section")
+	})
+
+	it("rejects a pricing section on a project without offers, a heading over nothing", () => {
+		expect(
+			issueMessages({
+				...base,
+				sections: [{ title: "Pricing", kind: "pricing" }],
+			})
+		).toContain("A pricing section needs the project to have offers")
+	})
+
+	it("accepts an offer note and rejects an empty or long one", () => {
+		const withNote = (note: string) => ({
+			...base,
+			plans,
+			offers: [offers[0], { ...offers[1], note }],
+		})
+
+		expect(
+			projectCreateSchema.safeParse(withNote("14-day free trial")).success
+		).toBe(true)
+		expect(projectCreateSchema.safeParse(withNote("  ")).success).toBe(false)
+		expect(
+			projectCreateSchema.safeParse(withNote("x".repeat(81))).success
+		).toBe(false)
+	})
+
+	// #region Best value
+
+	const proPlans = [
+		plans[0],
+		{ name: "Pro", features: ["Everything."], sortOrder: 2 },
+	]
+	const proOffers = [
+		offers[0],
+		{
+			name: "Pro, monthly",
+			plan: "Pro",
+			price: "12.00",
+			priceCurrency: "USD",
+			billingPeriod: "P1M",
+		},
+		{
+			name: "Pro, yearly",
+			plan: "Pro",
+			price: "108.00",
+			priceCurrency: "USD",
+			billingPeriod: "P1Y",
+		},
+	]
+
+	function withBestValue(flagged: readonly number[], offerList = proOffers) {
+		return {
+			...base,
+			plans: proPlans,
+			offers: offerList.map((offer, index) =>
+				flagged.includes(index) ? { ...offer, isBestValue: true } : offer
+			),
+		}
+	}
+
+	it("accepts a best-value price beside another paid price in its plan", () => {
+		expect(projectCreateSchema.safeParse(withBestValue([2])).success).toBe(true)
+	})
+
+	it("keeps the flag through the parse, so the import stores it", () => {
+		const result = projectCreateSchema.safeParse(withBestValue([2]))
+
+		expect(result.success && result.data.offers?.[2].isBestValue).toBe(true)
+	})
+
+	it("rejects two best-value prices", () => {
+		expect(issueMessages(withBestValue([1, 2]))).toContain(
+			"At most one offer can be the best value"
+		)
+	})
+
+	it("rejects a free price as the best value", () => {
+		expect(issueMessages(withBestValue([0]))).toContain(
+			"A free price can't be the best value"
+		)
+	})
+
+	it("rejects a best-value price that is its plan's only paid price", () => {
+		const message =
+			"A best-value price needs another paid price in its plan to compare against"
+
+		// Alone in its plan, though the project has other prices.
+		expect(
+			issueMessages(withBestValue([1], [proOffers[0], proOffers[1]]))
+		).toContain(message)
+		// The only other price in its plan is free.
+		expect(
+			issueMessages(
+				withBestValue(
+					[1],
+					[proOffers[0], proOffers[1], { ...proOffers[2], price: "0" }]
+				)
+			)
+		).toContain(message)
+	})
+
+	it("compares across all offers when none names a plan", () => {
+		const unplanned = [
+			{ name: "Monthly", price: "2.99", priceCurrency: "USD" },
+			{ name: "Lifetime", price: "19.99", priceCurrency: "USD" },
+		]
+
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				offers: [unplanned[0], { ...unplanned[1], isBestValue: true }],
+			}).success
+		).toBe(true)
+		expect(
+			issueMessages({
+				...base,
+				offers: [{ ...unplanned[1], isBestValue: true }],
+			})
+		).toContain(
+			"A best-value price needs another paid price in its plan to compare against"
+		)
+	})
+
+	// #endregion
+
+	it("rejects a palette value that isn't a hex colour, which would otherwise reach the page's CSS", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				palette: {
+					light: { ...theme, band: "red;} body{display:none" },
+					dark: theme,
+				},
+			}).success
+		).toBe(false)
+	})
+
+	it("rejects a palette with only one theme", () => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, palette: { light: theme } })
+				.success
+		).toBe(false)
+	})
+})
+
+describe("projectCreateSchema — section kinds", () => {
+	const base = {
+		name: "Digest",
+		slug: "digest",
+		summary: "A food and symptom journal.",
+		bucket: PlatformBucket.iOS,
+		platformTags: [PlatformTag.iOS],
+	}
+	const steps = [
+		{ title: "Log a meal", description: "Type it." },
+		{ title: "Then how you feel", description: "Log it." },
+	]
+
+	function parseSections(sections: unknown[]) {
+		return projectCreateSchema.safeParse({ ...base, sections })
+	}
+
+	function sectionMessages(sections: unknown[]): string[] {
+		const result = parseSections(sections)
+
+		return result.success ? [] : result.error.issues.map((i) => i.message)
+	}
+
+	it("rejects a section without a kind, so none is taken for granted", () => {
+		expect(
+			parseSections([{ title: "A", description: "a", layout: "stacked" }])
+				.success
+		).toBe(false)
+	})
+
+	it("rejects a text section without a layout, or with an unknown one", () => {
+		expect(
+			parseSections([{ title: "A", description: "a", kind: "text" }]).success
+		).toBe(false)
+		expect(
+			parseSections([
+				{ title: "A", description: "a", kind: "text", layout: "horizontal" },
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects a text section with an empty body", () => {
+		expect(
+			parseSections([
+				{ title: "A", description: "", kind: "text", layout: "stacked" },
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects steps on a text section", () => {
+		expect(
+			sectionMessages([
+				{
+					title: "A",
+					description: "a",
+					kind: "text",
+					layout: "split",
+					items: steps,
+				},
+			])
+		).toContain("A text section has no items")
+	})
+
+	it("needs 2 to 10 steps in a steps section", () => {
+		expect(
+			parseSections([{ title: "How", kind: "steps", items: steps.slice(0, 1) }])
+				.success
+		).toBe(false)
+		expect(
+			parseSections([{ title: "How", kind: "steps", items: steps }]).success
+		).toBe(true)
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: Array.from({ length: 11 }, () => steps[0]),
+				},
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects a step without a title or a body", () => {
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: [{ title: " ", description: "Type it." }, steps[1]],
+				},
+			]).success
+		).toBe(false)
+		expect(
+			parseSections([
+				{
+					title: "How",
+					kind: "steps",
+					items: [{ title: "Log a meal", description: "" }, steps[1]],
+				},
+			]).success
+		).toBe(false)
+	})
+
+	it("rejects images on a steps section itself, pointing at its steps", () => {
+		expect(
+			sectionMessages([
+				{
+					title: "How",
+					kind: "steps",
+					items: steps,
+					images: [{ url: "https://example.com/a.png" }],
+				},
+			])
+		).toContain(
+			"A steps section has no images of its own; put them on its steps"
+		)
+	})
+
+	it("rejects images and items on a pricing section", () => {
+		const pricing = {
+			...base,
+			pageLayout: "portfolio",
+			offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+		}
+		const messages = (section: object) => {
+			const result = projectCreateSchema.safeParse({
+				...pricing,
+				sections: [{ title: "Pricing", kind: "pricing", ...section }],
+			})
+
+			return result.success ? [] : result.error.issues.map((i) => i.message)
+		}
+
+		expect(
+			messages({ images: [{ url: "https://example.com/a.png" }] })
+		).toContain("A pricing section has no images")
+		expect(messages({ items: steps })).toContain(
+			"A pricing section has no items"
+		)
+	})
+
+	it("accepts the empty lists and the empty body the admin form sends", () => {
+		// The form sends `images: []` and `items: []` for every section, and ""
+		// for an empty intro.
+		expect(
+			parseSections([
+				{
+					title: "How",
+					description: "",
+					kind: "steps",
+					images: [],
+					items: steps,
+				},
+				{
+					title: "A",
+					description: "a",
+					kind: "text",
+					layout: "stacked",
+					items: [],
+				},
+			]).success
+		).toBe(true)
+	})
+})
+
+describe("projectUpdateSchema — product-page fields", () => {
+	it("doesn't require plans of a product page when a partial update leaves them out", () => {
+		// The stored plans aren't in the payload; an absent field isn't "none".
+		expect(
+			projectUpdateSchema.safeParse({
+				pageLayout: "product",
+				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(true)
+	})
+
+	it("still rejects a product page's offers sent with an empty plans list", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				pageLayout: "product",
+				plans: [],
+				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+			}).success
+		).toBe(false)
+	})
+
+	it("accepts a pricing section when a partial update leaves the offers out", () => {
+		expect(
+			projectUpdateSchema.safeParse({
+				sections: [{ title: "Pricing", kind: "pricing" }],
+			}).success
+		).toBe(true)
+	})
+
+	it("accepts offers that name plans without the plans in the same payload", () => {
+		// A partial update can't see the stored plans; judging the offers against
+		// an absent field would reject every offers-only PUT.
+		expect(
+			projectUpdateSchema.safeParse({
+				offers: [
+					{ name: "Free", plan: "Free", price: "0", priceCurrency: "USD" },
+				],
+			}).success
+		).toBe(true)
+	})
+
+	it("still checks offers against plans sent in the same payload", () => {
+		const result = projectUpdateSchema.safeParse({
+			plans: [{ name: "Free", features: ["Meals."] }],
+			offers: [{ name: "Pro", plan: "Pro", price: "9", priceCurrency: "USD" }],
+		})
+		expect(result.success).toBe(false)
+	})
+
+	it("checks the best-value price on an offers-only update, since offers alone decide it", () => {
+		const result = projectUpdateSchema.safeParse({
+			offers: [
+				{
+					name: "Pro",
+					plan: "Pro",
+					price: "9",
+					priceCurrency: "USD",
+					isBestValue: true,
+				},
+			],
+		})
+
+		expect(result.success).toBe(false)
 	})
 })
 

@@ -8,36 +8,46 @@ const user = setupUser()
 
 vi.mock("next/image", () => ({
 	default: (props: Record<string, unknown>) => {
-		// eslint-disable-next-line @next/next/no-img-element
-		return <img alt={props.alt as string} src={props.src as string} />
+		return (
+			// eslint-disable-next-line @next/next/no-img-element
+			<img
+				alt={props.alt as string}
+				src={props.src as string}
+				loading={props.loading as "eager" | "lazy" | undefined}
+				data-priority={props.priority === true ? "true" : undefined}
+			/>
+		)
 	},
 }))
 
-// One section's worth of the flat gallery (all `sectionIndex: 0`).
+// One section's worth of the flat gallery (all `groupIndex: 0`).
 const images: GalleryImage[] = [
 	{
-		id: 1,
+		key: "section-image-1",
 		url: "/a.jpg",
 		caption: "First slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 0,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 	{
-		id: 2,
+		key: "section-image-2",
 		url: "/b.jpg",
 		caption: "Second slide",
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 1,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 	{
-		id: 3,
+		key: "section-image-3",
 		url: "/c.jpg",
 		caption: null,
-		sectionIndex: 0,
+		groupIndex: 0,
 		localIndex: 2,
-		sectionTitle: "MyApp",
+		groupTitle: "MyApp",
+		alt: null,
 	},
 ]
 
@@ -110,28 +120,31 @@ describe("ProjectSectionCarousel", () => {
 		// first section) so the parent moves the continuous strip correctly.
 		const twoSections: GalleryImage[] = [
 			{
-				id: 1,
+				key: "section-image-1",
 				url: "/a.jpg",
 				caption: "Alpha one",
-				sectionIndex: 0,
+				groupIndex: 0,
 				localIndex: 0,
-				sectionTitle: "Alpha",
+				groupTitle: "Alpha",
+				alt: null,
 			},
 			{
-				id: 2,
+				key: "section-image-2",
 				url: "/b.jpg",
 				caption: "Beta one",
-				sectionIndex: 1,
+				groupIndex: 1,
 				localIndex: 0,
-				sectionTitle: "Beta",
+				groupTitle: "Beta",
+				alt: null,
 			},
 			{
-				id: 3,
+				key: "section-image-3",
 				url: "/c.jpg",
 				caption: "Beta two",
-				sectionIndex: 1,
+				groupIndex: 1,
 				localIndex: 1,
-				sectionTitle: "Beta",
+				groupTitle: "Beta",
+				alt: null,
 			},
 		]
 		const { props } = renderCarousel({ images: twoSections, index: 1 })
@@ -187,17 +200,49 @@ describe("ProjectSectionCarousel", () => {
 		renderCarousel({
 			images: [
 				{
-					id: 1,
+					key: "section-image-1",
 					url: "/only.jpg",
 					caption: "Only one",
-					sectionIndex: 0,
+					groupIndex: 0,
 					localIndex: 0,
-					sectionTitle: "MyApp",
+					groupTitle: "MyApp",
+					alt: null,
 				},
 			],
 		})
 		expect(
 			screen.queryByRole("button", { name: /go to image/i })
 		).not.toBeInTheDocument()
+	})
+})
+
+describe("ProjectSectionCarousel image loading", () => {
+	function slideImage(name: string) {
+		return screen.getByRole("img", { name, hidden: true })
+	}
+
+	it("loads the centred slide and its neighbour eagerly and the rest lazily by default", () => {
+		renderCarousel()
+
+		expect(slideImage("First slide")).toHaveAttribute("loading", "eager")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "eager")
+		expect(slideImage("MyApp screenshot")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("loads every slide lazily when the page stacks several carousels", () => {
+		renderCarousel({ isLazy: true })
+
+		expect(slideImage("First slide")).toHaveAttribute("loading", "lazy")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("gives only the priority slide `priority`, with no `loading` beside it", () => {
+		renderCarousel({ isLazy: true, priorityIndex: 0 })
+
+		const first = slideImage("First slide")
+		expect(first).toHaveAttribute("data-priority", "true")
+		expect(first).not.toHaveAttribute("loading")
+		expect(slideImage("Second slide")).not.toHaveAttribute("data-priority")
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
 	})
 })

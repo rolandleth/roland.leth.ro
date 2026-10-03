@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { defaultOgImage } from "@/lib/content/metadata"
 import {
 	buildFaqJsonLd,
 	buildSoftwareApplicationJsonLd,
 } from "@/lib/content/projectJsonLd"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import type { ProjectDetail } from "@/lib/db/projects"
 
 const BASE = "https://roland.leth.ro"
@@ -33,9 +39,11 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		platformTags: [PlatformTag.macOS],
 		role: null,
 		accentColor: null,
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.portfolio,
 		isDiscontinued: false,
 		isOwnApp: false,
+		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
 		sortOrder: 0,
 		createdAt: new Date(),

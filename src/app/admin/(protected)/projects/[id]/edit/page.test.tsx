@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
 import { projectInclude } from "@/lib/db/projects"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { generateMetadata, default as EditProjectPage } from "./page"
 
 vi.mock("@/lib/db/db", () => ({
@@ -54,9 +60,11 @@ const existingProject = {
 	ogImage: null,
 	heroImage: null,
 	accentColor: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 0,
 	createdAt: new Date(),
@@ -68,12 +76,14 @@ const existingProject = {
 			title: "Overview",
 			description: "Some text",
 			sortOrder: 0,
+			...textSectionFields(),
 			images: [
 				{
 					id: 100,
 					sectionId: 10,
 					url: "/img.png",
 					caption: null,
+					alt: null,
 					sortOrder: 0,
 				},
 			],

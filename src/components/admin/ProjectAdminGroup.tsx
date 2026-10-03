@@ -3,21 +3,23 @@ import CompactProjectCard from "@/components/projects/CompactProjectCard"
 import FeaturedProjectCard from "@/components/projects/FeaturedProjectCard"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 
+/** `large`: the two-column card grid; `compact`: the icon grid. */
+export type ProjectAdminGroupVariant = "large" | "compact"
+
 interface Props {
 	label: string
+	variant: ProjectAdminGroupVariant
 	projects: ProjectGalleryItem[]
 	totalCount: number
 }
 
-const FEATURED_LABEL = "Featured"
-
 /**
- * Renders one labelled admin bucket of projects: the "Featured" group uses the
- * large two-column layout, every other label renders the compact grid used
- * for platform buckets. Each card embeds inline featured/sort-order controls.
+ * Renders one labelled admin group of projects in the layout `variant` names.
+ * Each card embeds the inline prominence and sort-order controls.
  */
 export default function ProjectAdminGroup({
 	label,
+	variant,
 	projects,
 	totalCount,
 }: Props) {
@@ -25,15 +27,13 @@ export default function ProjectAdminGroup({
 		return null
 	}
 
-	const isFeaturedGroup = label === FEATURED_LABEL
-
 	return (
 		<div>
 			<h3 className="text-secondary mb-4 text-xs font-semibold tracking-widest uppercase">
 				{label}
 			</h3>
 
-			{isFeaturedGroup ? (
+			{variant === "large" ? (
 				<div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
 					{projects.map((project) => (
 						<FeaturedProjectCard

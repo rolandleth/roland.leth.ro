@@ -1,10 +1,17 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectSectionKind,
+} from "@/generated/prisma/enums"
 import { markdownToReact } from "@/lib/content/markdown"
 import { ogImageEntry } from "@/lib/content/metadata"
 import { getGuidesForProject } from "@/lib/db/guides"
 import { loadProject } from "@/lib/db/projects"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import ProjectPage, { generateMetadata } from "./page"
 
 vi.mock("@/lib/db/projects", async (importOriginal) => ({
@@ -19,6 +26,12 @@ vi.mock("@/lib/content/markdown", () => ({
 	markdownToReact: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock("@/components/projects/product/ProductPage", () => ({
+	default: function MockProductPage() {
+		return <div data-testid="product-page" />
+	},
+}))
+
 vi.mock("@/lib/db/guides", () => ({
 	getGuidesForProject: vi.fn().mockResolvedValue({ topics: [], ungrouped: [] }),
 }))
@@ -31,7 +44,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/projects/ProjectContent", () => ({
 	default: function MockProjectContent() {
-		return null
+		return <div data-testid="project-content" />
 	},
 }))
 
@@ -56,9 +69,11 @@ const existingProject = {
 	ogImage: null,
 	heroImage: null,
 	accentColor: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 0,
 	createdAt: new Date(),
@@ -88,6 +103,138 @@ describe("ProjectPage", () => {
 		vi.mocked(loadProject).mockResolvedValue(existingProject)
 		const result = await ProjectPage(paramsFor("my-app"))
 		expect(result).toBeDefined()
+	})
+
+	const stepsSection = {
+		id: 10,
+		projectId: 1,
+		title: "How it works",
+		description: "An intro.",
+		sortOrder: 0,
+		kind: ProjectSectionKind.steps,
+		layout: null,
+		images: [],
+		items: [
+			{
+				id: 20,
+				sectionId: 10,
+				title: "Log a meal",
+				description: "Type it.",
+				sortOrder: 0,
+				images: [],
+			},
+			{
+				id: 21,
+				sectionId: 10,
+				title: "Then how you feel",
+				description: "Log it.",
+				sortOrder: 1,
+				images: [],
+			},
+		],
+	}
+
+	it("renders the tabbed layout for the portfolio page layout, without steps", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			sections: [stepsSection],
+		})
+
+		const { getByTestId, queryByTestId } = render(
+			await ProjectPage(paramsFor("my-app"))
+		)
+
+		expect(getByTestId("project-content")).toBeInTheDocument()
+		expect(queryByTestId("product-page")).not.toBeInTheDocument()
+		expect(markdownToReact).toHaveBeenCalledWith("An intro.")
+		// The tabbed layout reads sections alone.
+		expect(markdownToReact).not.toHaveBeenCalledWith("Type it.")
+	})
+
+	it("renders the product page for the product page layout, with every step's body", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			pageLayout: ProjectPageLayout.product,
+			sections: [stepsSection],
+		})
+
+		const { getByTestId, queryByTestId } = render(
+			await ProjectPage(paramsFor("my-app"))
+		)
+
+		expect(getByTestId("product-page")).toBeInTheDocument()
+		expect(queryByTestId("project-content")).not.toBeInTheDocument()
+		expect(markdownToReact).toHaveBeenCalledWith("An intro.")
+		expect(markdownToReact).toHaveBeenCalledWith("Type it.")
+		expect(markdownToReact).toHaveBeenCalledWith("Log it.")
+	})
+
+	it("picks the page by layout alone, whoever owns the project", async () => {
+		vi.mocked(loadProject).mockResolvedValueOnce({
+			...existingProject,
+			pageLayout: ProjectPageLayout.product,
+			isOwnApp: false,
+		})
+		const product = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(product.getByTestId("product-page")).toBeInTheDocument()
+		product.unmount()
+
+		vi.mocked(loadProject).mockResolvedValueOnce({
+			...existingProject,
+			pageLayout: ProjectPageLayout.portfolio,
+			isOwnApp: true,
+		})
+		const portfolio = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(portfolio.getByTestId("project-content")).toBeInTheDocument()
+		expect(portfolio.queryByTestId("product-page")).not.toBeInTheDocument()
+	})
+
+	it("shows the portfolio page for a layout it doesn't know, and logs it", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			// A database ahead of the deploy: a value this build has no case for.
+			pageLayout: "magazine" as unknown as ProjectPageLayout,
+		})
+
+		const { getByTestId } = render(await ProjectPage(paramsFor("my-app")))
+
+		expect(getByTestId("project-content")).toBeInTheDocument()
+		expect(consoleError).toHaveBeenCalledWith(
+			"[projects:page] unknown page layout, showing the portfolio page",
+			{ slug: "my-app", pageLayout: "magazine" }
+		)
+		consoleError.mockRestore()
+	})
+
+	it("logs a step whose markdown fails to render, with its id", async () => {
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+		vi.mocked(markdownToReact).mockImplementation(async (markdown) => {
+			if (markdown === "Log it.") {
+				throw new Error("bad step")
+			}
+
+			return null
+		})
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			pageLayout: ProjectPageLayout.product,
+			sections: [stepsSection],
+		})
+
+		await ProjectPage(paramsFor("my-app"))
+
+		expect(consoleError).toHaveBeenCalledWith(
+			"[ProjectPage] step markdown render failed",
+			expect.objectContaining({
+				projectSlug: "my-app",
+				itemId: 21,
+				reason: "bad step",
+			})
+		)
+		consoleError.mockRestore()
 	})
 })
 
@@ -184,6 +331,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Good",
 					description: "Good section.",
 					sortOrder: 0,
+					...textSectionFields(),
 					images: [],
 				},
 				{
@@ -192,6 +340,7 @@ describe("ProjectPage — JSON-LD", () => {
 					title: "Broken",
 					description: "Broken section raw text.",
 					sortOrder: 1,
+					...textSectionFields(),
 					images: [],
 				},
 			],
@@ -263,6 +412,25 @@ describe("generateMetadata", () => {
 		})
 		const result = await generateMetadata(paramsFor("my-app"))
 		expect(result.title).toBe("My App")
+	})
+
+	it("uses metaDescription for the description when set, not the longer summary", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			summary: "A long hero paragraph that runs well past a result snippet.",
+			metaDescription: "A short meta description.",
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.description).toBe("A short meta description.")
+	})
+
+	it("falls back to the summary for the description when metaDescription is null", async () => {
+		vi.mocked(loadProject).mockResolvedValue({
+			...existingProject,
+			metaDescription: null,
+		})
+		const result = await generateMetadata(paramsFor("my-app"))
+		expect(result.description).toBe("A project")
 	})
 
 	it("uses the ogImage for OG, preferring it over the cardImage", async () => {

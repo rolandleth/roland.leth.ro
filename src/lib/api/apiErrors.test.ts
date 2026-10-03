@@ -110,6 +110,30 @@ describe("refuseNonJsonBody", () => {
 			error: "Content-Type must be application/json",
 		})
 	})
+
+	it("caps the logged content type, which the client controls", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+		const longType = `text/plain; x=${"a".repeat(500)}`
+
+		refuseNonJsonBody(requestWith(longType), "[test]")
+
+		expect(warn).toHaveBeenCalledWith("[test] non-JSON content type", {
+			contentType: `${longType.slice(0, 200)}…`,
+		})
+	})
+
+	it("logs a missing content type as null", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+		const request = new Request("http://localhost/", {
+			method: "POST",
+			body: new Uint8Array([123, 125]),
+		})
+
+		expect(refuseNonJsonBody(request, "[test]")?.status).toBe(415)
+		expect(warn).toHaveBeenCalledWith("[test] non-JSON content type", {
+			contentType: null,
+		})
+	})
 })
 
 describe("parseJsonBody", () => {

@@ -8,3 +8,9 @@ export const navLinks = [
 	{ href: "/projects", label: "Projects" },
 	{ href: "/about", label: "About" },
 ] as const
+
+/**
+ * The id of the root layout's `<main>`: the skip link's target, the product
+ * page's "Back to top" target, and an id no product page section may take.
+ */
+export const MAIN_CONTENT_ID = "main-content"

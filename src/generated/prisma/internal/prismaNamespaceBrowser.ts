@@ -56,6 +56,8 @@ export const ModelName = {
   Guide: 'Guide',
   Project: 'Project',
   ProjectSection: 'ProjectSection',
+  ProjectSectionItem: 'ProjectSectionItem',
+  ProjectSectionItemImage: 'ProjectSectionItemImage',
   ProjectSectionImage: 'ProjectSectionImage',
   ProjectLink: 'ProjectLink',
   ProjectFaq: 'ProjectFaq'
@@ -146,9 +148,20 @@ export const ProjectScalarFieldEnum = {
   platformTags: 'platformTags',
   role: 'role',
   accentColor: 'accentColor',
-  isFeatured: 'isFeatured',
+  prominence: 'prominence',
+  pageLayout: 'pageLayout',
   isDiscontinued: 'isDiscontinued',
   isOwnApp: 'isOwnApp',
+  metaDescription: 'metaDescription',
+  heroEyebrow: 'heroEyebrow',
+  heroHeadline: 'heroHeadline',
+  heroImageAlt: 'heroImageAlt',
+  storeNote: 'storeNote',
+  closingHeadline: 'closingHeadline',
+  closingBody: 'closingBody',
+  disclaimer: 'disclaimer',
+  plans: 'plans',
+  palette: 'palette',
   date: 'date',
   sortOrder: 'sortOrder',
   createdAt: 'createdAt',
@@ -163,10 +176,35 @@ export const ProjectSectionScalarFieldEnum = {
   projectId: 'projectId',
   title: 'title',
   description: 'description',
-  sortOrder: 'sortOrder'
+  sortOrder: 'sortOrder',
+  kind: 'kind',
+  layout: 'layout'
 } as const
 
 export type ProjectSectionScalarFieldEnum = (typeof ProjectSectionScalarFieldEnum)[keyof typeof ProjectSectionScalarFieldEnum]
+
+
+export const ProjectSectionItemScalarFieldEnum = {
+  id: 'id',
+  sectionId: 'sectionId',
+  title: 'title',
+  description: 'description',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ProjectSectionItemScalarFieldEnum = (typeof ProjectSectionItemScalarFieldEnum)[keyof typeof ProjectSectionItemScalarFieldEnum]
+
+
+export const ProjectSectionItemImageScalarFieldEnum = {
+  id: 'id',
+  itemId: 'itemId',
+  url: 'url',
+  caption: 'caption',
+  alt: 'alt',
+  sortOrder: 'sortOrder'
+} as const
+
+export type ProjectSectionItemImageScalarFieldEnum = (typeof ProjectSectionItemImageScalarFieldEnum)[keyof typeof ProjectSectionItemImageScalarFieldEnum]
 
 
 export const ProjectSectionImageScalarFieldEnum = {
@@ -174,6 +212,7 @@ export const ProjectSectionImageScalarFieldEnum = {
   sectionId: 'sectionId',
   url: 'url',
   caption: 'caption',
+  alt: 'alt',
   sortOrder: 'sortOrder'
 } as const
 

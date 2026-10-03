@@ -43,6 +43,16 @@ export type Project = Prisma.ProjectModel
  */
 export type ProjectSection = Prisma.ProjectSectionModel
 /**
+ * Model ProjectSectionItem
+ * 
+ */
+export type ProjectSectionItem = Prisma.ProjectSectionItemModel
+/**
+ * Model ProjectSectionItemImage
+ * 
+ */
+export type ProjectSectionItemImage = Prisma.ProjectSectionItemImageModel
+/**
  * Model ProjectSectionImage
  * 
  */

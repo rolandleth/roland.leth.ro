@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion"
 import { ChevronDown } from "lucide-react"
-import { useState } from "react"
 import { fadeUp } from "@/lib/client/motion"
+import FaqItem from "./FaqItem"
 import type { ReactNode } from "react"
 
 interface FaqEntry {
@@ -23,25 +23,6 @@ interface Props {
 }
 
 export default function ProjectFaq({ faqs, renderedAnswers, accent }: Props) {
-	// Multiple panels can be open at once — each question toggles independently,
-	// the conventional FAQ behaviour. Tracked by id so reorders/removals can't
-	// strand an index.
-	const [openIds, setOpenIds] = useState<ReadonlySet<number>>(new Set())
-
-	function toggle(id: number) {
-		setOpenIds((prev) => {
-			const next = new Set(prev)
-
-			if (next.has(id)) {
-				next.delete(id)
-			} else {
-				next.add(id)
-			}
-
-			return next
-		})
-	}
-
 	return (
 		<motion.section
 			className="mt-12"
@@ -57,64 +38,30 @@ export default function ProjectFaq({ faqs, renderedAnswers, accent }: Props) {
 			</h2>
 
 			<div className="border-border border-t">
-				{faqs.map((faq, index) => {
-					const isOpen = openIds.has(faq.id)
+				{faqs.map((faq, index) => (
+					<FaqItem
+						key={faq.id}
+						id={faq.id}
+						className="border-border border-b"
+						buttonClassName="text-primary flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left text-base font-medium transition-colors duration-300 hover:opacity-80"
+						answerClassName="prose dark:prose-invert max-w-none pb-4"
+						question={
+							<>
+								{faq.question}
 
-					return (
-						<div key={faq.id} className="border-border border-b">
-							<h3>
-								<button
-									type="button"
-									onClick={() => toggle(faq.id)}
-									aria-expanded={isOpen}
-									aria-controls={`faq-panel-${faq.id}`}
-									id={`faq-button-${faq.id}`}
-									className="text-primary flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left text-base font-medium transition-colors duration-300 hover:opacity-80"
+								<span
+									aria-hidden
+									className="shrink-0 transition-transform duration-200 group-data-open/faq:rotate-180 motion-reduce:transition-none"
+									style={{ color: accent }}
 								>
-									{faq.question}
-
-									<motion.span
-										aria-hidden
-										className="shrink-0"
-										animate={{ rotate: isOpen ? 180 : 0 }}
-										transition={{ duration: 0.2 }}
-										style={{ color: accent }}
-									>
-										<ChevronDown size={18} />
-									</motion.span>
-								</button>
-							</h3>
-
-							{/* The panel is ALWAYS mounted so its answer ships in the
-							    server HTML — search engines and AI answer engines read
-							    the static markup, and conditional-mounting (AnimatePresence)
-							    would hide collapsed answers from them. Collapse is purely
-							    visual (height/opacity); `inert` + `aria-hidden` pull a
-							    collapsed panel out of the tab order and accessibility tree
-							    so assistive tech skips it, the way a native <details> does.
-							    The FAQPage JSON-LD carries the same answers for structured
-							    consumers. */}
-							<motion.div
-								id={`faq-panel-${faq.id}`}
-								role="region"
-								aria-labelledby={`faq-button-${faq.id}`}
-								aria-hidden={!isOpen}
-								inert={!isOpen}
-								initial={false}
-								animate={{
-									height: isOpen ? "auto" : 0,
-									opacity: isOpen ? 1 : 0,
-								}}
-								transition={{ duration: 0.25, ease: "easeOut" }}
-								className="overflow-hidden"
-							>
-								<div className="prose dark:prose-invert max-w-none pb-4">
-									{renderedAnswers[index]}
-								</div>
-							</motion.div>
-						</div>
-					)
-				})}
+									<ChevronDown size={18} />
+								</span>
+							</>
+						}
+					>
+						{renderedAnswers[index]}
+					</FaqItem>
+				))}
 			</div>
 		</motion.section>
 	)

@@ -474,6 +474,24 @@ describe("getGuideBySlug", () => {
 
 		expect(guide?.topic).not.toHaveProperty("published")
 	})
+
+	it("keys the cache on the query's select, so an entry in an older shape is never served", async () => {
+		// The wrapper's source never changes, so the key parts are all the cache
+		// sees. A slug no other test uses: wrappers are built once per slug.
+		vi.mocked(prisma.guide.findFirst).mockResolvedValue(null)
+
+		await getGuideBySlug("shape-keyed")
+
+		const [, keyParts] = vi.mocked(unstable_cache).mock.calls.at(-1) ?? []
+		const { select } = vi.mocked(prisma.guide.findFirst).mock.calls[0][0] as {
+			select: unknown
+		}
+
+		expect(keyParts).toEqual([
+			"guide-detail-shape-keyed",
+			JSON.stringify(select),
+		])
+	})
 })
 
 // #endregion
@@ -503,6 +521,22 @@ describe("getGuideTopicBySlug", () => {
 		vi.mocked(prisma.guideTopic.findFirst).mockResolvedValue(null)
 
 		expect(await getGuideTopicBySlug("missing")).toBeNull()
+	})
+
+	it("keys the cache on the query's select, so an entry in an older shape is never served", async () => {
+		// A slug no other test uses: wrappers are built once per slug.
+		vi.mocked(prisma.guideTopic.findFirst).mockResolvedValue(null)
+
+		await getGuideTopicBySlug("shape-keyed")
+
+		const [, keyParts] = vi.mocked(unstable_cache).mock.calls.at(-1) ?? []
+		const { select } = vi.mocked(prisma.guideTopic.findFirst).mock
+			.calls[0][0] as { select: unknown }
+
+		expect(keyParts).toEqual([
+			"guide-topic-shape-keyed",
+			JSON.stringify(select),
+		])
 	})
 
 	// A hub has no date of its own, but its list still hides pending guides.

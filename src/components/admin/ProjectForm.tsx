@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import FaqManager, { type FaqItem } from "@/components/admin/FaqManager"
 import ImageUpload from "@/components/admin/ImageUpload"
 import LinkManager, { type LinkItem } from "@/components/admin/LinkManager"
 import PlatformPicker from "@/components/admin/PlatformPicker"
+import {
+	DISCONTINUED_PLACEMENT_HINT,
+	PAGE_LAYOUT_LABELS,
+	PAGE_LAYOUT_OPTIONS,
+	PROMINENCE_LABELS,
+	PROMINENCE_OPTIONS,
+} from "@/components/admin/projectPlacement"
 import SectionManager, {
 	type SectionImage,
 	type SectionItem,
@@ -16,10 +23,16 @@ import { useFormState } from "@/components/admin/useFormState"
 import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import PresetOrFreeformInput from "@/components/ui/PresetOrFreeformInput"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { followTitleSlug } from "@/lib/utils/format"
+import { isPlacementOverridden } from "@/lib/utils/projectsGallery"
 
-interface InitialData {
+type InitialData = {
 	id: number
 	name: string
 	slug: string
@@ -32,7 +45,8 @@ interface InitialData {
 	cardImage: string | null
 	ogImage: string | null
 	heroImage: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	date: string | null
@@ -43,13 +57,62 @@ interface InitialData {
 	})[]
 	links: (Omit<LinkItem, "_key"> & { id?: number })[]
 	faqs: (Omit<FaqItem, "_key"> & { id?: number })[]
-}
+} & Partial<Record<ProductPageField, string | null>>
 
 interface Props {
 	initialData?: InitialData
 }
 
-interface ProjectPayload {
+/**
+ * The own-app page's text fields, all optional on the page and all plain
+ * strings in the form. `plans`, `palette` and `offers` are manifest-only and
+ * never sent from here, so a save leaves what the import wrote.
+ */
+const PRODUCT_PAGE_FIELDS = [
+	{ key: "heroEyebrow", label: "Hero eyebrow", maxLength: 80 },
+	{ key: "heroHeadline", label: "Hero headline", maxLength: 80 },
+	{ key: "heroImageAlt", label: "Hero image alt text", maxLength: 300 },
+	{ key: "storeNote", label: "Store button note", maxLength: 120 },
+	{ key: "closingHeadline", label: "Closing headline", maxLength: 80 },
+	{
+		key: "closingBody",
+		label: "Closing text",
+		maxLength: 200,
+		isMultiline: true,
+	},
+	{ key: "disclaimer", label: "Disclaimer", maxLength: 300, isMultiline: true },
+	{
+		key: "metaDescription",
+		label: "Meta description (defaults to the summary)",
+		maxLength: 160,
+		isMultiline: true,
+	},
+] as const
+
+type ProductPageField = (typeof PRODUCT_PAGE_FIELDS)[number]["key"]
+
+/** Empty-or-whitespace means "not set", which the API stores as null. */
+function textOrNull(value: string): string | null {
+	const trimmed = value.trim()
+
+	return trimmed === "" ? null : trimmed
+}
+
+/**
+ * Builds one value per product-page field. The cast is the one place the keys
+ * are trusted: `Object.fromEntries` types its result as a string-keyed record,
+ * and the entries come from `PRODUCT_PAGE_FIELDS` itself, so every key is
+ * present.
+ */
+function mapProductPageFields<T>(
+	value: (key: ProductPageField) => T
+): Record<ProductPageField, T> {
+	return Object.fromEntries(
+		PRODUCT_PAGE_FIELDS.map(({ key }) => [key, value(key)])
+	) as Record<ProductPageField, T>
+}
+
+type ProjectPayload = {
 	name: string
 	/** Sent on create only; the update schema has no slug. */
 	slug?: string
@@ -62,17 +125,18 @@ interface ProjectPayload {
 	cardImage: string | null
 	ogImage: string | null
 	heroImage: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
 	sections: (Omit<SectionItem, "_key" | "images"> & {
-		images: Omit<SectionImage, "_key">[]
+		images: (Omit<SectionImage, "_key" | "alt"> & { alt: string | null })[]
 	})[]
 	links: Omit<LinkItem, "_key">[]
 	faqs: Omit<FaqItem, "_key">[]
-}
+} & Record<ProductPageField, string | null>
 
 const ROLE_OPTIONS = [
 	"Sole developer",
@@ -100,9 +164,11 @@ interface FormState {
 	cardImage: string
 	ogImage: string
 	heroImage: string
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
+	productPage: Record<ProductPageField, string>
 	sections: SectionItem[]
 	links: LinkItem[]
 	faqs: FaqItem[]
@@ -128,6 +194,7 @@ export default function ProjectForm({ initialData }: Props) {
 	// `_key`, a `crypto.randomUUID()`. The two can't collide as long as no fixed
 	// name is UUID-shaped.
 	const { isUploading, reportUploading } = useUploadTracker()
+	const placementHintId = useId()
 
 	// Single state object so a partial-update setter (`setField`) can stand in
 	// for the thirteen individual `useState` setters this form used to carry.
@@ -149,9 +216,11 @@ export default function ProjectForm({ initialData }: Props) {
 			cardImage: initialData?.cardImage ?? "",
 			ogImage: initialData?.ogImage ?? "",
 			heroImage: initialData?.heroImage ?? "",
-			isFeatured: initialData?.isFeatured ?? false,
+			prominence: initialData?.prominence ?? ProjectProminence.low,
+			pageLayout: initialData?.pageLayout ?? ProjectPageLayout.portfolio,
 			isDiscontinued: initialData?.isDiscontinued ?? false,
 			isOwnApp: initialData?.isOwnApp ?? false,
+			productPage: mapProductPageFields((key) => initialData?.[key] ?? ""),
 			sections: (initialData?.sections ?? []).map((section) => ({
 				...section,
 				_key: crypto.randomUUID(),
@@ -243,21 +312,29 @@ export default function ProjectForm({ initialData }: Props) {
 			cardImage: state.cardImage || null,
 			ogImage: state.ogImage || null,
 			heroImage: state.heroImage || null,
-			isFeatured: state.isFeatured,
+			prominence: state.prominence,
+			pageLayout: state.pageLayout,
 			isDiscontinued: state.isDiscontinued,
 			isOwnApp: state.isOwnApp,
+			...mapProductPageFields((key) => textOrNull(state.productPage[key])),
 			date: state.date || null,
 			sortOrder,
 			// Strip the client-only `_key` from sections, their nested images,
-			// and links before sending.
+			// and links before sending. An empty alt goes out as null: stored as
+			// "", it would make the image decorative on the page.
 			sections: state.sections.map(({ _key: _, images, ...rest }) => ({
 				...rest,
-				images: images.map(({ _key: __, ...imgRest }) => imgRest),
+				images: images.map(({ _key: __, alt, ...imgRest }) => ({
+					...imgRest,
+					alt: textOrNull(alt),
+				})),
 			})),
 			links: state.links.map(({ _key: _, ...rest }) => rest),
 			faqs: state.faqs.map(({ _key: _, ...rest }) => rest),
 		})
 	}
+
+	const isPlacementHintShown = isPlacementOverridden(state)
 
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -426,17 +503,61 @@ export default function ProjectForm({ initialData }: Props) {
 				onUploadingChange={(v) => reportUploading("heroImage", v)}
 			/>
 
-			<div className="flex gap-6">
-				<label className="flex cursor-pointer items-center gap-2">
-					<input
-						type="checkbox"
-						checked={state.isFeatured}
-						onChange={(e) => setField("isFeatured", e.target.checked)}
-						className="accent-accent h-4 w-4"
-					/>
-					<span className="text-secondary text-sm font-medium">Featured</span>
-				</label>
+			{/* Two independent choices: how visible the project is on /projects
+			    (High: a big tile, Medium: a card, Low: an icon under More projects;
+			    a discontinued one goes under More projects whatever this says, and
+			    the hint below says so when that overrides the level), and which
+			    page it gets. */}
+			<div className="flex flex-col gap-1.5">
+				<div className="flex flex-wrap gap-4">
+					<label className="flex flex-col gap-1.5">
+						<span className="text-secondary text-sm font-medium">
+							Prominence
+						</span>
+						<select
+							value={state.prominence}
+							onChange={(e) =>
+								setField("prominence", e.target.value as ProjectProminence)
+							}
+							aria-describedby={
+								isPlacementHintShown ? placementHintId : undefined
+							}
+							className="admin-input"
+						>
+							{PROMINENCE_OPTIONS.map((value) => (
+								<option key={value} value={value}>
+									{PROMINENCE_LABELS[value]}
+								</option>
+							))}
+						</select>
+					</label>
 
+					<label className="flex flex-col gap-1.5">
+						<span className="text-secondary text-sm font-medium">Page</span>
+						<select
+							value={state.pageLayout}
+							onChange={(e) =>
+								setField("pageLayout", e.target.value as ProjectPageLayout)
+							}
+							className="admin-input"
+						>
+							{PAGE_LAYOUT_OPTIONS.map((value) => (
+								<option key={value} value={value}>
+									{PAGE_LAYOUT_LABELS[value]}
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+
+				{isPlacementHintShown && (
+					<p id={placementHintId} className="text-secondary text-xs">
+						{DISCONTINUED_PLACEMENT_HINT}
+					</p>
+				)}
+			</div>
+
+			<div className="flex gap-6">
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"
@@ -449,9 +570,10 @@ export default function ProjectForm({ initialData }: Props) {
 					</span>
 				</label>
 
-				{/* Own product, not client or employer work. Decides the store CTAs on the
-				    detail page (`linkCtasFor`): the App Store badge with exactly one
-				    storefront link, `Download on …` pills with several. */}
+				{/* Own product, not client or employer work. Decides only the store CTAs'
+				    wording on the detail page (`linkCtasFor`): the App Store badge with
+				    exactly one storefront link, `Download on …` pills with several.
+				    Placement and layout are the selects above. */}
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"
@@ -462,6 +584,53 @@ export default function ProjectForm({ initialData }: Props) {
 					<span className="text-secondary text-sm font-medium">Own app</span>
 				</label>
 			</div>
+
+			{/* Only the product page renders these. Switching to the portfolio page
+			    hides the group but keeps what was typed, and a save still sends it. */}
+			{state.pageLayout === ProjectPageLayout.product && (
+				<fieldset className="border-border flex flex-col gap-4 rounded-lg border p-4">
+					<legend className="text-secondary px-1 text-sm font-medium">
+						Product page
+					</legend>
+
+					{PRODUCT_PAGE_FIELDS.map((field) => {
+						const id = `productPage-${field.key}`
+						const inputProps = {
+							id,
+							value: state.productPage[field.key],
+							onChange: (
+								e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+							) => {
+								const { value } = e.target
+
+								updateField("productPage", (prev) => ({
+									...prev,
+									[field.key]: value,
+								}))
+							},
+							maxLength: field.maxLength,
+							className: "admin-input",
+						}
+
+						return (
+							<div key={field.key} className="flex flex-col gap-1.5">
+								<label
+									htmlFor={id}
+									className="text-secondary text-sm font-medium"
+								>
+									{field.label}
+								</label>
+
+								{"isMultiline" in field ? (
+									<textarea rows={2} {...inputProps} />
+								) : (
+									<input type="text" {...inputProps} />
+								)}
+							</div>
+						)
+					})}
+				</fieldset>
+			)}
 
 			<div className="flex flex-col gap-1.5">
 				{/* `SectionManager` / `LinkManager` are composite controls with no

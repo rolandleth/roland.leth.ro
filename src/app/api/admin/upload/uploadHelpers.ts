@@ -47,23 +47,6 @@ export function adminUploadKey(filename: string, mime: ImageMime): string {
 }
 
 /**
- * Renders an arbitrary string as a single, bounded log payload — strips
- * CR / LF / TAB / NUL so attacker-controlled bytes from the multipart
- * parser's error message can't forge fake log lines beneath the real one,
- * and clamps the length so a megabyte-sized message can't blow up the log
- * line.
- */
-const MAX_LOG_MESSAGE_LEN = 200
-
-export function sanitizeLogString(value: string): string {
-	const collapsed = value.replace(/[\r\n\t\0]+/g, " ")
-
-	return collapsed.length > MAX_LOG_MESSAGE_LEN
-		? `${collapsed.slice(0, MAX_LOG_MESSAGE_LEN)}…`
-		: collapsed
-}
-
-/**
  * How many leading bytes the route hands `detectImageMime`. 12 cover every
  * magic number; the rest reach the `ftyp` box's compatible brands, which an
  * AVIF with the generic `mif1` major brand needs (encoders write 20-40 bytes).
@@ -141,6 +124,12 @@ const AVIF_BRANDS = new Set(["avif", "avis"])
  * HEIC brands (`heic`/`heix`) are deliberately excluded — they are not
  * browser-renderable on most platforms and the allowlist is `image/avif`
  * only, not `image/heic`.
+ *
+ * Any other major brand (`msf1`, `miaf`, `heic`, …) is refused even when an
+ * AVIF brand is in its compatible list: no mainstream AVIF encoder writes one,
+ * so it is more likely a HEIF that also claims AVIF. The route logs such a
+ * refusal as a MIME mismatch with `detectedMime: null`, the same line a
+ * spoofed file gets — revisit here if a real AVIF upload gets a 415.
  */
 function isAvifFtyp(bytes: Uint8Array): boolean {
 	const majorBrand = brandAt(bytes, 8)

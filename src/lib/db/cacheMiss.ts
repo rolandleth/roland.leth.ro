@@ -47,13 +47,23 @@ export async function nullOnCacheMiss<T>(
  * a throw so it's never pinned into the durable cache. Read-time filters that
  * depend on the current clock (scheduled posts/guides) belong at the call site,
  * on the resolved value — not in `fetchRow`, or they'd be frozen into the cache.
+ *
+ * `shape` is what decides the cached row's fields: the query's `select`, or for
+ * an `include` the models' column lists plus the include. It joins the key,
+ * because `unstable_cache` keys on the wrapper's source and its key parts, and
+ * the wrapper below never changes: without it, an entry written by older code
+ * is served to newer code that expects more. Cached project rows from before
+ * sections had steps crashed the product page that way. Required, so a new
+ * detail lookup can't leave it out. It covers the query, not a transform in
+ * `fetchRow`: a transform that changes the row's fields must change `shape` too.
  */
 export function wrapNullableDetail<T>(
 	wrappers: BoundedWrapperCache<() => Promise<T>>,
 	key: string,
 	fetchRow: () => Promise<T | null>,
 	keyParts: string[],
-	tags: string[]
+	tags: string[],
+	shape: unknown
 ): Promise<T | null> {
 	const wrapper = wrappers.get(key, () =>
 		unstable_cache(
@@ -69,7 +79,7 @@ export function wrapNullableDetail<T>(
 
 				return row
 			},
-			keyParts,
+			[...keyParts, JSON.stringify(shape)],
 			{ tags }
 		)
 	)

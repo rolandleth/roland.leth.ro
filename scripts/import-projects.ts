@@ -41,6 +41,7 @@ import { projectCreateSchema } from "@/lib/api/schemas"
 import {
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
 } from "@/lib/db/projectMappers"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
@@ -58,11 +59,13 @@ import { isMissingPathError } from "@/lib/import/fsErrors"
 import {
 	blobKeyFor,
 	contentHashFor,
+	forEachSectionImage,
+	isDraftManifest,
 	listManifestImagePaths,
 	parseManifest,
-	type ProjectFlags,
-	projectFlags,
 	type ProjectManifest,
+	requiredProjectFields,
+	type RequiredProjectFields,
 	requireManifestSlug,
 	resolveManifestImageRefs,
 	selectProjectFolders,
@@ -77,7 +80,7 @@ const MANIFEST_FILENAME = "project.json"
 
 type ProjectResult = {
 	name: string
-	status: "imported" | "validated" | "failed"
+	status: "imported" | "validated" | "skipped" | "failed"
 	detail?: string
 	// The manifest's slug (= the `/projects/<slug>` last path component). Absent
 	// when a run fails before the slug is checked. Used to print the paste-ready
@@ -240,9 +243,10 @@ async function resolveImageUrls(
 
 /**
  * Collects every image URL the validated project data references — icon,
- * cardImage, ogImage, hero, and section images — i.e. the set of blobs that
- * must survive the post-import orphan sweep. Omitting one here deletes a
- * freshly-uploaded blob as "orphaned".
+ * cardImage, ogImage, hero, and the section and step images — i.e. the set of
+ * blobs that must survive the post-import orphan sweep. Omitting one here
+ * deletes a freshly-uploaded blob as "orphaned", which is why the sections go
+ * through the same `forEachSectionImage` walk as the upload.
  */
 function referencedImageUrls(
 	data: ReturnType<typeof projectCreateSchema.parse>
@@ -258,12 +262,7 @@ function referencedImageUrls(
 	add(data.cardImage)
 	add(data.ogImage)
 	add(data.heroImage)
-
-	for (const section of data.sections ?? []) {
-		for (const image of section.images ?? []) {
-			add(image.url)
-		}
-	}
+	forEachSectionImage(data.sections, (image) => add(image.url))
 
 	return urls
 }
@@ -281,10 +280,10 @@ function referencedImageUrls(
 async function writeProject(
 	prisma: PrismaClient,
 	slug: string,
-	// The flags come from `parseManifest`, typed as booleans: the schema leaves
-	// them optional, and a `?? false` here would read as a default the import
-	// doesn't have.
-	data: ReturnType<typeof projectCreateSchema.parse> & ProjectFlags
+	// The placement fields come from `parseManifest`, typed: the schema leaves
+	// them optional, and a default here would read as one the import doesn't
+	// have.
+	data: ReturnType<typeof projectCreateSchema.parse> & RequiredProjectFields
 ): Promise<void> {
 	// Serializable matches the API routes (`POST /api/admin/projects` and `PUT
 	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
@@ -328,7 +327,8 @@ async function writeProject(
 					// fall through to the first section image at render time, so a null
 					// hero never yields an empty card.
 					heroImage: data.heroImage ?? null,
-					isFeatured: data.isFeatured,
+					prominence: data.prominence,
+					pageLayout: data.pageLayout,
 					isDiscontinued: data.isDiscontinued,
 					isOwnApp: data.isOwnApp,
 					date: data.date ?? null,
@@ -336,6 +336,7 @@ async function writeProject(
 					// admin create route, which shifts siblings to make room. The
 					// manifest author owns gallery ordering across the whole batch.
 					sortOrder: data.sortOrder ?? 0,
+					...toProductPageCreate(data),
 					sections: toSectionCreate(data.sections),
 					links: toLinkCreate(data.links),
 					faqs: toFaqCreate(data.faqs),
@@ -350,13 +351,18 @@ async function writeProject(
 
 // #region per-project pipeline
 
+type ManifestRead =
+	| { isDraft: true }
+	| { isDraft: false; manifest: ProjectManifest & RequiredProjectFields }
+
 /**
- * Reads a manifest through `parseManifest`, so the required-flags check runs
- * before anything else in `processProject`, dry runs included.
+ * Reads a manifest. A draft (`isDraftManifest`) comes back as one with no
+ * further checks, so a manifest staged before its app is ready is skipped even
+ * while incomplete. Anything else goes through `parseManifest`, so the
+ * required-flags check runs before anything else in `processProject`, dry runs
+ * included.
  */
-async function readManifest(
-	manifestPath: string
-): Promise<ProjectManifest & ProjectFlags> {
+async function readManifest(manifestPath: string): Promise<ManifestRead> {
 	let raw: string
 
 	try {
@@ -373,7 +379,11 @@ async function readManifest(
 	}
 
 	try {
-		return parseManifest(raw)
+		if (isDraftManifest(raw)) {
+			return { isDraft: true }
+		}
+
+		return { isDraft: false, manifest: parseManifest(raw) }
 	} catch (error) {
 		throw new Error(`${MANIFEST_FILENAME}: ${errorMessage(error)}`)
 	}
@@ -386,9 +396,17 @@ async function processProject(
 	const folderName = path.basename(projectDir)
 
 	try {
-		const manifest = await readManifest(
-			path.join(projectDir, MANIFEST_FILENAME)
-		)
+		const read = await readManifest(path.join(projectDir, MANIFEST_FILENAME))
+
+		if (read.isDraft) {
+			console.log(
+				`\n▸ ${folderName}  draft, skipped (remove "isDraft" from ${MANIFEST_FILENAME} to import)`
+			)
+
+			return { name: folderName, status: "skipped" }
+		}
+
+		const { manifest } = read
 
 		if (typeof manifest.name !== "string" || manifest.name.trim() === "") {
 			throw new Error(`Manifest is missing a non-empty "name".`)
@@ -450,7 +468,10 @@ async function processProject(
 			throw new Error("No database client for a non-dry-run import")
 		}
 
-		await writeProject(prisma, slug, { ...data, ...projectFlags(manifest) })
+		await writeProject(prisma, slug, {
+			...data,
+			...requiredProjectFields(manifest),
+		})
 		console.log(`  ✓ imported "${manifest.name}"`)
 
 		if (!isPruneDisabled) {
@@ -642,14 +663,20 @@ async function main(): Promise<void> {
 
 	const imported = results.filter((result) => result.status === "imported")
 	const validated = results.filter((result) => result.status === "validated")
+	const skipped = results.filter((result) => result.status === "skipped")
 	const failed = results.filter((result) => result.status === "failed")
 
 	const headline = isDryRun ? "Dry run" : "Import"
 	const tally = isDryRun
 		? `${validated.length} validated`
 		: `${imported.length} imported`
+	// Drafts are listed but don't fail the run: holding one back is the point.
+	const skippedTally =
+		skipped.length > 0 ? `, ${skipped.length} skipped (draft)` : ""
 
-	console.log(`\n${headline} complete: ${tally}, ${failed.length} failed.`)
+	console.log(
+		`\n${headline} complete: ${tally}${skippedTally}, ${failed.length} failed.`
+	)
 
 	// Script writes bypass the app, so `unstable_cache` tags aren't busted. Print
 	// the imported slugs so they paste straight into the admin dashboard's

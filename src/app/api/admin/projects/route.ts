@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
+import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
@@ -10,6 +11,7 @@ import {
 	revalidateProject,
 	toFaqCreate,
 	toLinkCreate,
+	toProductPageCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
 
@@ -46,7 +48,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 		cardImage,
 		ogImage,
 		heroImage,
-		isFeatured,
+		prominence,
+		pageLayout,
 		isDiscontinued,
 		isOwnApp,
 		date,
@@ -104,11 +107,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 						cardImage: cardImage ?? null,
 						ogImage: ogImage ?? null,
 						heroImage: heroImage ?? null,
-						isFeatured: isFeatured ?? false,
+						// The schema's defaults, spelled out like the flags beside them.
+						prominence: prominence ?? ProjectProminence.low,
+						pageLayout: pageLayout ?? ProjectPageLayout.portfolio,
 						isDiscontinued: isDiscontinued ?? false,
 						isOwnApp: isOwnApp ?? false,
 						date: date ?? null,
 						sortOrder: targetOrder,
+						...toProductPageCreate(parsed),
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
 						faqs: toFaqCreate(faqs),

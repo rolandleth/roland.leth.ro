@@ -115,6 +115,38 @@ const guideTopicSummarySelect = {
 	updatedAt: true,
 } as const
 
+/** Also the detail cache key's shape part; see `wrapNullableDetail`. */
+const guideDetailSelect = {
+	id: true,
+	slug: true,
+	title: true,
+	description: true,
+	body: true,
+	projectSlug: true,
+	readingTime: true,
+	publishedAt: true,
+	updatedAt: true,
+	topic: {
+		select: { slug: true, title: true, published: true },
+	},
+} as const
+
+/** Also the detail cache key's shape part; see `wrapNullableDetail`. */
+const guideTopicDetailSelect = {
+	id: true,
+	slug: true,
+	title: true,
+	shortDescription: true,
+	description: true,
+	projectSlug: true,
+	updatedAt: true,
+	guides: {
+		where: { published: true },
+		select: guideListItemSelect,
+		orderBy: guideOrder,
+	},
+} as const
+
 // #region Aggregates
 
 /**
@@ -272,20 +304,7 @@ export async function getGuideBySlug(
 			// the query boundary and the canonical URL can't serve a draft.
 			const row = await prisma.guide.findFirst({
 				where: { slug, published: true },
-				select: {
-					id: true,
-					slug: true,
-					title: true,
-					description: true,
-					body: true,
-					projectSlug: true,
-					readingTime: true,
-					publishedAt: true,
-					updatedAt: true,
-					topic: {
-						select: { slug: true, title: true, published: true },
-					},
-				},
+				select: guideDetailSelect,
 			})
 
 			if (row == null) {
@@ -305,7 +324,8 @@ export async function getGuideBySlug(
 			}
 		},
 		[guideTag(slug)],
-		[guideTag(slug), GUIDE_PAGES_TAG]
+		[guideTag(slug), GUIDE_PAGES_TAG],
+		guideDetailSelect
 	)
 
 	if (guide == null) {
@@ -332,23 +352,11 @@ export async function getGuideTopicBySlug(
 		() =>
 			prisma.guideTopic.findFirst({
 				where: { slug, published: true },
-				select: {
-					id: true,
-					slug: true,
-					title: true,
-					shortDescription: true,
-					description: true,
-					projectSlug: true,
-					updatedAt: true,
-					guides: {
-						where: { published: true },
-						select: guideListItemSelect,
-						orderBy: guideOrder,
-					},
-				},
+				select: guideTopicDetailSelect,
 			}),
 		[guideTopicTag(slug)],
-		[guideTopicTag(slug), GUIDE_PAGES_TAG]
+		[guideTopicTag(slug), GUIDE_PAGES_TAG],
+		guideTopicDetailSelect
 	)
 
 	if (topic == null) {

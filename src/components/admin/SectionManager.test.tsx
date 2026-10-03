@@ -1,5 +1,6 @@
 import { act, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { textSectionFields } from "@/test/fixtures"
 import { renderOrderedList } from "@/test/renderOrderedList"
 import { setupUser } from "@/test/user"
 import SectionManager, { type SectionItem } from "./SectionManager"
@@ -85,13 +86,32 @@ vi.mock("./ImageUpload", async () => {
 
 function makeSection(partial: Partial<SectionItem> = {}): SectionItem {
 	return {
-		_key: partial._key ?? "k",
-		title: partial.title ?? "Overview",
-		description: partial.description ?? "Body",
-		sortOrder: partial.sortOrder ?? 0,
-		images: partial.images ?? [],
+		_key: "k",
+		title: "Overview",
+		description: "Body",
+		sortOrder: 0,
+		...textSectionFields(),
+		images: [],
+		...partial,
 	}
 }
+
+const STEPS: SectionItem["items"] = [
+	{ title: "Log a meal", description: "Type it.", sortOrder: 0, images: [] },
+	{
+		title: "Then how you feel",
+		description: "Log it.",
+		sortOrder: 1,
+		images: [
+			{
+				url: "https://example.com/feel.png",
+				caption: null,
+				alt: "The symptom sheet.",
+				sortOrder: 0,
+			},
+		],
+	},
+]
 
 function renderSections(
 	initial: SectionItem[],
@@ -126,9 +146,132 @@ describe("SectionManager add", () => {
 			title: "",
 			description: "",
 			sortOrder: 1,
+			kind: "text",
+			layout: "stacked",
 			images: [],
+			items: [],
 		})
 		expect(typeof next[1]._key).toBe("string")
+	})
+
+	it("adds an image with empty caption and alt", async () => {
+		const { latest } = renderSections([makeSection({ _key: "a" })])
+		await user.click(screen.getByRole("button", { name: "Add image" }))
+
+		expect(latest()[0].images[0]).toMatchObject({
+			url: "",
+			caption: "",
+			alt: "",
+		})
+	})
+})
+
+// #endregion
+
+// #region Product-page fields
+
+describe("SectionManager product-page fields", () => {
+	it("sets the kind of the targeted section only, dropping or restoring its layout", async () => {
+		const { latest } = renderSections([
+			makeSection({ _key: "a", title: "Alpha" }),
+			makeSection({ _key: "b", title: "Beta", layout: "split" }),
+		])
+		const kinds = screen.getAllByRole("combobox", { name: "Kind" })
+
+		await user.selectOptions(kinds[1], "pricing")
+		expect(latest().map(({ kind, layout }) => ({ kind, layout }))).toEqual([
+			{ kind: "text", layout: "stacked" },
+			{ kind: "pricing", layout: null },
+		])
+
+		// Back to text, it needs a layout again; stacked is the default.
+		await user.selectOptions(kinds[1], "text")
+		expect(latest()[1]).toMatchObject({ kind: "text", layout: "stacked" })
+	})
+
+	it("sets the layout of a text section", async () => {
+		const { latest } = renderSections([makeSection({ _key: "a" })])
+
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: "Layout" }),
+			"split"
+		)
+
+		expect(latest()[0].layout).toBe("split")
+	})
+
+	it("offers a layout only for text sections", () => {
+		renderSections([
+			makeSection({ _key: "a" }),
+			makeSection({ _key: "b", kind: "steps", layout: null, items: STEPS }),
+			makeSection({ _key: "c", kind: "pricing", layout: null }),
+		])
+
+		expect(screen.getAllByRole("combobox", { name: "Layout" })).toHaveLength(1)
+	})
+
+	it("says a steps section's steps are edited in the manifest, and keeps them through other edits", async () => {
+		const { latest } = renderSections([
+			makeSection({ _key: "a", kind: "steps", layout: null, items: STEPS }),
+		])
+
+		expect(
+			screen.getByText(/2 steps, edited in the project manifest/)
+		).toBeInTheDocument()
+
+		await user.type(screen.getByRole("textbox", { name: "Section title" }), "!")
+
+		expect(latest()[0].title).toBe("Overview!")
+		expect(latest()[0].items).toEqual(STEPS)
+	})
+
+	it("warns that a steps section without steps can't be saved from here", () => {
+		renderSections([makeSection({ _key: "a", kind: "steps", layout: null })])
+
+		expect(
+			screen.getByText(
+				/no steps yet\. steps are written in the project manifest/i
+			)
+		).toBeInTheDocument()
+	})
+
+	it("hides the images of a pricing section unless it still has some to remove", () => {
+		renderSections([
+			makeSection({ _key: "a", kind: "pricing", layout: null }),
+			makeSection({
+				_key: "b",
+				kind: "pricing",
+				layout: null,
+				images: [
+					{
+						_key: "i",
+						url: "https://example.com/a.png",
+						caption: "",
+						alt: "",
+						sortOrder: 0,
+					},
+				],
+			}),
+		])
+
+		// Only the second section, which still holds an image, shows the list.
+		expect(screen.getAllByRole("button", { name: "Add image" })).toHaveLength(1)
+	})
+
+	it("edits the alt text of the targeted image only", async () => {
+		const { latest } = renderSections([
+			makeSection({
+				_key: "a",
+				images: [
+					{ _key: "img-1", url: "", caption: "One", alt: "", sortOrder: 0 },
+					{ _key: "img-2", url: "", caption: "Two", alt: "", sortOrder: 1 },
+				],
+			}),
+		])
+
+		await user.type(screen.getAllByLabelText("Alt text")[1], "Second")
+
+		expect(latest()[0].images.map((image) => image.alt)).toEqual(["", "Second"])
 	})
 })
 
@@ -182,7 +325,9 @@ describe("SectionManager image upload finishing late", () => {
 			_key: key,
 			title,
 			sortOrder,
-			images: [{ _key: `${key}-img`, url: "", caption: "", sortOrder: 0 }],
+			images: [
+				{ _key: `${key}-img`, url: "", caption: "", alt: "", sortOrder: 0 },
+			],
 		})
 
 	it("keeps edits made while the upload was in flight", async () => {
@@ -296,8 +441,8 @@ describe("SectionManager image upload finishing late", () => {
 		makeSection({
 			_key: "a",
 			images: [
-				{ _key: "img-1", url: "", caption: "One", sortOrder: 0 },
-				{ _key: "img-2", url: "", caption: "Two", sortOrder: 1 },
+				{ _key: "img-1", url: "", caption: "One", alt: "", sortOrder: 0 },
+				{ _key: "img-2", url: "", caption: "Two", alt: "", sortOrder: 1 },
 			],
 		})
 

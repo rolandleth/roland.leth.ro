@@ -8,6 +8,7 @@ import ThemeProvider from "@/components/ThemeProvider"
 import ThemeScript from "@/components/ThemeScript"
 import { getSiteUrl } from "@/lib/auth/env"
 import { NO_SCRIPT_FADE_RULE } from "@/lib/client/motion"
+import { MAIN_CONTENT_ID } from "@/lib/client/navigation"
 import { feedPathForSection, feedTitleForSection } from "@/lib/content/feed"
 import {
 	defaultOgImage,
@@ -84,8 +85,12 @@ export default function RootLayout({
 	children: React.ReactNode
 }>) {
 	return (
+		// `data-scroll-behavior`: Next.js turns smooth scrolling off for the
+		// scroll-to-top of a route change when this is set, so the smooth in-page
+		// jumps on product pages (globals.css) don't animate every navigation too.
 		<html
 			lang="en"
+			data-scroll-behavior="smooth"
 			className={`${newsreader.variable} ${inter.variable} ${jetBrainsMono.variable} h-full antialiased`}
 			suppressHydrationWarning
 		>
@@ -101,7 +106,7 @@ export default function RootLayout({
 				</noscript>
 
 				<a
-					href="#main-content"
+					href={`#${MAIN_CONTENT_ID}`}
 					className="bg-background text-primary focus-visible:border-accent sr-only z-50 rounded-md border px-3 py-2 text-sm font-medium focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3"
 				>
 					Skip to main content
@@ -120,7 +125,7 @@ export default function RootLayout({
 							lets the skip link move keyboard focus into the landmark
 							without making it a tab stop. */}
 						<main
-							id="main-content"
+							id={MAIN_CONTENT_ID}
 							tabIndex={-1}
 							className="flex flex-1 flex-col"
 						>

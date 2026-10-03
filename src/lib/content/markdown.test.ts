@@ -132,6 +132,13 @@ describe("markdownToReact", () => {
 		expect(html).toContain("First paragraph.")
 		expect(html).toContain("Second paragraph.")
 	})
+
+	it("keeps a numbered `###` heading as a plain heading", async () => {
+		// Product page steps are records of their own, not parsed out of markdown.
+		const html = await render("### 1. Log a meal\n\nBody.")
+		expect(html).toContain("<h3>1. Log a meal</h3>")
+		expect(html).not.toContain("product-steps")
+	})
 })
 
 describe("markdownToHtml", () => {

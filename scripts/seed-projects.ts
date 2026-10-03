@@ -1,5 +1,10 @@
 import "dotenv/config"
-import { PlatformBucket, PlatformTag } from "../src/generated/prisma/client"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "../src/generated/prisma/client"
 import { makeScriptPrisma } from "../src/lib/db/scriptPrisma"
 
 const prisma = makeScriptPrisma()
@@ -14,7 +19,8 @@ type ProjectInput = {
 	platformTags: PlatformTag[]
 	role: string | null
 	accentColor: string | null
-	isFeatured: boolean
+	prominence: ProjectProminence
+	pageLayout: ProjectPageLayout
 	isDiscontinued: boolean
 	isOwnApp: boolean
 	date: string | null
@@ -40,7 +46,8 @@ const projects: ProjectInput[] = [
 		platformTags: [PlatformTag.iOS],
 		role: "Sole developer",
 		accentColor: "#4F7EFF",
-		isFeatured: true,
+		prominence: ProjectProminence.high,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: false,
 		isOwnApp: true,
 		date: "2024",
@@ -116,7 +123,8 @@ const projects: ProjectInput[] = [
 		platformTags: [PlatformTag.iOS, PlatformTag.watchOS],
 		role: "Sole developer",
 		accentColor: "#E84040",
-		isFeatured: true,
+		prominence: ProjectProminence.high,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: false,
 		isOwnApp: true,
 		date: "2023",
@@ -187,7 +195,8 @@ const projects: ProjectInput[] = [
 		platformTags: [PlatformTag.macOS],
 		role: "Sole developer",
 		accentColor: "#9B59B6",
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: false,
 		isOwnApp: true,
 		date: "2024",
@@ -239,7 +248,8 @@ const projects: ProjectInput[] = [
 		platformTags: [PlatformTag.iOS],
 		role: "Sole developer",
 		accentColor: "#2ECC71",
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: false,
 		isOwnApp: true,
 		date: "2025",
@@ -279,7 +289,8 @@ const projects: ProjectInput[] = [
 		platformTags: [PlatformTag.iOS],
 		role: "Sole developer",
 		accentColor: "#F39C12",
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.product,
 		isDiscontinued: true,
 		isOwnApp: true,
 		date: "2022",

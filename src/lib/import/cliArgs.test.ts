@@ -245,11 +245,20 @@ describe("parseScriptArgs", () => {
 		expect(result.positionals).toEqual(["../blog/guides"])
 	})
 
-	it("refuses a missing or extra folder with the usage line", () => {
-		const usage = "Usage: yarn db:import-guides <guides-folder> [--dry-run]"
+	it("refuses a missing folder with the usage line", () => {
+		expect(parseScriptArgs([], ONE_FOLDER).problem).toBe(
+			"Usage: yarn db:import-guides <guides-folder> [--dry-run]"
+		)
+	})
 
-		expect(parseScriptArgs([], ONE_FOLDER).problem).toBe(usage)
-		expect(parseScriptArgs(["a", "b"], ONE_FOLDER).problem).toBe(usage)
+	it("refuses extra positionals and names every one of them", () => {
+		// `dry-run` without its dashes is the likely stray word; it may come
+		// first, so the message names them all instead of guessing which.
+		expect(
+			parseScriptArgs(["dry-run", "../blog/guides"], ONE_FOLDER).problem
+		).toBe(
+			"Expected one <guides-folder>, got 2: dry-run, ../blog/guides. Usage: yarn db:import-guides <guides-folder> [--dry-run]"
+		)
 	})
 
 	it("reports a flag problem before a positional one", () => {
@@ -268,6 +277,35 @@ describe("parseScriptArgs", () => {
 	it("refuses a bare word when the script takes no positionals", () => {
 		expect(parseScriptArgs(["apply"], NO_POSITIONALS).problem).toBe(
 			"Unexpected argument(s): apply. Usage: yarn blob:prune-uploads [--apply]"
+		)
+	})
+
+	it("accepts the destructive flag alone when the script takes no positionals", () => {
+		const result = parseScriptArgs(["--apply"], NO_POSITIONALS)
+
+		expect(result.problem).toBeNull()
+		expect(result.flags.has("--apply")).toBe(true)
+	})
+
+	it("accepts no arguments at all as a dry run when the script takes no positionals", () => {
+		const result = parseScriptArgs([], NO_POSITIONALS)
+
+		expect(result.problem).toBeNull()
+		expect(result.flags.has("--apply")).toBe(false)
+	})
+
+	it("refuses a stray word even next to the destructive flag", () => {
+		// `--apply` is valid, but a stray word means the command wasn't typed
+		// as meant; a permanent delete must not start on a half-right line.
+		expect(parseScriptArgs(["--apply", "now"], NO_POSITIONALS).problem).toBe(
+			"Unexpected argument(s): now. Usage: yarn blob:prune-uploads [--apply]"
+		)
+	})
+
+	it("refuses the destructive flag with a value, rather than reading it as set", () => {
+		// `--apply=false` must never mean "apply".
+		expect(parseScriptArgs(["--apply=false"], NO_POSITIONALS).problem).toMatch(
+			/^Unknown flag\(s\): --apply=false\./
 		)
 	})
 

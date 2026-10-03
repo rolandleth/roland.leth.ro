@@ -152,6 +152,10 @@ marked Sensitive on Vercel can't be read back, so the pull can't fill it; copy
 that one in by hand. Next.js loads `.env.local` over `.env`, so keep a development
 `DATABASE_URL` in `.env.local`, or `yarn dev` runs against production.
 
+A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
+named or not, and counted as skipped rather than failed, so an app can be staged
+before it's ready without every bare run failing on it. Remove the key to import.
+
 Dry run first; `blob:prune-uploads` deletes permanently. It prints the database
 and blob store it targets before anything else, and `--apply` refuses when the
 uploads it would delete outnumber the ones the database references.
@@ -160,6 +164,12 @@ There are no migrations. Schema changes go through `db:push`, and there is no
 `prisma/migrations` folder. `db:push` can't tell a rename from a drop plus an add,
 so it would drop a renamed column's data: rename by hand with `ALTER TABLE … RENAME
 COLUMN` before deploying the schema change.
+
+A change that has to carry data from a dropped column into new ones needs
+hand-written SQL that adds the new columns and fills them from the old one. Run
+it once against each database, before the `db:push` that drops the old column:
+the push only adds and drops, and it would drop the data with the column. The
+SQL is a one-off and isn't kept in the repo.
 
 ## Database schema (posts)
 

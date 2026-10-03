@@ -43,6 +43,7 @@ export type ProjectSectionImageMinAggregateOutputType = {
   sectionId: number | null
   url: string | null
   caption: string | null
+  alt: string | null
   sortOrder: number | null
 }
 
@@ -51,6 +52,7 @@ export type ProjectSectionImageMaxAggregateOutputType = {
   sectionId: number | null
   url: string | null
   caption: string | null
+  alt: string | null
   sortOrder: number | null
 }
 
@@ -59,6 +61,7 @@ export type ProjectSectionImageCountAggregateOutputType = {
   sectionId: number
   url: number
   caption: number
+  alt: number
   sortOrder: number
   _all: number
 }
@@ -81,6 +84,7 @@ export type ProjectSectionImageMinAggregateInputType = {
   sectionId?: true
   url?: true
   caption?: true
+  alt?: true
   sortOrder?: true
 }
 
@@ -89,6 +93,7 @@ export type ProjectSectionImageMaxAggregateInputType = {
   sectionId?: true
   url?: true
   caption?: true
+  alt?: true
   sortOrder?: true
 }
 
@@ -97,6 +102,7 @@ export type ProjectSectionImageCountAggregateInputType = {
   sectionId?: true
   url?: true
   caption?: true
+  alt?: true
   sortOrder?: true
   _all?: true
 }
@@ -192,6 +198,7 @@ export type ProjectSectionImageGroupByOutputType = {
   sectionId: number
   url: string
   caption: string | null
+  alt: string | null
   sortOrder: number
   _count: ProjectSectionImageCountAggregateOutputType | null
   _avg: ProjectSectionImageAvgAggregateOutputType | null
@@ -223,6 +230,7 @@ export type ProjectSectionImageWhereInput = {
   sectionId?: Prisma.IntFilter<"ProjectSectionImage"> | number
   url?: Prisma.StringFilter<"ProjectSectionImage"> | string
   caption?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
+  alt?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
   sortOrder?: Prisma.IntFilter<"ProjectSectionImage"> | number
   section?: Prisma.XOR<Prisma.ProjectSectionScalarRelationFilter, Prisma.ProjectSectionWhereInput>
 }
@@ -232,6 +240,7 @@ export type ProjectSectionImageOrderByWithRelationInput = {
   sectionId?: Prisma.SortOrder
   url?: Prisma.SortOrder
   caption?: Prisma.SortOrderInput | Prisma.SortOrder
+  alt?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   section?: Prisma.ProjectSectionOrderByWithRelationInput
 }
@@ -244,6 +253,7 @@ export type ProjectSectionImageWhereUniqueInput = Prisma.AtLeast<{
   sectionId?: Prisma.IntFilter<"ProjectSectionImage"> | number
   url?: Prisma.StringFilter<"ProjectSectionImage"> | string
   caption?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
+  alt?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
   sortOrder?: Prisma.IntFilter<"ProjectSectionImage"> | number
   section?: Prisma.XOR<Prisma.ProjectSectionScalarRelationFilter, Prisma.ProjectSectionWhereInput>
 }, "id">
@@ -253,6 +263,7 @@ export type ProjectSectionImageOrderByWithAggregationInput = {
   sectionId?: Prisma.SortOrder
   url?: Prisma.SortOrder
   caption?: Prisma.SortOrderInput | Prisma.SortOrder
+  alt?: Prisma.SortOrderInput | Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
   _count?: Prisma.ProjectSectionImageCountOrderByAggregateInput
   _avg?: Prisma.ProjectSectionImageAvgOrderByAggregateInput
@@ -269,12 +280,14 @@ export type ProjectSectionImageScalarWhereWithAggregatesInput = {
   sectionId?: Prisma.IntWithAggregatesFilter<"ProjectSectionImage"> | number
   url?: Prisma.StringWithAggregatesFilter<"ProjectSectionImage"> | string
   caption?: Prisma.StringNullableWithAggregatesFilter<"ProjectSectionImage"> | string | null
+  alt?: Prisma.StringNullableWithAggregatesFilter<"ProjectSectionImage"> | string | null
   sortOrder?: Prisma.IntWithAggregatesFilter<"ProjectSectionImage"> | number
 }
 
 export type ProjectSectionImageCreateInput = {
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
   section: Prisma.ProjectSectionCreateNestedOneWithoutImagesInput
 }
@@ -284,12 +297,14 @@ export type ProjectSectionImageUncheckedCreateInput = {
   sectionId: number
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
 }
 
 export type ProjectSectionImageUpdateInput = {
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   section?: Prisma.ProjectSectionUpdateOneRequiredWithoutImagesNestedInput
 }
@@ -299,6 +314,7 @@ export type ProjectSectionImageUncheckedUpdateInput = {
   sectionId?: Prisma.IntFieldUpdateOperationsInput | number
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -307,12 +323,14 @@ export type ProjectSectionImageCreateManyInput = {
   sectionId: number
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
 }
 
 export type ProjectSectionImageUpdateManyMutationInput = {
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -321,6 +339,7 @@ export type ProjectSectionImageUncheckedUpdateManyInput = {
   sectionId?: Prisma.IntFieldUpdateOperationsInput | number
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -339,6 +358,7 @@ export type ProjectSectionImageCountOrderByAggregateInput = {
   sectionId?: Prisma.SortOrder
   url?: Prisma.SortOrder
   caption?: Prisma.SortOrder
+  alt?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
 }
 
@@ -353,6 +373,7 @@ export type ProjectSectionImageMaxOrderByAggregateInput = {
   sectionId?: Prisma.SortOrder
   url?: Prisma.SortOrder
   caption?: Prisma.SortOrder
+  alt?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
 }
 
@@ -361,6 +382,7 @@ export type ProjectSectionImageMinOrderByAggregateInput = {
   sectionId?: Prisma.SortOrder
   url?: Prisma.SortOrder
   caption?: Prisma.SortOrder
+  alt?: Prisma.SortOrder
   sortOrder?: Prisma.SortOrder
 }
 
@@ -415,6 +437,7 @@ export type ProjectSectionImageUncheckedUpdateManyWithoutSectionNestedInput = {
 export type ProjectSectionImageCreateWithoutSectionInput = {
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
 }
 
@@ -422,6 +445,7 @@ export type ProjectSectionImageUncheckedCreateWithoutSectionInput = {
   id?: number
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
 }
 
@@ -459,6 +483,7 @@ export type ProjectSectionImageScalarWhereInput = {
   sectionId?: Prisma.IntFilter<"ProjectSectionImage"> | number
   url?: Prisma.StringFilter<"ProjectSectionImage"> | string
   caption?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
+  alt?: Prisma.StringNullableFilter<"ProjectSectionImage"> | string | null
   sortOrder?: Prisma.IntFilter<"ProjectSectionImage"> | number
 }
 
@@ -466,12 +491,14 @@ export type ProjectSectionImageCreateManySectionInput = {
   id?: number
   url: string
   caption?: string | null
+  alt?: string | null
   sortOrder?: number
 }
 
 export type ProjectSectionImageUpdateWithoutSectionInput = {
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -479,6 +506,7 @@ export type ProjectSectionImageUncheckedUpdateWithoutSectionInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -486,6 +514,7 @@ export type ProjectSectionImageUncheckedUpdateManyWithoutSectionInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   url?: Prisma.StringFieldUpdateOperationsInput | string
   caption?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  alt?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
@@ -496,6 +525,7 @@ export type ProjectSectionImageSelect<ExtArgs extends runtime.Types.Extensions.I
   sectionId?: boolean
   url?: boolean
   caption?: boolean
+  alt?: boolean
   sortOrder?: boolean
   section?: boolean | Prisma.ProjectSectionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["projectSectionImage"]>
@@ -505,6 +535,7 @@ export type ProjectSectionImageSelectCreateManyAndReturn<ExtArgs extends runtime
   sectionId?: boolean
   url?: boolean
   caption?: boolean
+  alt?: boolean
   sortOrder?: boolean
   section?: boolean | Prisma.ProjectSectionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["projectSectionImage"]>
@@ -514,6 +545,7 @@ export type ProjectSectionImageSelectUpdateManyAndReturn<ExtArgs extends runtime
   sectionId?: boolean
   url?: boolean
   caption?: boolean
+  alt?: boolean
   sortOrder?: boolean
   section?: boolean | Prisma.ProjectSectionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["projectSectionImage"]>
@@ -523,10 +555,11 @@ export type ProjectSectionImageSelectScalar = {
   sectionId?: boolean
   url?: boolean
   caption?: boolean
+  alt?: boolean
   sortOrder?: boolean
 }
 
-export type ProjectSectionImageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sectionId" | "url" | "caption" | "sortOrder", ExtArgs["result"]["projectSectionImage"]>
+export type ProjectSectionImageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sectionId" | "url" | "caption" | "alt" | "sortOrder", ExtArgs["result"]["projectSectionImage"]>
 export type ProjectSectionImageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   section?: boolean | Prisma.ProjectSectionDefaultArgs<ExtArgs>
 }
@@ -547,6 +580,7 @@ export type $ProjectSectionImagePayload<ExtArgs extends runtime.Types.Extensions
     sectionId: number
     url: string
     caption: string | null
+    alt: string | null
     sortOrder: number
   }, ExtArgs["result"]["projectSectionImage"]>
   composites: {}
@@ -976,6 +1010,7 @@ export interface ProjectSectionImageFieldRefs {
   readonly sectionId: Prisma.FieldRef<"ProjectSectionImage", 'Int'>
   readonly url: Prisma.FieldRef<"ProjectSectionImage", 'String'>
   readonly caption: Prisma.FieldRef<"ProjectSectionImage", 'String'>
+  readonly alt: Prisma.FieldRef<"ProjectSectionImage", 'String'>
   readonly sortOrder: Prisma.FieldRef<"ProjectSectionImage", 'Int'>
 }
     

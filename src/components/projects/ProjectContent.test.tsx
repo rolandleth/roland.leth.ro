@@ -1,6 +1,12 @@
 import { render, screen, within } from "@testing-library/react"
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
+import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProjectContent from "./ProjectContent"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -18,7 +24,14 @@ type ProjectSection = ProjectDetail["sections"][number]
 type ProjectImage = ProjectSection["images"][number]
 
 function makeImage(id: number, caption: string): ProjectImage {
-	return { id, sectionId: 1, url: `/${id}.jpg`, caption, sortOrder: id }
+	return {
+		id,
+		sectionId: 1,
+		url: `/${id}.jpg`,
+		caption,
+		alt: null,
+		sortOrder: id,
+	}
 }
 
 // happy-dom doesn't implement scrollIntoView; the tablist effect calls it when
@@ -40,6 +53,7 @@ function makeSection(
 		title,
 		description: `Description for ${title}`,
 		sortOrder: id - 1,
+		...textSectionFields(),
 		images: [],
 		...overrides,
 	}
@@ -63,9 +77,11 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		platformTags: [PlatformTag.iOS],
 		role: null,
 		accentColor: null,
-		isFeatured: false,
+		prominence: ProjectProminence.low,
+		pageLayout: ProjectPageLayout.portfolio,
 		isDiscontinued: false,
 		isOwnApp: false,
+		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
 		sortOrder: 0,
 		createdAt: new Date(),

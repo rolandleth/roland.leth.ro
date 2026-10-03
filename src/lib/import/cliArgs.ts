@@ -184,7 +184,15 @@ function positionalsProblem(
 
 	switch (spec.positionals.count) {
 		case "one":
-			return positionals.length === 1 ? null : cliUsage(spec)
+			if (positionals.length === 0) {
+				return cliUsage(spec)
+			}
+
+			// Named rather than guessed at: the stray word may come first
+			// (`dry-run posts/tech`), so no position is safe to call the extra.
+			return positionals.length === 1
+				? null
+				: `Expected one <${spec.positionals.name}>, got ${positionals.length}: ${positionals.join(", ")}. ${cliUsage(spec)}`
 		case "any":
 			return null
 		case "none":

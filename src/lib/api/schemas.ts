@@ -1,5 +1,12 @@
 import { z } from "zod"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectSectionKind,
+	ProjectSectionLayout,
+} from "@/generated/prisma/enums"
 import {
 	collapseWhitespace,
 	DESCRIPTION_MAX_CHARS,
@@ -23,6 +30,18 @@ const PLATFORM_BUCKETS = Object.values(PlatformBucket) as [
 const PLATFORM_TAGS = Object.values(PlatformTag) as [
 	PlatformTag,
 	...PlatformTag[],
+]
+const PROJECT_SECTION_LAYOUTS = Object.values(ProjectSectionLayout) as [
+	ProjectSectionLayout,
+	...ProjectSectionLayout[],
+]
+const PROJECT_PROMINENCES = Object.values(ProjectProminence) as [
+	ProjectProminence,
+	...ProjectProminence[],
+]
+const PROJECT_PAGE_LAYOUTS = Object.values(ProjectPageLayout) as [
+	ProjectPageLayout,
+	...ProjectPageLayout[],
 ]
 
 // Frozen Set per bucket so the coherence superRefine doesn't rebuild on every
@@ -213,6 +232,27 @@ const projectOfferSchema = z.object({
 	}),
 	priceCurrency: z.string().length(3),
 	billingPeriod: z.string().max(10).optional(),
+	// The plan this price belongs to, by its `name`. The product page prints a
+	// plan's prices inside its card; `refineProjectPlans` rejects a name no plan
+	// has. The JSON-LD ignores it.
+	plan: z.string().trim().min(1).max(60).optional(),
+	// A short line printed with the price on the product page, e.g. "14-day
+	// free trial". The JSON-LD ignores it.
+	note: z.string().trim().min(1).max(80).optional(),
+	// The price the product page marks "Best value". `refineBestValueOffer`
+	// keeps it to one paid price that has another paid price in its plan to
+	// beat. The JSON-LD ignores it.
+	isBestValue: z.boolean().optional(),
+	sortOrder: z.number().int().min(0).optional(),
+})
+
+// One plan card on the product page: what the plan includes, with its prices
+// pulled from the offers that name it. Stored in the `plans` Json column, like
+// `offers`.
+const projectPlanSchema = z.object({
+	name: z.string().trim().min(1).max(60),
+	isHighlighted: z.boolean().optional(),
+	features: z.array(z.string().trim().min(1).max(160)).min(1).max(12),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -226,15 +266,66 @@ const projectFaqSchema = z.object({
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
 	caption: z.string().max(300).nullable().optional(),
+	alt: z.string().max(300).nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
-const projectSectionSchema = z.object({
-	title: z.string().min(1).max(200),
-	description: z.string().min(1).max(100_000),
+const sectionMarkdown = z.string().min(1).max(100_000)
+// The intro of a steps section and the note of a pricing section. "" means
+// none: the admin form sends it for an empty editor.
+const optionalSectionMarkdown = z.string().max(100_000).optional()
+
+const projectSectionItemSchema = z.object({
+	title: z.string().trim().min(1).max(200),
+	description: sectionMarkdown,
 	sortOrder: z.number().int().min(0).optional(),
 	images: z.array(projectSectionImageSchema).optional(),
 })
+
+// A field a kind doesn't take is rejected with a message rather than stripped
+// like an unknown key, so a manifest can't drop its images without saying so.
+// An empty array passes: the admin form sends one for every section. `never`
+// rather than `unknown` keeps the parsed type an empty image list, so code that
+// walks every section's images (`forEachSectionImage`) takes any kind.
+function unusedList(message: string) {
+	return z.array(z.never({ error: message })).optional()
+}
+
+const sectionFields = {
+	title: z.string().min(1).max(200),
+	sortOrder: z.number().int().min(0).optional(),
+}
+
+// What a section holds on the own-app product page (see `ProjectSectionKind`
+// in the Prisma schema). The tabbed layout reads every kind as plain text.
+const projectSectionSchema = z.discriminatedUnion("kind", [
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.text),
+		layout: z.enum(PROJECT_SECTION_LAYOUTS),
+		description: sectionMarkdown,
+		images: z.array(projectSectionImageSchema).optional(),
+		items: unusedList("A text section has no items"),
+	}),
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.steps),
+		// An optional intro above the steps.
+		description: optionalSectionMarkdown,
+		images: unusedList(
+			"A steps section has no images of its own; put them on its steps"
+		),
+		items: z.array(projectSectionItemSchema).min(2).max(10),
+	}),
+	z.object({
+		...sectionFields,
+		kind: z.literal(ProjectSectionKind.pricing),
+		// An optional note under the plan cards.
+		description: optionalSectionMarkdown,
+		images: unusedList("A pricing section has no images"),
+		items: unusedList("A pricing section has no items"),
+	}),
+])
 
 // Accepts CSS hex color in #rgb, #rrggbb, #rgba, or #rrggbbaa form.
 // A non-hex value renders a broken accent color on the project page, so
@@ -247,6 +338,24 @@ const hexColor = z
 	.refine((v) => [4, 5, 7, 9].includes(v.length), {
 		message: "Hex color must be 3, 4, 6, or 8 digits after the '#'",
 	})
+
+// The product page's band and small-text colours for one theme. Hex only: the
+// page writes them into a `<style>` block, so the regex is also what keeps
+// anything but a colour out of the CSS.
+const paletteThemeSchema = z.object({
+	band: hexColor,
+	bandInk: hexColor,
+	bandInk2: hexColor,
+	bandHighlight: hexColor,
+	accentText: hexColor,
+})
+
+// Both themes are required: a band designed for one background has no safe
+// default on the other (a cream band is a glaring block on a dark page).
+const projectPaletteSchema = z.object({
+	light: paletteThemeSchema,
+	dark: paletteThemeSchema,
+})
 
 // `min(1)` on tags so a project can't be saved with bucket only and no
 // descriptive tags — the detail page needs something to render. `max(8)` is
@@ -311,14 +420,249 @@ const projectFields = {
 	cardImage: httpUrl.nullable().optional(),
 	ogImage: httpUrl.nullable().optional(),
 	heroImage: httpUrl.nullable().optional(),
-	isFeatured: z.boolean().optional(),
+	prominence: z.enum(PROJECT_PROMINENCES).optional(),
+	pageLayout: z.enum(PROJECT_PAGE_LAYOUTS).optional(),
 	isDiscontinued: z.boolean().optional(),
 	isOwnApp: z.boolean().optional(),
+	// Product-page fields, rendered only by the product layout. See the Prisma
+	// schema.
+	metaDescription: collapsedWhitespace
+		.pipe(z.string().min(1).max(DESCRIPTION_MAX_CHARS))
+		.nullable()
+		.optional(),
+	heroEyebrow: z.string().trim().min(1).max(80).nullable().optional(),
+	heroHeadline: z.string().trim().min(1).max(80).nullable().optional(),
+	heroImageAlt: z.string().trim().min(1).max(300).nullable().optional(),
+	storeNote: z.string().trim().min(1).max(120).nullable().optional(),
+	closingHeadline: z.string().trim().min(1).max(80).nullable().optional(),
+	closingBody: z.string().trim().min(1).max(200).nullable().optional(),
+	disclaimer: z.string().trim().min(1).max(300).nullable().optional(),
+	plans: z.array(projectPlanSchema).max(4).optional(),
+	palette: projectPaletteSchema.optional(),
 	date: z.string().nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
 	links: z.array(projectLinkSchema).optional(),
 	faqs: z.array(projectFaqSchema).optional(),
+}
+
+type PlanRefineInput = {
+	pageLayout?: ProjectPageLayout
+	plans?: { name: string; isHighlighted?: boolean }[]
+	offers?: { plan?: string; price: string; isBestValue?: boolean }[]
+	sections?: { kind: ProjectSectionKind }[]
+}
+
+// Cross-field rules for the plan cards:
+//   - plan names are unique, since offers point at a plan by name;
+//   - at most one plan is highlighted (it's the one on the band colour);
+//   - with plans present, every offer names one of them, or that price would
+//     print in no card;
+//   - an offer that names a plan needs plans to exist;
+//   - a project with the product page and offers has plans, since the product
+//     page prints prices only inside plan cards;
+//   - at most one `pricing` section, and only on a project with offers, or it
+//     would be a heading over nothing;
+//   - at most one best-value price, paid, with another paid price in its plan.
+// Like `refineBucketTagCoherence`, each rule only fires when the fields it
+// compares are in the payload. The one exception is the create path: there the
+// whole project is in the payload, so an offer naming a plan with no `plans`
+// sent is a dangling reference, and an absent `plans` or `offers` means none.
+function projectPlansRefinement(isPartial: boolean) {
+	return (value: PlanRefineInput, ctx: z.RefinementCtx) =>
+		refineProjectPlans(value, ctx, isPartial)
+}
+
+function refineProjectPlans(
+	value: PlanRefineInput,
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	const { plans, offers, sections } = value
+
+	refineProductPagePlans(value, ctx, isPartial)
+	refinePricingSections(sections, offers, ctx, isPartial)
+	refineBestValueOffer(offers, ctx)
+
+	if (plans != null) {
+		const names = plans.map((plan) => plan.name)
+		const duplicates = names.filter(
+			(name, index) => names.indexOf(name) !== index
+		)
+
+		if (duplicates.length > 0) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["plans"],
+				message: `Duplicate plan names: ${[...new Set(duplicates)].join(", ")}`,
+			})
+		}
+
+		if (plans.filter((plan) => plan.isHighlighted === true).length > 1) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["plans"],
+				message: "At most one plan can be highlighted",
+			})
+		}
+	}
+
+	if (offers != null) {
+		const planNames = new Set((plans ?? []).map((plan) => plan.name))
+
+		offers.forEach((offer, index) => {
+			if (offer.plan == null) {
+				if (plans != null && plans.length > 0) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["offers", index, "plan"],
+						message: "Every offer needs a plan when the project has plans",
+					})
+				}
+
+				return
+			}
+
+			if (plans == null && isPartial) {
+				// A partial update may send offers alone; only a payload that sends
+				// both can be checked against the plans it names.
+				return
+			}
+
+			if (!planNames.has(offer.plan)) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["offers", index, "plan"],
+					message: `No plan is named "${offer.plan}"`,
+				})
+			}
+		})
+	}
+}
+
+// Keyed to the page, not to ownership: it's the product page that prints
+// prices only inside plan cards.
+function refineProductPagePlans(
+	value: PlanRefineInput,
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	const { pageLayout, plans, offers } = value
+
+	if (
+		pageLayout !== ProjectPageLayout.product ||
+		offers == null ||
+		offers.length === 0
+	) {
+		return
+	}
+
+	// A partial update that leaves `plans` out isn't saying there are none.
+	if (plans == null && isPartial) {
+		return
+	}
+
+	if (plans == null || plans.length === 0) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["plans"],
+			message:
+				"A product page with offers needs plans: it prints prices inside plan cards",
+		})
+	}
+}
+
+function refinePricingSections(
+	sections: PlanRefineInput["sections"],
+	offers: PlanRefineInput["offers"],
+	ctx: z.RefinementCtx,
+	isPartial: boolean
+): void {
+	if (sections == null) {
+		return
+	}
+
+	const pricingCount = sections.filter(
+		(section) => section.kind === ProjectSectionKind.pricing
+	).length
+
+	if (pricingCount > 1) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["sections"],
+			message: "At most one section can be a pricing section",
+		})
+	}
+
+	// A partial update that leaves `offers` out isn't saying there are none.
+	if (offers == null && isPartial) {
+		return
+	}
+
+	if (pricingCount > 0 && (offers == null || offers.length === 0)) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["sections"],
+			message: "A pricing section needs the project to have offers",
+		})
+	}
+}
+
+// "Best value" is a comparison, so the flagged price needs something to beat:
+// another paid price in the same plan, or among the offers when none names a
+// plan. A free price is never it. Offers alone decide this, so a partial
+// update that sends them can be checked whole.
+function refineBestValueOffer(
+	offers: PlanRefineInput["offers"],
+	ctx: z.RefinementCtx
+): void {
+	if (offers == null) {
+		return
+	}
+
+	const flagged = offers.filter((offer) => offer.isBestValue === true)
+
+	if (flagged.length > 1) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["offers"],
+			message: "At most one offer can be the best value",
+		})
+	}
+
+	offers.forEach((offer, index) => {
+		if (offer.isBestValue !== true) {
+			return
+		}
+
+		if (!isPaidPrice(offer.price)) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["offers", index, "isBestValue"],
+				message: "A free price can't be the best value",
+			})
+
+			return
+		}
+
+		const hasRival = offers.some(
+			(other) =>
+				other !== offer && other.plan === offer.plan && isPaidPrice(other.price)
+		)
+
+		if (!hasRival) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["offers", index, "isBestValue"],
+				message:
+					"A best-value price needs another paid price in its plan to compare against",
+			})
+		}
+	})
+}
+
+function isPaidPrice(price: string): boolean {
+	return Number(price) > 0
 }
 
 // `superRefine` is layered on the base object schemas so each surface keeps
@@ -332,11 +676,13 @@ const projectFields = {
 export const projectCreateSchema = z
 	.object({ ...projectFields, slug: canonicalSlug })
 	.superRefine(refineBucketTagCoherence)
+	.superRefine(projectPlansRefinement(false))
 
 export const projectUpdateSchema = z
 	.object(projectFields)
 	.partial()
 	.superRefine(refineBucketTagCoherence)
+	.superRefine(projectPlansRefinement(true))
 
 // Auth
 

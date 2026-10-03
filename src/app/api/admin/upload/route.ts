@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api/requireAdmin"
+import { sanitizeLogString } from "@/lib/api/sanitizeLogString"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	adminUploadKey,
 	detectImageMime,
-	sanitizeLogString,
 	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 

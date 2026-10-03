@@ -4,17 +4,17 @@ import { motion } from "framer-motion"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
-import { firstIndexOfSection, flattenSections } from "@/lib/client/gallery"
+import { firstIndexOfGroup, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel, linkCtasFor } from "@/lib/utils/platforms"
-import AppStoreBadge from "./AppStoreBadge"
+import ProjectAccentStyle from "./ProjectAccentStyle"
 import ProjectFaq from "./ProjectFaq"
 import ProjectGuides from "./ProjectGuides"
 import ProjectImageLightbox from "./ProjectImageLightbox"
+import ProjectLinkCta from "./ProjectLinkCta"
 import ProjectSectionCarousel from "./ProjectSectionCarousel"
 import type { GuideLinkItem } from "@/lib/content/guideLinks"
 import type { ProjectDetail } from "@/lib/db/projects"
-import type { LinkCta } from "@/lib/utils/platforms"
 import type { ReactNode } from "react"
 
 interface Props {
@@ -24,10 +24,6 @@ interface Props {
 	/** Topic hubs and ungrouped guides naming this project; empty when it has none. */
 	guides: readonly GuideLinkItem[]
 }
-
-/** Shared pill styling for the hero links grid and the standalone store CTA below the content. */
-const ctaPillClass =
-	"rounded-full border px-4 py-1.5 text-center text-sm font-medium transition-opacity duration-300 hover:opacity-80"
 
 export default function ProjectContent({
 	project,
@@ -108,7 +104,7 @@ export default function ProjectContent({
 	function goToSection(index: number) {
 		setActiveTab(index)
 
-		const first = firstIndexOfSection(galleryImages, index)
+		const first = firstIndexOfGroup(galleryImages, index)
 
 		if (first !== -1) {
 			setGalleryIndex(first)
@@ -125,7 +121,9 @@ export default function ProjectContent({
 
 		const clamped = Math.max(0, Math.min(flatIndex, galleryCount - 1))
 		setGalleryIndex(clamped)
-		setActiveTab(galleryImages[clamped].sectionIndex)
+		// One group per section here (`flattenSections`), so a group index is the
+		// tab index.
+		setActiveTab(galleryImages[clamped].groupIndex)
 	}
 
 	// Page one slide with wrap-around across the whole gallery (arrows / keys).
@@ -173,14 +171,7 @@ export default function ProjectContent({
 
 	return (
 		<>
-			{/* The header gradient in globals.css reads `--color-header-accent`;
-			    rendering this rule via JSX (instead of a useEffect on mount) puts
-			    the override in the first paint, so SPA navigation between project
-			    pages doesn't flash through the default accent between unmount
-			    cleanup and remount effect. */}
-			{accentColor && (
-				<style>{`:root { --color-header-accent: ${accentColor}; }`}</style>
-			)}
+			<ProjectAccentStyle accentColor={accentColor} />
 
 			{/* Project-specific glow */}
 			<div
@@ -440,46 +431,5 @@ export default function ProjectContent({
 				)}
 			</div>
 		</>
-	)
-}
-
-interface ProjectLinkCtaProps {
-	url: string
-	/** How the link renders; decided by `linkCtasFor`. */
-	cta: LinkCta
-	accent: string
-}
-
-/**
- * One project link, as the Apple badge or the accent-coloured pill. Shared by
- * the hero links grid and the repeated CTA below the content, so the two
- * render a link the same way.
- */
-function ProjectLinkCta({ url, cta, accent }: ProjectLinkCtaProps) {
-	if (cta.kind === "badge") {
-		// `justify-self-center`: in the hero grid the anchor would otherwise
-		// stretch to the column and leave the artwork flush left.
-		return (
-			<AppStoreBadge
-				storefront={cta.storefront}
-				href={url}
-				className="justify-self-center"
-			/>
-		)
-	}
-
-	return (
-		<a
-			href={url}
-			target="_blank"
-			rel="noopener noreferrer"
-			className={ctaPillClass}
-			style={{
-				color: accent,
-				borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
-			}}
-		>
-			{cta.label}
-		</a>
 	)
 }

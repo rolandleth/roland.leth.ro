@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Prisma } from "@/generated/prisma/client"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectPageLayout,
+	ProjectProminence,
+} from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
+import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { POST } from "./route"
 
 vi.mock("@/lib/api/requireAdmin", async () => {
@@ -61,9 +67,11 @@ const createdProject = {
 	cardImage: null,
 	ogImage: null,
 	heroImage: null,
-	isFeatured: false,
+	prominence: ProjectProminence.low,
+	pageLayout: ProjectPageLayout.portfolio,
 	isDiscontinued: false,
 	isOwnApp: false,
+	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
 	sortOrder: 1,
 	createdAt: new Date(),
@@ -213,33 +221,141 @@ describe("POST /api/admin/projects", () => {
 		expect(data.applicationCategory).toBeNull()
 	})
 
-	it("writes isFeatured, isDiscontinued and isOwnApp as false when they're omitted", async () => {
+	it("writes the product-page fields, plans and palette from the payload", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+		const plans = [{ name: "Free", features: ["Meals."], sortOrder: 1 }]
+		const theme = {
+			band: "#24443a",
+			bandInk: "#f4f1e8",
+			bandInk2: "#c9d3cc",
+			bandHighlight: "#cfa75a",
+			accentText: "#2e7d5b",
+		}
+
+		await POST(
+			makeRequest({
+				...validPayload,
+				heroEyebrow: "Food and symptom journal",
+				heroHeadline: "Find which foods to suspect",
+				storeNote: "Logging is free, forever.",
+				closingHeadline: "10 seconds a meal",
+				disclaimer: "Not a medical device.",
+				metaDescription: "A food and symptom journal for iPhone.",
+				plans,
+				palette: { light: theme, dark: theme },
+				sections: [
+					{
+						title: "Every suspect shows its work",
+						description: "Evidence.",
+						kind: "text",
+						layout: "split",
+						images: [{ url: "https://example.com/a.png", alt: "Alt." }],
+					},
+					{
+						title: "How it works",
+						kind: "steps",
+						items: [
+							{
+								title: "Log a meal",
+								description: "Type it.",
+								images: [{ url: "https://example.com/log.png", alt: "Log." }],
+							},
+							{ title: "Then how you feel", description: "Log it." },
+						],
+					},
+				],
+			})
+		)
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.heroEyebrow).toBe("Food and symptom journal")
+		expect(data.heroHeadline).toBe("Find which foods to suspect")
+		expect(data.storeNote).toBe("Logging is free, forever.")
+		expect(data.closingHeadline).toBe("10 seconds a meal")
+		expect(data.disclaimer).toBe("Not a medical device.")
+		expect(data.metaDescription).toBe("A food and symptom journal for iPhone.")
+		expect(data.plans).toEqual(plans)
+		expect(data.palette).toEqual({ light: theme, dark: theme })
+		expect(data.sections).toEqual({
+			create: [
+				expect.objectContaining({
+					kind: "text",
+					layout: "split",
+					images: {
+						create: [expect.objectContaining({ alt: "Alt." })],
+					},
+				}),
+				expect.objectContaining({
+					kind: "steps",
+					layout: null,
+					items: {
+						create: [
+							expect.objectContaining({
+								title: "Log a meal",
+								images: {
+									create: [expect.objectContaining({ alt: "Log." })],
+								},
+							}),
+							expect.objectContaining({ title: "Then how you feel" }),
+						],
+					},
+				}),
+			],
+		})
+	})
+
+	it("writes null product-page fields and SQL NULL plans and palette when they're omitted", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(makeRequest(validPayload))
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.isFeatured).toBe(false)
+		expect(data.heroEyebrow).toBeNull()
+		expect(data.metaDescription).toBeNull()
+		expect(data.plans).toBe(Prisma.DbNull)
+		expect(data.palette).toBe(Prisma.DbNull)
+	})
+
+	it("writes low prominence, the portfolio page and false flags when they're omitted", async () => {
+		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
+
+		await POST(makeRequest(validPayload))
+
+		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
+		expect(data.prominence).toBe(ProjectProminence.low)
+		expect(data.pageLayout).toBe(ProjectPageLayout.portfolio)
 		expect(data.isDiscontinued).toBe(false)
 		expect(data.isOwnApp).toBe(false)
 	})
 
-	it("stores isFeatured, isDiscontinued and isOwnApp when they're set", async () => {
+	it("stores prominence, page layout, isDiscontinued and isOwnApp when they're set", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(
 			makeRequest({
 				...validPayload,
-				isFeatured: true,
+				prominence: ProjectProminence.high,
+				pageLayout: ProjectPageLayout.product,
 				isDiscontinued: true,
 				isOwnApp: true,
 			})
 		)
 
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
-		expect(data.isFeatured).toBe(true)
+		expect(data.prominence).toBe(ProjectProminence.high)
+		expect(data.pageLayout).toBe(ProjectPageLayout.product)
 		expect(data.isDiscontinued).toBe(true)
 		expect(data.isOwnApp).toBe(true)
+	})
+
+	it.each([
+		["prominence", { prominence: "featured" }],
+		["pageLayout", { pageLayout: "magazine" }],
+	])("rejects an unknown %s with a 400", async (_field, fields) => {
+		const res = await POST(makeRequest({ ...validPayload, ...fields }))
+
+		expect(res.status).toBe(400)
+		expect(prisma.project.create).not.toHaveBeenCalled()
 	})
 
 	it("appends after the last project when no sortOrder is provided", async () => {
@@ -312,6 +428,8 @@ describe("POST /api/admin/projects", () => {
 					{
 						title: "Overview",
 						description: "Main overview.",
+						kind: "text",
+						layout: "stacked",
 						images: [{ url: "https://example.com/img.png" }],
 					},
 				],
@@ -370,6 +488,8 @@ describe("POST /api/admin/projects", () => {
 					{
 						title: "S",
 						description: "D",
+						kind: "text",
+						layout: "stacked",
 						// eslint-disable-next-line sonarjs/no-clear-text-protocols
 						images: [{ url: "ftp://bad.com/img.png" }],
 					},

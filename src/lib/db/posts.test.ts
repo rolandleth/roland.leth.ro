@@ -485,6 +485,21 @@ describe("getPostBySlug", () => {
 		expect(result).toBeNull()
 	})
 
+	it("keys the cache on the query's select, so an entry in an older shape is never served", async () => {
+		// The wrapper's source never changes, so the key parts are all the cache
+		// sees. A slug no other test uses: wrappers are built once per slug.
+		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
+
+		await getPostBySlug("tech", "shape-keyed")
+
+		const [, keyParts] = vi.mocked(unstable_cache).mock.calls.at(-1) ?? []
+		const { select } = vi.mocked(prisma.post.findFirst).mock.calls[0][0] as {
+			select: unknown
+		}
+
+		expect(keyParts).toEqual(["post-tech-shape-keyed", JSON.stringify(select)])
+	})
+
 	it("returns null when the row doesn't exist", async () => {
 		vi.mocked(prisma.post.findFirst).mockResolvedValue(null)
 

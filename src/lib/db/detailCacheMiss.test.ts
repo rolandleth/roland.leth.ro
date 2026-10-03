@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
+import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { getGuideBySlug, getGuideTopicBySlug } from "@/lib/db/guides"
 import {
@@ -235,6 +237,47 @@ describe("detail lookups gate a scheduled row to null off a warm cache", () => {
 		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
 		expect(await getGuideBySlug("guide-scheduled")).toBeNull()
 		expect(prisma.guide.findFirst).toHaveBeenCalledTimes(1)
+	})
+})
+
+// #endregion
+
+// #region An entry in an older shape is not served
+
+// A deploy starts a new process, so the wrapper map is empty, but the durable
+// cache keeps its entries, and the memo store stands in for it here. Each call
+// below builds a fresh map, as a new deploy would, against the same store.
+describe("wrapNullableDetail keys the durable cache on the row's shape", () => {
+	const keyParts = ["shape-deploy"]
+	const tags = ["shape-deploy"]
+
+	function deploy(shape: unknown, fetchRow: () => Promise<object | null>) {
+		return wrapNullableDetail(
+			createBoundedWrapperCache<() => Promise<object>>(),
+			"shape-deploy",
+			fetchRow,
+			keyParts,
+			tags,
+			shape
+		)
+	}
+
+	it("re-fetches when the shape changes, and serves the stored entry while it doesn't", async () => {
+		const olderRow = { id: 1 }
+		const newerRow = { id: 1, items: [] }
+		const fetchOlder = vi.fn(async () => olderRow)
+		const fetchNewer = vi.fn(async () => newerRow)
+
+		expect(await deploy({ id: true }, fetchOlder)).toEqual(olderRow)
+		expect(await deploy({ id: true, items: true }, fetchNewer)).toEqual(
+			newerRow
+		)
+		expect(await deploy({ id: true, items: true }, fetchNewer)).toEqual(
+			newerRow
+		)
+		// One fetch per shape: the third deploy is served from the store.
+		expect(fetchOlder).toHaveBeenCalledTimes(1)
+		expect(fetchNewer).toHaveBeenCalledTimes(1)
 	})
 })
 
