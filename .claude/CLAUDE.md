@@ -18,7 +18,7 @@ Log paths: Use your scratchpad to store and read logs, if you need.
 - **Styling**: Tailwind CSS v4
 - **Database**: PostgreSQL via Prisma (Prisma Postgres)
 - **Auth**: Custom JWT via `jose` + `bcryptjs` (single-user, session cookie)
-- **Images**: Vercel Blob (free tier: 1GB storage)
+- **Images and video**: Vercel Blob (Hobby: 1 GB storage and 10 GB data transfer a month; past either, Blob stops serving for up to 30 days, images included)
 - **Deployment**: Vercel
 - **Linting**: ESLint 9 (flat config) + Prettier
 - **Markdown**: `unified` (`remark-parse` + `remark-gfm` + `remark-rehype`), rendered to React via `hast-util-to-jsx-runtime`. Highlighting is `rehype-pretty-code` (Shiki) on pages; the feed swaps it for `rehype-stringify` so the markup carries no stylesheet-dependent spans. All processors are built once at module load in `src/lib/content/markdown.ts`.
@@ -104,6 +104,8 @@ INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a
 KV_REST_API_URL=        # Optional. Upstash Redis REST URL. Pairs with the token below.
 KV_REST_API_TOKEN=      # Optional. Upstash Redis REST token. Either one missing and `getRedisConfig()` returns null: the login limiter falls open and cron skips its keepalive ping.
 IP_HASH_SECRET=         # Optional. HMAC key that pseudonymizes client IPs into rate-limit bucket keys. `openssl rand -hex 32`
+BLOB_READ_WRITE_TOKEN=  # Vercel Blob token. The admin uploads and the import scripts need it; Vercel adds it when the store is connected to the project.
+ALLOW_UPLOADS=          # Must be exactly `true` for the admin uploads (image and video) to work. Anything else and both routes answer 403 "Uploads are disabled". The import scripts ignore it.
 ```
 
 `INDEXNOW_KEY` is served verbatim at `/indexnow-key.txt` and sent as the `key`
@@ -152,6 +154,10 @@ marked Sensitive on Vercel can't be read back, so the pull can't fill it; copy
 that one in by hand. Next.js loads `.env.local` over `.env`, so keep a development
 `DATABASE_URL` in `.env.local`, or `yarn dev` runs against production.
 
+`db:import-posts` uploads the local media a post file references; see "Media in
+post bodies" below. It needs `BLOB_READ_WRITE_TOKEN` only when a post it could
+write has local media, and it lists the store once per run.
+
 A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
 named or not, and counted as skipped rather than failed, so an app can be staged
 before it's ready without every bare run failing on it. Remove the key to import.
@@ -176,6 +182,41 @@ SQL is a one-off and isn't kept in the repo.
 The blog has two sections (`tech` and `life`), stored in a single `posts` table with a `section` field.
 
 Post fields: title, body (markdown), description (the meta description, OG description, feed `<summary>` and JSON-LD description — read from the file's `description:` frontmatter on import or the admin form, derived from the body when neither sets it (the title, for a body with no prose); every write path resolves it through `src/lib/content/postDescription.ts`; nothing on the site renders it, the list card previews the body), imageUrl, section, slug (authored, never derived: the admin form's Slug field, which fills from the title until edited, or the file's required `slug:` frontmatter on import and bulk upload — a file without one is skipped. Frozen after creation: the update schema has no slug, so a title edit never moves the URL. Project slugs follow the same rule), datetime (original format: `yyyy-MM-dd-HHmm`), readingTime, published (boolean for draft support).
+
+## Media in post bodies
+
+A body embeds an image or a video with image syntax, `![alt](url)`. A URL whose
+path ends in `.mp4` or `.webm` renders as a `<video>` with controls; any other
+stays an `<img>`. The rewrite is `src/lib/content/rehypeVideo.ts`, shared by the
+page and feed processors. Raw HTML is still dropped, a typed `<video>` tag
+included. The alt text becomes the video's `aria-label`. A `.mov` is not
+accepted anywhere: playback outside Safari depends on the browser and the codec.
+
+A file gets its URL one of three ways:
+
+- **Import script.** A path with no scheme and no leading `/` names a file
+  relative to the import folder: `![Demo](media/my-post/demo.mp4)`.
+  `db:import-posts` uploads it to Blob under `posts/<section>/<slug>/`, keyed by
+  its content, and stores the body with the Blob URL. The file keeps the relative
+  path, so an editor's preview still finds it. Only posts the run writes upload
+  anything, a re-run reuses what is stored, and after the write the blobs a post
+  no longer names are deleted. A post with a missing or unsupported media file
+  is skipped whole, as is a path with `..` in it. The admin bulk upload gets only
+  the `.md` file, so it skips a post that references local media.
+- **Admin.** The post form's "Upload video" button sends the file from the
+  browser straight to Blob and inserts `![](url)` at the cursor. It can't go
+  through a route: Vercel caps a function's request body at 4.5 MB, which also
+  caps the admin image upload below its own 10 MiB limit. The route
+  (`/api/admin/upload/video`) only signs the upload, so it never sees the bytes;
+  the type check runs in the browser before anything is sent.
+- **`public/`.** `/images/…` and `/videos/…` paths are served from the repo and
+  pass through every path untouched.
+
+A video is capped at 20 MiB (`MAX_VIDEO_UPLOAD_MIB`), in the admin and in the
+script. The cap protects the 10 GB monthly Blob transfer allowance: every play
+downloads the file. The CSP allows media from `'self'` and the Blob host
+(`media-src`), and the browser upload to `https://vercel.com/api/blob/`
+(`connect-src`).
 
 ## Legacy URL handling
 
