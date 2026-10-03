@@ -2,19 +2,59 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
+import { markdownToHtml } from "@/lib/content/markdown"
 import { isUnloadGuarded } from "@/test/unsavedChanges"
 import { setupUser } from "@/test/user"
 import PostForm from "./PostForm"
+import type { MarkdownEditorHandle } from "./MarkdownEditor"
+import type { Ref } from "react"
 
 const user = setupUser()
+
+const VIDEO_URL =
+	"https://store.public.blob.vercel-storage.com/0f8e4b1c-2d3a-4e5f-8a9b-0c1d2e3f4a5b-clip.mp4"
 
 vi.mock("next/navigation", () => ({
 	useRouter: vi.fn(),
 }))
 
-// Stub heavy sub-components that are not the focus of these tests.
-vi.mock("@/components/admin/MarkdownEditor", () => ({
-	default: () => null,
+const insertBlock = vi.fn()
+
+// Stub heavy sub-components that are not the focus of these tests. The editor
+// keeps its handle, so a test can see what the form asks it to insert.
+vi.mock("@/components/admin/MarkdownEditor", async () => {
+	const { useImperativeHandle } = await import("react")
+
+	function MarkdownEditorStub({ ref }: { ref?: Ref<MarkdownEditorHandle> }) {
+		useImperativeHandle(ref, () => ({ insertBlock }))
+
+		return null
+	}
+
+	return { default: MarkdownEditorStub }
+})
+// Buttons stand in for the upload, so a test can drive what the form reacts
+// to: an upload starting, ending, and landing with a URL.
+vi.mock("@/components/admin/VideoUpload", () => ({
+	default: ({
+		onUploaded,
+		onUploadingChange,
+	}: {
+		onUploaded: (url: string) => void
+		onUploadingChange?: (isUploading: boolean) => void
+	}) => (
+		<>
+			<button type="button" onClick={() => onUploadingChange?.(true)}>
+				Start video upload
+			</button>
+			<button type="button" onClick={() => onUploadingChange?.(false)}>
+				Finish video upload
+			</button>
+			<button type="button" onClick={() => onUploaded(VIDEO_URL)}>
+				Land video
+			</button>
+		</>
+	),
 }))
 // A plain input stands in for the upload widget, so a test can edit the URL
 // without the upload machinery.
@@ -40,6 +80,9 @@ vi.mock("@/components/admin/ImageUpload", () => ({
 			/>
 			<button type="button" onClick={() => onUploadingChange?.(true)}>
 				Start upload
+			</button>
+			<button type="button" onClick={() => onUploadingChange?.(false)}>
+				Finish upload
 			</button>
 		</>
 	),
@@ -327,6 +370,100 @@ describe("PostForm — create mode", () => {
 		await user.click(screen.getByRole("button", { name: /start upload/i }))
 
 		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
+	})
+
+	it("enables Save again once the image upload ends", async () => {
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /start upload/i }))
+		await user.click(screen.getByRole("button", { name: /finish upload/i }))
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeEnabled()
+	})
+
+	it("disables Save while a video is uploading", async () => {
+		// A video takes long enough that a Save, and the navigation after it,
+		// would abort the upload.
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(
+			screen.getByRole("button", { name: /start video upload/i })
+		)
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
+	})
+
+	it("keeps Save disabled while the video uploads after the image has landed", async () => {
+		// One shared boolean would be cleared by whichever upload ends first.
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /start upload/i }))
+		await user.click(
+			screen.getByRole("button", { name: /start video upload/i })
+		)
+		await user.click(screen.getByRole("button", { name: /finish upload/i }))
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
+
+		await user.click(
+			screen.getByRole("button", { name: /finish video upload/i })
+		)
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeEnabled()
+	})
+
+	it("keeps Save disabled while the image uploads after the video has landed", async () => {
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /start upload/i }))
+		await user.click(
+			screen.getByRole("button", { name: /start video upload/i })
+		)
+		await user.click(
+			screen.getByRole("button", { name: /finish video upload/i })
+		)
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeDisabled()
+	})
+
+	it("guards closing the tab while a video upload is in flight", async () => {
+		mockRouter()
+		render(<PostForm />)
+
+		await user.click(
+			screen.getByRole("button", { name: /start video upload/i })
+		)
+
+		expect(isUnloadGuarded()).toBe(true)
+	})
+
+	it("inserts an uploaded video into the body as image syntax, with the cursor in the alt text", async () => {
+		// Image syntax with a video URL is what the renderer turns into a
+		// `<video>`. The alt text is left for the author: offset 2 is between
+		// the brackets.
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /land video/i }))
+
+		expect(insertBlock).toHaveBeenCalledTimes(1)
+		expect(insertBlock).toHaveBeenCalledWith(`![](${VIDEO_URL})`, 2)
+	})
+
+	it("inserts markdown the renderer reads as a video", async () => {
+		mockRouter()
+
+		render(<PostForm />)
+		await user.click(screen.getByRole("button", { name: /land video/i }))
+
+		const [markdown] = insertBlock.mock.calls[0]
+		const html = await markdownToHtml(markdown)
+
+		expect(html).toContain(`<video src="${VIDEO_URL}"`)
 	})
 })
 

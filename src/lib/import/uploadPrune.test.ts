@@ -46,6 +46,17 @@ describe("isAdminUploadKey", () => {
 		}
 	)
 
+	it.each([
+		["demo.mp4", "video/mp4"],
+		["Screen Recording 2026-10-02.mov", "video/mp4"],
+		["demo.webm", "video/webm"],
+	] as const)(
+		"recognizes a video key the upload route writes, for %j",
+		(filename, mime) => {
+			expect(isAdminUploadKey(adminUploadKey(filename, mime))).toBe(true)
+		}
+	)
+
 	it("recognizes a key an older SDK wrote with a random suffix", () => {
 		expect(isAdminUploadKey(`${ID_A}-cover-Xk3Pq9.png`)).toBe(true)
 	})
@@ -89,6 +100,13 @@ describe("collectReferencedUploadIds", () => {
 		expect(collectReferencedUploadIds([{ body }])).toEqual(
 			new Set([ID_A, ID_B])
 		)
+	})
+
+	it("finds a video embedded in a markdown body", () => {
+		// A video is only ever referenced from a body; no column holds its URL.
+		const body = `Intro.\n\n![A demo](https://store.public.blob.vercel-storage.com/${ID_A}-demo.mp4)`
+
+		expect(collectReferencedUploadIds([{ body }])).toEqual(new Set([ID_A]))
 	})
 
 	it("finds an upload behind a custom domain or with a query string", () => {

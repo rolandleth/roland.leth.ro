@@ -1,8 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { createRef, useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { markdownToReact } from "@/lib/content/markdown"
 import { setupUser } from "@/test/user"
 import MarkdownEditor from "./MarkdownEditor"
+import type { MarkdownEditorHandle } from "./MarkdownEditor"
+import type { RefObject } from "react"
 
 const user = setupUser()
 
@@ -120,6 +123,166 @@ describe("MarkdownEditor preview mode", () => {
 		// stays at 1.
 		await new Promise((r) => setTimeout(r, 0))
 		expect(markdownToReact).toHaveBeenCalledTimes(1)
+	})
+})
+
+// #endregion
+
+// #region Inserting a block
+
+describe("MarkdownEditor insertBlock", () => {
+	const BLOCK = "![](https://example.com/clip.mp4)"
+
+	/** The editor with a parent that owns the value, as a form does. */
+	function ControlledEditor({
+		initialValue,
+		editorRef,
+	}: {
+		initialValue: string
+		editorRef: RefObject<MarkdownEditorHandle | null>
+	}) {
+		const [value, setValue] = useState(initialValue)
+
+		return <MarkdownEditor ref={editorRef} value={value} onChange={setValue} />
+	}
+
+	function renderEditor(initialValue: string) {
+		const editorRef = createRef<MarkdownEditorHandle>()
+
+		render(
+			<ControlledEditor initialValue={initialValue} editorRef={editorRef} />
+		)
+
+		return editorRef
+	}
+
+	function textarea(): HTMLTextAreaElement {
+		return screen.getByRole("textbox")
+	}
+
+	/** Moves the cursor the way a click or an arrow key does. */
+	function placeCursor(start: number, end = start) {
+		textarea().setSelectionRange(start, end)
+		fireEvent.select(textarea())
+	}
+
+	it("appends the block when the textarea never had a cursor", () => {
+		const editorRef = renderEditor("Intro.")
+
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		expect(textarea()).toHaveValue(`Intro.\n\n${BLOCK}`)
+	})
+
+	it("inserts the block as the whole value of an empty editor", () => {
+		const editorRef = renderEditor("")
+
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		expect(textarea()).toHaveValue(BLOCK)
+	})
+
+	it("inserts next to the cursor, not at the end", () => {
+		const editorRef = renderEditor("One.\n\nTwo.")
+
+		placeCursor(2)
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		expect(textarea()).toHaveValue(`One.\n\n${BLOCK}\n\nTwo.`)
+	})
+
+	it("keeps selected text and inserts after its line", () => {
+		const editorRef = renderEditor("Keep all of this.\n\nAnd this.")
+
+		placeCursor(5, 8)
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		expect(textarea()).toHaveValue(`Keep all of this.\n\n${BLOCK}\n\nAnd this.`)
+	})
+
+	it("follows the cursor as the author types", async () => {
+		const editorRef = renderEditor("")
+
+		await user.type(textarea(), "Typed.")
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		expect(textarea()).toHaveValue(`Typed.\n\n${BLOCK}`)
+	})
+
+	it("puts the cursor after the block by default and focuses the textarea", () => {
+		const editorRef = renderEditor("Intro.\n\nOutro.")
+
+		placeCursor(3)
+		act(() => editorRef.current?.insertBlock(BLOCK))
+
+		const blockEnd = "Intro.\n\n".length + BLOCK.length
+
+		expect(textarea()).toHaveFocus()
+		expect(textarea().selectionStart).toBe(blockEnd)
+		expect(textarea().selectionEnd).toBe(blockEnd)
+	})
+
+	it("puts the cursor at the given offset into the block", () => {
+		const editorRef = renderEditor("Intro.")
+
+		act(() => editorRef.current?.insertBlock(BLOCK, 2))
+
+		// Inside the `![` `]` pair, where the alt text goes.
+		const altStart = "Intro.\n\n![".length
+
+		expect(textarea().selectionStart).toBe(altStart)
+		expect(textarea().selectionEnd).toBe(altStart)
+	})
+
+	it("stacks a second block after the first without splitting it", () => {
+		// The first insert leaves the cursor inside the block's alt text.
+		const editorRef = renderEditor("Intro.")
+
+		act(() => editorRef.current?.insertBlock(BLOCK, 2))
+		act(() => editorRef.current?.insertBlock("![](second.mp4)", 2))
+
+		expect(textarea()).toHaveValue(`Intro.\n\n${BLOCK}\n\n![](second.mp4)`)
+	})
+
+	it("inserts at the remembered cursor while in preview", async () => {
+		vi.mocked(markdownToReact).mockResolvedValue(<p>parsed</p>)
+		const editorRef = renderEditor("One.\n\nTwo.")
+
+		placeCursor(2)
+		await user.click(screen.getByRole("button", { name: /preview/i }))
+		act(() => editorRef.current?.insertBlock(BLOCK, 2))
+		await user.click(screen.getByRole("button", { name: /edit/i }))
+
+		expect(textarea()).toHaveValue(`One.\n\n${BLOCK}\n\nTwo.`)
+	})
+
+	it("moves the cursor into a block inserted in preview once Edit is back", async () => {
+		vi.mocked(markdownToReact).mockResolvedValue(<p>parsed</p>)
+		const editorRef = renderEditor("Intro.")
+
+		await user.click(screen.getByRole("button", { name: /preview/i }))
+		act(() => editorRef.current?.insertBlock(BLOCK, 2))
+		await user.click(screen.getByRole("button", { name: /edit/i }))
+
+		const altStart = "Intro.\n\n![".length
+
+		expect(textarea()).toHaveFocus()
+		expect(textarea().selectionStart).toBe(altStart)
+	})
+
+	it("does not move the cursor on an ordinary edit", async () => {
+		const editorRef = renderEditor("Intro.")
+
+		act(() => editorRef.current?.insertBlock(BLOCK))
+		placeCursor(0)
+		await user.type(textarea(), "X", {
+			initialSelectionStart: 0,
+			initialSelectionEnd: 0,
+		})
+
+		// Typing at the start leaves the cursor after the typed character; a
+		// stale pending cursor would have thrown it back to the block.
+		expect(textarea().selectionStart).toBe(1)
 	})
 })
 

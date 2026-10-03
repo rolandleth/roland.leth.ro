@@ -1,4 +1,5 @@
-// Helpers for the upload route. They live here rather than in `route.ts`
+// Helpers for the upload routes: the image upload here and the video upload in
+// `video/`. They live here rather than in `route.ts`
 // because the App Router only permits HTTP-method handlers and route-segment
 // config as exports from a `route.ts` file — any other export (these are
 // exported for unit testing) fails Next's route-type validation at build with
@@ -6,6 +7,52 @@
 // tests import them directly while `route.ts` stays a valid route file.
 
 import { randomUUID } from "node:crypto"
+import { NextResponse } from "next/server"
+import {
+	FTYP_MAJOR_BRAND_OFFSET,
+	ftypBrandAt,
+	hasFtypBox,
+} from "@/lib/utils/ftyp"
+import { IMAGE_EXTENSIONS } from "@/lib/utils/image"
+import { randomShortId } from "@/lib/utils/randomShortId"
+import { VIDEO_EXTENSIONS } from "@/lib/utils/video"
+import type { ImageMime } from "@/lib/utils/image"
+import type { VideoMime } from "@/lib/utils/video"
+
+/**
+ * A 403 while uploads are switched off, or `null` when they are on.
+ *
+ * An explicit env flag rather than gating on `NODE_ENV !== "production"`, which
+ * collapses dev/test/preview into one bucket and produces a misleading 403
+ * message on Vercel preview deploys (where Vercel sets NODE_ENV=production
+ * but uploads should still work). Read lazily so `vi.stubEnv` works.
+ */
+export function refuseDisabledUploads(): NextResponse | null {
+	if (process.env.ALLOW_UPLOADS === "true") {
+		return null
+	}
+
+	return NextResponse.json(
+		{ error: "Uploads are disabled (set ALLOW_UPLOADS=true to enable)" },
+		{ status: 403 }
+	)
+}
+
+/**
+ * Logs a Blob failure under `tag` and returns the 500 for it. The user-facing
+ * message is kept distinct from the generic 500 helper so the admin UI can show
+ * "Upload failed" rather than "Internal server error".
+ */
+export function respondUploadFailed(tag: string, error: unknown): NextResponse {
+	const requestId = randomShortId()
+	// eslint-disable-next-line no-console
+	console.error(tag, { requestId }, error)
+
+	return NextResponse.json(
+		{ error: "Upload failed", requestId },
+		{ status: 500 }
+	)
+}
 
 /**
  * Strips path separators and control/space characters from a filename so it
@@ -15,16 +62,11 @@ export function sanitizeFilename(name: string): string {
 	return name.replace(/[\\/\0\s]+/g, "-").replace(/[^a-zA-Z0-9._-]/g, "")
 }
 
-/** The file extension each image type the sniff recognizes is stored under. */
-const IMAGE_EXTENSIONS = {
-	"image/png": "png",
-	"image/jpeg": "jpg",
-	"image/gif": "gif",
-	"image/webp": "webp",
-	"image/avif": "avif",
-} as const
-
-export type ImageMime = keyof typeof IMAGE_EXTENSIONS
+/** The file extension every type an admin upload can have is stored under. */
+const UPLOAD_EXTENSIONS: Record<ImageMime | VideoMime, string> = {
+	...IMAGE_EXTENSIONS,
+	...VIDEO_EXTENSIONS,
+}
 
 /**
  * The blob key for an admin upload: `<uuid>-<sanitized base name>.<extension>`
@@ -34,16 +76,21 @@ export type ImageMime = keyof typeof IMAGE_EXTENSIONS
  * The extension comes from the sniffed type, never the client's filename: the
  * blob is served with the sniffed `Content-Type`, but a downloaded copy opens by
  * its extension, and a `.html` key on verified PNG bytes would open as a page.
+ * For a video the extension does one more job: it is how the markdown renderer
+ * tells a video from an image (`isVideoUrl`).
  *
  * `isAdminUploadKey` in `src/lib/import/uploadPrune.ts` recognizes exactly this
  * shape, and `scripts/prune-uploads.ts` deletes the unreferenced ones. Change
  * one and the other has to follow — `uploadPrune.test.ts` feeds keys made here
  * through it, so a drift fails there first.
  */
-export function adminUploadKey(filename: string, mime: ImageMime): string {
+export function adminUploadKey(
+	filename: string,
+	mime: ImageMime | VideoMime
+): string {
 	const baseName = filename.replace(/\.[^.]*$/, "")
 
-	return `${randomUUID()}-${sanitizeFilename(baseName)}.${IMAGE_EXTENSIONS[mime]}`
+	return `${randomUUID()}-${sanitizeFilename(baseName)}.${UPLOAD_EXTENSIONS[mime]}`
 }
 
 /**
@@ -104,12 +151,7 @@ export function detectImageMime(bytes: Uint8Array): ImageMime | null {
 		return "image/webp"
 	}
 
-	if (
-		bytes[4] === 0x66 &&
-		bytes[5] === 0x74 &&
-		bytes[6] === 0x79 &&
-		bytes[7] === 0x70
-	) {
+	if (hasFtypBox(bytes)) {
 		return isAvifFtyp(bytes) ? "image/avif" : null
 	}
 
@@ -132,7 +174,7 @@ const AVIF_BRANDS = new Set(["avif", "avis"])
  * spoofed file gets — revisit here if a real AVIF upload gets a 415.
  */
 function isAvifFtyp(bytes: Uint8Array): boolean {
-	const majorBrand = brandAt(bytes, 8)
+	const majorBrand = ftypBrandAt(bytes, FTYP_MAJOR_BRAND_OFFSET)
 
 	if (AVIF_BRANDS.has(majorBrand)) {
 		return true
@@ -142,16 +184,6 @@ function isAvifFtyp(bytes: Uint8Array): boolean {
 	// HEIC files. Only an AVIF brand in the compatible list tells them apart;
 	// without it a HEIC would be stored as an `.avif` no browser renders.
 	return majorBrand === "mif1" && hasCompatibleAvifBrand(bytes)
-}
-
-/** The four-character brand code at `offset`. */
-function brandAt(bytes: Uint8Array, offset: number): string {
-	return String.fromCharCode(
-		bytes[offset],
-		bytes[offset + 1],
-		bytes[offset + 2],
-		bytes[offset + 3]
-	)
 }
 
 /**
@@ -169,7 +201,7 @@ function hasCompatibleAvifBrand(bytes: Uint8Array): boolean {
 	const end = Math.min(boxSize, bytes.length)
 
 	for (let offset = 16; offset + 4 <= end; offset += 4) {
-		if (AVIF_BRANDS.has(brandAt(bytes, offset))) {
+		if (AVIF_BRANDS.has(ftypBrandAt(bytes, offset))) {
 			return true
 		}
 	}

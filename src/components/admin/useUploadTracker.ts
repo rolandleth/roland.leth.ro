@@ -13,11 +13,11 @@ interface UploadTracker {
 }
 
 /**
- * Counts in-flight image uploads across a form with more than one
- * `ImageUpload`, so the form can hold Save until every upload has landed. A
- * Save during an upload would store the project without that image. A single
- * boolean (what `PostForm` uses for its one upload) can't do this: the first
- * upload to finish would clear it while another is still running.
+ * Counts in-flight uploads across a form with more than one upload input
+ * (`ImageUpload`, `VideoUpload`), so the form can hold Save until every upload
+ * has landed. A Save during an upload would store the row without that file. A
+ * single boolean can't do this: the first upload to finish would clear it
+ * while another is still running.
  */
 export function useUploadTracker(): UploadTracker {
 	const [inFlight, setInFlight] = useState<ReadonlySet<string>>(() => new Set())

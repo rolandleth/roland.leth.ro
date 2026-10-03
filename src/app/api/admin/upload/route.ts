@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto"
 import { put } from "@vercel/blob"
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api/requireAdmin"
@@ -7,6 +6,8 @@ import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	adminUploadKey,
 	detectImageMime,
+	refuseDisabledUploads,
+	respondUploadFailed,
 	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 
@@ -27,15 +28,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 		return unauthorized
 	}
 
-	// Explicit env flag rather than gating on `NODE_ENV !== "production"`, which
-	// collapses dev/test/preview into one bucket and produces a misleading 403
-	// message on Vercel preview deploys (where Vercel sets NODE_ENV=production
-	// but uploads should still work). Read lazily so `vi.stubEnv` works.
-	if (process.env.ALLOW_UPLOADS !== "true") {
-		return NextResponse.json(
-			{ error: "Uploads are disabled (set ALLOW_UPLOADS=true to enable)" },
-			{ status: 403 }
-		)
+	const disabled = refuseDisabledUploads()
+
+	if (disabled) {
+		return disabled
 	}
 
 	// `request.formData()` buffers the entire body before returning, so checking
@@ -165,15 +161,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 		return NextResponse.json({ url: blob.url })
 	} catch (error) {
-		const requestId = randomUUID().replace(/-/g, "").slice(0, 12)
-		// eslint-disable-next-line no-console
-		console.error("[api:admin:upload:POST]", { requestId }, error)
-
-		// Keep the user-facing message distinct from the generic 500 helper so
-		// the admin UI can show "Upload failed" rather than "Internal server error".
-		return NextResponse.json(
-			{ error: "Upload failed", requestId },
-			{ status: 500 }
-		)
+		return respondUploadFailed("[api:admin:upload:POST]", error)
 	}
 }
