@@ -764,8 +764,26 @@ describe("module-load cache registrations", () => {
 	// story assumes `guides` is the only aggregate tag to bust.
 	it("registers only the overview aggregate, tagged `guides`", () => {
 		expect(cacheWrapsAtLoad).toEqual([
-			{ keys: ["guides-overview"], tags: ["guides"] },
+			{ keys: ["guides-overview", expect.any(String)], tags: ["guides"] },
 		])
+	})
+
+	it("keys the overview on both its selects, so rows from older code are never served", () => {
+		// The callback names its selects instead of spelling them out, so its
+		// source, which `unstable_cache` also keys on, doesn't change with them.
+		const [, shape] =
+			cacheWrapsAtLoad.find((wrap) => wrap.keys?.[0] === "guides-overview")
+				?.keys ?? []
+		const { topics, guides } = JSON.parse(shape ?? "{}")
+
+		expect(topics).toMatchObject({ slug: true, shortDescription: true })
+		// The scheduling filter's field and the grouping key, beside the list
+		// fields.
+		expect(guides).toMatchObject({
+			slug: true,
+			publishedAt: true,
+			topicId: true,
+		})
 	})
 })
 

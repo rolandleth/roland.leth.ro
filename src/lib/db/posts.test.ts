@@ -212,7 +212,7 @@ describe("getPostsBySection", () => {
 
 		const keys = vi
 			.mocked(unstable_cache)
-			.mock.calls.map((call) => (call[1] ?? []).join())
+			.mock.calls.map((call) => call[1]?.[0])
 
 		// Uniqueness alone would pass on keys that merely differ, including two
 		// that encode the section and not the page. The page number has to BE in
@@ -220,6 +220,27 @@ describe("getPostsBySection", () => {
 		expect(keys).toContain("blog-page-tech-92")
 		expect(keys).toContain("blog-page-tech-93")
 		expect(new Set(keys).size).toBe(keys.length)
+	})
+
+	it("keys each page on its select, so rows from older code are never served", async () => {
+		// The callback names `postListItemSelect` instead of spelling it out, so
+		// its source, which `unstable_cache` also keys on, doesn't change with it.
+		vi.mocked(prisma.post.findMany).mockResolvedValue([])
+		vi.mocked(prisma.post.count).mockResolvedValue(0)
+
+		await getPostsBySection("tech", 94)
+
+		const keyParts = vi
+			.mocked(unstable_cache)
+			.mock.calls.find((call) => call[1]?.[0] === "blog-page-tech-94")?.[1]
+
+		expect(keyParts).toHaveLength(2)
+		// The fields the card renders: the markdown preview and the reading time.
+		expect(JSON.parse(keyParts?.[1] ?? "{}")).toMatchObject({
+			title: true,
+			body: true,
+			readingTime: true,
+		})
 	})
 
 	it("queries with the correct skip offset for page 2", async () => {
@@ -415,9 +436,28 @@ describe("getPostsGroupedByYear", () => {
 
 		expect(unstable_cache).toHaveBeenCalledWith(
 			expect.any(Function),
-			["blog-archive-tech"],
+			["blog-archive-tech", expect.any(String)],
 			{ tags: ["blog-archive-tech", "blog-tech"] }
 		)
+	})
+
+	it("keys the archive on its select, so rows from older code are never served", async () => {
+		// Built at module load, like the tagging test above, so re-import to see it.
+		vi.resetModules()
+		await import("@/lib/db/posts")
+
+		const keyParts = vi
+			.mocked(unstable_cache)
+			.mock.calls.find((call) => call[1]?.[0] === "blog-archive-tech")?.[1]
+
+		expect(keyParts).toHaveLength(2)
+		// The fields an archive row renders and links with.
+		expect(JSON.parse(keyParts?.[1] ?? "{}")).toEqual({
+			title: true,
+			slug: true,
+			section: true,
+			datetime: true,
+		})
 	})
 })
 

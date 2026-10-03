@@ -115,6 +115,24 @@ const guideTopicSummarySelect = {
 	updatedAt: true,
 } as const
 
+/** The overview's guide rows: the list fields plus the topic they group under. */
+const guideOverviewItemSelect = {
+	...guideListItemSelect,
+	topicId: true,
+} as const
+
+/**
+ * The overview cache key's shape part. `unstable_cache` keys on its callback's
+ * source and the key parts, and the callback names its selects rather than
+ * spelling them out, so a change to either would otherwise keep the key and
+ * serve rows from older code to newer code that expects more (what
+ * `wrapNullableDetail`'s `shape` prevents on the detail pages).
+ */
+const GUIDES_OVERVIEW_SHAPE = JSON.stringify({
+	topics: guideTopicSummarySelect,
+	guides: guideOverviewItemSelect,
+})
+
 /** Also the detail cache key's shape part; see `wrapNullableDetail`. */
 const guideDetailSelect = {
 	id: true,
@@ -172,14 +190,14 @@ const guidesOverviewCache = unstable_cache(
 			}),
 			prisma.guide.findMany({
 				where: { published: true },
-				select: { ...guideListItemSelect, topicId: true },
+				select: guideOverviewItemSelect,
 				orderBy: guideOrder,
 			}),
 		])
 
 		return { topics, guides }
 	},
-	["guides-overview"],
+	["guides-overview", GUIDES_OVERVIEW_SHAPE],
 	{ tags: [GUIDES_TAG] }
 )
 
