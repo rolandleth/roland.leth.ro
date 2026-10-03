@@ -495,13 +495,26 @@ export function blobKeyFor(
 	relativePath: string,
 	contentHash: string
 ): string {
+	return contentAddressedKey(blobPrefixFor(slug), relativePath, contentHash)
+}
+
+/**
+ * The content-addressed key for a local file under any namespace:
+ * `<prefix>[dirs/]<contentHash>-<filename>`, with the path sanitised the same
+ * way for every caller. `prefix` ends in `/`. `blobKeyFor` is this under a
+ * project's prefix; the post importer uses it under a post's.
+ */
+export function contentAddressedKey(
+	prefix: string,
+	relativePath: string,
+	contentHash: string
+): string {
 	const segments = sanitizeRelativeSegments(relativePath)
 	const filename = segments[segments.length - 1]
 
-	return keyPathFor(slug, [
-		...segments.slice(0, -1),
-		`${contentHash}-${filename}`,
-	])
+	return (
+		prefix + [...segments.slice(0, -1), `${contentHash}-${filename}`].join("/")
+	)
 }
 
 /**
@@ -521,7 +534,19 @@ export function blobPrefixFor(slug: string): string {
  * plain sanitised path.
  */
 export function syntheticBlobUrl(slug: string, relativePath: string): string {
-	return `https://blob.local/${keyPathFor(slug, sanitizeRelativeSegments(relativePath))}`
+	return placeholderBlobUrl(
+		keyPathFor(slug, sanitizeRelativeSegments(relativePath))
+	)
+}
+
+/**
+ * A well-formed URL standing in for the blob at `key` before it is uploaded.
+ * The one place the placeholder host is spelled: `syntheticBlobUrl` builds on
+ * it for a manifest's validation, and the post importer for the body a dry run
+ * would store. It resolves nowhere and is never written to the database.
+ */
+export function placeholderBlobUrl(key: string): string {
+	return `https://blob.local/${key}`
 }
 
 /**

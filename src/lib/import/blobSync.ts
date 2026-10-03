@@ -85,8 +85,17 @@ export async function listProjectBlobs(
 	store: Pick<BlobStore, "list">,
 	slug: string
 ): Promise<Map<string, StoredBlob>> {
-	const blobs = await listBlobs(store, blobPrefixFor(slug))
+	return storedBlobsByKey(await listBlobs(store, blobPrefixFor(slug)))
+}
 
+/**
+ * A listing as the reuse path reads it: each blob's URL and size by its key.
+ * `syncImages` looks a file's content-addressed key up in this to decide
+ * between reusing and uploading.
+ */
+export function storedBlobsByKey(
+	blobs: readonly ListedBlob[]
+): Map<string, StoredBlob> {
 	return new Map(
 		blobs.map((blob) => [blob.pathname, { url: blob.url, size: blob.size }])
 	)

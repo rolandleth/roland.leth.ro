@@ -26,6 +26,16 @@
 // rather than aborting the whole batch — the resolved slug is still applied in
 // the DB from memory; only the on-disk backfill is deferred to the next run.
 //
+// Media: an image-syntax path with no scheme and no leading `/` names a file
+// relative to the folder (`![Demo](media/my-post/demo.mp4)`). Each such image or
+// video is uploaded to Blob under `posts/<section>/<slug>/`, keyed by its
+// content, and the stored body carries the Blob URL; the file keeps the relative
+// path. Only posts the run writes upload anything, a re-run reuses what is
+// stored, and after the DB write the blobs a written post no longer names are
+// deleted. A post with a missing or unsupported media file is skipped whole.
+// `https://…` and `/images/…` destinations are left as they are. Needs
+// BLOB_READ_WRITE_TOKEN as soon as one post has local media.
+//
 // Creates follow the bulk endpoint's rule: future-dated files import as
 // published (scheduled), past-dated as drafts. Overwrites refresh title, body,
 // datetime, and reading time, PRESERVE `published`, and write `description`
@@ -52,20 +62,37 @@ import {
 	applySlugRewrites,
 	type SlugRewriteOutcome,
 } from "@/lib/import/applySlugRewrites"
+import { listBlobs, type ListedBlob } from "@/lib/import/blobSync"
+import { readFileInFolder } from "@/lib/import/localFiles"
 import { sortedMarkdownNames } from "@/lib/import/markdownFiles"
 import {
 	diffBodyLines,
 	type ExistingPost,
 	type ImportFile,
+	type ImportPlan,
 	parsePostFiles,
 	type PlannedCreate,
 	type PlannedUpdate,
-	planPostImport,
 	type SkippedFile,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/postImport"
+import {
+	postMediaPrefixFor,
+	postMediaSectionPrefix,
+} from "@/lib/import/postMedia"
+import {
+	logPendingUploads,
+	planPostImportWithMedia,
+	prunePostMedia,
+	writtenBodies,
+	writtenSlugs,
+} from "@/lib/import/postMediaRun"
+import { scriptBlobStore } from "@/lib/import/scriptBlobStore"
+import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { parsePostScriptArgs } from "@/lib/import/sectionArg"
+import { errorMessage } from "@/lib/utils/errorMessage"
 import { currentDatetimeString } from "@/lib/utils/format"
+import type { Section } from "@/lib/db/sections"
 
 // Cap the per-post diff so one big-body edit can't bury the report.
 const DIFF_LINE_CAP = 8
@@ -191,6 +218,100 @@ function printUpdate(
 	}
 }
 
+/**
+ * Prints one line per planned create and update. `afterEach` adds lines under
+ * a post's own: the dry run uses it to list the media that post would upload.
+ */
+function printPlan(
+	plan: ImportPlan,
+	existingBySlug: ReadonlyMap<string, ExistingPost>,
+	afterEach: (slug: string) => void = () => undefined
+): void {
+	for (const create of plan.creates) {
+		console.log(
+			`  + ${create.filename} → ${create.slug} (${create.published ? "published" : "draft"})`
+		)
+		afterEach(create.slug)
+	}
+
+	for (const update of plan.updates) {
+		printUpdate(update, existingBySlug, isVerbose)
+		afterEach(update.slug)
+	}
+}
+
+// #endregion
+
+// #region media
+
+/**
+ * The section's media blobs as they were before this run, listed once on first
+ * use and shared from then on: one Blob operation however many posts carry
+ * media, and none for a run that never asks.
+ */
+function makeMediaListing(section: Section): () => Promise<ListedBlob[]> {
+	let listing: Promise<ListedBlob[]> | null = null
+
+	return () => {
+		listing ??= listBlobs(scriptBlobStore, postMediaSectionPrefix(section))
+
+		return listing
+	}
+}
+
+/**
+ * The listing for the sweep of old media, or `null` when there is none to
+ * sweep with: no token, or the store can't be listed right now. Best-effort,
+ * unlike the listing media resolution needs: the sweep is housekeeping and
+ * must not fail a run whose rows are written or about to be.
+ */
+async function listingForSweep(
+	getListing: (() => Promise<ListedBlob[]>) | null
+): Promise<ListedBlob[] | null> {
+	if (getListing == null) {
+		return null
+	}
+
+	try {
+		return await getListing()
+	} catch (error) {
+		console.warn(
+			`  ! couldn't list stored media (${errorMessage(error)}); skipping the sweep of old media`
+		)
+
+		return null
+	}
+}
+
+/**
+ * Deletes, or on a dry run reports, the blobs each written post no longer
+ * names: the old version of an edited file, a file the post dropped. A failed
+ * sweep warns and moves on; the rows are already written, and an orphan costs
+ * storage, not correctness.
+ */
+async function pruneWrittenMedia(
+	bodyBySlug: ReadonlyMap<string, string>,
+	listing: readonly ListedBlob[],
+	section: Section
+): Promise<void> {
+	for (const [slug, body] of bodyBySlug) {
+		try {
+			await prunePostMedia({
+				store: scriptBlobStore,
+				listing,
+				prefix: postMediaPrefixFor(section, slug),
+				body,
+				isDryRun,
+				log: console.log,
+			})
+		} catch (error) {
+			console.warn(
+				`  ! couldn't prune old media for ${slug} (${errorMessage(error)}); it remains in the store`
+			)
+		}
+	}
+}
+
 // #endregion
 
 // #region main
@@ -256,25 +377,63 @@ async function main(): Promise<void> {
 			existingRows.map(({ slug, ...row }) => [slug, row])
 		)
 
-		const now = currentDatetimeString()
-		const plan = planPostImport(parsed, existingBySlug, {
-			section,
-			now,
-			overwrite: isOverwrite,
+		// Without a token the run still imports plain posts; it fails, below, only
+		// if a post it could write references local media.
+		const getListing =
+			readScriptEnv("BLOB_READ_WRITE_TOKEN") == null
+				? null
+				: makeMediaListing(section)
+		// On a real run this uploads the media of the posts it plans to write,
+		// logging each upload, before the plan's own lines print below. A failed
+		// listing or upload stops the run before anything is written.
+		const result = await planPostImportWithMedia({
+			parsed,
+			existingBySlug,
+			planOptions: {
+				section,
+				now: currentDatetimeString(),
+				overwrite: isOverwrite,
+			},
+			// A missing file skips its one post. Any other read failure, and a
+			// path that leaves the folder, stops the run as it is.
+			read: (relativePath) => readFileInFolder(folder, relativePath),
+			store: scriptBlobStore,
+			listStored: getListing,
+			isDryRun,
+			log: console.log,
 		})
-		const skipped = [...parseSkips, ...plan.skipped]
 
-		for (const create of plan.creates) {
-			console.log(
-				`  + ${create.filename} → ${create.slug} (${create.published ? "published" : "draft"})`
-			)
+		if (!result.ok) {
+			console.error(`${result.reason}. ${SCRIPT_CREDENTIALS_HINT}`)
+			process.exitCode = 1
+
+			return
 		}
-		for (const update of plan.updates) {
-			printUpdate(update, existingBySlug, isVerbose)
-		}
+
+		const { plan, mediaBySlug, stored } = result
+		const skipped = [...parseSkips, ...result.skipped, ...plan.skipped]
+
+		printPlan(plan, existingBySlug, (slug) => {
+			const media = mediaBySlug.get(slug)
+
+			// On a real run the uploads are done and nothing is pending.
+			if (isDryRun && media != null) {
+				logPendingUploads(media, stored, console.log)
+			}
+		})
 		printSkips(skipped)
 
 		if (isDryRun) {
+			const listing = await listingForSweep(getListing)
+
+			if (listing != null) {
+				await pruneWrittenMedia(
+					writtenBodies(plan, existingBySlug, new Set(writtenSlugs(plan))),
+					listing,
+					section
+				)
+			}
+
 			console.log(
 				`\nDry run complete: ${plan.creates.length} to create, ` +
 					`${plan.updates.length} to update, ${skipped.length} skipped — nothing written.`
@@ -330,6 +489,23 @@ async function main(): Promise<void> {
 
 			printSkips(eaten)
 			skipped.push(...eaten)
+		}
+
+		// Only after the write, and only for rows it wrote: a create the insert
+		// skipped belongs to whoever wrote that row first.
+		const listing = await listingForSweep(getListing)
+
+		if (listing != null) {
+			const written = new Set([
+				...created.map((row) => row.slug),
+				...plan.updates.map((update) => update.slug),
+			])
+
+			await pruneWrittenMedia(
+				writtenBodies(plan, existingBySlug, written),
+				listing,
+				section
+			)
 		}
 
 		console.log(

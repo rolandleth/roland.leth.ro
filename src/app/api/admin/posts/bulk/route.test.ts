@@ -655,6 +655,62 @@ describe("POST /api/admin/posts/bulk side effects", () => {
 		expect(data.map((row) => row.slug)).toEqual(["a-real-post"])
 	})
 
+	it("skips a file that references local media and inserts the rest", async () => {
+		// The upload has the markdown file only. Stored as it is, the relative
+		// path would be a URL that resolves to nothing on the site.
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					file(
+						"2026-05-15-1500-with-media.md",
+						"With media",
+						"Intro.\n\n![Demo](media/with-media/demo.mp4)"
+					),
+					validFile,
+				],
+			})
+		)
+		const json = await response.json()
+
+		expect(json.skipped).toEqual([
+			{
+				filename: "2026-05-15-1500-with-media.md",
+				reason:
+					"References local media (media/with-media/demo.mp4); " +
+					"import it with `yarn db:import-posts`, which uploads the files",
+			},
+		])
+
+		const insertCall = vi.mocked(prisma.post.createManyAndReturn).mock
+			.calls[0]?.[0]
+		const data = insertCall?.data as Array<{ slug: string }>
+		expect(data.map((row) => row.slug)).toEqual(["a-real-post"])
+	})
+
+	it("keeps a file whose media is already hosted or served from public/", async () => {
+		vi.mocked(prisma.post.createManyAndReturn).mockResolvedValue([
+			{ id: 1, slug: "hosted-media", section: "tech" } as never,
+		])
+
+		const response = await POST(
+			makeRequest({
+				section: "tech",
+				files: [
+					file(
+						"2026-05-15-1500-hosted-media.md",
+						"Hosted media",
+						"![Shot](/images/post/shot.png)\n\n![Demo](https://store.public.blob.vercel-storage.com/demo.mp4)"
+					),
+				],
+			})
+		)
+		const json = await response.json()
+
+		expect(json.skipped).toEqual([])
+		expect(json.created).toBe(1)
+	})
+
 	it("skips a file whose title is over the 200-char cap", async () => {
 		const response = await POST(
 			makeRequest({

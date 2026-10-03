@@ -9,6 +9,7 @@ import {
 	listManifestImagePaths,
 	isDraftManifest,
 	parseManifest,
+	placeholderBlobUrl,
 	type ProjectManifest,
 	requiredProjectFields,
 	requireManifestSlug,
@@ -579,6 +580,26 @@ describe("syntheticBlobUrl", () => {
 
 		expect(syntheticKey.startsWith(dir)).toBe(true)
 		expect(real.startsWith(dir)).toBe(true)
+	})
+})
+
+// #endregion
+
+// #region placeholderBlobUrl
+
+describe("placeholderBlobUrl", () => {
+	it("makes a well-formed https URL whose path is the key", () => {
+		const url = placeholderBlobUrl("posts/tech/my-post/abc-shot.png")
+
+		expect(new URL(url).pathname).toBe("/posts/tech/my-post/abc-shot.png")
+		expect(url.startsWith("https://")).toBe(true)
+	})
+
+	it("uses the host syntheticBlobUrl uses, so there is one placeholder host", () => {
+		const synthetic = new URL(syntheticBlobUrl("reckon", "icon.png"))
+		const placeholder = new URL(placeholderBlobUrl("posts/tech/p/a.png"))
+
+		expect(placeholder.origin).toBe(synthetic.origin)
 	})
 })
 
