@@ -51,6 +51,16 @@ const postArchiveItemSelect = {
 	datetime: true,
 } as const
 
+/**
+ * The list and archive caches' shape parts. `unstable_cache` keys on its
+ * callback's source and the key parts, and these callbacks name their select
+ * rather than spelling it out, so a change to the select would otherwise keep
+ * the key and serve rows from older code to newer code that expects more (what
+ * `wrapNullableDetail`'s `shape` prevents on the detail pages).
+ */
+const POST_LIST_SHAPE = JSON.stringify(postListItemSelect)
+const POST_ARCHIVE_SHAPE = JSON.stringify(postArchiveItemSelect)
+
 /** Also the detail cache key's shape part; see `wrapNullableDetail`. */
 const postDetailSelect = {
 	id: true,
@@ -216,7 +226,7 @@ function makeBlogPageCache(section: Section, page: number) {
 
 			return { posts, totalPages }
 		},
-		[`blog-page-${section}-${page}`],
+		[`blog-page-${section}-${page}`, POST_LIST_SHAPE],
 		{ tags: [sectionTag(section)] }
 	)
 }
@@ -629,7 +639,7 @@ function makeArchiveCache(section: Section) {
 				select: postArchiveItemSelect,
 				orderBy: { datetime: "desc" },
 			}),
-		[`blog-archive-${section}`],
+		[`blog-archive-${section}`, POST_ARCHIVE_SHAPE],
 		{ tags: [`blog-archive-${section}`, sectionTag(section)] }
 	)
 }
