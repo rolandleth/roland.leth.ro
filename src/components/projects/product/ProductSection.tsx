@@ -16,8 +16,12 @@ export const PRODUCT_H2_CLASS =
 export const TRIM_RENDERED_MARKDOWN =
 	"[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0"
 
-/** Markdown text in a section or a step: the reading measure. */
-export const PRODUCT_PROSE_CLASS = `prose dark:prose-invert max-w-[40em] ${TRIM_RENDERED_MARKDOWN}`
+/**
+ * Markdown text in a section or a step: the reading measure. `text-pretty`
+ * keeps a lone word off a paragraph's last line, as in the hero summary;
+ * browsers without it wrap as before.
+ */
+export const PRODUCT_PROSE_CLASS = `prose dark:prose-invert max-w-[40em] text-pretty ${TRIM_RENDERED_MARKDOWN}`
 
 // A split section's gallery sits under its text in the right column: 32rem at
 // most, which is that column's width on a full-width page.
