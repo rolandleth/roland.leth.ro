@@ -6,10 +6,17 @@ import {
 	ProjectPageLayout,
 	ProjectProminence,
 } from "@/generated/prisma/enums"
+import { cleanUpProjectMedia } from "@/lib/api/mediaCleanup"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
+
+// The cleanup talks to Blob; its own behavior is covered in
+// `mediaCleanup.test.ts`. Here it only matters when the route calls it.
+vi.mock("@/lib/api/mediaCleanup", () => ({
+	cleanUpProjectMedia: vi.fn(),
+}))
 
 vi.mock("@/lib/api/requireAdmin", async () => {
 	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
@@ -616,5 +623,59 @@ describe("DELETE /api/admin/projects/[id]", () => {
 
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(500)
+	})
+
+	it("cleans up the deleted project's media, by its slug", async () => {
+		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject)
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(cleanUpProjectMedia).toHaveBeenCalledTimes(1)
+		expect(cleanUpProjectMedia).toHaveBeenCalledWith(
+			"my-app",
+			"[api:admin:projects:DELETE]"
+		)
+	})
+
+	it("finishes the media cleanup before it responds", async () => {
+		// A response sent first could freeze the function mid-cleanup.
+		vi.mocked(prisma.project.delete).mockResolvedValue(existingProject)
+		let isCleanupDone = false
+		vi.mocked(cleanUpProjectMedia).mockImplementation(async () => {
+			await Promise.resolve()
+			isCleanupDone = true
+		})
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(response.status).toBe(204)
+		expect(isCleanupDone).toBe(true)
+	})
+
+	it("cleans up no media while guides or topics still name the project", async () => {
+		// The 409 deletes nothing, so the project's images are still in use.
+		vi.mocked(prisma.guide.count).mockResolvedValue(2)
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(response.status).toBe(409)
+		expect(cleanUpProjectMedia).not.toHaveBeenCalled()
+	})
+
+	it("cleans up no media when the project does not exist", async () => {
+		vi.mocked(isPrismaNotFound).mockReturnValue(true)
+		vi.mocked(prisma.$transaction).mockRejectedValue({ code: "P2025" })
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(cleanUpProjectMedia).not.toHaveBeenCalled()
+	})
+
+	it("cleans up no media when the delete fails", async () => {
+		vi.mocked(prisma.$transaction).mockRejectedValue(new Error("DB failure"))
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(cleanUpProjectMedia).not.toHaveBeenCalled()
 	})
 })

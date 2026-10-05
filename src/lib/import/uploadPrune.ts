@@ -6,6 +6,10 @@
 // an image, or deleting the row, orphans the blob. This decides which to delete;
 // the script does the I/O.
 //
+// A video uploaded from the post editor lands under the same key shape
+// (`POST /api/admin/upload/video` authors it) and is referenced only from a
+// markdown body, so the same sweep covers it.
+//
 // A sweep rather than a delete on each write: one upload is routinely referenced
 // twice (`cardImage` and `ogImage` fall back to each other, and a URL can be
 // pasted into any markdown body), and a project delete cascades its section

@@ -117,6 +117,11 @@ const routeModules: Array<{
 		jsonBodyMethods: [],
 	},
 	{
+		path: "/api/admin/upload/video",
+		load: () => import("./upload/video/route"),
+		jsonBodyMethods: ["POST"],
+	},
+	{
 		path: "/api/admin/revalidate",
 		load: () => import("./revalidate/route"),
 		jsonBodyMethods: ["POST"],

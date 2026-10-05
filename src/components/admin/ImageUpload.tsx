@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useEffectEvent, useId, useRef, useState } from "react"
+import { useId } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
-import { isAbortError } from "@/lib/client/isAbortError"
+import { useFileUpload } from "@/components/admin/useFileUpload"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
 
 interface Props {
@@ -24,103 +24,12 @@ export default function ImageUpload({
 	onUploadingChange,
 }: Props) {
 	const inputId = useId()
-	const inputRef = useRef<HTMLInputElement>(null)
-	// Tracks the currently in-flight upload so a newly-picked file can abort
-	// the previous request. Without this, selecting file A and then file B
-	// before A completes races: whichever `onChange(url)` fires last wins, and
-	// it may be the older file.
-	const abortRef = useRef<AbortController | null>(null)
-	const [isUploading, setIsUploading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
-	useEffect(() => {
-		return () => abortRef.current?.abort()
-	}, [])
-
-	// An Effect Event so the effect below re-runs on `isUploading` alone. With
-	// the callback as a dependency, a parent passing an inline arrow re-ran it
-	// on every render, and the cleanup's `false` plus the body's `true` would
-	// churn the parent's state in a loop while an upload is in flight.
-	const reportUploading = useEffectEvent((value: boolean) => {
-		onUploadingChange?.(value)
+	const { inputRef, isUploading, error, handleFileChange } = useFileUpload({
+		uploadFile: uploadImage,
+		onUploaded: onChange,
+		onUploadingChange,
+		logTag: "[admin:ImageUpload]",
 	})
-
-	// Mirrored to the parent in an effect rather than from `setIsUploading`'s call
-	// sites, so every path that flips it — success, failure, abort — reports.
-	// The cleanup covers unmounting mid-upload (the row holding this input was
-	// removed): the unmount aborts the request, but the `finally` below can't
-	// flip state on an unmounted component, so without it the parent would
-	// count this upload as in flight forever and keep Save disabled.
-	useEffect(() => {
-		reportUploading(isUploading)
-
-		return () => {
-			if (isUploading) {
-				reportUploading(false)
-			}
-		}
-	}, [isUploading])
-
-	async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0]
-
-		if (!file) {
-			return
-		}
-
-		abortRef.current?.abort()
-		const controller = new AbortController()
-		abortRef.current = controller
-
-		setError(null)
-		setIsUploading(true)
-
-		try {
-			const formData = new FormData()
-			formData.append("file", file)
-
-			const response = await fetch("/api/admin/upload", {
-				method: "POST",
-				body: formData,
-				signal: controller.signal,
-			})
-
-			if (!response.ok) {
-				// Use the shared reader so the admin UI's error surfaces stay
-				// consistent across handlers (status suffix, JSON-parse fallback).
-				const message = await readErrorMessage(response, "Upload failed")
-				throw new Error(message)
-			}
-
-			const { url } = await response.json()
-			onChange(url)
-		} catch (err) {
-			// Aborts are intentional — a newer upload or an unmount cancelled this
-			// one. Don't surface that as an error to the user.
-			if (isAbortError(err)) {
-				return
-			}
-
-			// Tagged warn matches the LoginForm/AdminNav pattern; this is a
-			// `"use client"` component so the warn does NOT reach Vercel server
-			// logs (would need a `/api/log` hop for that), but it surfaces in
-			// browser DevTools for the admin debugging a flapping upload.
-			// eslint-disable-next-line no-console
-			console.warn("[admin:ImageUpload] upload failed", err)
-			setError(err instanceof Error ? err.message : "Upload failed")
-		} finally {
-			// Only reset saving state for the most recent request. An older aborted
-			// request flipping `isUploading` to false would unlock the UI while a
-			// newer request is still in flight.
-			if (abortRef.current === controller) {
-				setIsUploading(false)
-
-				if (inputRef.current) {
-					inputRef.current.value = ""
-				}
-			}
-		}
-	}
 
 	return (
 		<div className="flex flex-col gap-1.5">
@@ -168,4 +77,27 @@ export default function ImageUpload({
 			{error && <ErrorMessage>{error}</ErrorMessage>}
 		</div>
 	)
+}
+
+/** Sends the image through the upload route, which sniffs and stores it. */
+async function uploadImage(file: File, signal: AbortSignal): Promise<string> {
+	const formData = new FormData()
+	formData.append("file", file)
+
+	const response = await fetch("/api/admin/upload", {
+		method: "POST",
+		body: formData,
+		signal,
+	})
+
+	if (!response.ok) {
+		// Use the shared reader so the admin UI's error surfaces stay
+		// consistent across handlers (status suffix, JSON-parse fallback).
+		const message = await readErrorMessage(response, "Upload failed")
+		throw new Error(message)
+	}
+
+	const { url } = await response.json()
+
+	return url
 }

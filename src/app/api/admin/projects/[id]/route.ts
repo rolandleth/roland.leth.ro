@@ -7,6 +7,7 @@ import {
 	respondInternalError,
 } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { cleanUpProjectMedia } from "@/lib/api/mediaCleanup"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { projectUpdateSchema } from "@/lib/api/schemas"
 import { prisma } from "@/lib/db/db"
@@ -262,6 +263,10 @@ export async function DELETE(
 			previousSlug: null,
 			batchId: null,
 		})
+		// Last, and awaited: once the response is sent the function can be frozen
+		// before the Blob calls finish. It never throws, so a failed cleanup still
+		// answers 204 for a row that is gone.
+		await cleanUpProjectMedia(deleted.slug, "[api:admin:projects:DELETE]")
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

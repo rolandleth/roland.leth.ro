@@ -12,6 +12,7 @@ import {
 	type SkippedFile,
 	validatePostFile,
 } from "@/lib/import/postImport"
+import { localMediaSkipReason } from "@/lib/import/postMedia"
 import {
 	calculateReadingTime,
 	currentDatetimeString,
@@ -46,7 +47,9 @@ interface PreparedBatch {
  * what description — then maps the survivors to DB-shaped insert rows.
  * `slugRewrite` is deliberately dropped: an upload can't be written back, so a
  * non-canonical `slug:` is normalized here without a file fix-up. A file with
- * no `slug:` is skipped, as it is in the import script.
+ * no `slug:` is skipped, as it is in the import script. One difference from the
+ * script: a file that references local media is skipped, because only the
+ * script has the media files to upload.
  */
 function prepareBatch(
 	files: ReadonlyArray<{ filename: string; content: string }>,
@@ -64,6 +67,16 @@ function prepareBatch(
 
 		if (!validation.ok) {
 			skipped.push({ filename: file.filename, reason: validation.reason })
+			continue
+		}
+
+		// An upload carries only the markdown file, never the media beside it.
+		// Stored as it is, a relative media path would resolve to nothing on the
+		// site; the import script is the path that uploads those files.
+		const mediaReason = localMediaSkipReason(file.body)
+
+		if (mediaReason != null) {
+			skipped.push({ filename: file.filename, reason: mediaReason })
 			continue
 		}
 

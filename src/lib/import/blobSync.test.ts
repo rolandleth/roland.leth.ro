@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
+import { makeStore } from "@/test/blobStore"
 import {
 	type BlobListPage,
-	type BlobStore,
 	deleteBlobs,
 	formatBytes,
 	listBlobs,
@@ -28,22 +28,6 @@ function makeDeferred<T>(): Deferred<T> {
 	})
 
 	return { promise, resolve, reject }
-}
-
-/**
- * In-memory `BlobStore` whose every method is a spy. Defaults: `list` returns
- * one empty page, `put` echoes a URL derived from the key, `del` resolves.
- */
-function makeStore(overrides: Partial<BlobStore> = {}): BlobStore {
-	return {
-		list: vi.fn(async (): Promise<BlobListPage> => ({
-			blobs: [],
-			hasMore: false,
-		})),
-		put: vi.fn(async (key: string) => ({ url: `https://store/${key}` })),
-		del: vi.fn(async () => undefined),
-		...overrides,
-	}
 }
 
 function image(key: string, size = 4): LoadedImage {

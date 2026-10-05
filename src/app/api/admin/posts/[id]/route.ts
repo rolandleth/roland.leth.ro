@@ -7,6 +7,7 @@ import {
 	respondInternalError,
 } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
+import { cleanUpPostMedia } from "@/lib/api/mediaCleanup"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { postUpdateSchema } from "@/lib/api/schemas"
 import { descriptionForUpdate } from "@/lib/content/postDescription"
@@ -224,7 +225,9 @@ export async function DELETE(
 	try {
 		const post = await prisma.post.delete({
 			where: { id },
-			select: { section: true, slug: true },
+			// The body goes along for the media cleanup below: it names the blobs
+			// of a post whose section was changed after its import.
+			select: { section: true, slug: true, body: true },
 		})
 
 		revalidatePost(post.section, post.slug)
@@ -238,6 +241,10 @@ export async function DELETE(
 			previousSlug: null,
 			batchId: null,
 		})
+		// Last, and awaited: once the response is sent the function can be frozen
+		// before the Blob calls finish. It never throws, so a failed cleanup still
+		// answers 204 for a row that is gone.
+		await cleanUpPostMedia(post, "[api:admin:posts:DELETE]")
 
 		return new NextResponse(null, { status: 204 })
 	} catch (error) {

@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { ftypBox } from "@/test/mediaBytes"
 import { POST } from "./route"
 import {
 	adminUploadKey,
@@ -19,17 +20,6 @@ vi.mock("@/lib/api/requireAdmin", async () => {
 const PNG_HEADER = new Uint8Array([
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ])
-
-/** An `ftyp` box: size, `ftyp`, major brand, minor version 0, compatible brands. */
-function ftypBox(major: string, compatible: string[]): Uint8Array {
-	const size = 16 + compatible.length * 4
-	const box = new Uint8Array(size)
-	new DataView(box.buffer).setUint32(0, size)
-	const text = ["ftyp", major, "\0\0\0\0", ...compatible].join("")
-	box.set(new TextEncoder().encode(text), 4)
-
-	return box
-}
 
 vi.mock("@vercel/blob", () => ({
 	put: vi.fn(),
@@ -91,6 +81,8 @@ describe("adminUploadKey", () => {
 		["image/gif", "gif"],
 		["image/webp", "webp"],
 		["image/avif", "avif"],
+		["video/mp4", "mp4"],
+		["video/webm", "webm"],
 	] as const)("ends a %s key with .%s", (mime, extension) => {
 		expect(adminUploadKey("photo", mime)).toMatch(
 			new RegExp(`^${UUID}-photo\\.${extension}$`)

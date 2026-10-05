@@ -1,8 +1,15 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { cleanUpPostMedia } from "@/lib/api/mediaCleanup"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { DELETE, GET, PUT } from "./route"
 import type { Prisma } from "@/generated/prisma/client"
+
+// The cleanup talks to Blob; its own behavior is covered in
+// `mediaCleanup.test.ts`. Here it only matters when the route calls it.
+vi.mock("@/lib/api/mediaCleanup", () => ({
+	cleanUpPostMedia: vi.fn(),
+}))
 
 vi.mock("@/lib/api/requireAdmin", async () => {
 	const { requireAdminMockFactory } = await import("@/test/mocks/requireAdmin")
@@ -539,5 +546,58 @@ describe("DELETE /api/admin/posts/[id]", () => {
 		const response = await DELETE(new Request("http://localhost"), params("1"))
 		expect(response.status).toBe(204)
 		expect(revalidateTag).toHaveBeenCalledWith("blog-tech", "max")
+	})
+
+	it("cleans up the deleted post's media, with its section, slug and body", async () => {
+		// The body is read in the same delete: afterwards there is no row to ask.
+		vi.mocked(prisma.post.delete).mockResolvedValue(existingPost)
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(prisma.post.delete).toHaveBeenCalledWith({
+			where: { id: 1 },
+			select: { section: true, slug: true, body: true },
+		})
+		expect(cleanUpPostMedia).toHaveBeenCalledTimes(1)
+		expect(cleanUpPostMedia).toHaveBeenCalledWith(
+			expect.objectContaining({
+				section: existingPost.section,
+				slug: existingPost.slug,
+				body: existingPost.body,
+			}),
+			"[api:admin:posts:DELETE]"
+		)
+	})
+
+	it("finishes the media cleanup before it responds", async () => {
+		// A response sent first could freeze the function mid-cleanup.
+		vi.mocked(prisma.post.delete).mockResolvedValue(existingPost)
+		let isCleanupDone = false
+		vi.mocked(cleanUpPostMedia).mockImplementation(async () => {
+			await Promise.resolve()
+			isCleanupDone = true
+		})
+
+		const response = await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(response.status).toBe(204)
+		expect(isCleanupDone).toBe(true)
+	})
+
+	it("cleans up no media when the post does not exist", async () => {
+		vi.mocked(isPrismaNotFound).mockReturnValue(true)
+		vi.mocked(prisma.post.delete).mockRejectedValue({ code: "P2025" })
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(cleanUpPostMedia).not.toHaveBeenCalled()
+	})
+
+	it("cleans up no media when the delete fails", async () => {
+		vi.mocked(prisma.post.delete).mockRejectedValue(new Error("DB failure"))
+
+		await DELETE(new Request("http://localhost"), params("1"))
+
+		expect(cleanUpPostMedia).not.toHaveBeenCalled()
 	})
 })

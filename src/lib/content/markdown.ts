@@ -10,6 +10,7 @@ import {
 	capDescription,
 	collapseWhitespace,
 } from "@/lib/content/descriptionRules"
+import { rehypeVideo } from "@/lib/content/rehypeVideo"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -32,6 +33,7 @@ const markdownProcessor = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(remarkRehype)
+	.use(rehypeVideo)
 	.use(rehypePrettyCode, prettyCodeOptions)
 
 // Used by markdownToHtml (Atom feed <content>). Produces plain HTML without
@@ -41,6 +43,7 @@ const htmlProcessor = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(remarkRehype)
+	.use(rehypeVideo)
 	.use(rehypeStringify)
 
 // Used by stripMarkdown (Atom feed <summary>). Parse-only — no rehype step

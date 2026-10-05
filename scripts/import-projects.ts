@@ -31,9 +31,6 @@ import {
 	BlobAccessError,
 	BlobStoreNotFoundError,
 	BlobStoreSuspendedError,
-	del,
-	list,
-	put,
 } from "@vercel/blob"
 import { ZodError } from "zod"
 import { Prisma, PrismaClient } from "@/generated/prisma/client"
@@ -45,8 +42,8 @@ import {
 	toSectionCreate,
 } from "@/lib/db/projectMappers"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
+import { blobStore } from "@/lib/import/blobStore"
 import {
-	type BlobStore,
 	formatBytes,
 	listProjectBlobs,
 	type LoadedImage,
@@ -56,6 +53,7 @@ import {
 } from "@/lib/import/blobSync"
 import { parseScriptArgs } from "@/lib/import/cliArgs"
 import { isMissingPathError } from "@/lib/import/fsErrors"
+import { readFileInFolder } from "@/lib/import/localFiles"
 import {
 	blobKeyFor,
 	contentHashFor,
@@ -121,31 +119,12 @@ async function loadImages(
 	imagePaths: string[]
 ): Promise<Map<string, LoadedImage>> {
 	const loaded = new Map<string, LoadedImage>()
-	const dirPrefix = path.resolve(projectDir) + path.sep
 
 	for (const relativePath of imagePaths) {
-		const absolutePath = path.resolve(projectDir, relativePath)
+		const buffer = await readFileInFolder(projectDir, relativePath)
 
-		if (!absolutePath.startsWith(dirPrefix)) {
-			throw new Error(
-				`Image path "${relativePath}" escapes the project folder.`
-			)
-		}
-
-		let buffer: Buffer
-
-		try {
-			buffer = await readFile(absolutePath)
-		} catch (error) {
-			// Only a missing file is "not found"; a permission error or a folder at
-			// that path is reported as it is.
-			if (isMissingPathError(error)) {
-				throw new Error(`Image not found: ${relativePath}`)
-			}
-
-			throw new Error(
-				`Could not read image ${relativePath}: ${errorMessage(error)}`
-			)
+		if (buffer == null) {
+			throw new Error(`Image not found: ${relativePath}`)
 		}
 
 		// Content-addressed key: hashing the bytes means a changed image lands at
@@ -160,25 +139,6 @@ async function loadImages(
 	}
 
 	return loaded
-}
-
-// The real-SDK adapter behind `BlobStore`. SDK-specific knobs live here:
-// content-type is inferred by Blob from the key's extension (`.png`, …), and
-// `allowOverwrite` stays on because a `put` can legitimately target an
-// existing key — `--reupload`, and the fail-open "treat nothing as existing"
-// path after a transient `list` failure — where the content-addressed key
-// guarantees identical bytes anyway. Collisions are guarded on the reuse path
-// (size assert in `syncImages`), not here.
-const blobStore: BlobStore = {
-	list: (options) => list(options),
-	put: async (key, body) => {
-		return put(key, Buffer.isBuffer(body) ? body : Buffer.from(body), {
-			access: "public",
-			addRandomSuffix: false,
-			allowOverwrite: true,
-		})
-	},
-	del: (urls) => del(urls),
 }
 
 /**

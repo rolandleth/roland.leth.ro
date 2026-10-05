@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef } from "react"
 import DescriptionField, {
 	isDescriptionOverCap,
 } from "@/components/admin/DescriptionField"
@@ -11,8 +11,18 @@ import SlugField from "@/components/admin/SlugField"
 import { useAdminResource } from "@/components/admin/useAdminResource"
 import { useFormState } from "@/components/admin/useFormState"
 import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
+import { useUploadTracker } from "@/components/admin/useUploadTracker"
+import VideoUpload from "@/components/admin/VideoUpload"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString, followTitleSlug } from "@/lib/utils/format"
+import type { MarkdownEditorHandle } from "@/components/admin/MarkdownEditor"
+
+/**
+ * How a video's markdown starts: image syntax up to where the alt text goes.
+ * The renderer turns an image whose URL ends in a video extension into a
+ * `<video>` (see `rehypeVideo`).
+ */
+const VIDEO_MARKDOWN_OPENING = "!["
 
 interface Props {
 	initialData?: {
@@ -79,11 +89,23 @@ export default function PostForm({ initialData }: Props) {
 		imageUrl: initialData?.imageUrl ?? "",
 		body: initialData?.body ?? "",
 	})
-	// Saving mid-upload would persist the row without the image and navigate
-	// away, aborting the request — the picked file lost with nothing shown.
-	const [isUploading, setIsUploading] = useState(false)
+	// Saving mid-upload would persist the row without the image or the video and
+	// navigate away, aborting the request — the picked file lost with nothing
+	// shown. A tracker rather than one boolean, because the image and a video
+	// can upload at once and the first to land must not clear the other.
+	const { isUploading, reportUploading } = useUploadTracker()
 	// An upload in flight counts: its URL reaches the state only when it lands.
 	useUnsavedChangesGuard((isDirty || isUploading) && !hasSucceeded)
+	const editorRef = useRef<MarkdownEditorHandle>(null)
+
+	// The alt text is left empty with the cursor inside it: it becomes the
+	// video's accessible name, and only the author can write it.
+	function handleVideoUploaded(url: string) {
+		editorRef.current?.insertBlock(
+			`${VIDEO_MARKDOWN_OPENING}](${url})`,
+			VIDEO_MARKDOWN_OPENING.length
+		)
+	}
 
 	// On create, the slug follows the title until the author types their own. On
 	// edit it is fixed, so the title changes alone.
@@ -210,17 +232,22 @@ export default function PostForm({ initialData }: Props) {
 				value={state.imageUrl}
 				onChange={(v) => setField("imageUrl", v)}
 				label="Image"
-				// `useState`'s setter is identity-stable, so this doesn't re-fire
-				// `ImageUpload`'s effect on every render of this form.
-				onUploadingChange={setIsUploading}
+				onUploadingChange={(value) => reportUploading("image", value)}
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				{/* `MarkdownEditor` is a composite component (toolbar + textarea + preview),
-					so there's no single input element to bind via `htmlFor`. Heading
-					styled like a label rather than declared as one. */}
-				<span className="text-secondary text-sm font-medium">Body</span>
+				<div className="flex items-start justify-between gap-2">
+					{/* `MarkdownEditor` is a composite component (toolbar + textarea + preview),
+						so there's no single input element to bind via `htmlFor`. Heading
+						styled like a label rather than declared as one. */}
+					<span className="text-secondary text-sm font-medium">Body</span>
+					<VideoUpload
+						onUploaded={handleVideoUploaded}
+						onUploadingChange={(value) => reportUploading("video", value)}
+					/>
+				</div>
 				<MarkdownEditor
+					ref={editorRef}
 					value={state.body}
 					onChange={(v) => setField("body", v)}
 					placeholder="Write your post in markdown…"
