@@ -8,6 +8,8 @@ interface Props {
 	icon: string | null
 	/** Width and height, in pixels. */
 	size: number
+	/** When the browser fetches the image; Next's default is `lazy`. */
+	loading?: "eager" | "lazy"
 	className?: string
 }
 
@@ -20,6 +22,7 @@ export default function ProjectIcon({
 	name,
 	icon,
 	size,
+	loading,
 	className = "",
 }: Props) {
 	if (icon != null) {
@@ -29,6 +32,7 @@ export default function ProjectIcon({
 				alt=""
 				width={size}
 				height={size}
+				loading={loading}
 				className={`shrink-0 rounded-[23%] ${className}`}
 			/>
 		)

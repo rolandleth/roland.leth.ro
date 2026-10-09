@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "@/components/projects/gallery/galleryLayout"
 import {
@@ -151,13 +151,9 @@ describe("ProjectsPage — sections", () => {
 			})
 		).toBeInTheDocument()
 
-		// Closed, the list is inert and hidden from the accessibility tree; its
-		// links are in the HTML all the same.
+		// Closed, the preview row links to it.
 		expect(
-			within(moreProjects()).getByRole("link", {
-				name: "Body Tracking",
-				hidden: true,
-			})
+			within(moreProjects()).getByRole("link", { name: "Body Tracking" })
 		).toHaveAttribute("href", "/projects/body-tracking")
 		// Each project in one place only: the tiles and cards aren't listed again.
 		expect(within(moreProjects()).queryByText("MyTherme")).toBeNull()
@@ -177,16 +173,10 @@ describe("ProjectsPage — sections", () => {
 			screen.queryByRole("region", { name: "Selected projects" })
 		).not.toBeInTheDocument()
 
-		const reckon = within(moreProjects()).getByRole("link", {
-			name: "Reckon",
-			hidden: true,
-		})
+		const reckon = within(moreProjects()).getByRole("link", { name: "Reckon" })
 		expect(reckon.querySelector("img")).toHaveClass("grayscale")
 		expect(
-			within(moreProjects()).getByRole("link", {
-				name: "MyTherme",
-				hidden: true,
-			})
+			within(moreProjects()).getByRole("link", { name: "MyTherme" })
 		).toBeInTheDocument()
 	})
 
@@ -215,7 +205,7 @@ describe("ProjectsPage — sections", () => {
 			})
 		).toHaveAttribute("href", "/projects/agency")
 		expect(
-			within(moreProjects()).getByRole("link", { name: "Digest", hidden: true })
+			within(moreProjects()).getByRole("link", { name: "Digest" })
 		).toHaveAttribute("href", "/projects/digest")
 	})
 
@@ -262,7 +252,7 @@ describe("ProjectsPage — sections", () => {
 		])
 
 		expect(
-			within(moreProjects()).getByRole("link", { name: "Future", hidden: true })
+			within(moreProjects()).getByRole("link", { name: "Future" })
 		).toBeInTheDocument()
 		consoleError.mockRestore()
 	})
@@ -470,6 +460,31 @@ describe("ProjectsPage — more projects", () => {
 		) as HTMLElement
 	}
 
+	/** The preview row: the section's one list outside the full list. */
+	function previewList(): HTMLElement {
+		const list = within(moreProjects())
+			.getAllByRole("list", { hidden: true })
+			.find((candidate) => !moreList().contains(candidate))
+
+		if (list == null) {
+			throw new Error("No preview row in More projects")
+		}
+
+		return list
+	}
+
+	/** Where the preview row's links go, in its order. */
+	function previewHrefs(): (string | null)[] {
+		return within(previewList())
+			.getAllByRole("link", { hidden: true })
+			.map((link) => link.getAttribute("href"))
+	}
+
+	/** Whether the element sits in an `inert` subtree, out of reach. */
+	function isInert(element: HTMLElement): boolean {
+		return element.closest("[inert]") != null
+	}
+
 	async function toggleMore() {
 		await user.click(moreButton())
 	}
@@ -492,22 +507,32 @@ describe("ProjectsPage — more projects", () => {
 	it("opens the full list in place of the preview, and closes it again", async () => {
 		await renderGallery([listedProject("Goalee", PlatformBucket.iOS)])
 
-		// The preview's panel: the animated box around the padded one that holds
-		// the preview row.
-		const preview = document.querySelector(
-			'#more-projects ul[aria-hidden="true"]'
-		)?.parentElement?.parentElement as HTMLElement
-
 		await toggleMore()
 		expect(moreButton()).toHaveAttribute("aria-expanded", "true")
 		expect(moreButton()).toHaveTextContent("Hide")
 		expect(moreList()).not.toHaveAttribute("inert")
-		expect(preview).toHaveAttribute("inert")
+		expect(isInert(previewList())).toBe(true)
 
 		await toggleMore()
 		expect(moreButton()).toHaveAttribute("aria-expanded", "false")
 		expect(moreList()).toHaveAttribute("inert")
-		expect(preview).not.toHaveAttribute("inert")
+		// The preview takes over once the list's icons have slid back onto it.
+		expect(isInert(previewList())).toBe(true)
+		await waitFor(() => expect(isInert(previewList())).toBe(false))
+	})
+
+	it("reopens from mid-close without the preview taking over", async () => {
+		await renderGallery([listedProject("Goalee", PlatformBucket.iOS)])
+
+		await toggleMore()
+		await toggleMore()
+		await toggleMore()
+		// Longer than the animation, so the stopped close would have ended by now.
+		await new Promise((resolve) => setTimeout(resolve, 500))
+
+		expect(moreButton()).toHaveAttribute("aria-expanded", "true")
+		expect(moreList()).not.toHaveAttribute("inert")
+		expect(isInert(previewList())).toBe(true)
 	})
 
 	it("groups the projects by platform, each under its own heading", async () => {
@@ -555,7 +580,7 @@ describe("ProjectsPage — more projects", () => {
 		expect(goalee).not.toHaveTextContent("iOS")
 	})
 
-	it("previews at most 10 icons, hidden from assistive tech and without links", async () => {
+	it("previews at most 10 icons, each linking to its project", async () => {
 		await renderGallery(
 			Array.from({ length: 12 }, (_, index) =>
 				listedProject(`App ${index + 1}`, PlatformBucket.iOS, {
@@ -564,17 +589,71 @@ describe("ProjectsPage — more projects", () => {
 			)
 		)
 
-		const preview = document.querySelector(
-			'#more-projects ul[aria-hidden="true"]'
-		) as HTMLElement
-
-		expect(preview.querySelectorAll("li")).toHaveLength(10)
-		expect(preview.querySelector("a")).toBeNull()
-		// The full list still links all 12.
+		// Closed, the preview's links are the ones in reach.
+		expect(
+			within(moreProjects()).getAllByRole("link", { name: /^App \d+$/ })
+		).toHaveLength(10)
+		expect(previewHrefs()[0]).toBe("/projects/app-1")
+		// The full list links all 12.
 		await toggleMore()
 		expect(
 			within(moreList()).getAllByRole("link", { name: /^App \d+$/ })
 		).toHaveLength(12)
+	})
+
+	it("previews live projects from every platform before discontinued ones", async () => {
+		const discontinued = Array.from({ length: 3 }, (_, index) =>
+			listedProject(`Old ${index + 1}`, PlatformBucket.iOS, {
+				id: 100 + index,
+				isDiscontinued: true,
+			})
+		)
+		const liveIOS = Array.from({ length: 8 }, (_, index) =>
+			listedProject(`App ${index + 1}`, PlatformBucket.iOS, { id: index + 1 })
+		)
+		const liveWeb = [
+			listedProject("Site 1", PlatformBucket.Web, { id: 201 }),
+			listedProject("Site 2", PlatformBucket.Web, { id: 202 }),
+		]
+		// Discontinued first: the pick doesn't lean on the query's order.
+		await renderGallery([...discontinued, ...liveWeb, ...liveIOS])
+
+		// Grouped by platform, like the full list.
+		expect(previewHrefs()).toEqual([
+			...liveIOS.map((project) => `/projects/${project.slug}`),
+			"/projects/site-1",
+			"/projects/site-2",
+		])
+	})
+
+	it("fills the rest of the preview with discontinued projects", async () => {
+		await renderGallery([
+			listedProject("Site", PlatformBucket.Web),
+			listedProject("Old", PlatformBucket.iOS, { isDiscontinued: true }),
+		])
+
+		expect(previewHrefs()).toEqual(["/projects/old", "/projects/site"])
+	})
+
+	it("loads the list's icons for previewed projects with the page, the rest lazily", async () => {
+		await renderGallery(
+			Array.from({ length: 11 }, (_, index) =>
+				listedProject(`App ${index + 1}`, PlatformBucket.iOS, {
+					id: index + 1,
+					icon: `/app-${index + 1}.png`,
+				})
+			)
+		)
+
+		const listIcon = (name: string) =>
+			within(moreList())
+				.getByRole("link", { name, hidden: true })
+				.querySelector("img")
+
+		// A previewed project's copy slides out from its preview icon, so its
+		// image has to be there already.
+		expect(listIcon("App 1")).toHaveAttribute("loading", "eager")
+		expect(listIcon("App 11")).toHaveAttribute("loading", "lazy")
 	})
 
 	it("greys out a discontinued project's icon, not its name", async () => {
