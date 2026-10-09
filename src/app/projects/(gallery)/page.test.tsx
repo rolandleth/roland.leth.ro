@@ -626,13 +626,20 @@ describe("ProjectsPage — more projects", () => {
 		])
 	})
 
-	it("fills the rest of the preview with discontinued projects", async () => {
+	it("fills the rest of the preview with discontinued projects, at its end", async () => {
 		await renderGallery([
-			listedProject("Site", PlatformBucket.Web),
 			listedProject("Old", PlatformBucket.iOS, { isDiscontinued: true }),
+			listedProject("Site", PlatformBucket.Web),
+			listedProject("Goalee", PlatformBucket.iOS),
 		])
 
-		expect(previewHrefs()).toEqual(["/projects/old", "/projects/site"])
+		// After a later platform's live project, though its own platform comes
+		// first.
+		expect(previewHrefs()).toEqual([
+			"/projects/goalee",
+			"/projects/site",
+			"/projects/old",
+		])
 	})
 
 	it("loads the list's icons for previewed projects with the page, the rest lazily", async () => {

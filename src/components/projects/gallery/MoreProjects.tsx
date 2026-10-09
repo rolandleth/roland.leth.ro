@@ -37,8 +37,9 @@ const ICON_LIFT_CLASS =
 /**
  * The low-prominence and discontinued projects, under one heading with a
  * count, closed at first. Closed, a row of icons previews what's inside: live
- * projects before discontinued ones, from any platform. Open, the projects
- * come grouped by platform (iOS, Mac, Web, open source).
+ * projects from any platform, and discontinued ones only to fill the row, at
+ * its end. Open, the projects come grouped by platform (iOS, Mac, Web, open
+ * source).
  * Every icon links to its project's page, in the preview too. The lists
  * render here, on the server, and the open-and-close part is
  * `MoreProjectsDisclosure`, so every link is in the HTML either way.
@@ -57,12 +58,13 @@ export default function MoreProjects({ projects, className = "" }: Props) {
 	// on it. Picking from the groups instead would fill the row with the first
 	// platform's projects, discontinued ones included, ahead of another
 	// platform's live ones.
-	const previewPicks = [...projects]
-		.sort((a, b) => Number(a.isDiscontinued) - Number(b.isDiscontinued))
-		.slice(0, PREVIEW_COUNT)
-	// Shown grouped by platform, like the full list, so the icons slide down to
-	// their groups rather than across one another.
-	const preview = groupByBucket(previewPicks).flatMap((group) => group.projects)
+	const previewPicks = [...projects].sort(liveFirst).slice(0, PREVIEW_COUNT)
+	// Grouped by platform, like the full list, so most icons slide straight down
+	// to their groups. The discontinued ones still close the row, so theirs
+	// slide back across it.
+	const preview = groupByBucket(previewPicks)
+		.flatMap((group) => group.projects)
+		.sort(liveFirst)
 	const previewIds = new Set(preview.map((project) => project.id))
 
 	return (
@@ -208,4 +210,12 @@ function ListedName({ project }: { project: ProjectGalleryItem }) {
 			{project.name}
 		</span>
 	)
+}
+
+/**
+ * Sorts live projects before discontinued ones. `Array.sort` is stable, so
+ * each kind keeps the order it had.
+ */
+function liveFirst(a: ProjectGalleryItem, b: ProjectGalleryItem): number {
+	return Number(a.isDiscontinued) - Number(b.isDiscontinued)
 }
