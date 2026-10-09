@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { PlatformBucket } from "@/generated/prisma/enums"
 import {
 	compactLabel,
 	groupByBucket,
@@ -37,9 +38,9 @@ const ICON_LIFT_CLASS =
 /**
  * The low-prominence and discontinued projects, under one heading with a
  * count, closed at first. Closed, a row of icons previews what's inside: live
- * projects from any platform, and discontinued ones only to fill the row, at
- * its end. Open, the projects come grouped by platform (iOS, Mac, Web, open
- * source).
+ * iOS, Mac and Web projects, and discontinued ones only to fill the row, at
+ * its end. Open source projects show only once it's open. Open, the projects
+ * come grouped by platform (iOS, Mac, Web, open source).
  * Every icon links to its project's page, in the preview too. The lists
  * render here, on the server, and the open-and-close part is
  * `MoreProjectsDisclosure`, so every link is in the HTML either way.
@@ -53,12 +54,15 @@ export default function MoreProjects({ projects, className = "" }: Props) {
 	}
 
 	const groups = groupByBucket([...projects])
-	// Live projects first, each kind in the order the projects came in. The
-	// gallery's query already sorts them so; the preview's pick shouldn't depend
-	// on it. Picking from the groups instead would fill the row with the first
-	// platform's projects, discontinued ones included, ahead of another
-	// platform's live ones.
-	const previewPicks = [...projects].sort(liveFirst).slice(0, PREVIEW_COUNT)
+	// No open source projects; of the rest, live ones first, each kind in the
+	// order the projects came in. The gallery's query already sorts them so; the
+	// preview's pick shouldn't depend on it. Picking from the groups instead
+	// would fill the row with the first platform's projects, discontinued ones
+	// included, ahead of another platform's live ones.
+	const previewPicks = projects
+		.filter((project) => project.bucket !== PlatformBucket.OpenSource)
+		.sort(liveFirst)
+		.slice(0, PREVIEW_COUNT)
 	// Grouped by platform, like the full list, so most icons slide straight down
 	// to their groups. The discontinued ones still close the row, so theirs
 	// slide back across it.
@@ -73,17 +77,21 @@ export default function MoreProjects({ projects, className = "" }: Props) {
 			count={projects.length}
 			className={className}
 			preview={
-				<ul role="list" className={ICON_GRID_CLASS}>
-					{preview.map((project) => (
-						<li
-							key={project.id}
-							data-project-id={project.id}
-							className={ITEM_CLASS}
-						>
-							<ProjectLink project={project} />
-						</li>
-					))}
-				</ul>
+				// Only open source projects: nothing to preview, and an empty
+				// list would still be announced as one.
+				preview.length === 0 ? null : (
+					<ul role="list" className={ICON_GRID_CLASS}>
+						{preview.map((project) => (
+							<li
+								key={project.id}
+								data-project-id={project.id}
+								className={ITEM_CLASS}
+							>
+								<ProjectLink project={project} />
+							</li>
+						))}
+					</ul>
+				)
 			}
 		>
 			<div className="flex flex-col gap-8">

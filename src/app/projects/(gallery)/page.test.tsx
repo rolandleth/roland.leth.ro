@@ -642,6 +642,32 @@ describe("ProjectsPage — more projects", () => {
 		])
 	})
 
+	it("leaves open source projects out of the preview, live ones too", async () => {
+		await renderGallery([
+			listedProject("Library", PlatformBucket.OpenSource),
+			listedProject("Old", PlatformBucket.iOS, { isDiscontinued: true }),
+			listedProject("Site", PlatformBucket.Web),
+		])
+
+		// A discontinued project fills the row before a live open source one.
+		expect(previewHrefs()).toEqual(["/projects/site", "/projects/old"])
+		await toggleMore()
+		expect(
+			within(moreList()).getByRole("link", { name: "Library" })
+		).toHaveAttribute("href", "/projects/library")
+	})
+
+	it("previews nothing when every project is open source, and still lists them", async () => {
+		await renderGallery([listedProject("Library", PlatformBucket.OpenSource)])
+
+		expect(within(moreProjects()).queryAllByRole("list")).toHaveLength(0)
+		expect(within(moreProjects()).queryAllByRole("link")).toHaveLength(0)
+		await toggleMore()
+		expect(
+			within(moreList()).getByRole("link", { name: "Library" })
+		).toBeInTheDocument()
+	})
+
 	it("loads the list's icons for previewed projects with the page, the rest lazily", async () => {
 		await renderGallery(
 			Array.from({ length: 11 }, (_, index) =>
