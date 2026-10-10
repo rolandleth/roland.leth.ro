@@ -190,6 +190,7 @@ export default function ContinuumTermsPage() {
 			sections={sections}
 			lastUpdated="June 24, 2026"
 			contactEmail="roland+continuum@leth.ro"
+			contactPronoun="me"
 			documentKind="terms"
 			relatedLinks={relatedContinuumLegalLinks("/terms/continuum")}
 		/>
