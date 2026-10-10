@@ -255,6 +255,28 @@ describe("ProductPage — hero", () => {
 		).toBeInTheDocument()
 	})
 
+	// The hero makes the claim, so the limit sits on the same screen, under
+	// the summary, and isn't repeated at the foot of the page.
+	it("shows the disclaimer in the hero, under the summary, and only there", () => {
+		renderPage(makeProject({ disclaimer: "Digest is not a medical device." }))
+
+		const hero = screen
+			.getByRole("heading", { level: 1 })
+			.closest("section") as HTMLElement
+		const summary = within(hero).getByText(
+			"Digest is a food and symptom journal."
+		)
+		const disclaimer = within(hero).getByText("Digest is not a medical device.")
+
+		expect(
+			summary.compareDocumentPosition(disclaimer) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(screen.getAllByText("Digest is not a medical device.")).toHaveLength(
+			1
+		)
+	})
+
 	it("shows no status pill for a live app", () => {
 		renderPage(makeProject())
 
@@ -1241,10 +1263,9 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 		).toBeInTheDocument()
 	})
 
-	it("ends with the disclaimer and the links that aren't store links, without a date or a credit", () => {
+	it("ends with the links that aren't store links, without a date or a credit", () => {
 		renderPage(
 			makeProject({
-				disclaimer: "Digest is not a medical device.",
 				links: [
 					{
 						id: 1,
@@ -1264,9 +1285,6 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 			})
 		)
 
-		expect(
-			screen.getByText("Digest is not a medical device.")
-		).toBeInTheDocument()
 		expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute(
 			"href",
 			"https://roland.leth.ro/privacy/digest"

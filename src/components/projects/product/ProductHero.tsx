@@ -15,6 +15,12 @@ interface Props {
 	eyebrow: string | null
 	headline: string | null
 	summary: string
+	/**
+	 * What the product is not (for Digest, a medical device), under the summary:
+	 * a hero that makes a claim shows its limit on the same screen, not only at
+	 * the foot of the page.
+	 */
+	disclaimer: string | null
 	heroImage: string | null
 	heroImageAlt: string | null
 	/** Shown as a pill under the title when it isn't live (`statusLabel`). */
@@ -34,7 +40,7 @@ interface Props {
  *
  * With neither an eyebrow nor a headline, the name itself takes the headline
  * size. With a hero image, from 1024px the title runs across the top, with
- * the summary and buttons under it on the left and the image on the right,
+ * the summary, the disclaimer and the buttons under it on the left and the image on the right,
  * their tops level. The image is the one picture on the page that loads with
  * `priority`.
  */
@@ -44,6 +50,7 @@ export default function ProductHero({
 	eyebrow,
 	headline,
 	summary,
+	disclaimer,
 	heroImage,
 	heroImageAlt,
 	status,
@@ -125,6 +132,12 @@ export default function ProductHero({
 					<p className="max-w-[34em] text-lg leading-relaxed text-pretty text-(--product-band-ink2) sm:text-[19px]">
 						{summary}
 					</p>
+
+					{disclaimer != null && (
+						<p className="mt-4 max-w-[34em] text-sm leading-relaxed text-pretty text-(--product-band-ink2)">
+							{disclaimer}
+						</p>
+					)}
 
 					{(storeLinks.length > 0 || stepsAnchor != null) && (
 						<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">

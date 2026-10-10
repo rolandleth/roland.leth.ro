@@ -85,7 +85,9 @@ function pricingFor(project: ProjectDetail): Pricing | null {
  *
  * Order: hero, sections (text, steps, and the plan cards in a `pricing`
  * section, or in an automatic "Pricing" block of their own when there's none),
- * FAQ, closing, guides, then the disclaimer and the remaining links.
+ * FAQ, closing, guides, then the remaining links. The disclaimer sits in the
+ * hero, under the summary, so a page that makes a claim shows its limit on
+ * the first screen.
  */
 export default function ProductPage({
 	project,
@@ -197,7 +199,7 @@ export default function ProductPage({
 				)
 		}
 	}
-	const hasMeta = project.disclaimer != null || otherLinks.length > 0
+	const hasOtherLinks = otherLinks.length > 0
 
 	return (
 		<div className="product-page flex flex-1 flex-col">
@@ -212,6 +214,7 @@ export default function ProductPage({
 				eyebrow={project.heroEyebrow}
 				headline={project.heroHeadline}
 				summary={project.summary}
+				disclaimer={project.disclaimer}
 				heroImage={heroImage}
 				heroImageAlt={project.heroImageAlt}
 				status={project.status}
@@ -278,33 +281,25 @@ export default function ProductPage({
 				storeNote={project.storeNote}
 			/>
 
-			{(guides.length > 0 || hasMeta) && (
+			{(guides.length > 0 || hasOtherLinks) && (
 				<div className="product-frame pb-16">
 					{guides.length > 0 && (
 						<ProjectGuides items={guides} accent="var(--project-accent)" />
 					)}
 
-					{hasMeta && (
-						<div className="text-secondary flex flex-col gap-3 pt-14 text-sm leading-relaxed">
-							{project.disclaimer != null && (
-								<p className="max-w-[64em]">{project.disclaimer}</p>
-							)}
-
-							{otherLinks.length > 0 && (
-								<div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-									{otherLinks.map(({ link }) => (
-										<a
-											key={link.id}
-											href={link.url}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary inline-flex min-h-8 items-center underline decoration-(--color-border) underline-offset-4"
-										>
-											{link.label}
-										</a>
-									))}
-								</div>
-							)}
+					{hasOtherLinks && (
+						<div className="text-secondary flex flex-wrap items-center gap-x-4 gap-y-1 pt-14 text-sm leading-relaxed">
+							{otherLinks.map(({ link }) => (
+								<a
+									key={link.id}
+									href={link.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-primary inline-flex min-h-8 items-center underline decoration-(--color-border) underline-offset-4"
+								>
+									{link.label}
+								</a>
+							))}
 						</div>
 					)}
 				</div>
