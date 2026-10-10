@@ -1039,6 +1039,25 @@ describe("ProductPage — pricing", () => {
 			within(pricing).getByText("US prices. The App Store shows yours.")
 		).toBeInTheDocument()
 	})
+
+	// No store button means no listing to show the reader's own prices yet.
+	it.each([
+		["a coming-soon app", { status: ProjectStatus.comingSoon }],
+		["an app with no store link", { links: [] }],
+	])(
+		"leaves the App Store out of the note for %s",
+		(_label, overrides: Partial<ProjectDetail>) => {
+			renderPage(makeProject({ plans, offers, ...overrides }))
+
+			const pricing = screen
+				.getByRole("heading", { level: 2, name: "Pricing" })
+				.closest("section") as HTMLElement
+			const note = within(pricing).getByText(/^US prices\./)
+
+			expect(note).toHaveTextContent(/^US prices\.$/)
+			expect(within(pricing).queryByText(/App Store/)).not.toBeInTheDocument()
+		}
+	)
 })
 
 // #endregion

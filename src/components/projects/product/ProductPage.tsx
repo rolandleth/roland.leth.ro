@@ -245,12 +245,17 @@ export default function ProductPage({
 							id={AUTOMATIC_PRICING_ANCHOR}
 							title="Pricing"
 							pricing={pricing}
+							// "The App Store shows yours" only beside a store button: a
+							// coming-soon app, or one with no store link, has no listing
+							// to show the reader's prices yet.
 							note={
 								(project.offers ?? []).every(
 									(offer) => offer.priceCurrency === "USD"
 								) ? (
 									<p className="text-secondary text-sm">
-										US prices. The App Store shows yours.
+										{storeButton == null
+											? "US prices."
+											: "US prices. The App Store shows yours."}
 									</p>
 								) : null
 							}
