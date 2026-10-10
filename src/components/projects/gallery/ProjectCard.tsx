@@ -1,5 +1,6 @@
 import Image from "next/image"
 import { compactLabel } from "@/lib/utils/platforms"
+import { statusLabel } from "@/lib/utils/projectStatus"
 import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "./galleryLayout"
 import ProjectIcon from "./ProjectIcon"
 import ViewProjectLink from "./ViewProjectLink"
@@ -15,15 +16,17 @@ const IMAGE_SIZES = "(min-width: 900px) 580px, calc(100vw - 2rem)"
 
 /**
  * A medium-prominence project on a plain raised card: the name, "role ·
- * platform", the summary and "View project" on the left, and the top-left of
- * its card image set into the card's bottom-right corner. Without a card
- * image, the text takes the whole card.
+ * platform" with a coming-soon project's status pill beside it, the summary
+ * and "View project" on the left, and the top-left of its card image set into
+ * the card's bottom-right corner. Without a card image, the text takes the
+ * whole card.
  */
 export default function ProjectCard({ project }: Props) {
 	const { name, slug, icon, role, summary, featuredImage, accentColor } =
 		project
 	const platform = compactLabel(project.bucket, project.platformTags)
 	const roleLine = role == null ? platform : `${role} · ${platform}`
+	const label = statusLabel(project.status)
 	// The underline takes the project's accent; the site's without one.
 	const accentStyle = {
 		"--project-accent": accentColor ?? "var(--color-accent-value)",
@@ -49,7 +52,13 @@ export default function ProjectCard({ project }: Props) {
 					{name}
 				</h2>
 
-				<p className="text-secondary mt-4 text-sm">{roleLine}</p>
+				<div className="mt-4 flex flex-wrap items-center gap-2">
+					<p className="text-secondary text-sm">{roleLine}</p>
+
+					{label != null && (
+						<span className="project-status-pill">{label}</span>
+					)}
+				</div>
 
 				<p className="text-primary mt-3 text-[17px] leading-[1.6] text-pretty">
 					{summary}

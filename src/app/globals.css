@@ -496,4 +496,15 @@ code[data-theme*=" "] span {
 		@apply mx-auto w-full max-w-(--site-max-width) px-(--site-gutter);
 	}
 
+	/* A project's status ("Coming soon", "Discontinued") on its band colours:
+	   the product page's hero and the gallery's app tiles. */
+	.product-status-pill {
+		@apply inline-block rounded-full border border-current/20 px-2.5 py-0.5 text-xs font-medium text-(--product-band-ink2);
+	}
+
+	/* The same on the plain page: the portfolio page and the gallery's cards. */
+	.project-status-pill {
+		@apply rounded-full bg-(--color-border) px-2.5 py-0.5 text-xs font-medium text-(--color-secondary);
+	}
+
 }

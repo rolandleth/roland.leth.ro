@@ -7,6 +7,7 @@ import {
 	ProjectPageLayout,
 	ProjectProminence,
 	ProjectSectionKind,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import ProductPage from "./ProductPage"
@@ -60,7 +61,7 @@ const project: ProjectDetail = {
 	accentColor: null,
 	prominence: ProjectProminence.high,
 	pageLayout: ProjectPageLayout.product,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: true,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,

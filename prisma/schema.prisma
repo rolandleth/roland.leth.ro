@@ -193,7 +193,10 @@ model Project {
   prominence     ProjectProminence @default(low)
   // Which detail page the project gets, independent of who owns it.
   pageLayout     ProjectPageLayout @default(portfolio)
-  isDiscontinued Boolean          @default(false)
+  // Where the project is in its life: not out yet, out, or pulled. One field
+  // rather than two flags, so a project can't be both coming soon and
+  // discontinued.
+  status         ProjectStatus    @default(live)
   // Roland is the creator and publisher: his own product, not an employer's or
   // client's app he worked on. Decides only the store CTAs (`linkCtasFor`): the
   // App Store badge with exactly one storefront link, `Download on …` pills
@@ -245,6 +248,20 @@ enum ProjectProminence {
   high
   medium
   low
+}
+
+// Where a project is in its life, in that order. A new value is a new case in
+// every `switch` over it, and the type-check fails until each one handles it.
+// Renaming a value is a manual `ALTER TYPE`, as for `ProjectProminence`.
+enum ProjectStatus {
+  // Not out yet: shown where its prominence puts it, labelled, with no store
+  // call to action and no offers in the structured data.
+  comingSoon
+  // Out and on sale, as far as the data knows.
+  live
+  // Pulled: listed under "More projects" whatever its prominence, labelled,
+  // with no store call to action and no pricing.
+  discontinued
 }
 
 // Which detail page a project gets on `/projects/[slug]`.

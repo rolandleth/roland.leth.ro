@@ -498,23 +498,49 @@ describe("projectCreateSchema", () => {
 		expect(result.success && result.data.pageLayout).toBe(pageLayout)
 	})
 
+	it.each(["comingSoon", "live", "discontinued"])(
+		"takes status %s",
+		(status) => {
+			const result = projectCreateSchema.safeParse({ ...valid, status })
+
+			expect(result.success && result.data.status).toBe(status)
+		}
+	)
+
 	it.each([
 		["prominence", "featured"],
 		["prominence", "High"],
 		["prominence", true],
 		["pageLayout", "magazine"],
 		["pageLayout", null],
+		["status", "coming soon"],
+		["status", "Live"],
+		["status", true],
+		["status", null],
 	])("rejects %s set to %j", (key, value) => {
 		expect(
 			projectCreateSchema.safeParse({ ...valid, [key]: value }).success
 		).toBe(false)
 	})
 
-	it("leaves prominence and page layout unset when they're omitted, for the route to default", () => {
+	it("leaves prominence, page layout and status unset when they're omitted, for the route to default", () => {
 		const result = projectCreateSchema.safeParse(valid)
 
 		expect(result.success && result.data.prominence).toBeUndefined()
 		expect(result.success && result.data.pageLayout).toBeUndefined()
+		expect(result.success && result.data.status).toBeUndefined()
+	})
+
+	// The old flag is no longer a field: Zod strips it, so a stale client can't
+	// smuggle it into the write.
+	it("drops a stale isDiscontinued from the parsed payload", () => {
+		const result = projectCreateSchema.safeParse({
+			...valid,
+			isDiscontinued: true,
+		})
+
+		expect(result.success).toBe(true)
+		expect(result.success && result.data).not.toHaveProperty("isDiscontinued")
 	})
 
 	it("accepts a fully-populated payload with sections and links", () => {
@@ -526,7 +552,7 @@ describe("projectCreateSchema", () => {
 			heroImage: "https://example.com/hero.png",
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "comingSoon",
 			isOwnApp: true,
 			date: "2024",
 			sortOrder: 1,

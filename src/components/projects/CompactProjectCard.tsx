@@ -1,6 +1,8 @@
 import Image from "next/image"
 import Link from "next/link"
+import { ProjectStatus } from "@/generated/prisma/enums"
 import { compactLabel } from "@/lib/utils/platforms"
+import { isDiscontinued, statusLabel } from "@/lib/utils/projectStatus"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
@@ -18,16 +20,10 @@ export default function CompactProjectCard({
 	showPlatformCapsule = true,
 	children,
 }: Props) {
-	const {
-		name,
-		slug,
-		icon,
-		bucket,
-		platformTags,
-		accentColor,
-		isDiscontinued,
-	} = project
+	const { name, slug, icon, bucket, platformTags, accentColor, status } =
+		project
 	const accent = accentColor ?? "var(--color-accent)"
+	const isGreyedOut = isDiscontinued(project)
 	// Featured projects link to their detail page; others link externally if needed, but we still use the detail route as a fallback.
 	const href = hrefProp ?? `/projects/${slug}`
 
@@ -44,13 +40,13 @@ export default function CompactProjectCard({
 						// `text-secondary` (already low-contrast) below WCAG AA against
 						// the background. Scoping the fade to the icon keeps the
 						// signal visible while letting the name remain legible.
-						isDiscontinued ? "opacity-60 grayscale" : ""
+						isGreyedOut ? "opacity-60 grayscale" : ""
 					}`}
 				>
 					<div
 						className="overflow-hidden rounded-2xl shadow-sm transition-shadow duration-300 group-hover:shadow-md"
 						style={
-							!isDiscontinued
+							!isGreyedOut
 								? {
 										boxShadow: `0 0 0 1px color-mix(in srgb, ${accent} 20%, transparent)`,
 									}
@@ -89,6 +85,14 @@ export default function CompactProjectCard({
 				<span className="text-secondary mt-2 line-clamp-2 w-[calc(100%-10px)] text-center text-xs leading-tight transition-colors duration-300 group-hover:text-(--color-primary)">
 					{name}
 				</span>
+
+				{/* The public list's "Coming soon" line (`MoreProjects`); a
+				    discontinued project has its grey icon instead. */}
+				{status === ProjectStatus.comingSoon && (
+					<span className="text-secondary -mt-1.5 text-[10px] leading-tight">
+						{statusLabel(status)}
+					</span>
+				)}
 			</Link>
 
 			{children}

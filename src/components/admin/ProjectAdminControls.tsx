@@ -20,7 +20,7 @@ export default function ProjectAdminControls({ project, totalCount }: Props) {
 				key={`${project.id}-${project.prominence}`}
 				projectId={project.id}
 				initial={project.prominence}
-				isDiscontinued={project.isDiscontinued}
+				status={project.status}
 			/>
 			<ProjectSortOrderInput
 				key={`${project.id}-${project.sortOrder}`}

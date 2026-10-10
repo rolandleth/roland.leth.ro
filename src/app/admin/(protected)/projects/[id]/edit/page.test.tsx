@@ -4,6 +4,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { verifySession } from "@/lib/auth/auth"
 import { prisma } from "@/lib/db/db"
@@ -62,7 +63,7 @@ const existingProject = {
 	accentColor: null,
 	prominence: ProjectProminence.low,
 	pageLayout: ProjectPageLayout.portfolio,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,

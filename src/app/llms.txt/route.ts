@@ -1,3 +1,4 @@
+import { ProjectStatus } from "@/generated/prisma/enums"
 import { getSiteUrl } from "@/lib/auth/env"
 import { collapseWhitespace } from "@/lib/content/descriptionRules"
 import { getGuidesOverview } from "@/lib/db/guides"
@@ -88,9 +89,10 @@ ${lines.join("\n")}
  * The `## Projects` block: the live apps, so an agent can cite one without
  * crawling the gallery.
  *
- * Discontinued projects are sorted last in the gallery but not dropped. This
- * file pitches itself as an "actually live" overview, so an LLM must not cite a
- * dead app as current — filtered out here.
+ * Discontinued projects are sorted last in the gallery but not dropped, and
+ * coming-soon ones sit among the live ones. This file pitches itself as an
+ * "actually live" overview, so an LLM must cite neither a dead app nor an
+ * unreleased one as available: only live projects are listed here.
  *
  * Returns an empty string when nothing survives that filter, so the header is
  * omitted entirely rather than advertising a section that isn't there — the same
@@ -101,7 +103,7 @@ function projectsSection(
 	projects: readonly ProjectGalleryItem[]
 ): string {
 	const lines = projects
-		.filter((project) => !project.isDiscontinued)
+		.filter((project) => project.status === ProjectStatus.live)
 		.map((project) =>
 			linkLine(
 				project.name,

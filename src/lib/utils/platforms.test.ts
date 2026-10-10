@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 import {
 	BUCKET_SUGGESTED_TAGS,
 	bucketLabel,
@@ -395,13 +399,13 @@ describe("linkCtasFor", () => {
 		overrides: Partial<{
 			bucket: PlatformBucket
 			isOwnApp: boolean
-			isDiscontinued: boolean
+			status: ProjectStatus
 		}> = {}
 	) {
 		return linkCtasFor({
 			bucket: PlatformBucket.iOS,
 			isOwnApp: false,
-			isDiscontinued: false,
+			status: ProjectStatus.live,
 			links,
 			...overrides,
 		}).map(({ cta }) => cta)
@@ -411,7 +415,7 @@ describe("linkCtasFor", () => {
 		const entries = linkCtasFor({
 			bucket: PlatformBucket.iOS,
 			isOwnApp: false,
-			isDiscontinued: false,
+			status: ProjectStatus.live,
 			links: [github, iosListing],
 		})
 
@@ -485,19 +489,24 @@ describe("linkCtasFor", () => {
 		])
 	})
 
-	it("renders every link of a discontinued project with its bare label", () => {
-		const expected = [
-			{ kind: "plainPill", label: "App Store" },
-			{ kind: "plainPill", label: "GitHub" },
-		]
+	it.each([
+		ProjectStatus.discontinued,
+		ProjectStatus.comingSoon,
+		"paused" as ProjectStatus,
+	])(
+		"renders every link of a %s project with its bare label, own app or not",
+		(status) => {
+			const expected = [
+				{ kind: "plainPill", label: "App Store" },
+				{ kind: "plainPill", label: "GitHub" },
+			]
 
-		expect(ctasFor([iosListing, github], { isDiscontinued: true })).toEqual(
-			expected
-		)
-		expect(
-			ctasFor([iosListing, github], { isDiscontinued: true, isOwnApp: true })
-		).toEqual(expected)
-	})
+			expect(ctasFor([iosListing, github], { status })).toEqual(expected)
+			expect(ctasFor([iosListing, github], { status, isOwnApp: true })).toEqual(
+				expected
+			)
+		}
+	)
 
 	it("treats the legacy itunes.apple.com host as a storefront", () => {
 		expect(

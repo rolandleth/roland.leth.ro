@@ -7,6 +7,7 @@ import {
 	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
@@ -85,7 +86,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		accentColor: "#405A55",
 		prominence: ProjectProminence.high,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: true,
 		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
@@ -252,6 +253,43 @@ describe("ProductPage — hero", () => {
 		expect(
 			within(hero as HTMLElement).getByText("Logging is free, forever.")
 		).toBeInTheDocument()
+	})
+
+	it("shows no status pill for a live app", () => {
+		renderPage(makeProject())
+
+		expect(screen.queryByText("Coming soon")).not.toBeInTheDocument()
+		expect(screen.queryByText("Discontinued")).not.toBeInTheDocument()
+	})
+
+	// The store link stays, on a bare-label pill under the content: a button
+	// would offer a download the pill says isn't there yet.
+	it("says a coming-soon app is coming soon, with no store button or store note in the hero or the closing", () => {
+		renderPage(
+			makeProject({
+				status: ProjectStatus.comingSoon,
+				storeNote: "Logging is free, forever.",
+			})
+		)
+
+		const hero = screen
+			.getByRole("heading", { level: 1 })
+			.closest("section") as HTMLElement
+		const closing = document.getElementById("get") as HTMLElement
+
+		expect(within(hero).getByText("Coming soon")).toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: "Download on the App Store" })
+		).not.toBeInTheDocument()
+		expect(within(hero).queryByRole("link")).not.toBeInTheDocument()
+		expect(within(closing).queryByRole("link")).not.toBeInTheDocument()
+		expect(
+			screen.queryByText("Logging is free, forever.")
+		).not.toBeInTheDocument()
+		expect(screen.getByRole("link", { name: "App Store" })).toHaveAttribute(
+			"href",
+			"https://apps.apple.com/app/id123"
+		)
 	})
 
 	it("links 'See how it works' to the first steps section", () => {
@@ -766,7 +804,7 @@ describe("ProductPage — pricing", () => {
 	it("shows no prices and no store buttons for a discontinued app", () => {
 		renderPage(
 			makeProject({
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				plans,
 				offers,
 				sections: [makeSection(1, "Free and paid", PRICING_SECTION)],
@@ -780,11 +818,34 @@ describe("ProductPage — pricing", () => {
 		expect(screen.getByText("Discontinued")).toBeInTheDocument()
 	})
 
+	// What it will cost helps a reader decide whether to wait; only the store
+	// buttons wait for the launch.
+	it("shows a coming-soon app's prices, with no store button beside them", () => {
+		renderPage(
+			makeProject({
+				status: ProjectStatus.comingSoon,
+				plans,
+				offers,
+				sections: [makeSection(1, "Free and paid", PRICING_SECTION)],
+			})
+		)
+
+		const section = screen
+			.getByRole("heading", { level: 2, name: "Free and paid" })
+			.closest("section") as HTMLElement
+
+		expect(within(section).getByText("$6.99")).toBeInTheDocument()
+		expect(within(section).queryByRole("link")).not.toBeInTheDocument()
+		expect(railEntries().map((link) => link.textContent)).toEqual([
+			"Free and paid",
+		])
+	})
+
 	it("leaves a discontinued app's pricing section off the page and the rail", () => {
 		// With nothing to price it would be a heading over a note.
 		renderPage(
 			makeProject({
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				plans,
 				offers,
 				sections: [

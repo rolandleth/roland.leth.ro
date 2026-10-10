@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DISCONTINUED_PLACEMENT_HINT } from "@/components/admin/projectPlacement"
-import { ProjectProminence } from "@/generated/prisma/enums"
+import { ProjectProminence, ProjectStatus } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectProminenceSelect from "./ProjectProminenceSelect"
 
@@ -38,17 +38,17 @@ function mockFetchResolved(
 function renderPicker({
 	projectId = 1,
 	initial = ProjectProminence.low,
-	isDiscontinued = false,
+	status = ProjectStatus.live,
 }: {
 	projectId?: number
 	initial?: ProjectProminence
-	isDiscontinued?: boolean
+	status?: ProjectStatus
 } = {}) {
 	return render(
 		<ProjectProminenceSelect
 			projectId={projectId}
 			initial={initial}
-			isDiscontinued={isDiscontinued}
+			status={status}
 		/>
 	)
 }
@@ -84,7 +84,7 @@ describe("ProjectProminenceSelect discontinued hint", () => {
 		"says a discontinued project at %s shows under More projects, and links it to the picker",
 		(initial) => {
 			mockRouter()
-			renderPicker({ initial, isDiscontinued: true })
+			renderPicker({ initial, status: ProjectStatus.discontinued })
 
 			expect(picker()).toHaveAccessibleDescription(DISCONTINUED_PLACEMENT_HINT)
 		}
@@ -93,23 +93,33 @@ describe("ProjectProminenceSelect discontinued hint", () => {
 	// Low already lands under More projects: there's nothing to override.
 	it("stays quiet for a discontinued project at low", () => {
 		mockRouter()
-		renderPicker({ initial: ProjectProminence.low, isDiscontinued: true })
+		renderPicker({
+			initial: ProjectProminence.low,
+			status: ProjectStatus.discontinued,
+		})
 
 		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
 		expect(picker()).not.toHaveAttribute("aria-describedby")
 	})
 
-	it("stays quiet for a live project at any level", () => {
-		mockRouter()
-		renderPicker({ initial: ProjectProminence.high, isDiscontinued: false })
+	// A coming-soon project lands where its level says, as a live one does.
+	it.each([ProjectStatus.live, ProjectStatus.comingSoon])(
+		"stays quiet for a %s project at a high level",
+		(status) => {
+			mockRouter()
+			renderPicker({ initial: ProjectProminence.high, status })
 
-		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
-	})
+			expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
+		}
+	)
 
 	it("shows as soon as a discontinued project is moved off low, before the save returns", async () => {
 		mockRouter()
 		global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
-		renderPicker({ initial: ProjectProminence.low, isDiscontinued: true })
+		renderPicker({
+			initial: ProjectProminence.low,
+			status: ProjectStatus.discontinued,
+		})
 
 		await user.selectOptions(picker(), ProjectProminence.high)
 

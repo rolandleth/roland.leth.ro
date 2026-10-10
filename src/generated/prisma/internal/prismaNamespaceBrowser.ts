@@ -150,7 +150,7 @@ export const ProjectScalarFieldEnum = {
   accentColor: 'accentColor',
   prominence: 'prominence',
   pageLayout: 'pageLayout',
-  isDiscontinued: 'isDiscontinued',
+  status: 'status',
   isOwnApp: 'isOwnApp',
   metaDescription: 'metaDescription',
   heroEyebrow: 'heroEyebrow',

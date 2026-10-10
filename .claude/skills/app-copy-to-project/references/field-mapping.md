@@ -21,8 +21,9 @@ here are a guide, not a substitute.
 | `platformTags` | **Ask the user** | 1–8 of `PlatformTag`, deduped, **valid for the bucket** (coherence rule below). The honest stack. |
 | `role` | Brief / user | ≤ 80. e.g. "Sole developer". |
 | `accentColor` | Brand color — `AccentColor.colorset`, else **ask** | CSS hex (`#rgb` / `#rrggbb` / `#rgba` / `#rrggbbaa`). For an Xcode app, read `<app-repo>/**/Assets.xcassets/AccentColor.colorset/Contents.json` (sRGB components ×255 → hex). |
-| `isFeatured` | **Ask** — required | `true` or `false`, never omitted: the import replaces the whole row and rejects a manifest missing any of the three flags. Whether it's pinned/highlighted in the gallery. |
-| `isDiscontinued` | **Ask** — required | `true` or `false`, never omitted. Discontinued projects sort last on public surfaces, and every link renders as a plain pill with its bare label. |
+| `prominence` | **Ask** — required | `high`, `medium` or `low`, never omitted: the import replaces the whole row and rejects a manifest missing any of the four placement fields. How visible it is on `/projects`: `high` a big tile, `medium` a card, `low` an icon under More projects. Replaced `isFeatured`, which the import now refuses. |
+| `pageLayout` | **Ask** — required | `product` or `portfolio`, never omitted. Which detail page it gets: the own-app product page, or the tabbed portfolio page. |
+| `status` | **Ask** — required | `comingSoon`, `live` or `discontinued`, never omitted. Replaced `isDiscontinued`, which the import now refuses. Only `discontinued` moves a project (to More projects, whatever its prominence). A coming-soon or discontinued project is labelled, and every link renders as a plain pill with its bare label (no App Store badge, no store note). A coming-soon app's prices still show on its page but stay out of the JSON-LD; it isn't listed in `/llms.txt`. Use `comingSoon` for an app that should be seen before launch; `isDraft: true` hides it instead. |
 | `isOwnApp` | **Ask** — required | `true` or `false`, never omitted. Whether Roland is the app's creator and publisher — his own product, not one built for an employer or client. Decides the store CTAs (`linkCtasFor`): an own app with exactly **one** App Store link gets the App Store badge (iOS / Mac buckets) or a "Download on {label}" pill (other buckets); an own app with **two or more** App Store links gets "Download on {label}" pills and no badge; a non-own app gets "Get on {label}" pills. |
 | `date` | Brief / **ask** | Free-form string (e.g. "2024"). |
 | `sortOrder` | **Ask** | Integer ≥ 0. The import honours it verbatim — consider existing projects' order. |
@@ -52,7 +53,7 @@ These aren't in the marketing copy. Ask, a couple at a time:
 1. `bucket` + `platformTags`
 2. App Store **app id** (build `https://apps.apple.com/app/id<id>`), plus website / GitHub URLs
 3. `accentColor`, `date`, `role`
-4. `isFeatured`, `isDiscontinued`, `isOwnApp`, `sortOrder`
+4. `prominence`, `pageLayout`, `status`, `isOwnApp`, `sortOrder`
 5. **Pricing** → `offers` (free / one-time + amount / subscription plans). Default currency **USD**.
 
 ## SEO & structured-data fields

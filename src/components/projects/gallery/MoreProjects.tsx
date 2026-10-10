@@ -1,10 +1,15 @@
 import Link from "next/link"
-import { PlatformBucket } from "@/generated/prisma/enums"
+import { PlatformBucket, ProjectStatus } from "@/generated/prisma/enums"
 import {
 	compactLabel,
 	groupByBucket,
 	isCompactLabelRedundant,
 } from "@/lib/utils/platforms"
+import {
+	discontinuedLast,
+	isDiscontinued,
+	statusLabel,
+} from "@/lib/utils/projectStatus"
 import MoreProjectsDisclosure from "./MoreProjectsDisclosure"
 import { FadeInWithList, SlideFromPreview } from "./MoreProjectsMotion"
 import ProjectIcon from "./ProjectIcon"
@@ -38,9 +43,9 @@ const ICON_LIFT_CLASS =
 /**
  * The low-prominence and discontinued projects, under one heading with a
  * count, closed at first. Closed, a row of icons previews what's inside: live
- * iOS, Mac and Web projects, and discontinued ones only to fill the row, at
- * its end. Open source projects show only once it's open. Open, the projects
- * come grouped by platform (iOS, Mac, Web, open source).
+ * and coming-soon iOS, Mac and Web projects, and discontinued ones only to
+ * fill the row, at its end. Open source projects show only once it's open.
+ * Open, the projects come grouped by platform (iOS, Mac, Web, open source).
  * Every icon links to its project's page, in the preview too. The lists
  * render here, on the server, and the open-and-close part is
  * `MoreProjectsDisclosure`, so every link is in the HTML either way.
@@ -54,21 +59,20 @@ export default function MoreProjects({ projects, className = "" }: Props) {
 	}
 
 	const groups = groupByBucket([...projects])
-	// No open source projects; of the rest, live ones first, each kind in the
-	// order the projects came in. The gallery's query already sorts them so; the
-	// preview's pick shouldn't depend on it. Picking from the groups instead
+	// No open source projects; of the rest, discontinued ones last, each kind in
+	// the order the projects came in. The gallery's query already sorts them so;
+	// the preview's pick shouldn't depend on it. Picking from the groups instead
 	// would fill the row with the first platform's projects, discontinued ones
 	// included, ahead of another platform's live ones.
-	const previewPicks = projects
-		.filter((project) => project.bucket !== PlatformBucket.OpenSource)
-		.sort(liveFirst)
-		.slice(0, PREVIEW_COUNT)
+	const previewPicks = discontinuedLast(
+		projects.filter((project) => project.bucket !== PlatformBucket.OpenSource)
+	).slice(0, PREVIEW_COUNT)
 	// Grouped by platform, like the full list, so most icons slide straight down
 	// to their groups. The discontinued ones still close the row, so theirs
 	// slide back across it.
-	const preview = groupByBucket(previewPicks)
-		.flatMap((group) => group.projects)
-		.sort(liveFirst)
+	const preview = discontinuedLast(
+		groupByBucket(previewPicks).flatMap((group) => group.projects)
+	)
 	const previewIds = new Set(preview.map((project) => project.id))
 
 	return (
@@ -202,28 +206,34 @@ function ListedIcon({ project, loading }: ListedIconProps) {
 			icon={project.icon}
 			size={ICON_SIZE}
 			loading={loading}
-			className={project.isDiscontinued ? "opacity-60 grayscale" : ""}
+			className={isDiscontinued(project) ? "opacity-60 grayscale" : ""}
 		/>
 	)
 }
 
-/** The name: full contrast for a live project, secondary for a discontinued one. */
+/**
+ * The name: full contrast for a live or coming-soon project, secondary for a
+ * discontinued one. A coming-soon project says so on a line under its name,
+ * in the platform tag's type; a discontinued one has its grey icon instead.
+ * The line sits inside the link, so the preview icon and its place in the
+ * list carry the same lines and the slide stays a plain move.
+ */
 function ListedName({ project }: { project: ProjectGalleryItem }) {
 	return (
-		<span
-			className={`text-[13px] leading-[1.3] transition-colors duration-200 group-hover/project:text-(--color-primary) ${
-				project.isDiscontinued ? "text-secondary" : "text-primary"
-			}`}
-		>
-			{project.name}
+		<span className="flex flex-col items-center gap-0.5">
+			<span
+				className={`text-[13px] leading-[1.3] transition-colors duration-200 group-hover/project:text-(--color-primary) ${
+					isDiscontinued(project) ? "text-secondary" : "text-primary"
+				}`}
+			>
+				{project.name}
+			</span>
+
+			{project.status === ProjectStatus.comingSoon && (
+				<span className="text-secondary text-[11px] leading-[1.3]">
+					{statusLabel(project.status)}
+				</span>
+			)}
 		</span>
 	)
-}
-
-/**
- * Sorts live projects before discontinued ones. `Array.sort` is stable, so
- * each kind keeps the order it had.
- */
-function liveFirst(a: ProjectGalleryItem, b: ProjectGalleryItem): number {
-	return Number(a.isDiscontinued) - Number(b.isDiscontinued)
 }

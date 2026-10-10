@@ -1,4 +1,8 @@
-import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
+import {
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 
 /**
  * The admin's names for each prominence level, shared by the project form and
@@ -18,6 +22,16 @@ export const PAGE_LAYOUT_LABELS: Record<ProjectPageLayout, string> = {
 }
 
 /**
+ * The admin's names for each status; a `Record` for the same reason. Unlike
+ * the site's `statusLabel`, "Live" has a name here: the select needs one.
+ */
+export const STATUS_LABELS: Record<ProjectStatus, string> = {
+	[ProjectStatus.comingSoon]: "Coming soon",
+	[ProjectStatus.live]: "Live",
+	[ProjectStatus.discontinued]: "Discontinued",
+}
+
+/**
  * Shown beside a discontinued project's level when the level would place it
  * elsewhere (`isPlacementOverridden`), in the form and on the list's picker.
  */
@@ -29,3 +43,6 @@ export const PROMINENCE_OPTIONS = Object.values(ProjectProminence)
 
 /** The page layouts in their declared order. */
 export const PAGE_LAYOUT_OPTIONS = Object.values(ProjectPageLayout)
+
+/** The statuses in their declared order: coming soon, live, discontinued. */
+export const STATUS_OPTIONS = Object.values(ProjectStatus)

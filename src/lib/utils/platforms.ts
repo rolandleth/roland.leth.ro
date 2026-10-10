@@ -1,4 +1,8 @@
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 
 // Display label for each bucket. Identifiers come from Postgres (no spaces),
 // labels are what we render.
@@ -202,12 +206,13 @@ export type LinkCta =
 /**
  * Pairs every link of a project with how it renders, in link order. The one
  * place that decides which links are storefronts, which get the Apple badge,
- * and what a discontinued project shows, so the hero links grid and the
+ * and what a project that isn't live shows, so the hero links grid and the
  * repeated CTA below the content can't disagree.
  *
- * - A discontinued project renders every link with its bare label: the listing
- *   stays reachable, but a call to action would assert availability the
- *   Discontinued badge contradicts.
+ * - A project that isn't live (coming soon or discontinued) renders every link
+ *   with its bare label: the link stays reachable, but a call to action would
+ *   assert availability its status label contradicts. A status this code
+ *   doesn't know gets the same, since nothing says the app is on sale.
  * - A storefront link on an own app says "Download on …" — about a product
  *   Roland sells, which an employer's or client's app isn't — and on any other
  *   project "Get on …". Keyed off the URL and `isOwnApp`, never the label.
@@ -225,10 +230,10 @@ export function linkCtasFor<
 >(project: {
 	bucket: PlatformBucket
 	isOwnApp: boolean
-	isDiscontinued: boolean
+	status: ProjectStatus
 	links: readonly Link[]
 }): { link: Link; cta: LinkCta }[] {
-	if (project.isDiscontinued) {
+	if (project.status !== ProjectStatus.live) {
 		return project.links.map((link) => ({
 			link,
 			cta: { kind: "plainPill", label: link.label },

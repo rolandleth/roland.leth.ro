@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { dynamic, GET } from "@/app/llms.txt/route"
 import * as llmsRoute from "@/app/llms.txt/route"
+import { ProjectStatus } from "@/generated/prisma/enums"
 import { getGuidesOverview } from "@/lib/db/guides"
 import { getRecentPosts } from "@/lib/db/posts"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
@@ -35,7 +36,7 @@ function topicStub(
 }
 
 // The shared fixture rather than a local cast: `as never` let the stub omit
-// `isDiscontinued`, which is why the filter below had no coverage.
+// the status flag, which is why the filter below had no coverage.
 function projectStub(
 	overrides: Partial<ProjectGalleryItem> = {}
 ): ProjectGalleryItem {
@@ -159,7 +160,11 @@ describe("llms.txt — projects", () => {
 		// cite a dead app as current.
 		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
 			projectStub({ name: "Live", slug: "live" }),
-			projectStub({ name: "Dead", slug: "dead", isDiscontinued: true }),
+			projectStub({
+				name: "Dead",
+				slug: "dead",
+				status: ProjectStatus.discontinued,
+			}),
 		])
 
 		const body = await (await GET()).text()
@@ -168,11 +173,29 @@ describe("llms.txt — projects", () => {
 		expect(body).not.toContain("Dead")
 	})
 
-	it("omits the whole section when every project is discontinued", async () => {
+	it("leaves out a coming-soon project", async () => {
+		// Nor cite an unreleased app as available.
+		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
+			projectStub({ name: "Live", slug: "live" }),
+			projectStub({
+				name: "Soon",
+				slug: "soon",
+				status: ProjectStatus.comingSoon,
+			}),
+		])
+
+		const body = await (await GET()).text()
+
+		expect(body).toContain(`- [Live](${BASE}/projects/live)`)
+		expect(body).not.toContain("Soon")
+	})
+
+	it("omits the whole section when no project is live", async () => {
 		// Matching the guides and posts blocks: a bare header advertises a section
 		// that isn't there.
 		vi.mocked(getProjectsGalleryCached).mockResolvedValue([
-			projectStub({ isDiscontinued: true }),
+			projectStub({ status: ProjectStatus.discontinued }),
+			projectStub({ slug: "soon", status: ProjectStatus.comingSoon }),
 		])
 
 		const body = await (await GET()).text()

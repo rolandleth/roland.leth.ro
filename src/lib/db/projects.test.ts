@@ -6,6 +6,7 @@ import {
 	ProjectPageLayout,
 	ProjectProminence,
 	ProjectSectionKind,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import {
@@ -108,6 +109,25 @@ describe("getAllProjects", () => {
 		expect(result).toEqual(projects)
 	})
 
+	it("moves discontinued projects last, as the gallery does", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			makeProjectListItem({
+				id: 1,
+				name: "Gone",
+				status: ProjectStatus.discontinued,
+			}),
+			makeProjectListItem({
+				id: 2,
+				name: "Digest",
+				status: ProjectStatus.comingSoon,
+			}),
+		] as Awaited<ReturnType<typeof prisma.project.findMany>>)
+
+		const result = await getAllProjects()
+
+		expect(result.map((project) => project.name)).toEqual(["Digest", "Gone"])
+	})
+
 	it("returns an empty array when there are no projects", async () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue([])
 
@@ -121,7 +141,19 @@ describe("getAllProjects", () => {
 // #region getProjectsGalleryCached / getProjectsForAdmin
 
 describe("getProjectsGalleryCached", () => {
-	it("orders discontinued projects last", async () => {
+	const statusRow = (id: number, name: string, status: ProjectStatus) => ({
+		...makeGalleryRow({
+			id,
+			cardImage: null,
+			ogImage: null,
+			heroImage: null,
+			sections: [],
+		}),
+		name,
+		status,
+	})
+
+	it("orders by sortOrder, then name, in the query", async () => {
 		vi.mocked(prisma.project.findMany).mockResolvedValue(
 			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
 		)
@@ -129,11 +161,38 @@ describe("getProjectsGalleryCached", () => {
 
 		expect(prisma.project.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({
-				orderBy: [
-					{ isDiscontinued: "asc" },
-					{ sortOrder: "asc" },
-					{ name: "asc" },
-				],
+				orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+			})
+		)
+	})
+
+	// Ordering by `status` in the query would move the coming-soon projects too;
+	// only being discontinued moves one.
+	it("moves discontinued projects last and leaves coming-soon ones where sortOrder put them", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			statusRow(1, "Gone", ProjectStatus.discontinued),
+			statusRow(2, "Digest", ProjectStatus.comingSoon),
+			statusRow(3, "Reckon", ProjectStatus.live),
+		] as unknown as Awaited<ReturnType<typeof prisma.project.findMany>>)
+
+		const result = await getProjectsGalleryCached()
+
+		expect(result.map((project) => project.name)).toEqual([
+			"Digest",
+			"Reckon",
+			"Gone",
+		])
+	})
+
+	it("selects the status (catch a silent drop from gallerySelect)", async () => {
+		vi.mocked(prisma.project.findMany).mockResolvedValue(
+			[] as Awaited<ReturnType<typeof prisma.project.findMany>>
+		)
+		await getProjectsGalleryCached()
+
+		expect(prisma.project.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				select: expect.objectContaining({ status: true }),
 			})
 		)
 	})
@@ -567,7 +626,7 @@ describe("getProjectBySlug", () => {
 		accentColor: null,
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.portfolio,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: false,
 		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
@@ -654,7 +713,7 @@ describe("loadProject", () => {
 			accentColor: null,
 			prominence: ProjectProminence.low,
 			pageLayout: ProjectPageLayout.portfolio,
-			isDiscontinued: false,
+			status: ProjectStatus.live,
 			isOwnApp: false,
 			...EMPTY_PRODUCT_PAGE_FIELDS,
 			date: null,
@@ -724,7 +783,7 @@ describe("toProjectFormInitialData", () => {
 			heroImage: null,
 			prominence: ProjectProminence.low,
 			pageLayout: ProjectPageLayout.portfolio,
-			isDiscontinued: false,
+			status: ProjectStatus.live,
 			isOwnApp: false,
 			...EMPTY_PRODUCT_PAGE_FIELDS,
 			date: null,
@@ -847,14 +906,14 @@ describe("toProjectFormInitialData", () => {
 			...makeAdminDetail(),
 			prominence: ProjectProminence.high,
 			pageLayout: ProjectPageLayout.product,
-			isDiscontinued: true,
+			status: ProjectStatus.comingSoon,
 			isOwnApp: true,
 		}
 		const data = toProjectFormInitialData(detail)
 
 		expect(data.prominence).toBe(ProjectProminence.high)
 		expect(data.pageLayout).toBe(ProjectPageLayout.product)
-		expect(data.isDiscontinued).toBe(true)
+		expect(data.status).toBe(ProjectStatus.comingSoon)
 		expect(data.isOwnApp).toBe(true)
 	})
 })

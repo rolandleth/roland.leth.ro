@@ -5,6 +5,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
 import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
@@ -69,7 +70,7 @@ const createdProject = {
 	heroImage: null,
 	prominence: ProjectProminence.low,
 	pageLayout: ProjectPageLayout.portfolio,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
@@ -316,7 +317,7 @@ describe("POST /api/admin/projects", () => {
 		expect(data.palette).toBe(Prisma.DbNull)
 	})
 
-	it("writes low prominence, the portfolio page and false flags when they're omitted", async () => {
+	it("writes low prominence, the portfolio page, a live status and a false flag when they're omitted", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(makeRequest(validPayload))
@@ -324,11 +325,11 @@ describe("POST /api/admin/projects", () => {
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
 		expect(data.prominence).toBe(ProjectProminence.low)
 		expect(data.pageLayout).toBe(ProjectPageLayout.portfolio)
-		expect(data.isDiscontinued).toBe(false)
+		expect(data.status).toBe(ProjectStatus.live)
 		expect(data.isOwnApp).toBe(false)
 	})
 
-	it("stores prominence, page layout, isDiscontinued and isOwnApp when they're set", async () => {
+	it("stores prominence, page layout, status and isOwnApp when they're set", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 
 		await POST(
@@ -336,7 +337,7 @@ describe("POST /api/admin/projects", () => {
 				...validPayload,
 				prominence: ProjectProminence.high,
 				pageLayout: ProjectPageLayout.product,
-				isDiscontinued: true,
+				status: ProjectStatus.comingSoon,
 				isOwnApp: true,
 			})
 		)
@@ -344,13 +345,14 @@ describe("POST /api/admin/projects", () => {
 		const { data } = vi.mocked(prisma.project.create).mock.calls[0][0]
 		expect(data.prominence).toBe(ProjectProminence.high)
 		expect(data.pageLayout).toBe(ProjectPageLayout.product)
-		expect(data.isDiscontinued).toBe(true)
+		expect(data.status).toBe(ProjectStatus.comingSoon)
 		expect(data.isOwnApp).toBe(true)
 	})
 
 	it.each([
 		["prominence", { prominence: "featured" }],
 		["pageLayout", { pageLayout: "magazine" }],
+		["status", { status: "coming soon" }],
 	])("rejects an unknown %s with a 400", async (_field, fields) => {
 		const res = await POST(makeRequest({ ...validPayload, ...fields }))
 

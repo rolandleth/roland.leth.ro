@@ -6,6 +6,7 @@ import {
 	ProjectPageLayout,
 	ProjectProminence,
 	ProjectSectionKind,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { markdownToReact } from "@/lib/content/markdown"
 import { ogImageEntry } from "@/lib/content/metadata"
@@ -71,7 +72,7 @@ const existingProject = {
 	accentColor: null,
 	prominence: ProjectProminence.low,
 	pageLayout: ProjectPageLayout.portfolio,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,

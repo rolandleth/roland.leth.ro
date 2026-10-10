@@ -2,6 +2,7 @@
 // and separate from the page so the shapes are unit-testable and the page stays
 // a thin server component. Consumed by `src/app/projects/[slug]/page.tsx`.
 
+import { ProjectStatus } from "@/generated/prisma/enums"
 import { jsonLdImageUrl, personFor } from "@/lib/content/jsonLd"
 import type { ProjectDetail, ProjectOffer } from "@/lib/db/projects"
 
@@ -76,13 +77,44 @@ export function buildSoftwareApplicationJsonLd(
 	// same one its `og:image` advertises. See `jsonLdImageUrl`.
 	jsonLd.image = jsonLdImageUrl(image, base)
 
-	const offerNode = buildOfferNode(offers, project.isDiscontinued)
+	const offerNode = hasOffersFor(project.status)
+		? buildOfferNode(offers, project.status === ProjectStatus.discontinued)
+		: null
 
 	if (offerNode !== null) {
 		jsonLd.offers = offerNode
 	}
 
 	return jsonLd
+}
+
+/**
+ * Whether a project with this status emits `offers` at all.
+ *
+ * A coming-soon one doesn't: schema.org's `ItemAvailability` has no value for
+ * "not released yet" (`PreOrder` and `PreSale` both say it can be ordered now),
+ * and a price with no availability reads as on sale. Its page still prints the
+ * planned prices; only the structured data stays silent. A status this code
+ * doesn't know (a database ahead of the deploy) emits none either, and the log
+ * says so: omitting is the claim that can't be wrong.
+ */
+function hasOffersFor(status: ProjectStatus): boolean {
+	switch (status) {
+		case ProjectStatus.comingSoon:
+			return false
+		case ProjectStatus.live:
+		case ProjectStatus.discontinued:
+			return true
+		default: {
+			const unknown: never = status
+			// eslint-disable-next-line no-console
+			console.error("[projects:json-ld] unknown status, offers left out", {
+				status: unknown,
+			})
+
+			return false
+		}
+	}
 }
 
 /**
@@ -183,8 +215,8 @@ function toOfferNode(
  *
  * Only the discontinued case is asserted. A live project gets no `availability`
  * at all rather than `InStock`, because nothing in the data backs that claim —
- * `isDiscontinued === false` means "not marked discontinued", not "confirmed on
- * sale", and an app can be pulled from the store without the row being updated.
+ * a `live` status means "not marked otherwise", not "confirmed on sale", and an
+ * app can be pulled from the store without the row being updated.
  * Same reasoning as `applicationCategory` above: omit rather than assert wrong.
  */
 function availabilityFor(isDiscontinued: boolean): Record<string, string> {
