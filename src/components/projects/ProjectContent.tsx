@@ -7,6 +7,7 @@ import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
 import { firstIndexOfGroup, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
 import { detailLabel, linkCtasFor } from "@/lib/utils/platforms"
+import { statusLabel } from "@/lib/utils/projectStatus"
 import ProjectAccentStyle from "./ProjectAccentStyle"
 import ProjectFaq from "./ProjectFaq"
 import ProjectGuides from "./ProjectGuides"
@@ -39,20 +40,21 @@ export default function ProjectContent({
 		platformTags,
 		role,
 		accentColor,
-		isDiscontinued,
+		status,
 		sections,
 		links,
 		faqs,
 	} = project
 	const accent = accentColor ?? "var(--color-accent)"
-	// Every link with how it renders; the storefront, badge and discontinued
-	// rules all live in `linkCtasFor`.
+	const label = statusLabel(status)
+	// Every link with how it renders; the storefront, badge and status rules all
+	// live in `linkCtasFor`.
 	const linkCtas = linkCtasFor(project)
 	// The primary storefront link, repeated as a standalone CTA below the content
 	// — by then the hero pill has long scrolled off-screen. `find` takes the
 	// lowest-`sortOrder` storefront when a project lists several (an iOS and a
 	// Mac listing are both `apps.apple.com`), so the author picks the primary one
-	// by ordering the links. A discontinued project has no storefront CTA.
+	// by ordering the links. A project that isn't live has no storefront CTA.
 	const storeCta = linkCtas.find(({ cta }) => cta.kind !== "plainPill")
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
@@ -221,10 +223,8 @@ export default function ProjectContent({
 							<div className="flex flex-wrap items-center gap-3">
 								<h1 className="text-primary text-3xl font-bold">{name}</h1>
 
-								{isDiscontinued && (
-									<span className="rounded-full bg-(--color-border) px-2.5 py-0.5 text-xs font-medium text-(--color-secondary)">
-										Discontinued
-									</span>
+								{label != null && (
+									<span className="project-status-pill">{label}</span>
 								)}
 							</div>
 

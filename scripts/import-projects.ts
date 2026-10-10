@@ -289,7 +289,7 @@ async function writeProject(
 					heroImage: data.heroImage ?? null,
 					prominence: data.prominence,
 					pageLayout: data.pageLayout,
-					isDiscontinued: data.isDiscontinued,
+					status: data.status,
 					isOwnApp: data.isOwnApp,
 					date: data.date ?? null,
 					// Imports honour the authored `sortOrder` verbatim — unlike the

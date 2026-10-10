@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
+import {
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 import {
 	blobKeyFor,
 	blobPrefixFor,
@@ -175,7 +179,7 @@ describe("parseManifest — required fields", () => {
 		name: "Reckon",
 		prominence: "high",
 		pageLayout: "product",
-		isDiscontinued: false,
+		status: "live",
 		isOwnApp: true,
 	} satisfies ProjectManifest
 
@@ -187,7 +191,7 @@ describe("parseManifest — required fields", () => {
 					name: "Old client app",
 					prominence: "low",
 					pageLayout: "portfolio",
-					isDiscontinued: false,
+					status: "discontinued",
 					isOwnApp: false,
 				})
 			)
@@ -199,6 +203,15 @@ describe("parseManifest — required fields", () => {
 
 		expect(parseManifest(raw).prominence).toBe(prominence)
 	})
+
+	it.each(["comingSoon", "live", "discontinued"])(
+		"accepts status %s",
+		(status) => {
+			const raw = JSON.stringify({ ...allFields, status })
+
+			expect(parseManifest(raw).status).toBe(status)
+		}
+	)
 
 	// The import replaces the row, so a left-out field would silently reset the
 	// value set in the admin.
@@ -212,7 +225,7 @@ describe("parseManifest — required fields", () => {
 
 	it("names every missing field at once, in order", () => {
 		expect(() => parseManifest(JSON.stringify({ name: "Reckon" }))).toThrow(
-			"Manifest must set prominence (high or medium or low), pageLayout (product or portfolio), isDiscontinued (true or false), isOwnApp (true or false)."
+			"Manifest must set prominence (high or medium or low), pageLayout (product or portfolio), status (comingSoon or live or discontinued), isOwnApp (true or false)."
 		)
 	})
 
@@ -222,7 +235,9 @@ describe("parseManifest — required fields", () => {
 		["prominence", "High"],
 		["pageLayout", "magazine"],
 		["pageLayout", true],
-		["isDiscontinued", "yes"],
+		["status", "coming soon"],
+		["status", "Live"],
+		["status", false],
 		["isOwnApp", null],
 	])("rejects %s set to %j", (key, value) => {
 		const raw = JSON.stringify({ ...allFields, [key]: value })
@@ -249,6 +264,37 @@ describe("parseManifest — required fields", () => {
 
 		expect(() => parseManifest(raw)).toThrow(/still sets "isFeatured"/)
 	})
+
+	// `isDiscontinued` became `status`: importing it would drop the author's
+	// choice, and a manifest setting both would leave the reader to guess.
+	it.each([
+		[true, '"discontinued"'],
+		[false, '"live"'],
+	])(
+		"refuses a manifest that still sets isDiscontinued (%s), naming the replacement",
+		(isDiscontinued, replacement) => {
+			const raw = JSON.stringify({ ...allFields, isDiscontinued })
+
+			let message = ""
+
+			try {
+				parseManifest(raw)
+			} catch (error) {
+				message = error instanceof Error ? error.message : String(error)
+			}
+
+			expect(message).toMatch(
+				/still sets "isDiscontinued", which became "status" \(comingSoon, live, discontinued\)/
+			)
+			expect(message).toContain(replacement)
+		}
+	)
+
+	it("refuses isDiscontinued even when the rest is missing, so the old key is named first", () => {
+		const raw = JSON.stringify({ name: "Reckon", isDiscontinued: false })
+
+		expect(() => parseManifest(raw)).toThrow(/still sets "isDiscontinued"/)
+	})
 })
 
 // #endregion
@@ -263,7 +309,7 @@ describe("parseManifest", () => {
 			name: "Reckon",
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 
@@ -271,7 +317,7 @@ describe("parseManifest", () => {
 			name: "Reckon",
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 	})
@@ -281,7 +327,7 @@ describe("parseManifest", () => {
 			name: "Reckon",
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 		})
 
 		expect(() => parseManifest(raw)).toThrow(/must set isOwnApp/)
@@ -307,7 +353,7 @@ describe("parseManifest", () => {
 			isDraft: true,
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 
@@ -320,7 +366,7 @@ describe("parseManifest", () => {
 			isDraft: false,
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 
@@ -333,7 +379,7 @@ describe("parseManifest", () => {
 			name: "Reckon",
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 			sections: [
 				{
@@ -375,7 +421,7 @@ describe("parseManifest", () => {
 			summary: "Verify your list [daily]; a TODO list that waits.",
 			prominence: "low",
 			pageLayout: "portfolio",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 
@@ -388,7 +434,7 @@ describe("parseManifest", () => {
 			summary: `[VERIFY: ${"x".repeat(200)}]`,
 			prominence: "high",
 			pageLayout: "product",
-			isDiscontinued: false,
+			status: "live",
 			isOwnApp: true,
 		})
 
@@ -442,15 +488,15 @@ describe("requiredProjectFields", () => {
 			summary: "A summary.",
 			prominence: ProjectProminence.medium,
 			pageLayout: ProjectPageLayout.portfolio,
-			isDiscontinued: false,
-			isOwnApp: true,
+			status: ProjectStatus.comingSoon,
+			isOwnApp: false,
 		}
 
 		expect(requiredProjectFields(manifest)).toEqual({
 			prominence: ProjectProminence.medium,
 			pageLayout: ProjectPageLayout.portfolio,
-			isDiscontinued: false,
-			isOwnApp: true,
+			status: ProjectStatus.comingSoon,
+			isOwnApp: false,
 		})
 	})
 })

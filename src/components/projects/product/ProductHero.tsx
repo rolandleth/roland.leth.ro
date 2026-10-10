@@ -1,5 +1,7 @@
 import Image from "next/image"
+import { statusLabel } from "@/lib/utils/projectStatus"
 import ProjectLinkCta from "../ProjectLinkCta"
+import type { ProjectStatus } from "@/generated/prisma/enums"
 import type { LinkCta } from "@/lib/utils/platforms"
 
 export interface StoreLink {
@@ -15,7 +17,8 @@ interface Props {
 	summary: string
 	heroImage: string | null
 	heroImageAlt: string | null
-	isDiscontinued: boolean
+	/** Shown as a pill under the title when it isn't live (`statusLabel`). */
+	status: ProjectStatus
 	storeLinks: readonly StoreLink[]
 	/** The id of the section with numbered steps, for "See how it works". */
 	stepsAnchor: string | null
@@ -43,12 +46,13 @@ export default function ProductHero({
 	summary,
 	heroImage,
 	heroImageAlt,
-	isDiscontinued,
+	status,
 	storeLinks,
 	stepsAnchor,
 	storeNote,
 }: Props) {
 	const isBare = eyebrow == null && headline == null
+	const label = statusLabel(status)
 	const iconSize = isBare ? 64 : 44
 	const hasImage = heroImage != null
 
@@ -112,11 +116,7 @@ export default function ProductHero({
 						)}
 					</h1>
 
-					{isDiscontinued && (
-						<p className="mt-4 inline-block rounded-full border border-current/20 px-2.5 py-0.5 text-xs font-medium text-(--product-band-ink2)">
-							Discontinued
-						</p>
-					)}
+					{label != null && <p className="product-status-pill mt-4">{label}</p>}
 				</div>
 
 				<div

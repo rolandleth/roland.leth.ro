@@ -5,6 +5,7 @@ import {
 	PlatformBucket,
 	PlatformTag,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
 import { makeProjectGalleryItem } from "@/test/fixtures"
@@ -162,8 +163,8 @@ describe("ProjectsPage — sections", () => {
 
 	it("lists a discontinued project under More projects, faded, whatever its prominence", async () => {
 		await renderGallery([
-			makeApp("Reckon", { isDiscontinued: true }),
-			makeCardProject("MyTherme", { isDiscontinued: true }),
+			makeApp("Reckon", { status: ProjectStatus.discontinued }),
+			makeCardProject("MyTherme", { status: ProjectStatus.discontinued }),
 		])
 
 		expect(
@@ -178,6 +179,29 @@ describe("ProjectsPage — sections", () => {
 		expect(
 			within(moreProjects()).getByRole("link", { name: "MyTherme" })
 		).toBeInTheDocument()
+	})
+
+	// Only being discontinued moves a project; coming soon keeps its level.
+	it("keeps a coming-soon project where its prominence puts it", async () => {
+		await renderGallery([
+			makeApp("Digest", { status: ProjectStatus.comingSoon }),
+			makeCardProject("Client", { status: ProjectStatus.comingSoon }),
+		])
+
+		expect(
+			within(sectionNamed("Featured projects")).getByRole("heading", {
+				name: /^Digest/,
+			})
+		).toBeInTheDocument()
+		expect(
+			within(sectionNamed("Selected projects")).getByRole("heading", {
+				level: 2,
+				name: "Client",
+			})
+		).toBeInTheDocument()
+		expect(
+			screen.queryByRole("heading", { level: 2, name: /^More projects/ })
+		).not.toBeInTheDocument()
 	})
 
 	// The gallery item doesn't carry the page layout at all: placement can't
@@ -305,6 +329,37 @@ describe("ProjectsPage — tiles", () => {
 		).toHaveAttribute("href", "/projects/reckon")
 	})
 
+	it("says a coming-soon app is coming soon, with no store button, only the link to its page", async () => {
+		await renderGallery([
+			makeApp("Digest", { status: ProjectStatus.comingSoon }),
+			makeApp("Reckon"),
+		])
+
+		const digest = articleTitled(/^Digest/)
+
+		expect(within(digest).getByText("Coming soon")).toBeInTheDocument()
+		expect(within(digest).getAllByRole("link")).toHaveLength(1)
+		expect(
+			within(digest).getByRole("link", { name: "View Digest project" })
+		).toHaveAttribute("href", "/projects/digest")
+		// The live tile beside it keeps its button and has no pill.
+		const reckon = articleTitled(/^Reckon/)
+		expect(
+			within(reckon).getByRole("link", { name: "Download on the App Store" })
+		).toBeInTheDocument()
+		expect(within(reckon).queryByText("Coming soon")).not.toBeInTheDocument()
+	})
+
+	it("labels a wide coming-soon tile too", async () => {
+		await renderGallery([
+			makeApp("Digest", { status: ProjectStatus.comingSoon }),
+		])
+
+		expect(
+			within(articleTitled(/^Digest/)).getByText("Coming soon")
+		).toBeInTheDocument()
+	})
+
 	it("shows a tile without an eyebrow as its name alone", async () => {
 		await renderGallery([
 			makeApp("Reckon", { heroEyebrow: null }),
@@ -395,6 +450,26 @@ describe("ProjectsPage — cards", () => {
 		expect(
 			within(cards).getByRole("link", { name: "View MyTherme project" })
 		).toHaveAttribute("href", "/projects/mytherme")
+	})
+
+	it("puts a coming-soon card's status beside its role line, and none on a live card", async () => {
+		await renderGallery([
+			makeCardProject("Client", {
+				role: "Lead",
+				status: ProjectStatus.comingSoon,
+			}),
+			makeCardProject("MyTherme"),
+		])
+
+		expect(
+			within(articleTitled("Client")).getByText("Coming soon")
+		).toBeInTheDocument()
+		expect(
+			within(articleTitled("Client")).getByText("Lead · iOS")
+		).toBeInTheDocument()
+		expect(
+			within(articleTitled("MyTherme")).queryByText("Coming soon")
+		).not.toBeInTheDocument()
 	})
 
 	it("shows the platform alone without a role", async () => {
@@ -605,7 +680,7 @@ describe("ProjectsPage — more projects", () => {
 		const discontinued = Array.from({ length: 3 }, (_, index) =>
 			listedProject(`Old ${index + 1}`, PlatformBucket.iOS, {
 				id: 100 + index,
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 			})
 		)
 		const liveIOS = Array.from({ length: 8 }, (_, index) =>
@@ -628,7 +703,9 @@ describe("ProjectsPage — more projects", () => {
 
 	it("fills the rest of the preview with discontinued projects, at its end", async () => {
 		await renderGallery([
-			listedProject("Old", PlatformBucket.iOS, { isDiscontinued: true }),
+			listedProject("Old", PlatformBucket.iOS, {
+				status: ProjectStatus.discontinued,
+			}),
 			listedProject("Site", PlatformBucket.Web),
 			listedProject("Goalee", PlatformBucket.iOS),
 		])
@@ -645,7 +722,9 @@ describe("ProjectsPage — more projects", () => {
 	it("leaves open source projects out of the preview, live ones too", async () => {
 		await renderGallery([
 			listedProject("Library", PlatformBucket.OpenSource),
-			listedProject("Old", PlatformBucket.iOS, { isDiscontinued: true }),
+			listedProject("Old", PlatformBucket.iOS, {
+				status: ProjectStatus.discontinued,
+			}),
 			listedProject("Site", PlatformBucket.Web),
 		])
 
@@ -692,7 +771,7 @@ describe("ProjectsPage — more projects", () => {
 	it("greys out a discontinued project's icon, not its name", async () => {
 		await renderGallery([
 			listedProject("Puppet Anthems", PlatformBucket.iOS, {
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				icon: "/puppet.png",
 			}),
 		])
@@ -704,6 +783,61 @@ describe("ProjectsPage — more projects", () => {
 		expect(within(link).getByText("Puppet Anthems")).not.toHaveClass(
 			"grayscale"
 		)
+	})
+
+	// The line sits inside the link, in the preview and the list alike, so the
+	// slide between them stays a plain move.
+	it("says a coming-soon project is coming soon under its name, in the preview and the list, without greying it out", async () => {
+		await renderGallery([
+			listedProject("Tool", PlatformBucket.iOS, {
+				status: ProjectStatus.comingSoon,
+				icon: "/tool.png",
+			}),
+		])
+
+		const previewLink = within(previewList()).getByRole("link", {
+			name: "Tool Coming soon",
+		})
+		expect(previewLink).toHaveAttribute("href", "/projects/tool")
+		expect(previewLink.querySelector("img")).not.toHaveClass("grayscale")
+
+		await toggleMore()
+
+		const listLink = within(moreList()).getByRole("link", {
+			name: "Tool Coming soon",
+		})
+		expect(listLink.querySelector("img")).not.toHaveClass("grayscale")
+		expect(within(listLink).getByText("Tool")).toHaveClass("text-primary")
+	})
+
+	it("adds no status line to a live or discontinued project", async () => {
+		await renderGallery([
+			listedProject("Goalee", PlatformBucket.iOS),
+			listedProject("Old", PlatformBucket.iOS, {
+				status: ProjectStatus.discontinued,
+			}),
+		])
+
+		expect(within(moreProjects()).queryByText("Coming soon")).toBeNull()
+		expect(within(moreProjects()).queryByText("Discontinued")).toBeNull()
+	})
+
+	it("previews coming-soon projects among the live ones, in their order, before discontinued ones", async () => {
+		await renderGallery([
+			listedProject("Old", PlatformBucket.iOS, {
+				status: ProjectStatus.discontinued,
+			}),
+			listedProject("Tool", PlatformBucket.iOS, {
+				status: ProjectStatus.comingSoon,
+			}),
+			listedProject("Goalee", PlatformBucket.iOS),
+		])
+
+		expect(previewHrefs()).toEqual([
+			"/projects/tool",
+			"/projects/goalee",
+			"/projects/old",
+		])
 	})
 })
 

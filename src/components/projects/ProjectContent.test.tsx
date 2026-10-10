@@ -5,6 +5,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
@@ -79,7 +80,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		accentColor: null,
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.portfolio,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: false,
 		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
@@ -554,15 +555,30 @@ describe("ProjectContent — store CTA", () => {
 
 	// A discontinued project keeps its storefront link reachable but stops
 	// selling: bare label in the hero, no repeated CTA below the content.
-	it("drops the 'Get on' prefix and the repeated CTA for a discontinued project", () => {
-		renderWithLinks([storeLink], guideItems, { isDiscontinued: true })
+	// A coming-soon project gets the same treatment: nothing to buy yet.
+	it.each([
+		[ProjectStatus.discontinued, "Discontinued"],
+		[ProjectStatus.comingSoon, "Coming soon"],
+	])(
+		"drops the 'Get on' prefix and the repeated CTA for a %s project, and labels it",
+		(status, label) => {
+			renderWithLinks([storeLink], guideItems, { status })
 
-		const links = screen.getAllByRole("link", { name: "Mac App Store" })
-		expect(links).toHaveLength(1)
-		expect(links[0]).toHaveAttribute("href", storeLink.url)
-		expect(
-			screen.queryByRole("link", { name: /Get on/ })
-		).not.toBeInTheDocument()
+			const links = screen.getAllByRole("link", { name: "Mac App Store" })
+			expect(links).toHaveLength(1)
+			expect(links[0]).toHaveAttribute("href", storeLink.url)
+			expect(
+				screen.queryByRole("link", { name: /Get on/ })
+			).not.toBeInTheDocument()
+			expect(screen.getByText(label)).toBeInTheDocument()
+		}
+	)
+
+	it("shows no status label for a live project", () => {
+		renderWithLinks([storeLink])
+
+		expect(screen.queryByText("Coming soon")).not.toBeInTheDocument()
+		expect(screen.queryByText("Discontinued")).not.toBeInTheDocument()
 	})
 
 	// `projectLinkSchema` validates `url` on write, so a malformed URL only
@@ -712,7 +728,7 @@ describe("ProjectContent — store CTA", () => {
 		renderWithLinks([storeLink], guideItems, {
 			isOwnApp: true,
 			bucket: PlatformBucket.Mac,
-			isDiscontinued: true,
+			status: ProjectStatus.discontinued,
 		})
 
 		const links = screen.getAllByRole("link", { name: "Mac App Store" })

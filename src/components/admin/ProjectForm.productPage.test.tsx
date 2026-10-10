@@ -8,6 +8,7 @@ import {
 	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { setupUser } from "@/test/user"
 import ProjectForm from "./ProjectForm"
@@ -52,7 +53,7 @@ const initialData = {
 	heroImage: null,
 	prominence: ProjectProminence.high,
 	pageLayout: ProjectPageLayout.product,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: true,
 	date: "2026",
 	sortOrder: 0,

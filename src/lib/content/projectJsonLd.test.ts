@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
 	PlatformBucket,
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { defaultOgImage } from "@/lib/content/metadata"
 import {
@@ -41,7 +42,7 @@ function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
 		accentColor: null,
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.portfolio,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: false,
 		...EMPTY_PRODUCT_PAGE_FIELDS,
 		date: null,
@@ -288,7 +289,7 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	it("marks a single Offer discontinued while keeping the price it sold at", () => {
 		const result = buildApp(
 			makeProject({
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
 			}),
 			null
@@ -312,7 +313,7 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	it("drops the aggregate shape so the discontinued marker survives", () => {
 		const result = buildApp(
 			makeProject({
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				offers: [
 					{ name: "Free", price: "0", priceCurrency: "USD" },
 					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
@@ -345,7 +346,7 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	it("still aggregates the same offers when the project is live", () => {
 		const result = buildApp(
 			makeProject({
-				isDiscontinued: false,
+				status: ProjectStatus.live,
 				offers: [
 					{ name: "Free", price: "0", priceCurrency: "USD" },
 					{ name: "Pro", price: "9.99", priceCurrency: "USD" },
@@ -368,7 +369,7 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	it("marks every node discontinued in the mixed-currency array shape", () => {
 		const result = buildApp(
 			makeProject({
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 				offers: [
 					{ name: "US", price: "9.99", priceCurrency: "USD" },
 					{ name: "EU", price: "10.99", priceCurrency: "EUR" },
@@ -393,8 +394,8 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 		])
 	})
 
-	// Deliberately absent rather than `InStock`: `isDiscontinued === false` means
-	// "not marked discontinued", not "confirmed on sale". Asserting availability
+	// Deliberately absent rather than `InStock`: a `live` status means "not
+	// marked otherwise", not "confirmed on sale". Asserting availability
 	// the data can't back is the failure mode this whole change exists to fix.
 	//
 	// `toEqual` on the whole node rather than `not.toHaveProperty`: the negative
@@ -404,7 +405,7 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 	it("asserts no availability at all for a live project", () => {
 		const result = buildApp(
 			makeProject({
-				isDiscontinued: false,
+				status: ProjectStatus.live,
 				offers: [{ name: "App Store", price: "4.99", priceCurrency: "USD" }],
 			}),
 			null
@@ -425,8 +426,57 @@ describe("buildSoftwareApplicationJsonLd — discontinued availability", () => {
 		["an empty offers array", []],
 	])("emits no offers for a discontinued project with %s", (_label, offers) => {
 		expect(
-			buildApp(makeProject({ isDiscontinued: true, offers }), null)
+			buildApp(
+				makeProject({ status: ProjectStatus.discontinued, offers }),
+				null
+			)
 		).not.toHaveProperty("offers")
+	})
+})
+
+// #endregion
+
+// #region coming-soon offers
+
+// A coming-soon app can't be bought yet, and schema.org has no availability
+// that says so (`PreOrder` and `PreSale` both claim it can be ordered now).
+// A price with no availability reads as on sale, so `offers` is left out; the
+// page still prints the planned prices.
+describe("buildSoftwareApplicationJsonLd — coming-soon offers", () => {
+	const OFFERS = [
+		{ name: "Free", price: "0", priceCurrency: "USD" },
+		{ name: "Pro", price: "6.99", priceCurrency: "USD" },
+	]
+
+	afterEach(() => {
+		vi.restoreAllMocks()
+	})
+
+	it("emits the app node with no offers for a coming-soon project", () => {
+		const result = buildApp(
+			makeProject({ status: ProjectStatus.comingSoon, offers: OFFERS }),
+			null
+		)
+
+		expect(result).toMatchObject({
+			"@type": "SoftwareApplication",
+			name: "Continuum",
+		})
+		expect(result).not.toHaveProperty("offers")
+	})
+
+	it("emits no offers for a status it doesn't know, and logs it", () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {})
+		const result = buildApp(
+			makeProject({ status: "paused" as ProjectStatus, offers: OFFERS }),
+			null
+		)
+
+		expect(result).not.toHaveProperty("offers")
+		expect(error).toHaveBeenCalledWith(
+			"[projects:json-ld] unknown status, offers left out",
+			{ status: "paused" }
+		)
 	})
 })
 

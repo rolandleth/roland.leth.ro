@@ -4,6 +4,7 @@ import {
 	PlatformBucket,
 	PlatformTag,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { listProjectsForAdmin } from "@/lib/db/projects"
 import { makeProjectGalleryItem } from "@/test/fixtures"
@@ -97,7 +98,7 @@ describe("ProjectsTab — grouped view", () => {
 		await renderTab([
 			project(3, "Reckon", {
 				prominence: ProjectProminence.high,
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 			}),
 		])
 

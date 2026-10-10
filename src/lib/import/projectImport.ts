@@ -11,7 +11,11 @@
 // untouched, so a manifest can mix freshly-staged images with already-hosted ones.
 
 import { createHash } from "node:crypto"
-import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
+import {
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	CANONICAL_SLUG_MESSAGE,
@@ -127,7 +131,7 @@ export type ProjectManifest = {
 	accentColor?: string | null
 	prominence?: string
 	pageLayout?: string
-	isDiscontinued?: boolean
+	status?: string
 	isOwnApp?: boolean
 	/** Manifest-only: a draft is skipped by the import. See `isDraftManifest`. */
 	isDraft?: boolean
@@ -223,7 +227,7 @@ export function selectProjectFolders(
 const REQUIRED_FIELDS = [
 	{ key: "prominence", values: Object.values(ProjectProminence) },
 	{ key: "pageLayout", values: Object.values(ProjectPageLayout) },
-	{ key: "isDiscontinued", values: [true, false] },
+	{ key: "status", values: Object.values(ProjectStatus) },
 	{ key: "isOwnApp", values: [true, false] },
 ] as const
 
@@ -231,22 +235,23 @@ const REQUIRED_FIELDS = [
 export type RequiredProjectFields = {
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 }
 
 /**
  * Throws unless the manifest sets every field in `REQUIRED_FIELDS` to one of
- * its values, or still sets `isFeatured`. The import replaces the row
+ * its values, or still sets `isFeatured` or `isDiscontinued`. The import replaces the row
  * wholesale (delete, then create), so a left-out field would quietly reset
  * whatever the admin set: a project ticked "Own app" in the admin lost its App
  * Store badge on the next import. Checked before any upload, so `--dry-run`
  * catches it too. Only these are required: each has no answer that a default
  * could stand for, while a left-out text field is just empty.
  *
- * `isFeatured` became `prominence` and `pageLayout`; a manifest still setting
- * it was written for the old model, and importing it would silently drop the
- * author's choice, so it's refused with the replacement named.
+ * `isFeatured` became `prominence` and `pageLayout`, and `isDiscontinued`
+ * became `status`; a manifest still setting either was written for the old
+ * model, and importing it would silently drop the author's choice, so it's
+ * refused with the replacement named.
  *
  * Private on purpose: `parseManifest` is the only way in, so the check can't be
  * skipped by reaching for the parts separately. Tested through `parseManifest`.
@@ -258,6 +263,13 @@ function assertRequiredFields(
 		throw new Error(
 			`Manifest still sets "isFeatured", which became "prominence" (high, medium or low) and "pageLayout" (product or portfolio). ` +
 				`Replace it: featured own apps are high and product, other featured projects medium, the rest low.`
+		)
+	}
+
+	if ("isDiscontinued" in manifest) {
+		throw new Error(
+			`Manifest still sets "isDiscontinued", which became "status" (${Object.values(ProjectStatus).join(", ")}). ` +
+				`Replace it: true is "discontinued", false is "live".`
 		)
 	}
 
@@ -429,7 +441,7 @@ export function requiredProjectFields(
 	return {
 		prominence: manifest.prominence,
 		pageLayout: manifest.pageLayout,
-		isDiscontinued: manifest.isDiscontinued,
+		status: manifest.status,
 		isOwnApp: manifest.isOwnApp,
 	}
 }

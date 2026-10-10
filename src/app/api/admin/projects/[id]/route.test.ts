@@ -5,6 +5,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { cleanUpProjectMedia } from "@/lib/api/mediaCleanup"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
@@ -80,7 +81,7 @@ const existingProject = {
 	heroImage: null,
 	prominence: ProjectProminence.low,
 	pageLayout: ProjectPageLayout.portfolio,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: false,
 	...EMPTY_PRODUCT_PAGE_FIELDS,
 	date: null,
@@ -199,13 +200,13 @@ describe("PUT /api/admin/projects/[id]", () => {
 		expect(bustedTags.some((tag) => tag.includes("brand-new-name"))).toBe(false)
 	})
 
-	it("passes prominence, page layout, isDiscontinued and isOwnApp through to the update", async () => {
+	it("passes prominence, page layout, status and isOwnApp through to the update", async () => {
 		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
 		await PUT(
 			putRequest("1", {
 				prominence: ProjectProminence.medium,
 				pageLayout: ProjectPageLayout.product,
-				isDiscontinued: true,
+				status: ProjectStatus.comingSoon,
 				isOwnApp: true,
 			}),
 			params("1")
@@ -214,8 +215,15 @@ describe("PUT /api/admin/projects/[id]", () => {
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
 		expect(data.prominence).toBe(ProjectProminence.medium)
 		expect(data.pageLayout).toBe(ProjectPageLayout.product)
-		expect(data.isDiscontinued).toBe(true)
+		expect(data.status).toBe(ProjectStatus.comingSoon)
 		expect(data.isOwnApp).toBe(true)
+	})
+
+	it("rejects an unknown status with a 400", async () => {
+		const res = await PUT(putRequest("1", { status: "paused" }), params("1"))
+
+		expect(res.status).toBe(400)
+		expect(prisma.project.update).not.toHaveBeenCalled()
 	})
 
 	// The admin list's inline picker sends the prominence alone.
@@ -251,7 +259,7 @@ describe("PUT /api/admin/projects/[id]", () => {
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
 		expect(data.prominence).toBeUndefined()
 		expect(data.pageLayout).toBeUndefined()
-		expect(data.isDiscontinued).toBeUndefined()
+		expect(data.status).toBeUndefined()
 		expect(data.isOwnApp).toBeUndefined()
 	})
 

@@ -4,6 +4,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "../src/generated/prisma/client"
 import { makeScriptPrisma } from "../src/lib/db/scriptPrisma"
 
@@ -21,7 +22,7 @@ type ProjectInput = {
 	accentColor: string | null
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
@@ -48,7 +49,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#4F7EFF",
 		prominence: ProjectProminence.high,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: true,
 		date: "2024",
 		sortOrder: 1,
@@ -125,7 +126,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#E84040",
 		prominence: ProjectProminence.high,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: true,
 		date: "2023",
 		sortOrder: 2,
@@ -197,7 +198,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#9B59B6",
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: true,
 		date: "2024",
 		sortOrder: 3,
@@ -250,7 +251,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#2ECC71",
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		isOwnApp: true,
 		date: "2025",
 		sortOrder: 4,
@@ -291,7 +292,7 @@ const projects: ProjectInput[] = [
 		accentColor: "#F39C12",
 		prominence: ProjectProminence.low,
 		pageLayout: ProjectPageLayout.product,
-		isDiscontinued: true,
+		status: ProjectStatus.discontinued,
 		isOwnApp: true,
 		date: "2022",
 		sortOrder: 5,

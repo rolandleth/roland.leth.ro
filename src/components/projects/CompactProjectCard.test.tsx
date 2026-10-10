@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { PlatformBucket, PlatformTag } from "@/generated/prisma/enums"
+import {
+	PlatformBucket,
+	PlatformTag,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 import { makeProjectGalleryItem } from "@/test/fixtures"
 import CompactProjectCard from "./CompactProjectCard"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
@@ -34,7 +38,9 @@ describe("CompactProjectCard — discontinued scoping (Phase 8 a11y)", () => {
 		// WCAG AA against the background. The fade now applies to the icon
 		// container only; the name stays at full opacity so contrast holds.
 		render(
-			<CompactProjectCard project={makeProject({ isDiscontinued: true })} />
+			<CompactProjectCard
+				project={makeProject({ status: ProjectStatus.discontinued })}
+			/>
 		)
 
 		// Icon container carries the fade…
@@ -47,11 +53,36 @@ describe("CompactProjectCard — discontinued scoping (Phase 8 a11y)", () => {
 		expect(name.closest(".grayscale")).toBeNull()
 	})
 
-	it("omits the fade entirely when isDiscontinued is false", () => {
-		const { container } = render(
-			<CompactProjectCard project={makeProject({ isDiscontinued: false })} />
+	it.each([ProjectStatus.live, ProjectStatus.comingSoon])(
+		"omits the fade entirely for a %s project",
+		(status) => {
+			const { container } = render(
+				<CompactProjectCard project={makeProject({ status })} />
+			)
+			expect(container.querySelector(".grayscale")).toBeNull()
+			expect(container.querySelector(".opacity-60")).toBeNull()
+		}
+	)
+})
+
+describe("CompactProjectCard — status line", () => {
+	it("says a coming-soon project is coming soon, inside its link", () => {
+		render(
+			<CompactProjectCard
+				project={makeProject({ status: ProjectStatus.comingSoon })}
+			/>
 		)
-		expect(container.querySelector(".grayscale")).toBeNull()
-		expect(container.querySelector(".opacity-60")).toBeNull()
+
+		expect(screen.getByRole("link")).toHaveTextContent("Coming soon")
 	})
+
+	it.each([ProjectStatus.live, ProjectStatus.discontinued])(
+		"has no status line for a %s project",
+		(status) => {
+			render(<CompactProjectCard project={makeProject({ status })} />)
+
+			expect(screen.queryByText("Coming soon")).not.toBeInTheDocument()
+			expect(screen.queryByText("Discontinued")).not.toBeInTheDocument()
+		}
+	)
 })

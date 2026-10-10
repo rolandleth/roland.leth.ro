@@ -10,13 +10,13 @@ import {
 } from "@/components/admin/projectPlacement"
 import { useOptimisticMutation } from "@/lib/client/useOptimisticMutation"
 import { isPlacementOverridden } from "@/lib/utils/projectsGallery"
-import type { ProjectProminence } from "@/generated/prisma/enums"
+import type { ProjectProminence, ProjectStatus } from "@/generated/prisma/enums"
 
 interface Props {
 	projectId: number
 	initial: ProjectProminence
 	/** Read-only here; it decides whether the override hint shows. */
-	isDiscontinued: boolean
+	status: ProjectStatus
 }
 
 /**
@@ -32,12 +32,12 @@ interface Props {
 export default function ProjectProminenceSelect({
 	projectId,
 	initial,
-	isDiscontinued,
+	status,
 }: Props) {
 	const router = useRouter()
 	const hintId = useId()
 	const [prominence, setProminence] = useState(initial)
-	const isHintShown = isPlacementOverridden({ prominence, isDiscontinued })
+	const isHintShown = isPlacementOverridden({ prominence, status })
 	const { mutate, isSaving, error } = useOptimisticMutation<{
 		prominence: ProjectProminence
 	}>({

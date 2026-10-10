@@ -1,6 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { compactLabel } from "@/lib/utils/platforms"
+import { statusLabel } from "@/lib/utils/projectStatus"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
 import type { ReactNode } from "react"
 
@@ -27,10 +28,11 @@ export default function FeaturedProjectCard({
 		platformTags,
 		role,
 		accentColor,
-		isDiscontinued,
+		status,
 	} = project
 	const href = hrefProp ?? `/projects/${slug}`
 	const accent = accentColor ?? "var(--color-accent)"
+	const label = statusLabel(status)
 
 	return (
 		<div className="group relative flex h-full flex-col transition-all duration-500 hover:-translate-y-1">
@@ -62,9 +64,9 @@ export default function FeaturedProjectCard({
 						/>
 					)}
 
-					{isDiscontinued && (
+					{label != null && (
 						<span className="absolute top-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
-							Discontinued
+							{label}
 						</span>
 					)}
 				</div>

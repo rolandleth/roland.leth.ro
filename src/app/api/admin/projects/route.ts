@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
-import { ProjectPageLayout, ProjectProminence } from "@/generated/prisma/enums"
+import {
+	ProjectPageLayout,
+	ProjectProminence,
+	ProjectStatus,
+} from "@/generated/prisma/enums"
 import { parseJsonBody, respondInternalError } from "@/lib/api/apiErrors"
 import { auditLog } from "@/lib/api/auditLog"
 import { requireAdmin } from "@/lib/api/requireAdmin"
@@ -50,7 +54,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 		heroImage,
 		prominence,
 		pageLayout,
-		isDiscontinued,
+		status,
 		isOwnApp,
 		date,
 		sortOrder,
@@ -110,7 +114,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 						// The schema's defaults, spelled out like the flags beside them.
 						prominence: prominence ?? ProjectProminence.low,
 						pageLayout: pageLayout ?? ProjectPageLayout.portfolio,
-						isDiscontinued: isDiscontinued ?? false,
+						status: status ?? ProjectStatus.live,
 						isOwnApp: isOwnApp ?? false,
 						date: date ?? null,
 						sortOrder: targetOrder,

@@ -12,6 +12,8 @@ import {
 	PAGE_LAYOUT_OPTIONS,
 	PROMINENCE_LABELS,
 	PROMINENCE_OPTIONS,
+	STATUS_LABELS,
+	STATUS_OPTIONS,
 } from "@/components/admin/projectPlacement"
 import SectionManager, {
 	type SectionImage,
@@ -28,6 +30,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { followTitleSlug } from "@/lib/utils/format"
 import { isPlacementOverridden } from "@/lib/utils/projectsGallery"
@@ -47,7 +50,7 @@ type InitialData = {
 	heroImage: string | null
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
@@ -127,7 +130,7 @@ type ProjectPayload = {
 	heroImage: string | null
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 	date: string | null
 	sortOrder: number
@@ -166,7 +169,7 @@ interface FormState {
 	heroImage: string
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 	productPage: Record<ProductPageField, string>
 	sections: SectionItem[]
@@ -218,7 +221,7 @@ export default function ProjectForm({ initialData }: Props) {
 			heroImage: initialData?.heroImage ?? "",
 			prominence: initialData?.prominence ?? ProjectProminence.low,
 			pageLayout: initialData?.pageLayout ?? ProjectPageLayout.portfolio,
-			isDiscontinued: initialData?.isDiscontinued ?? false,
+			status: initialData?.status ?? ProjectStatus.live,
 			isOwnApp: initialData?.isOwnApp ?? false,
 			productPage: mapProductPageFields((key) => initialData?.[key] ?? ""),
 			sections: (initialData?.sections ?? []).map((section) => ({
@@ -314,7 +317,7 @@ export default function ProjectForm({ initialData }: Props) {
 			heroImage: state.heroImage || null,
 			prominence: state.prominence,
 			pageLayout: state.pageLayout,
-			isDiscontinued: state.isDiscontinued,
+			status: state.status,
 			isOwnApp: state.isOwnApp,
 			...mapProductPageFields((key) => textOrNull(state.productPage[key])),
 			date: state.date || null,
@@ -503,11 +506,12 @@ export default function ProjectForm({ initialData }: Props) {
 				onUploadingChange={(v) => reportUploading("heroImage", v)}
 			/>
 
-			{/* Two independent choices: how visible the project is on /projects
+			{/* Three independent choices: how visible the project is on /projects
 			    (High: a big tile, Medium: a card, Low: an icon under More projects;
 			    a discontinued one goes under More projects whatever this says, and
-			    the hint below says so when that overrides the level), and which
-			    page it gets. */}
+			    the hint below says so when that overrides the level), which page it
+			    gets, and its status (a coming-soon or discontinued one shows a label
+			    and no store buttons). */}
 			<div className="flex flex-col gap-1.5">
 				<div className="flex flex-wrap gap-4">
 					<label className="flex flex-col gap-1.5">
@@ -548,6 +552,26 @@ export default function ProjectForm({ initialData }: Props) {
 							))}
 						</select>
 					</label>
+
+					<label className="flex flex-col gap-1.5">
+						<span className="text-secondary text-sm font-medium">Status</span>
+						<select
+							value={state.status}
+							onChange={(e) =>
+								setField("status", e.target.value as ProjectStatus)
+							}
+							aria-describedby={
+								isPlacementHintShown ? placementHintId : undefined
+							}
+							className="admin-input"
+						>
+							{STATUS_OPTIONS.map((value) => (
+								<option key={value} value={value}>
+									{STATUS_LABELS[value]}
+								</option>
+							))}
+						</select>
+					</label>
 				</div>
 
 				{isPlacementHintShown && (
@@ -558,22 +582,10 @@ export default function ProjectForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex gap-6">
-				<label className="flex cursor-pointer items-center gap-2">
-					<input
-						type="checkbox"
-						checked={state.isDiscontinued}
-						onChange={(e) => setField("isDiscontinued", e.target.checked)}
-						className="accent-accent h-4 w-4"
-					/>
-					<span className="text-secondary text-sm font-medium">
-						Discontinued
-					</span>
-				</label>
-
 				{/* Own product, not client or employer work. Decides only the store CTAs'
 				    wording on the detail page (`linkCtasFor`): the App Store badge with
 				    exactly one storefront link, `Download on …` pills with several.
-				    Placement and layout are the selects above. */}
+				    Placement, layout and status are the selects above. */}
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { ProjectProminence } from "@/generated/prisma/enums"
+import { ProjectProminence, ProjectStatus } from "@/generated/prisma/enums"
 import {
 	gallerySectionOf,
 	gallerySections,
@@ -13,8 +13,8 @@ describe("gallerySections", () => {
 	const project = (
 		name: string,
 		prominence: ProjectProminence,
-		isDiscontinued = false
-	) => ({ name, prominence, isDiscontinued })
+		status: ProjectStatus = ProjectStatus.live
+	) => ({ name, prominence, status })
 
 	afterEach(() => {
 		vi.restoreAllMocks()
@@ -34,9 +34,13 @@ describe("gallerySections", () => {
 
 	it("sends a discontinued project to More projects whatever its prominence", () => {
 		const sections = gallerySections([
-			project("Old app", ProjectProminence.high, true),
-			project("Old client", ProjectProminence.medium, true),
-			project("Older", ProjectProminence.low, true),
+			project("Old app", ProjectProminence.high, ProjectStatus.discontinued),
+			project(
+				"Old client",
+				ProjectProminence.medium,
+				ProjectStatus.discontinued
+			),
+			project("Older", ProjectProminence.low, ProjectStatus.discontinued),
 		])
 
 		expect(sections.high).toEqual([])
@@ -48,16 +52,33 @@ describe("gallerySections", () => {
 		])
 	})
 
+	it("puts a coming-soon project where its prominence says, as a live one", () => {
+		const sections = gallerySections([
+			project("Digest", ProjectProminence.high, ProjectStatus.comingSoon),
+			project("Client", ProjectProminence.medium, ProjectStatus.comingSoon),
+			project("Tool", ProjectProminence.low, ProjectStatus.comingSoon),
+		])
+
+		expect(sections.high.map((p) => p.name)).toEqual(["Digest"])
+		expect(sections.medium.map((p) => p.name)).toEqual(["Client"])
+		expect(sections.more.map((p) => p.name)).toEqual(["Tool"])
+	})
+
 	it("keeps the order the projects came in, within each part", () => {
 		const sections = gallerySections([
 			project("Continuum", ProjectProminence.high),
 			project("Old", ProjectProminence.low),
+			project("Digest", ProjectProminence.high, ProjectStatus.comingSoon),
 			project("Reckon", ProjectProminence.high),
-			project("Gone", ProjectProminence.high, true),
+			project("Gone", ProjectProminence.high, ProjectStatus.discontinued),
 			project("Older", ProjectProminence.low),
 		])
 
-		expect(sections.high.map((p) => p.name)).toEqual(["Continuum", "Reckon"])
+		expect(sections.high.map((p) => p.name)).toEqual([
+			"Continuum",
+			"Digest",
+			"Reckon",
+		])
 		expect(sections.more.map((p) => p.name)).toEqual(["Old", "Gone", "Older"])
 	})
 
@@ -67,7 +88,7 @@ describe("gallerySections", () => {
 			{
 				name: "Ahead",
 				prominence: "xHigh" as ProjectProminence,
-				isDiscontinued: false,
+				status: ProjectStatus.live,
 			},
 		])
 
@@ -76,6 +97,14 @@ describe("gallerySections", () => {
 			"[projects:gallery] unknown prominence, listed under More projects",
 			{ prominence: "xHigh" }
 		)
+	})
+
+	it("places a project with an unknown status by its prominence, as only discontinued moves one", () => {
+		const sections = gallerySections([
+			project("Ahead", ProjectProminence.high, "paused" as ProjectStatus),
+		])
+
+		expect(sections.high.map((p) => p.name)).toEqual(["Ahead"])
 	})
 
 	it("returns three empty parts for no projects", () => {
@@ -91,7 +120,7 @@ describe("isPlacementOverridden", () => {
 	it.each([ProjectProminence.high, ProjectProminence.medium])(
 		"is true for a discontinued project at %s, which lands under More projects instead",
 		(prominence) => {
-			const project = { prominence, isDiscontinued: true }
+			const project = { prominence, status: ProjectStatus.discontinued }
 
 			expect(isPlacementOverridden(project)).toBe(true)
 			expect(gallerySectionOf(project)).toBe("more")
@@ -102,17 +131,20 @@ describe("isPlacementOverridden", () => {
 		expect(
 			isPlacementOverridden({
 				prominence: ProjectProminence.low,
-				isDiscontinued: true,
+				status: ProjectStatus.discontinued,
 			})
 		).toBe(false)
 	})
 
-	it.each(Object.values(ProjectProminence))(
-		"is false for a live project at %s, which lands where its level says",
-		(prominence) => {
-			expect(isPlacementOverridden({ prominence, isDiscontinued: false })).toBe(
-				false
-			)
+	it.each(
+		Object.values(ProjectProminence).flatMap((prominence) => [
+			[prominence, ProjectStatus.live],
+			[prominence, ProjectStatus.comingSoon],
+		])
+	)(
+		"is false for a project at %s that is %s, which lands where its level says",
+		(prominence, status) => {
+			expect(isPlacementOverridden({ prominence, status })).toBe(false)
 		}
 	)
 })

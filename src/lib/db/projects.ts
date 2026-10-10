@@ -8,12 +8,14 @@ import {
 	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { blankToNull } from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
+import { discontinuedLast } from "@/lib/utils/projectStatus"
 
 export interface ProjectListItem {
 	id: number
@@ -22,7 +24,7 @@ export interface ProjectListItem {
 	bucket: PlatformBucket
 	platformTags: PlatformTag[]
 	prominence: ProjectProminence
-	isDiscontinued: boolean
+	status: ProjectStatus
 	sortOrder: number
 	icon: string | null
 }
@@ -121,7 +123,7 @@ export interface ProjectDetail {
 	accentColor: string | null
 	prominence: ProjectProminence
 	pageLayout: ProjectPageLayout
-	isDiscontinued: boolean
+	status: ProjectStatus
 	isOwnApp: boolean
 	metaDescription: string | null
 	heroEyebrow: string | null
@@ -195,7 +197,7 @@ const gallerySelect = {
 	role: true,
 	accentColor: true,
 	prominence: true,
-	isDiscontinued: true,
+	status: true,
 	isOwnApp: true,
 	sortOrder: true,
 	icon: true,
@@ -362,21 +364,23 @@ const GALLERY_SHAPE = JSON.stringify(gallerySelect)
 const PROJECTS_TAG = "projects"
 
 /**
- * Cached fetcher for the public projects gallery (discontinued projects sorted last).
- * Tagged with `projects` so any project mutation busts this cache.
+ * Cached fetcher for the public projects gallery (discontinued projects sorted
+ * last). Tagged with `projects` so any project mutation busts this cache.
+ *
+ * The discontinued ones move in code (`discontinuedLast`), not in the query:
+ * ordering by `status` would also move the coming-soon ones, whose place
+ * `sortOrder` decides, as for a live project.
  */
 const projectsGalleryCache = unstable_cache(
 	async () =>
-		(
-			await prisma.project.findMany({
-				select: gallerySelect,
-				orderBy: [
-					{ isDiscontinued: "asc" },
-					{ sortOrder: "asc" },
-					{ name: "asc" },
-				],
-			})
-		).map(toGalleryItem),
+		discontinuedLast(
+			(
+				await prisma.project.findMany({
+					select: gallerySelect,
+					orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+				})
+			).map(toGalleryItem)
+		),
 	["projects-gallery", GALLERY_SHAPE],
 	{ tags: [PROJECTS_TAG] }
 )
@@ -419,22 +423,27 @@ export const getAllProjectSlugs = unstable_cache(
 	{ tags: [PROJECTS_TAG] }
 )
 
-/** Returns all projects ordered by sortOrder ascending then name. */
+/**
+ * Returns all projects ordered by sortOrder ascending then name, discontinued
+ * ones last (`discontinuedLast`, as in the gallery).
+ */
 export async function getAllProjects(): Promise<ProjectListItem[]> {
-	return prisma.project.findMany({
-		select: {
-			id: true,
-			name: true,
-			slug: true,
-			bucket: true,
-			platformTags: true,
-			prominence: true,
-			isDiscontinued: true,
-			sortOrder: true,
-			icon: true,
-		},
-		orderBy: [{ isDiscontinued: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
-	})
+	return discontinuedLast(
+		await prisma.project.findMany({
+			select: {
+				id: true,
+				name: true,
+				slug: true,
+				bucket: true,
+				platformTags: true,
+				prominence: true,
+				status: true,
+				sortOrder: true,
+				icon: true,
+			},
+			orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+		})
+	)
 }
 
 // `toSectionCreate` / `toLinkCreate` live in the Next-free `projectMappers`

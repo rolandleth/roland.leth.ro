@@ -6,6 +6,7 @@ import {
 	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import {
 	collapseWhitespace,
@@ -42,6 +43,10 @@ const PROJECT_PROMINENCES = Object.values(ProjectProminence) as [
 const PROJECT_PAGE_LAYOUTS = Object.values(ProjectPageLayout) as [
 	ProjectPageLayout,
 	...ProjectPageLayout[],
+]
+const PROJECT_STATUSES = Object.values(ProjectStatus) as [
+	ProjectStatus,
+	...ProjectStatus[],
 ]
 
 // Frozen Set per bucket so the coherence superRefine doesn't rebuild on every
@@ -422,7 +427,7 @@ const projectFields = {
 	heroImage: httpUrl.nullable().optional(),
 	prominence: z.enum(PROJECT_PROMINENCES).optional(),
 	pageLayout: z.enum(PROJECT_PAGE_LAYOUTS).optional(),
-	isDiscontinued: z.boolean().optional(),
+	status: z.enum(PROJECT_STATUSES).optional(),
 	isOwnApp: z.boolean().optional(),
 	// Product-page fields, rendered only by the product layout. See the Prisma
 	// schema.

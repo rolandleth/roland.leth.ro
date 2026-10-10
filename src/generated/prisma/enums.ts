@@ -26,6 +26,15 @@ export const ProjectProminence = {
 export type ProjectProminence = (typeof ProjectProminence)[keyof typeof ProjectProminence]
 
 
+export const ProjectStatus = {
+  comingSoon: 'comingSoon',
+  live: 'live',
+  discontinued: 'discontinued'
+} as const
+
+export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus]
+
+
 export const ProjectPageLayout = {
   product: 'product',
   portfolio: 'portfolio'

@@ -4,6 +4,7 @@ import {
 	ProjectProminence,
 	ProjectSectionKind,
 	ProjectSectionLayout,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
@@ -121,7 +122,7 @@ export function makeProjectListItem(
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
 		prominence: ProjectProminence.low,
-		isDiscontinued: false,
+		status: ProjectStatus.live,
 		sortOrder: 0,
 		icon: null,
 		...overrides,

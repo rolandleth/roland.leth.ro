@@ -2,29 +2,34 @@
 // lands in, and which app tile spans the row. Kept free of React so they're
 // unit-testable.
 
-import { ProjectProminence } from "@/generated/prisma/enums"
+import { ProjectProminence, ProjectStatus } from "@/generated/prisma/enums"
+import { isDiscontinued } from "@/lib/utils/projectStatus"
 
-/** The gallery's three parts, each in the order the projects came in. */
+/**
+ * The gallery's three parts, each in the order the projects came in. "Not
+ * discontinued" below means live or coming soon: only being discontinued moves
+ * a project out of the part its level names.
+ */
 export interface GallerySections<T> {
-	/** Live `high` projects: the big tiles under the page title. */
+	/** `high` projects not discontinued: the big tiles under the page title. */
 	high: T[]
-	/** Live `medium` projects: the cards under the tiles. */
+	/** `medium` projects not discontinued: the cards under the tiles. */
 	medium: T[]
-	/** Live `low` projects and every discontinued one: "More projects". */
+	/** `low` projects and every discontinued one: "More projects". */
 	more: T[]
 }
 
 /** One of the gallery's three parts. */
 export type GallerySection = keyof GallerySections<unknown>
 
-/** What placing a project reads: its level, and whether it's discontinued. */
+/** What placing a project reads: its level, and its status. */
 interface Placement {
 	prominence: ProjectProminence
-	isDiscontinued: boolean
+	status: ProjectStatus
 }
 
 /**
- * The part a level puts a live project in. Every level has its case: a new one
+ * The part a level puts a project in when it isn't discontinued. Every level has its case: a new one
  * fails the type-check here until it's placed. A value this code doesn't know
  * (a database ahead of the deploy) lands under "More projects", and the log
  * says so rather than the project disappearing.
@@ -53,10 +58,11 @@ function sectionForProminence(prominence: ProjectProminence): GallerySection {
 /**
  * The part a project lands in. A discontinued project goes to "More projects"
  * whatever its level, so no level needs a rule against it, and the level comes
- * back with the project.
+ * back with the project. A coming-soon project goes where its level puts it,
+ * as a live one does.
  */
 export function gallerySectionOf(project: Placement): GallerySection {
-	return project.isDiscontinued
+	return isDiscontinued(project)
 		? "more"
 		: sectionForProminence(project.prominence)
 }
@@ -68,7 +74,7 @@ export function gallerySectionOf(project: Placement): GallerySection {
  */
 export function isPlacementOverridden(project: Placement): boolean {
 	return (
-		project.isDiscontinued &&
+		isDiscontinued(project) &&
 		sectionForProminence(project.prominence) !== "more"
 	)
 }

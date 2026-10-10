@@ -162,6 +162,14 @@ A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
 named or not, and counted as skipped rather than failed, so an app can be staged
 before it's ready without every bare run failing on it. Remove the key to import.
 
+A draft is hidden; a coming-soon project is shown. Every manifest sets
+`"status"`: `comingSoon`, `live` or `discontinued` (the admin form has the same
+select). Only `discontinued` moves a project, to More projects; a coming-soon one
+sits where its prominence puts it, with a "Coming soon" label, its links as bare
+pills (no App Store badge, no store note), its prices on the page but no `offers`
+in its JSON-LD, and no line in `/llms.txt`. A manifest still setting
+`isDiscontinued` is refused, as one setting `isFeatured` is.
+
 Dry run first; `blob:prune-uploads` deletes permanently. It prints the database
 and blob store it targets before anything else, and `--apply` refuses when the
 uploads it would delete outnumber the ones the database references.

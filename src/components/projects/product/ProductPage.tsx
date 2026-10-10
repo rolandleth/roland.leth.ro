@@ -12,6 +12,7 @@ import {
 	reservedAnchors,
 	sectionAnchors,
 } from "@/lib/utils/productPage"
+import { isDiscontinued } from "@/lib/utils/projectStatus"
 import ProjectGuides from "../ProjectGuides"
 import ProjectLinkCta from "../ProjectLinkCta"
 import ProductClosing from "./ProductClosing"
@@ -51,10 +52,11 @@ function hasText(markdown: string): boolean {
 
 /**
  * What the page prices, or null when there's nothing to show: no offers, or a
- * discontinued app (nothing left to buy).
+ * discontinued app (nothing left to buy). A coming-soon app shows its prices
+ * when it has them: what it will cost helps a reader decide whether to wait.
  */
 function pricingFor(project: ProjectDetail): Pricing | null {
-	if (project.isDiscontinued) {
+	if (isDiscontinued(project)) {
 		return null
 	}
 
@@ -212,7 +214,7 @@ export default function ProductPage({
 				summary={project.summary}
 				heroImage={heroImage}
 				heroImageAlt={project.heroImageAlt}
-				isDiscontinued={project.isDiscontinued}
+				status={project.status}
 				storeLinks={storeLinks}
 				stepsAnchor={stepsIndex === -1 ? null : anchors[stepsIndex]}
 				storeNote={project.storeNote}

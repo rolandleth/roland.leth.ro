@@ -7,6 +7,7 @@ import {
 	PlatformTag,
 	ProjectPageLayout,
 	ProjectProminence,
+	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { expectFailedSave } from "@/test/adminForms"
 import {
@@ -137,7 +138,7 @@ const initialData = {
 	heroImage: null,
 	prominence: ProjectProminence.medium,
 	pageLayout: ProjectPageLayout.portfolio,
-	isDiscontinued: false,
+	status: ProjectStatus.live,
 	isOwnApp: false,
 	date: "2023",
 	sortOrder: 1,
@@ -185,11 +186,15 @@ describe("ProjectForm — create mode", () => {
 		expect(screen.getByLabelText(/summary/i)).toBeInTheDocument()
 	})
 
-	it("renders the discontinued and own-app checkboxes", () => {
+	// Discontinued became a status, so the own-app flag is the one checkbox
+	// left; a second would be the old flag back beside the select.
+	it("renders the own-app checkbox and the status select", () => {
 		mockRouter()
 		render(<ProjectForm />)
 		const checkboxes = screen.getAllByRole("checkbox")
-		expect(checkboxes).toHaveLength(2)
+		expect(checkboxes).toHaveLength(1)
+		expect(checkboxes[0]).toHaveAccessibleName("Own app")
+		expect(screen.getByLabelText("Status")).toBeInTheDocument()
 	})
 
 	it("starts a new project at low prominence on the portfolio page", () => {
@@ -296,11 +301,11 @@ describe("ProjectForm — create mode", () => {
 		const body = JSON.parse(options.body)
 		expect(body.prominence).toBe(ProjectProminence.low)
 		expect(body.pageLayout).toBe(ProjectPageLayout.portfolio)
-		expect(body.isDiscontinued).toBe(false)
+		expect(body.status).toBe(ProjectStatus.live)
 		expect(body.isOwnApp).toBe(false)
 	})
 
-	it("sends the chosen prominence and page layout", async () => {
+	it("sends the chosen prominence, page layout and status", async () => {
 		mockRouter()
 		mockFetchOk()
 
@@ -314,6 +319,10 @@ describe("ProjectForm — create mode", () => {
 			screen.getByLabelText("Page"),
 			ProjectPageLayout.product
 		)
+		await user.selectOptions(
+			screen.getByLabelText("Status"),
+			ProjectStatus.comingSoon
+		)
 		await clickSave()
 
 		await waitFor(() => expect(global.fetch).toHaveBeenCalledOnce())
@@ -321,6 +330,21 @@ describe("ProjectForm — create mode", () => {
 		const body = JSON.parse(options.body)
 		expect(body.prominence).toBe(ProjectProminence.high)
 		expect(body.pageLayout).toBe(ProjectPageLayout.product)
+		expect(body.status).toBe(ProjectStatus.comingSoon)
+	})
+
+	it("offers every status by name, in their declared order", () => {
+		mockRouter()
+		render(<ProjectForm />)
+
+		const select = screen.getByLabelText("Status") as HTMLSelectElement
+
+		expect(select).toHaveValue(ProjectStatus.live)
+		expect(Array.from(select.options, (option) => option.textContent)).toEqual([
+			"Coming soon",
+			"Live",
+			"Discontinued",
+		])
 	})
 
 	it("navigates to the Projects tab after a successful save", async () => {
@@ -575,27 +599,44 @@ describe("ProjectForm — edit mode", () => {
 	it("says a discontinued project shows under More projects when its level would put it elsewhere", () => {
 		mockRouter()
 		render(
-			<ProjectForm initialData={{ ...initialData, isDiscontinued: true }} />
+			<ProjectForm
+				initialData={{ ...initialData, status: ProjectStatus.discontinued }}
+			/>
 		)
 
+		expect(screen.getByLabelText("Status")).toHaveValue(
+			ProjectStatus.discontinued
+		)
 		expect(screen.getByLabelText("Prominence")).toHaveAccessibleDescription(
+			DISCONTINUED_PLACEMENT_HINT
+		)
+		expect(screen.getByLabelText("Status")).toHaveAccessibleDescription(
 			DISCONTINUED_PLACEMENT_HINT
 		)
 	})
 
-	it("leaves the hint out for a live project, and for a discontinued one at low", () => {
+	it("leaves the hint out for a live or coming-soon project, and for a discontinued one at low", () => {
 		mockRouter()
 		const { unmount } = render(<ProjectForm initialData={initialData} />)
 
 		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
 		unmount()
 
+		const comingSoon = render(
+			<ProjectForm
+				initialData={{ ...initialData, status: ProjectStatus.comingSoon }}
+			/>
+		)
+
+		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
+		comingSoon.unmount()
+
 		render(
 			<ProjectForm
 				initialData={{
 					...initialData,
 					prominence: ProjectProminence.low,
-					isDiscontinued: true,
+					status: ProjectStatus.discontinued,
 				}}
 			/>
 		)
@@ -606,11 +647,26 @@ describe("ProjectForm — edit mode", () => {
 		)
 	})
 
-	it("shows and hides the hint as Discontinued and the level change", async () => {
+	it("shows and hides the hint as the status and the level change", async () => {
 		mockRouter()
 		render(<ProjectForm initialData={initialData} />)
 
-		await user.click(screen.getByRole("checkbox", { name: "Discontinued" }))
+		await user.selectOptions(
+			screen.getByLabelText("Status"),
+			ProjectStatus.discontinued
+		)
+		expect(screen.getByText(DISCONTINUED_PLACEMENT_HINT)).toBeInTheDocument()
+
+		await user.selectOptions(
+			screen.getByLabelText("Status"),
+			ProjectStatus.comingSoon
+		)
+		expect(screen.queryByText(DISCONTINUED_PLACEMENT_HINT)).toBeNull()
+
+		await user.selectOptions(
+			screen.getByLabelText("Status"),
+			ProjectStatus.discontinued
+		)
 		expect(screen.getByText(DISCONTINUED_PLACEMENT_HINT)).toBeInTheDocument()
 
 		await user.selectOptions(
