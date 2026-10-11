@@ -150,13 +150,12 @@ const sections: LegalSectionEntry[] = [
 		),
 	},
 	{
-		title: "No warranty",
+		title: "What Continuum is",
 		content: (
 			<p>
-				Continuum is provided &quot;as is,&quot; without warranties of any kind,
-				to the fullest extent the law allows. It&apos;s a tool to support your
-				judgment, not a system of record or a basis for employment decisions on
-				its own.
+				Continuum works as described on its product page. It&apos;s a tool to
+				support your judgment, not a system of record or a basis for employment
+				decisions on its own.
 			</p>
 		),
 	},
