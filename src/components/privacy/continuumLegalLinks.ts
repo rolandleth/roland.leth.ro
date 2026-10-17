@@ -1,3 +1,4 @@
+import { relatedLegalLinks } from "@/components/privacy/relatedLegalLinks"
 import type { LegalRelatedLink } from "@/components/privacy/LegalPageLayout"
 
 /**
@@ -14,13 +15,9 @@ const continuumLegalLinks: LegalRelatedLink[] = [
 	{ label: "Terms of use", href: "/terms/continuum" },
 ]
 
-/**
- * The Continuum legal links other than the current page's own — i.e. what to
- * show in that page's "Related" section. Pass the page's own `path` (matching
- * the `href` in the list above) so it isn't listed as related to itself.
- */
+/** The Continuum legal links other than `currentPath` (`relatedLegalLinks`). */
 export function relatedContinuumLegalLinks(
 	currentPath: string
 ): LegalRelatedLink[] {
-	return continuumLegalLinks.filter((link) => link.href !== currentPath)
+	return relatedLegalLinks(continuumLegalLinks, currentPath)
 }

@@ -19,8 +19,8 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					We do not collect any personally identifiable information: no name,
 					address, phone number or email address. Digest has no account and no
-					sign-up. All data you create stays on your device, except as
-					described below.
+					sign-up. All data you create stays on your device, except as described
+					below.
 				</p>
 				<p>
 					What you log in Digest (meals, with their foods, drinks, amounts,
@@ -33,8 +33,8 @@ const sections: LegalSectionEntry[] = [
 					from that device and keeps it in iCloud, and it comes back when you
 					turn iCloud on again. This sync is handled by Apple and governed by{" "}
 					<AppleLegalLink />. We have no access to this data, and it only leaves
-					your device through Apple&apos;s iCloud sync, or in a file you export
-					yourself.
+					your device through Apple&apos;s iCloud sync, through Siri and
+					Shortcuts as described below, or in a file you export yourself.
 				</p>
 				<p>
 					Digest contains no analytics, telemetry, advertising or third-party
@@ -57,6 +57,19 @@ const sections: LegalSectionEntry[] = [
 				isn&apos;t copied into your journal, isn&apos;t synced, isn&apos;t
 				included in exports, and is never shared with third parties or used for
 				advertising.
+			</p>
+		),
+	},
+	{
+		title: "Siri and Shortcuts",
+		content: (
+			<p>
+				Siri, Shortcuts and the Action button run Digest&apos;s shortcuts on
+				your device. What you say to Siri is processed by Apple and governed by{" "}
+				<AppleLegalLink />; Digest receives only the request itself, such as a
+				template&apos;s name or a stool&apos;s type. So you can say a
+				template&apos;s name to Siri or pick it in Shortcuts, Digest gives iOS
+				the names of your templates.
 			</p>
 		),
 	},
@@ -96,6 +109,20 @@ const sections: LegalSectionEntry[] = [
 			</>
 		),
 	},
+	{
+		title: "Purchases",
+		content: (
+			<p>
+				Digest is free to download, and Pro is an optional purchase through the
+				App Store: a monthly or yearly subscription, or a one-time purchase. Any
+				purchase is processed by Apple. We never receive or store your payment
+				details; Apple&apos;s handling of that information is governed by{" "}
+				<AppleLegalLink />. To know whether you have Pro, Digest asks the App
+				Store on your device and keeps the answer on your device; nothing about
+				it reaches us.
+			</p>
+		),
+	},
 ]
 
 export default function DigestPrivacyPage() {
@@ -103,7 +130,7 @@ export default function DigestPrivacyPage() {
 		<LegalPageLayout
 			title="Digest – Privacy Policy"
 			sections={sections}
-			lastUpdated="Oct 15, 2026"
+			lastUpdated="Oct 17, 2026"
 			contactEmail="roland+digest@leth.ro"
 		/>
 	)

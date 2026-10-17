@@ -36,11 +36,11 @@ const sections: LegalSectionEntry[] = [
 		),
 	},
 	{
-		title: "Your licence to use Continuum",
+		title: "Your license to use Continuum",
 		content: (
 			<p>
 				Continuum is licensed to you, not sold. You get a personal,
-				non-transferable licence to use the app on the Apple devices you own or
+				non-transferable license to use the app on the Apple devices you own or
 				control, as permitted by the App Store terms. You may not resell,
 				redistribute, or reverse-engineer the app except where the law allows
 				it.
@@ -73,7 +73,7 @@ const sections: LegalSectionEntry[] = [
 				</ul>
 				<p>
 					The current prices, billing period, and any free-trial length are
-					shown in the app at the point of purchase. Lapsing or cancelling Pro
+					shown in the app at the point of purchase. Lapsing or canceling Pro
 					never deletes or locks data you already created — your existing
 					people, notes, events, and teams stay readable.
 				</p>
@@ -101,7 +101,7 @@ const sections: LegalSectionEntry[] = [
 					</li>
 					<li>
 						You can manage or cancel a subscription anytime in your App Store
-						account settings. Cancelling stops future renewals; it doesn&apos;t
+						account settings. Canceling stops future renewals; it doesn&apos;t
 						refund the current period.
 					</li>
 					<li>

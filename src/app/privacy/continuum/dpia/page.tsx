@@ -22,7 +22,7 @@ const sections: LegalSectionEntry[] = [
 				those notes and may need a Data Protection Impact Assessment (DPIA).
 				This is pre-filled with how Continuum works; you fill in the parts about
 				your own use. It is a starting point, not legal advice — check with your
-				organisation&apos;s data-protection lead.
+				organization&apos;s data-protection lead.
 			</p>
 		),
 	},
