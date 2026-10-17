@@ -299,7 +299,8 @@ describe("ProductPage — hero", () => {
 			.closest("section") as HTMLElement
 		const closing = document.getElementById("get") as HTMLElement
 
-		expect(within(hero).getByText("Coming soon")).toBeInTheDocument()
+		expect(within(hero).getAllByText("Coming soon")).toHaveLength(1)
+		expect(within(closing).getAllByText("Coming soon")).toHaveLength(1)
 		expect(
 			screen.queryByRole("link", { name: "Download on the App Store" })
 		).not.toBeInTheDocument()
@@ -313,6 +314,48 @@ describe("ProductPage — hero", () => {
 			"https://apps.apple.com/app/id123"
 		)
 	})
+
+	// The reader looking for the download button finds why there isn't one, so
+	// the status sits where the button would: after the summary, before "See how
+	// it works", not under the name; and again in the closing.
+	it.each([
+		[ProjectStatus.comingSoon, "Coming soon"],
+		[ProjectStatus.discontinued, "Discontinued"],
+	])(
+		"puts a %s app's status where the store button would be, in the hero and the closing",
+		(status, label) => {
+			renderPage(
+				makeProject({
+					status,
+					sections: [
+						makeStepsSection(1, "How it works", [makeStep(1, "Log a meal")]),
+					],
+				})
+			)
+
+			const hero = screen
+				.getByRole("heading", { level: 1 })
+				.closest("section") as HTMLElement
+			const closing = document.getElementById("get") as HTMLElement
+			const summary = within(hero).getByText(
+				"Digest is a food and symptom journal."
+			)
+			const heroStatus = within(hero).getByText(label)
+			const stepsLink = within(hero).getByRole("link", {
+				name: "See how it works",
+			})
+
+			expect(
+				summary.compareDocumentPosition(heroStatus) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy()
+			expect(
+				heroStatus.compareDocumentPosition(stepsLink) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy()
+			expect(within(closing).getAllByText(label)).toHaveLength(1)
+		}
+	)
 
 	it("links 'See how it works' to the first steps section", () => {
 		renderPage(
@@ -837,12 +880,13 @@ describe("ProductPage — pricing", () => {
 		expect(
 			screen.queryByRole("link", { name: "Download on the App Store" })
 		).not.toBeInTheDocument()
-		expect(screen.getByText("Discontinued")).toBeInTheDocument()
+		// The hero and the closing; the pricing section, and its slot, are gone.
+		expect(screen.getAllByText("Discontinued")).toHaveLength(2)
 	})
 
 	// What it will cost helps a reader decide whether to wait; only the store
-	// buttons wait for the launch.
-	it("shows a coming-soon app's prices, with no store button beside them", () => {
+	// buttons wait for the launch, and the status says so in their place.
+	it("shows a coming-soon app's prices, with its status in place of the store button", () => {
 		renderPage(
 			makeProject({
 				status: ProjectStatus.comingSoon,
@@ -855,8 +899,12 @@ describe("ProductPage — pricing", () => {
 		const section = screen
 			.getByRole("heading", { level: 2, name: "Free and paid" })
 			.closest("section") as HTMLElement
+		const price = within(section).getByText("$6.99")
+		const status = within(section).getByText("Coming soon")
 
-		expect(within(section).getByText("$6.99")).toBeInTheDocument()
+		expect(
+			price.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
 		expect(within(section).queryByRole("link")).not.toBeInTheDocument()
 		expect(railEntries().map((link) => link.textContent)).toEqual([
 			"Free and paid",

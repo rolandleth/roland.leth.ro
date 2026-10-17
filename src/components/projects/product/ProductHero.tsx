@@ -23,7 +23,7 @@ interface Props {
 	disclaimer: string | null
 	heroImage: string | null
 	heroImageAlt: string | null
-	/** Shown as a pill under the title when it isn't live (`statusLabel`). */
+	/** Shown in place of the store button when it isn't live (`statusLabel`). */
 	status: ProjectStatus
 	storeLinks: readonly StoreLink[]
 	/** The id of the section with numbered steps, for "See how it works". */
@@ -122,8 +122,6 @@ export default function ProductHero({
 							</>
 						)}
 					</h1>
-
-					{label != null && <p className="product-status-pill mt-4">{label}</p>}
 				</div>
 
 				<div
@@ -139,8 +137,10 @@ export default function ProductHero({
 						</p>
 					)}
 
-					{(storeLinks.length > 0 || stepsAnchor != null) && (
+					{(storeLinks.length > 0 || label != null || stepsAnchor != null) && (
 						<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+							{label != null && <p className="product-status-cta">{label}</p>}
+
 							{storeLinks.map(({ link, cta }) => (
 								<ProjectLinkCta
 									key={link.id}

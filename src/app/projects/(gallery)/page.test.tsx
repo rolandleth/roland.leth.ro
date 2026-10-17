@@ -336,12 +336,23 @@ describe("ProjectsPage — tiles", () => {
 		])
 
 		const digest = articleTitled(/^Digest/)
+		const summary = within(digest).getByText("Digest summary.")
+		const status = within(digest).getByText("Coming soon")
+		const viewLink = within(digest).getByRole("link", {
+			name: "View Digest project",
+		})
 
-		expect(within(digest).getByText("Coming soon")).toBeInTheDocument()
+		expect(within(digest).getAllByText("Coming soon")).toHaveLength(1)
 		expect(within(digest).getAllByRole("link")).toHaveLength(1)
+		expect(viewLink).toHaveAttribute("href", "/projects/digest")
+		// In the store button's place: after the summary, before the link.
 		expect(
-			within(digest).getByRole("link", { name: "View Digest project" })
-		).toHaveAttribute("href", "/projects/digest")
+			summary.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(
+			status.compareDocumentPosition(viewLink) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
 		// The live tile beside it keeps its button and has no pill.
 		const reckon = articleTitled(/^Reckon/)
 		expect(

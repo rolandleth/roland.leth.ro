@@ -10,10 +10,13 @@ export function isDiscontinued(project: { status: ProjectStatus }): boolean {
 }
 
 /**
- * The words the site shows beside a project's name for its status, or null for
- * a live project, which shows none. Every status has its case: a new one fails
- * the type-check here until it has an answer. A value this code doesn't know (a
- * database ahead of the deploy) shows no label, and the log says so.
+ * The words the site shows for a project's status, or null for a live project,
+ * which shows none. Where a live app has its store button (the product page and
+ * the gallery's app tiles), the words take its place, so the reader looking for
+ * the button finds why there isn't one; elsewhere they sit beside the name.
+ * Every status has its case: a new one fails the type-check here until it has
+ * an answer. A value this code doesn't know (a database ahead of the deploy)
+ * shows no label, and the log says so.
  */
 export function statusLabel(status: ProjectStatus): string | null {
 	switch (status) {

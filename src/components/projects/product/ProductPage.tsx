@@ -12,7 +12,7 @@ import {
 	reservedAnchors,
 	sectionAnchors,
 } from "@/lib/utils/productPage"
-import { isDiscontinued } from "@/lib/utils/projectStatus"
+import { isDiscontinued, statusLabel } from "@/lib/utils/projectStatus"
 import ProjectGuides from "../ProjectGuides"
 import ProjectLinkCta from "../ProjectLinkCta"
 import ProductClosing from "./ProductClosing"
@@ -119,11 +119,15 @@ export default function ProductPage({
 	const isShown = (section: (typeof sections)[number]) =>
 		section.kind !== ProjectSectionKind.pricing || pricing != null
 	const [primaryStoreLink] = storeLinks
+	const label = statusLabel(project.status)
 	// A flex row, so the badge sits at its own width on the left: it carries
 	// `justify-self-center` for the tabbed layout's link grid, which browsers
-	// now apply in block layout too.
-	const storeButton =
-		primaryStoreLink == null ? null : (
+	// now apply in block layout too. An app that isn't live has no store link,
+	// and its status takes the button's place.
+	let storeButton: ReactNode | null = null
+
+	if (primaryStoreLink != null) {
+		storeButton = (
 			<div className="flex">
 				<ProjectLinkCta
 					url={primaryStoreLink.link.url}
@@ -132,6 +136,13 @@ export default function ProductPage({
 				/>
 			</div>
 		)
+	} else if (label != null) {
+		storeButton = (
+			<div className="flex">
+				<p className="product-status-cta">{label}</p>
+			</div>
+		)
+	}
 	const tocItems: TocItem[] = [
 		...sections.flatMap((section, index) =>
 			isShown(section) ? [{ id: anchors[index], title: section.title }] : []
@@ -256,7 +267,7 @@ export default function ProductPage({
 									(offer) => offer.priceCurrency === "USD"
 								) ? (
 									<p className="text-secondary text-sm">
-										{storeButton == null
+										{primaryStoreLink == null
 											? "US prices."
 											: "US prices. The App Store shows yours."}
 									</p>
@@ -277,6 +288,7 @@ export default function ProductPage({
 				icon={project.icon}
 				headline={project.closingHeadline}
 				body={project.closingBody}
+				status={project.status}
 				storeLinks={storeLinks}
 				storeNote={project.storeNote}
 			/>

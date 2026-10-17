@@ -1,12 +1,16 @@
 import Image from "next/image"
+import { statusLabel } from "@/lib/utils/projectStatus"
 import ProjectLinkCta from "../ProjectLinkCta"
 import type { StoreLink } from "./ProductHero"
+import type { ProjectStatus } from "@/generated/prisma/enums"
 
 interface Props {
 	name: string
 	icon: string | null
 	headline: string | null
 	body: string | null
+	/** Shown in place of the store button when it isn't live (`statusLabel`). */
+	status: ProjectStatus
 	storeLinks: readonly StoreLink[]
 	storeNote: string | null
 }
@@ -22,9 +26,12 @@ export default function ProductClosing({
 	icon,
 	headline,
 	body,
+	status,
 	storeLinks,
 	storeNote,
 }: Props) {
+	const label = statusLabel(status)
+
 	return (
 		<section
 			id="get"
@@ -61,8 +68,10 @@ export default function ProductClosing({
 					</p>
 				)}
 
-				{storeLinks.length > 0 && (
+				{(storeLinks.length > 0 || label != null) && (
 					<div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+						{label != null && <p className="product-status-cta">{label}</p>}
+
 						{storeLinks.map(({ link, cta }) => (
 							<ProjectLinkCta
 								key={link.id}

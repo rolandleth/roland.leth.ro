@@ -28,8 +28,8 @@ const HALF_IMAGE_SIZES = "(min-width: 900px) 460px, calc(100vw - 2rem)"
  * image beside it all; a half tile has the top of the hero image rising from
  * its bottom edge. Without a hero image, the text takes the whole tile.
  *
- * A coming-soon app has its status pill under the title, as on its product
- * page, and no store buttons (`linkCtasFor`), so "View project" stands alone.
+ * An app that isn't live has no store buttons (`linkCtasFor`): its status
+ * takes their place, beside "View project", as on its product page.
  *
  * No price: a store note can't speak for several (a monthly, a yearly and a
  * lifetime one), and the product page has the plans. Not one big link, since
@@ -43,15 +43,11 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 	const image = project.productHeroImage
 	const imageAlt = project.heroImageAlt ?? `${project.name} screenshot`
 	const label = statusLabel(project.status)
-	// `self-start`: the half tile is a flex column, which would stretch the
-	// pill across the tile.
-	const statusPill =
-		label == null ? null : (
-			<p className="product-status-pill mt-4 self-start">{label}</p>
-		)
 
 	const actions = (
 		<div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+			{label != null && <p className="product-status-cta">{label}</p>}
+
 			{storeLinks.map(({ link, cta }) => (
 				<ProjectLinkCta
 					key={link.id}
@@ -80,7 +76,6 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 			>
 				<div className="min-w-0">
 					<TileTitle project={project} isWide />
-					{statusPill}
 
 					<p className="mt-5 text-[17px] leading-[1.55] text-pretty text-(--product-band-ink2)">
 						{project.summary}
@@ -117,7 +112,6 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 			}`}
 		>
 			<TileTitle project={project} isWide={false} />
-			{statusPill}
 
 			<p className="mt-5 text-base leading-[1.6] text-pretty text-(--product-band-ink2)">
 				{project.summary}
