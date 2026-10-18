@@ -11,6 +11,7 @@ import {
 	ProjectStatus,
 } from "@/generated/prisma/enums"
 import {
+	hexColor,
 	paletteThemeSchema,
 	projectOfferSchema,
 	projectOffersSchema,
@@ -300,18 +301,19 @@ export function resolveHeroImage(project: {
 }
 
 /**
- * A Json column parsed with the schema its write paths use: the value, or null
- * when the column is empty or the stored value fails the schema.
+ * A stored column parsed with the schema its write paths use: the value, or
+ * null when the column is empty or the stored value fails the schema. For the
+ * Json columns, which Prisma hands back untyped, and for `accentColor`.
  *
  * Every write path validates (`POST`/`PUT /api/admin/projects`, and
  * `scripts/import-projects.ts` through `projectCreateSchema`), so a failure
  * means a row written around them: raw SQL, a hand edit. Dropping the field
- * beats trusting it. `palette` goes into a `<style>` block, where an unchecked
- * string is CSS injection; `offers` reach the JSON-LD and `formatPrice`, which
- * throws on a malformed currency and takes the page down. The warning names
- * the row and the failing paths, never the values.
+ * beats trusting it. `palette` and `accentColor` go into a `<style>` block,
+ * where an unchecked string is CSS injection; `offers` reach the JSON-LD and
+ * `formatPrice`, which throws on a malformed currency and takes the page
+ * down. The warning names the row and the failing paths, never the values.
  */
-function parseJsonColumn<T>(
+function parseStoredColumn<T>(
 	schema: z.ZodType<T>,
 	value: Prisma.JsonValue,
 	column: string,
@@ -334,7 +336,7 @@ function parseJsonColumn<T>(
 	)
 
 	// eslint-disable-next-line no-console
-	console.warn(`[db:projects] stored ${column} fail the schema, left out`, {
+	console.warn(`[db:projects] stored ${column} failed the schema, left out`, {
 		slug,
 		paths: [...paths],
 	})
@@ -346,8 +348,9 @@ function parseJsonColumn<T>(
  * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
  * image precedence into a single `featuredImage`, and the hero's into
  * `productHeroImage`, and dropping the raw image columns the list surfaces
- * don't render. The `palette` is parsed as `getProjectBySlug` parses it, for
- * the same reason: the tile writes it into a `<style>` block.
+ * don't render. The `palette` and `accentColor` are parsed as
+ * `getProjectBySlug` parses them, for the same reason: the tile writes them
+ * into a `<style>` block.
  */
 function toGalleryItem({
 	cardImage,
@@ -355,6 +358,7 @@ function toGalleryItem({
 	heroImage,
 	sections,
 	palette,
+	accentColor,
 	...rest
 }: GalleryRow): ProjectGalleryItem {
 	return {
@@ -366,7 +370,13 @@ function toGalleryItem({
 			sections,
 		}),
 		productHeroImage: resolveHeroImage({ heroImage, cardImage, ogImage }),
-		palette: parseJsonColumn(
+		accentColor: parseStoredColumn(
+			hexColor,
+			accentColor,
+			"accentColor",
+			rest.slug
+		),
+		palette: parseStoredColumn(
 			projectPaletteSchema,
 			palette,
 			"palette",
@@ -563,21 +573,28 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 				return null
 			}
 
-			// Parse the untyped Json columns once, inside the cache, so every
-			// consumer gets the schema's shape with nothing left to re-check:
-			// `buildOfferNode` reads `price` as a decimal string, `formatPrice`
-			// needs a well-formed currency, and the page style writes the palette
-			// into CSS. See `parseJsonColumn` for what a failure does.
+			// Parse the untyped Json columns and the accent once, inside the
+			// cache, so every consumer gets the schema's shape with nothing left
+			// to re-check: `buildOfferNode` reads `price` as a decimal string,
+			// `formatPrice` needs a well-formed currency, and the page styles
+			// write the palette and the accent into CSS. See `parseStoredColumn`
+			// for what a failure does.
 			return {
 				...row,
-				offers: parseJsonColumn(
+				accentColor: parseStoredColumn(
+					hexColor,
+					row.accentColor,
+					"accentColor",
+					slug
+				),
+				offers: parseStoredColumn(
 					projectOffersSchema,
 					row.offers,
 					"offers",
 					slug
 				),
-				plans: parseJsonColumn(projectPlansSchema, row.plans, "plans", slug),
-				palette: parseJsonColumn(
+				plans: parseStoredColumn(projectPlansSchema, row.plans, "plans", slug),
+				palette: parseStoredColumn(
 					projectPaletteSchema,
 					row.palette,
 					"palette",

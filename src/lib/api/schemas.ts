@@ -360,7 +360,7 @@ const projectSectionSchema = z.discriminatedUnion("kind", [
 // Accepts CSS hex color in #rgb, #rrggbb, #rgba, or #rrggbbaa form.
 // A non-hex value renders a broken accent color on the project page, so
 // we reject at the schema boundary rather than ship the raw string.
-const hexColor = z
+export const hexColor = z
 	.string()
 	.regex(/^#[0-9a-fA-F]{3,8}$/, {
 		message: "Must be a hex color like #rgb or #rrggbb",

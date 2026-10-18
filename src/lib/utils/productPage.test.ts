@@ -10,6 +10,7 @@ import {
 	RESERVED_ANCHORS,
 	savingsPercent,
 	sectionAnchors,
+	sectionHeadingId,
 } from "./productPage"
 
 // #region sectionAnchors
@@ -51,8 +52,51 @@ describe("sectionAnchors", () => {
 
 	it("reserves the ids the page uses for its own blocks", () => {
 		expect([...RESERVED_ANCHORS]).toEqual(
-			expect.arrayContaining(["faq", "guides", "main-content"])
+			expect.arrayContaining(["faq", "get", "main-content"])
 		)
+	})
+
+	it("lets a section be called Guides: that block has a heading id, no anchor", () => {
+		expect(sectionAnchors(["Guides"])).toEqual(["guides"])
+	})
+
+	it("keeps a section's heading id off the next section's anchor", () => {
+		// "Foo" renders `foo` and `foo-title`; "Foo title" can't take either.
+		expect(sectionAnchors(["Foo", "Foo title"])).toEqual(["foo", "foo-title-2"])
+	})
+
+	it("keeps a section's anchor off a later section's heading id, in either order", () => {
+		// "Foo title" takes `foo-title`, so "Foo" can't render a heading with it.
+		expect(sectionAnchors(["Foo title", "Foo"])).toEqual(["foo-title", "foo-2"])
+	})
+
+	it.each([
+		["FAQ title", "faq-title-2"],
+		["Get title", "get-title-2"],
+		["Pricing title", "pricing-title-2"],
+		["Guides heading", "guides-heading-2"],
+		["FAQ button 3", "faq-button-3-2"],
+		["FAQ panel 12", "faq-panel-12-2"],
+	])("keeps %j off the id a block of the page renders", (title, anchor) => {
+		expect(sectionAnchors([title], reservedAnchors(true))).toEqual([anchor])
+	})
+
+	it("leaves an id that only looks like a FAQ item's alone", () => {
+		expect(sectionAnchors(["FAQ button"])).toEqual(["faq-button"])
+	})
+
+	it("gives every anchor and heading id on a page a distinct value", () => {
+		const titles = ["Foo", "Foo title", "Foo", "FAQ", "FAQ title", "Get"]
+		const anchors = sectionAnchors(titles, reservedAnchors(true))
+		const ids = [
+			...RESERVED_ANCHORS,
+			"pricing",
+			...[...RESERVED_ANCHORS, "pricing"].map(sectionHeadingId),
+			...anchors,
+			...anchors.map(sectionHeadingId),
+		]
+
+		expect(new Set(ids).size).toBe(ids.length)
 	})
 })
 

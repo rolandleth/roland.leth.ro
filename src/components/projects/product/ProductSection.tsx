@@ -1,4 +1,5 @@
 import { ProjectSectionLayout } from "@/generated/prisma/enums"
+import { sectionHeadingId } from "@/lib/utils/productPage"
 import { ProductGroupGallery } from "./ProductGallery"
 import type { ReactNode } from "react"
 
@@ -23,14 +24,37 @@ export const TRIM_RENDERED_MARKDOWN =
  */
 export const PRODUCT_PROSE_CLASS = `prose dark:prose-invert max-w-[40em] text-pretty ${TRIM_RENDERED_MARKDOWN}`
 
-// A split section's gallery sits under its text in the right column: 32rem at
-// most, which is that column's width on a full-width page.
-const NARROW_GALLERY_CLASS = "w-full max-w-[32rem]"
-const NARROW_GALLERY_SIZES = "(max-width: 640px) calc(100vw - 2rem), 512px"
+// The content column the sections sit in, by viewport width `w`: the frame
+// (`.product-frame`, 1200px at most) less its gutters, 16px a side below 640px,
+// 32px to 1023px and 48px from 1024px; from 1080px, less the 200px section
+// rail and its 64px gap too. So `w - 32px`, `w - 64px`, `w - 96px`, then
+// `w - 360px`, up to 840px from 1200px. The `sizes` below follow it, so each
+// viewport fetches the width it shows: a flat "840px" fetched too much at
+// 640–904px and 1080–1200px, and too little at 904–1080px, where the column is
+// up to 983px wide.
 
-// A stacked section's gallery spans the content column: 840px at most; below
-// 640px the page has 16px gutters.
-const WIDE_GALLERY_SIZES = "(max-width: 640px) calc(100vw - 2rem), 840px"
+// A stacked section's gallery spans the content column.
+const WIDE_GALLERY_SIZES = [
+	"(max-width: 639px) calc(100vw - 2rem)",
+	"(max-width: 1023px) calc(100vw - 4rem)",
+	"(max-width: 1079px) calc(100vw - 6rem)",
+	"(max-width: 1199px) calc(100vw - 360px)",
+	"840px",
+].join(", ")
+
+// A split section's gallery sits under its text in the right column: 32rem at
+// most. From 640px that column is 9/14 of the content column less the 40px
+// gap, which is under 512px up to 900px and again from 1080px to 1200px, where
+// the rail takes its share. Below 640px the section is one column.
+const NARROW_GALLERY_CLASS = "w-full max-w-[32rem]"
+const NARROW_GALLERY_SIZES = [
+	"(max-width: 543px) calc(100vw - 2rem)",
+	"(max-width: 639px) 512px",
+	"(max-width: 899px) calc((100vw - 104px) * 9 / 14)",
+	"(max-width: 1079px) 512px",
+	"(max-width: 1199px) calc((100vw - 400px) * 9 / 14)",
+	"512px",
+].join(", ")
 
 interface ShellProps {
 	id: string
@@ -53,10 +77,12 @@ export function ProductSectionShell({
 	isSplit = false,
 	children,
 }: ShellProps) {
+	const headingId = sectionHeadingId(id)
+
 	return (
 		<section
 			id={id}
-			aria-labelledby={`${id}-title`}
+			aria-labelledby={headingId}
 			className="scroll-mt-4 py-14 sm:py-[72px]"
 		>
 			<div
@@ -66,7 +92,7 @@ export function ProductSectionShell({
 						: "grid gap-7"
 				}
 			>
-				<h2 id={`${id}-title`} className={PRODUCT_H2_CLASS}>
+				<h2 id={headingId} className={PRODUCT_H2_CLASS}>
 					{title}
 				</h2>
 

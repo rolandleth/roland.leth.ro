@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import Image from "next/image"
+import { useState } from "react"
 import { galleryImageAlt, type GalleryImage } from "@/lib/client/gallery"
 import type { MotionStyle, MotionValue, PanInfo } from "framer-motion"
 
@@ -23,9 +24,11 @@ interface Props {
 	 */
 	priorityIndex?: number
 	/**
-	 * Lazy-load every slide but the priority one. For a page that stacks several
-	 * strips, where the default (the centred slide and its neighbours eager)
-	 * would fetch two images per strip on load, most of them far below the fold.
+	 * Lazy-load every slide but the priority one until the centred slide has
+	 * loaded. For a page that stacks several strips, where the default (the
+	 * centred slide and its neighbours eager) would fetch two images per strip on
+	 * load, most of them far below the fold. See `slideLoading` for what happens
+	 * once the strip is in view.
 	 */
 	isLazy?: boolean
 	/**
@@ -47,10 +50,21 @@ interface Props {
 /**
  * Eager-load the centred slide and its immediate neighbours (the ones a single
  * swipe reveals); lazy-load the rest so a long gallery doesn't fetch every
- * screenshot on mount. With `isLazy`, every slide is lazy.
+ * screenshot on mount. With `isLazy`, every slide is lazy until the centred
+ * one has loaded.
+ *
+ * A lazy neighbour alone would never load before the swipe that shows it: it
+ * sits outside the `overflow-hidden` stage, and the browser's lazy-load margin
+ * measures what the clip leaves visible, so the first swipe landed on a blank
+ * slide. The centred slide is inside the clip, so its load says the strip is
+ * near the screen, and the neighbours can start then.
  */
-function slideLoading(offset: number, isLazy: boolean): "eager" | "lazy" {
-	if (isLazy) {
+function slideLoading(
+	offset: number,
+	isLazy: boolean,
+	hasCentreLoaded: boolean
+): "eager" | "lazy" {
+	if (isLazy && !hasCentreLoaded) {
 		return "lazy"
 	}
 
@@ -76,6 +90,8 @@ export default function GalleryTrack({
 	dragConstraints,
 	onDragEnd,
 }: Props) {
+	const [hasCentreLoaded, setHasCentreLoaded] = useState(false)
+
 	return (
 		<motion.div
 			className="flex h-full"
@@ -100,7 +116,12 @@ export default function GalleryTrack({
 						// `priority` implies eager loading, and next/image warns when
 						// both are set.
 						priority={isPriority}
-						loading={isPriority ? undefined : slideLoading(i - index, isLazy)}
+						loading={
+							isPriority
+								? undefined
+								: slideLoading(i - index, isLazy, hasCentreLoaded)
+						}
+						onLoad={isActive ? () => setHasCentreLoaded(true) : undefined}
 						// `pointer-events-none` lets the drag/zoom surface above receive
 						// the gesture and stops the browser's native image drag.
 						className="pointer-events-none object-contain select-none"

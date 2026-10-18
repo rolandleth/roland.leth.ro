@@ -8,17 +8,41 @@ import { createSlug } from "@/lib/utils/format"
 import type { GalleryGroup } from "@/lib/client/gallery"
 import type { ProjectOffer, ProjectPlan } from "@/lib/db/projects"
 
+/** The FAQ block's anchor, and the table of contents' link to it. */
+export const FAQ_ANCHOR = "faq"
+
 /**
- * Ids the page always uses for its own blocks. A section titled "FAQ" must not
- * take one of them, or the table of contents and the "See how it works" link
- * would land on the wrong block.
+ * Ids the page always uses for its own blocks: the FAQ, the closing (`get`)
+ * and the main landmark. A section titled "FAQ" must not take one of them, or
+ * the table of contents and the "See how it works" link would land on the
+ * wrong block. Each block's heading id (`faq-title`, `get-title`, see
+ * `sectionHeadingId`) is reserved with it.
  */
 export const RESERVED_ANCHORS: ReadonlySet<string> = new Set([
-	"faq",
-	"guides",
+	FAQ_ANCHOR,
 	"get",
 	MAIN_CONTENT_ID,
 ])
+
+/**
+ * The guides block's heading id (`ProjectGuides`, on both layouts). The block
+ * has no anchor of its own, only this.
+ */
+export const GUIDES_HEADING_ID = "guides-heading"
+
+/**
+ * The ids `FaqItem` gives a question's button and answer panel, which share
+ * the page with the section anchors.
+ */
+const FAQ_ITEM_ID = /^faq-(button|panel)-\d+$/
+
+/**
+ * The id of a block's `h2`, which the block's `aria-labelledby` names: `faq`
+ * has `faq-title`, a section `how-it-works` has `how-it-works-title`.
+ */
+export function sectionHeadingId(anchor: string): string {
+	return `${anchor}-title`
+}
 
 /**
  * The automatic "Pricing" block's id. Reserved only on a page that shows the
@@ -38,27 +62,41 @@ export function reservedAnchors(
 
 /**
  * One anchor id per section title, in order: the title's slug, made unique by
- * a `-2`, `-3`… suffix when an earlier section or a reserved id has it. A title
- * with no letters or digits (its slug is empty) gets `section-{n}`, n counting
- * from 1.
+ * a `-2`, `-3`… suffix when it would clash with an id already on the page. A
+ * title with no letters or digits (its slug is empty) gets `section-{n}`, n
+ * counting from 1.
+ *
+ * A section renders two ids, its anchor and its heading's, so both must be
+ * free: "Foo" takes `foo` and `foo-title`, which leaves "Foo title" with
+ * `foo-title-2`. The page's own ids count too: each reserved block's anchor and
+ * heading, the guides heading, and the FAQ questions' button and panel ids.
  */
 export function sectionAnchors(
 	titles: readonly string[],
 	reserved: ReadonlySet<string> = RESERVED_ANCHORS
 ): string[] {
-	const used = new Set(reserved)
+	const used = new Set([
+		...reserved,
+		...[...reserved].map(sectionHeadingId),
+		GUIDES_HEADING_ID,
+	])
+	const isTaken = (anchor: string) =>
+		used.has(anchor) ||
+		used.has(sectionHeadingId(anchor)) ||
+		FAQ_ITEM_ID.test(anchor)
 
 	return titles.map((title, index) => {
 		const base = createSlug(title) || `section-${index + 1}`
 		let anchor = base
 		let suffix = 2
 
-		while (used.has(anchor)) {
+		while (isTaken(anchor)) {
 			anchor = `${base}-${suffix}`
 			suffix += 1
 		}
 
 		used.add(anchor)
+		used.add(sectionHeadingId(anchor))
 
 		return anchor
 	})

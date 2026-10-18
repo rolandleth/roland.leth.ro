@@ -429,7 +429,7 @@ describe("toGalleryItem, through getProjectsForAdmin", () => {
 
 		expect(item.palette).toBeNull()
 		expect(warn).toHaveBeenCalledWith(
-			"[db:projects] stored palette fail the schema, left out",
+			"[db:projects] stored palette failed the schema, left out",
 			{ slug: item.slug, paths: ["light.band"] }
 		)
 	})
@@ -697,17 +697,44 @@ describe("getProjectBySlug", () => {
 		expect(result?.plans).toBeNull()
 		expect(result?.palette).toBeNull()
 		expect(warn).toHaveBeenCalledWith(
-			"[db:projects] stored offers fail the schema, left out",
+			"[db:projects] stored offers failed the schema, left out",
 			{ slug: "hand-edited", paths: ["0.priceCurrency"] }
 		)
 		expect(warn).toHaveBeenCalledWith(
-			"[db:projects] stored plans fail the schema, left out",
+			"[db:projects] stored plans failed the schema, left out",
 			{ slug: "hand-edited", paths: ["0.features"] }
 		)
 		expect(warn).toHaveBeenCalledWith(
-			"[db:projects] stored palette fail the schema, left out",
+			"[db:projects] stored palette failed the schema, left out",
 			expect.objectContaining({ slug: "hand-edited" })
 		)
+	})
+
+	it("leaves out a stored accent that isn't a hex colour, since the page writes it into CSS", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+		vi.mocked(prisma.project.findUnique).mockResolvedValue({
+			...fullProject,
+			accentColor: "red;}body{display:none",
+		} as Awaited<ReturnType<typeof prisma.project.findUnique>>)
+
+		const result = await getProjectBySlug("bad-accent")
+
+		expect(result?.accentColor).toBeNull()
+		expect(warn).toHaveBeenCalledWith(
+			"[db:projects] stored accentColor failed the schema, left out",
+			{ slug: "bad-accent", paths: [""] }
+		)
+	})
+
+	it("keeps a stored hex accent", async () => {
+		vi.mocked(prisma.project.findUnique).mockResolvedValue({
+			...fullProject,
+			accentColor: "#405A55",
+		} as Awaited<ReturnType<typeof prisma.project.findUnique>>)
+
+		const result = await getProjectBySlug("good-accent")
+
+		expect(result?.accentColor).toBe("#405A55")
 	})
 
 	it("reads an empty Json column as null without a warning", async () => {

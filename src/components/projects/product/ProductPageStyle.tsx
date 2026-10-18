@@ -26,11 +26,18 @@ export function bandDeclarations(theme: ProjectPaletteTheme): string {
 // `border-border`, `text-(--color-accent)`), so setting them on the header
 // element restyles it without the header knowing about the page. Safari tints
 // its toolbar from that header background.
+//
+// The colours are the raw `-value` variables, which the `@theme inline`
+// utilities (`text-primary`, `text-accent`) read directly. The accent also
+// sets its alias, `--color-accent`: `:root` resolves that alias to the root's
+// value once, so a `text-(--color-accent)` inside the header would not follow
+// the raw variable alone.
 function headerRule(theme: ProjectPaletteTheme): string {
 	return [
 		`--color-header-bg:${theme.band}`,
 		`--color-primary-value:${theme.bandInk}`,
 		`--color-secondary-value:${theme.bandInk2}`,
+		`--color-accent-value:${theme.bandHighlight}`,
 		`--color-accent:${theme.bandHighlight}`,
 		`--color-border-value:color-mix(in srgb,${theme.bandInk} 14%,transparent)`,
 	].join(";")
@@ -45,8 +52,9 @@ function headerRule(theme: ProjectPaletteTheme): string {
  * It goes when the page does, so leaving for another page restores the header.
  * The page's width and gutter are static, so they live in globals.css.
  *
- * Every value is a hex colour validated by `projectCreateSchema` on the way in,
- * which is what makes writing them into CSS safe.
+ * Every value is a hex colour validated by `projectCreateSchema` on the way in
+ * and parsed again on read (`getProjectBySlug`), which is what makes writing
+ * them into CSS safe.
  */
 export default function ProductPageStyle({ accentColor, palette }: Props) {
 	const accent = accentColor ?? "var(--color-accent-value)"

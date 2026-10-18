@@ -1377,10 +1377,10 @@ describe("ProductPage — theme style", () => {
 			.join("")
 
 		expect(css).toContain(
-			"[data-site-header]{--color-header-bg:#f3ede4;--color-primary-value:#2a241e;--color-secondary-value:#6b6158;--color-accent:#9a532b;"
+			"[data-site-header]{--color-header-bg:#f3ede4;--color-primary-value:#2a241e;--color-secondary-value:#6b6158;--color-accent-value:#9a532b;--color-accent:#9a532b;"
 		)
 		expect(css).toContain(
-			".dark [data-site-header]{--color-header-bg:#2a211b;--color-primary-value:#f3ede4;--color-secondary-value:#c9bbae;--color-accent:#e0a27a;"
+			".dark [data-site-header]{--color-header-bg:#2a211b;--color-primary-value:#f3ede4;--color-secondary-value:#c9bbae;--color-accent-value:#e0a27a;--color-accent:#e0a27a;"
 		)
 	})
 
