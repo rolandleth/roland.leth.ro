@@ -15,6 +15,7 @@ import {
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import { deriveDescription } from "@/lib/content/markdown"
 import { createSlug } from "@/lib/utils/format"
+import { GREEN_BAND_THEME } from "@/test/fixtures"
 
 // #region httpUrl (tested indirectly through schema fields that use it)
 
@@ -653,6 +654,61 @@ describe("projectCreateSchema", () => {
 			}).success
 		).toBe(false)
 	})
+
+	it.each(["US$", "usd", "Usd", "US D", "€UR"])(
+		"rejects the currency %j, which would crash the price's render",
+		(priceCurrency) => {
+			const result = projectCreateSchema.safeParse({
+				...valid,
+				offers: [{ name: "Monthly", price: "12.00", priceCurrency }],
+			})
+
+			expect(result.success).toBe(false)
+			expect(result.error?.issues[0].path).toEqual([
+				"offers",
+				0,
+				"priceCurrency",
+			])
+		}
+	)
+
+	it.each(["P1M", "P3M", "P1Y", "P2W", "P7D", "P12M"])(
+		"accepts the billing period %s",
+		(billingPeriod) => {
+			expect(
+				projectCreateSchema.safeParse({
+					...valid,
+					offers: [
+						{
+							name: "Plan",
+							price: "12.00",
+							priceCurrency: "USD",
+							billingPeriod,
+						},
+					],
+				}).success
+			).toBe(true)
+		}
+	)
+
+	it.each(["", "P0M", "P1Y6M", "1M", "P1m", "monthly", "P01M"])(
+		"rejects the billing period %j, which would print no label or a wrong one",
+		(billingPeriod) => {
+			const result = projectCreateSchema.safeParse({
+				...valid,
+				offers: [
+					{ name: "Plan", price: "12.00", priceCurrency: "USD", billingPeriod },
+				],
+			})
+
+			expect(result.success).toBe(false)
+			expect(result.error?.issues[0].path).toEqual([
+				"offers",
+				0,
+				"billingPeriod",
+			])
+		}
+	)
 
 	it("accepts a free offer (price '0') and a single upfront price", () => {
 		expect(
@@ -1442,13 +1498,7 @@ describe("projectCreateSchema — product-page fields", () => {
 		bucket: PlatformBucket.iOS,
 		platformTags: [PlatformTag.iOS],
 	}
-	const theme = {
-		band: "#24443a",
-		bandInk: "#f4f1e8",
-		bandInk2: "#c9d3cc",
-		bandHighlight: "#cfa75a",
-		accentText: "#2e7d5b",
-	}
+	const theme = GREEN_BAND_THEME
 	const plans = [
 		{ name: "Free, forever", features: ["Meals."], sortOrder: 1 },
 		{
@@ -1680,6 +1730,127 @@ describe("projectCreateSchema — product-page fields", () => {
 	it("accepts a product page with no offers and no plans", () => {
 		expect(
 			projectCreateSchema.safeParse({ ...base, pageLayout: "product" }).success
+		).toBe(true)
+	})
+
+	it.each([
+		["heroEyebrow", 80],
+		["heroHeadline", 80],
+		["heroImageAlt", 300],
+		["storeNote", 120],
+		["closingHeadline", 80],
+		["closingBody", 200],
+		["disclaimer", 300],
+	])("caps %s at %i characters", (field, limit) => {
+		expect(
+			projectCreateSchema.safeParse({ ...base, [field]: "x".repeat(limit) })
+				.success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({ ...base, [field]: "x".repeat(limit + 1) })
+				.success
+		).toBe(false)
+	})
+
+	it("caps the plans at 4, each with 1 to 12 features of at most 160 characters", () => {
+		const plan = (name: string, features: string[]) => ({ name, features })
+		const fourPlans = ["A", "B", "C", "D"].map((name) => plan(name, ["x"]))
+
+		expect(
+			projectCreateSchema.safeParse({ ...base, plans: fourPlans }).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [...fourPlans, plan("E", ["x"])],
+			}).success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [plan("A", Array<string>(12).fill("x"))],
+			}).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [plan("A", Array<string>(13).fill("x"))],
+			}).success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({ ...base, plans: [plan("A", [])] }).success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [plan("A", ["x".repeat(160)])],
+			}).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: [plan("A", ["x".repeat(161)])],
+			}).success
+		).toBe(false)
+	})
+
+	it("caps a plan's name, and the plan an offer names, at 60 characters", () => {
+		const name = "x".repeat(60)
+		const withPlan = (planName: string, offerPlan: string) => ({
+			...base,
+			plans: [{ name: planName, features: ["x"] }],
+			offers: [
+				{ name: "Pro", plan: offerPlan, price: "9", priceCurrency: "USD" },
+			],
+		})
+
+		expect(projectCreateSchema.safeParse(withPlan(name, name)).success).toBe(
+			true
+		)
+		expect(
+			issueMessages(withPlan(`${name}x`, `${name}x`)).length
+		).toBeGreaterThan(0)
+		expect(
+			projectCreateSchema
+				.safeParse(withPlan(name, `${name}x`))
+				.error?.issues.some((issue) => issue.path.join(".") === "offers.0.plan")
+		).toBe(true)
+	})
+
+	it("caps a section image's alt text and caption at 300 characters", () => {
+		const withImage = (image: object) => ({
+			...base,
+			sections: [
+				{
+					title: "A",
+					description: "a",
+					kind: "text",
+					layout: "stacked",
+					images: [{ url: "https://example.com/a.png", ...image }],
+				},
+			],
+		})
+
+		expect(
+			projectCreateSchema.safeParse(withImage({ alt: "x".repeat(300) })).success
+		).toBe(true)
+		expect(
+			projectCreateSchema.safeParse(withImage({ alt: "x".repeat(301) })).success
+		).toBe(false)
+		expect(
+			projectCreateSchema.safeParse(withImage({ caption: "x".repeat(301) }))
+				.success
+		).toBe(false)
+	})
+
+	it("accepts null plans, offers and palette on a create, as none", () => {
+		expect(
+			projectCreateSchema.safeParse({
+				...base,
+				plans: null,
+				offers: null,
+				palette: null,
+			}).success
 		).toBe(true)
 	})
 
@@ -2007,14 +2178,81 @@ describe("projectCreateSchema — section kinds", () => {
 })
 
 describe("projectUpdateSchema — product-page fields", () => {
-	it("doesn't require plans of a product page when a partial update leaves them out", () => {
-		// The stored plans aren't in the payload; an absent field isn't "none".
+	it("refuses offers sent without plans, which it can't check against the stored ones", () => {
+		const result = projectUpdateSchema.safeParse({
+			pageLayout: "product",
+			offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+		})
+
+		expect(result.success).toBe(false)
+		expect(result.error?.issues).toEqual([
+			expect.objectContaining({
+				path: ["plans"],
+				message:
+					"Send plans and offers together: each offer names its plan, so neither can be checked alone",
+			}),
+		])
+	})
+
+	it("refuses plans sent without offers, which could rename the plan a stored offer names", () => {
+		const result = projectUpdateSchema.safeParse({
+			plans: [{ name: "Pro", features: ["Everything."] }],
+		})
+
+		expect(result.success).toBe(false)
+		expect(result.error?.issues.map((issue) => issue.path)).toEqual([
+			["offers"],
+		])
+	})
+
+	it("refuses null plans sent alone, since clearing them would orphan the stored offers", () => {
+		expect(projectUpdateSchema.safeParse({ plans: null }).success).toBe(false)
+	})
+
+	it("accepts plans and offers cleared together", () => {
 		expect(
-			projectUpdateSchema.safeParse({
-				pageLayout: "product",
-				offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
-			}).success
+			projectUpdateSchema.safeParse({ plans: null, offers: null }).success
 		).toBe(true)
+	})
+
+	it("reads null plans sent with offers as none", () => {
+		const result = projectUpdateSchema.safeParse({
+			plans: null,
+			offers: [{ name: "Pro", plan: "Pro", price: "9", priceCurrency: "USD" }],
+		})
+
+		expect(result.success).toBe(false)
+		expect(result.error?.issues[0].message).toBe('No plan is named "Pro"')
+	})
+
+	it("requires plans of a product page whose offers it sends", () => {
+		const result = projectUpdateSchema.safeParse({
+			pageLayout: "product",
+			plans: null,
+			offers: [{ name: "Once", price: "3.99", priceCurrency: "USD" }],
+		})
+
+		expect(result.success).toBe(false)
+		expect(result.error?.issues[0].message).toBe(
+			"A product page with offers needs plans: it prints prices inside plan cards"
+		)
+	})
+
+	it("refuses a pricing section sent with offers cleared", () => {
+		const result = projectUpdateSchema.safeParse({
+			sections: [{ title: "Pricing", kind: "pricing" }],
+			plans: null,
+			offers: null,
+		})
+
+		expect(result.success).toBe(false)
+		expect(result.error?.issues[0].message).toBe(
+			"A pricing section needs the project to have offers"
+		)
+	})
+
+	it("accepts a null palette, which clears the band", () => {
+		expect(projectUpdateSchema.safeParse({ palette: null }).success).toBe(true)
 	})
 
 	it("still rejects a product page's offers sent with an empty plans list", () => {
@@ -2035,11 +2273,10 @@ describe("projectUpdateSchema — product-page fields", () => {
 		).toBe(true)
 	})
 
-	it("accepts offers that name plans without the plans in the same payload", () => {
-		// A partial update can't see the stored plans; judging the offers against
-		// an absent field would reject every offers-only PUT.
+	it("accepts offers that name the plans sent with them", () => {
 		expect(
 			projectUpdateSchema.safeParse({
+				plans: [{ name: "Free", features: ["Meals."] }],
 				offers: [
 					{ name: "Free", plan: "Free", price: "0", priceCurrency: "USD" },
 				],
@@ -2055,8 +2292,9 @@ describe("projectUpdateSchema — product-page fields", () => {
 		expect(result.success).toBe(false)
 	})
 
-	it("checks the best-value price on an offers-only update, since offers alone decide it", () => {
+	it("checks the best-value price on an update that sends the offers", () => {
 		const result = projectUpdateSchema.safeParse({
+			plans: [{ name: "Pro", features: ["Everything."] }],
 			offers: [
 				{
 					name: "Pro",
@@ -2069,6 +2307,9 @@ describe("projectUpdateSchema — product-page fields", () => {
 		})
 
 		expect(result.success).toBe(false)
+		expect(result.error?.issues[0].message).toBe(
+			"A best-value price needs another paid price in its plan to compare against"
+		)
 	})
 })
 

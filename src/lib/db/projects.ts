@@ -10,12 +10,21 @@ import {
 	ProjectSectionLayout,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
+import {
+	paletteThemeSchema,
+	projectOfferSchema,
+	projectOffersSchema,
+	projectPaletteSchema,
+	projectPlanSchema,
+	projectPlansSchema,
+} from "@/lib/api/schemas"
 import { createBoundedWrapperCache } from "@/lib/db/boundedCache"
 import { wrapNullableDetail } from "@/lib/db/cacheMiss"
 import { prisma } from "@/lib/db/db"
 import { blankToNull } from "@/lib/utils/format"
 import { PAGE_SIZE } from "@/lib/utils/pagination"
 import { discontinuedLast } from "@/lib/utils/projectStatus"
+import type { z } from "zod"
 
 export interface ProjectListItem {
 	id: number
@@ -55,54 +64,27 @@ export interface ProjectGalleryItem extends ProjectListItem {
 
 /**
  * Render-only pricing shape stored in the `offers` Json column and consumed by
- * the `SoftwareApplication` JSON-LD. Mirrors `projectOfferSchema`; Prisma hands
- * the column back as an untyped `JsonValue`, so `getProjectBySlug` narrows it to
- * this shape (the write path validates it, so the cast is safe).
+ * the `SoftwareApplication` JSON-LD and the product page. The schema's own
+ * type, so the two can't drift; `getProjectBySlug` parses the column with it.
+ * See `projectOfferSchema` for each field.
  */
-export interface ProjectOffer {
-	name: string
-	price: string
-	priceCurrency: string
-	billingPeriod?: string
-	/** The `ProjectPlan.name` this price belongs to, on the product page. */
-	plan?: string
-	/** A short line printed with the price on the product page. */
-	note?: string
-	/** The price the product page marks "Best value"; at most one per project. */
-	isBestValue?: boolean
-	sortOrder?: number
-}
+export type ProjectOffer = z.infer<typeof projectOfferSchema>
 
 /**
  * One plan card on the own-app product page, stored in the `plans` Json column.
- * Mirrors `projectPlanSchema`; narrowed from `JsonValue` in `getProjectBySlug`
- * the same way `offers` is.
+ * The schema's own type, parsed on read like `offers`.
  *
- * `type`, not `interface`, here and in the two palette types below: these are
- * written back into Json columns (`toProductPageCreate`), and only a type alias
- * satisfies Prisma's index-signature `InputJsonObject`.
+ * Type aliases, not interfaces, here and in the two palette types below: these
+ * are written back into Json columns (`toProductPageCreate`), and only a type
+ * alias satisfies Prisma's index-signature `InputJsonObject`.
  */
-export type ProjectPlan = {
-	name: string
-	isHighlighted?: boolean
-	features: string[]
-	sortOrder?: number
-}
+export type ProjectPlan = z.infer<typeof projectPlanSchema>
 
-/** One theme's band and small-text colours. Mirrors `paletteThemeSchema`. */
-export type ProjectPaletteTheme = {
-	band: string
-	bandInk: string
-	bandInk2: string
-	bandHighlight: string
-	accentText: string
-}
+/** One theme's band and small-text colours: `paletteThemeSchema`'s type. */
+export type ProjectPaletteTheme = z.infer<typeof paletteThemeSchema>
 
-/** The `palette` Json column. Mirrors `projectPaletteSchema`. */
-export type ProjectPalette = {
-	light: ProjectPaletteTheme
-	dark: ProjectPaletteTheme
-}
+/** The `palette` Json column: `projectPaletteSchema`'s type. */
+export type ProjectPalette = z.infer<typeof projectPaletteSchema>
 
 export interface ProjectDetail {
 	id: number
@@ -318,12 +300,54 @@ export function resolveHeroImage(project: {
 }
 
 /**
+ * A Json column parsed with the schema its write paths use: the value, or null
+ * when the column is empty or the stored value fails the schema.
+ *
+ * Every write path validates (`POST`/`PUT /api/admin/projects`, and
+ * `scripts/import-projects.ts` through `projectCreateSchema`), so a failure
+ * means a row written around them: raw SQL, a hand edit. Dropping the field
+ * beats trusting it. `palette` goes into a `<style>` block, where an unchecked
+ * string is CSS injection; `offers` reach the JSON-LD and `formatPrice`, which
+ * throws on a malformed currency and takes the page down. The warning names
+ * the row and the failing paths, never the values.
+ */
+function parseJsonColumn<T>(
+	schema: z.ZodType<T>,
+	value: Prisma.JsonValue,
+	column: string,
+	slug: string
+): T | null {
+	if (value == null) {
+		return null
+	}
+
+	const result = schema.safeParse(value)
+
+	if (result.success) {
+		return result.data
+	}
+
+	// One path per field: a value can fail several rules (a hex colour fails
+	// both the pattern and the length check).
+	const paths = new Set(
+		result.error.issues.map((issue) => issue.path.join("."))
+	)
+
+	// eslint-disable-next-line no-console
+	console.warn(`[db:projects] stored ${column} fail the schema, left out`, {
+		slug,
+		paths: [...paths],
+	})
+
+	return null
+}
+
+/**
  * Resolves a raw gallery row into a `ProjectGalleryItem`, collapsing the card
  * image precedence into a single `featuredImage`, and the hero's into
  * `productHeroImage`, and dropping the raw image columns the list surfaces
- * don't render. The `palette` cast is the one `getProjectBySlug` makes, for
- * the same reason: the write path validates the column against
- * `projectPaletteSchema`.
+ * don't render. The `palette` is parsed as `getProjectBySlug` parses it, for
+ * the same reason: the tile writes it into a `<style>` block.
  */
 function toGalleryItem({
 	cardImage,
@@ -342,7 +366,12 @@ function toGalleryItem({
 			sections,
 		}),
 		productHeroImage: resolveHeroImage({ heroImage, cardImage, ogImage }),
-		palette: palette as unknown as ProjectPalette | null,
+		palette: parseJsonColumn(
+			projectPaletteSchema,
+			palette,
+			"palette",
+			rest.slug
+		),
 	}
 }
 
@@ -451,6 +480,7 @@ export async function getAllProjects(): Promise<ProjectListItem[]> {
 // established `@/lib/db/projects` import surface stable for existing callers.
 export {
 	toFaqCreate,
+	toJsonColumnUpdate,
 	toLinkCreate,
 	toProductPageCreate,
 	toSectionCreate,
@@ -533,24 +563,26 @@ export function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
 				return null
 			}
 
-			// Narrow the untyped `offers` Json column to `ProjectOffer[] | null`
-			// once, inside the cache, so every consumer gets the typed shape.
-			//
-			// The cast is load-bearing, not cosmetic: it is the single point where
-			// `projectOfferSchema` stops being enforced and starts being assumed.
-			// Both write paths parse through it (`POST/PUT /api/admin/projects`
-			// and `scripts/import-projects.ts` via `projectCreateSchema`), and
-			// consumers — `buildOfferNode` above all — read `price` as a schema-
-			// shaped decimal string with no re-check. A row written around the
-			// schema (raw SQL, a future importer that skips the parse) breaks that
-			// assumption here, not at the consumer.
-			// `plans` and `palette` are the same kind of column, narrowed for the
-			// same reason, against `projectPlanSchema` and `projectPaletteSchema`.
+			// Parse the untyped Json columns once, inside the cache, so every
+			// consumer gets the schema's shape with nothing left to re-check:
+			// `buildOfferNode` reads `price` as a decimal string, `formatPrice`
+			// needs a well-formed currency, and the page style writes the palette
+			// into CSS. See `parseJsonColumn` for what a failure does.
 			return {
 				...row,
-				offers: row.offers as unknown as ProjectOffer[] | null,
-				plans: row.plans as unknown as ProjectPlan[] | null,
-				palette: row.palette as unknown as ProjectPalette | null,
+				offers: parseJsonColumn(
+					projectOffersSchema,
+					row.offers,
+					"offers",
+					slug
+				),
+				plans: parseJsonColumn(projectPlansSchema, row.plans, "plans", slug),
+				palette: parseJsonColumn(
+					projectPaletteSchema,
+					row.palette,
+					"palette",
+					slug
+				),
 			}
 		},
 		[projectTag(slug)],

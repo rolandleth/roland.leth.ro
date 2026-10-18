@@ -32,6 +32,11 @@ import {
 	ProjectProminence,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
+import {
+	PRODUCT_PAGE_TEXT_KEYS,
+	PRODUCT_PAGE_TEXT_LIMITS,
+	type ProductPageTextKey,
+} from "@/lib/api/schemas"
 import { followTitleSlug } from "@/lib/utils/format"
 import { isPlacementOverridden } from "@/lib/utils/projectsGallery"
 
@@ -67,32 +72,44 @@ interface Props {
 }
 
 /**
- * The own-app page's text fields, all optional on the page and all plain
- * strings in the form. `plans`, `palette` and `offers` are manifest-only and
- * never sent from here, so a save leaves what the import wrote.
+ * How the form shows each product-page text field, all optional on the page
+ * and all plain strings in the form; each input's `maxLength` comes from
+ * `PRODUCT_PAGE_TEXT_LIMITS`. A `Record`, so a field the schema adds fails the
+ * build until it has a label here. `plans`, `palette` and `offers` are
+ * manifest-only and never sent from here, so a save leaves what the import
+ * wrote.
  */
-const PRODUCT_PAGE_FIELDS = [
-	{ key: "heroEyebrow", label: "Hero eyebrow", maxLength: 80 },
-	{ key: "heroHeadline", label: "Hero headline", maxLength: 80 },
-	{ key: "heroImageAlt", label: "Hero image alt text", maxLength: 300 },
-	{ key: "storeNote", label: "Store button note", maxLength: 120 },
-	{ key: "closingHeadline", label: "Closing headline", maxLength: 80 },
-	{
-		key: "closingBody",
-		label: "Closing text",
-		maxLength: 200,
-		isMultiline: true,
-	},
-	{ key: "disclaimer", label: "Disclaimer", maxLength: 300, isMultiline: true },
-	{
-		key: "metaDescription",
+const PRODUCT_PAGE_FIELDS: Record<
+	ProductPageTextKey,
+	{ label: string; isMultiline?: boolean }
+> = {
+	metaDescription: {
 		label: "Meta description (defaults to the summary)",
-		maxLength: 160,
 		isMultiline: true,
 	},
-] as const
+	heroEyebrow: { label: "Hero eyebrow" },
+	heroHeadline: { label: "Hero headline" },
+	heroImageAlt: { label: "Hero image alt text" },
+	storeNote: { label: "Store button note" },
+	closingHeadline: { label: "Closing headline" },
+	closingBody: { label: "Closing text", isMultiline: true },
+	disclaimer: { label: "Disclaimer", isMultiline: true },
+}
 
-type ProductPageField = (typeof PRODUCT_PAGE_FIELDS)[number]["key"]
+/**
+ * The one product-page field every layout uses: it sets the search snippet of
+ * any project (`generateMetadata`), so it sits under the summary, outside the
+ * "Product page" group. Hidden with the group, it would go on setting the
+ * snippet of a portfolio page with no way to see or clear it.
+ */
+const EVERY_LAYOUT_FIELD = "metaDescription" satisfies ProductPageTextKey
+
+/** The fields the "Product page" group shows, in the schema's order. */
+const PRODUCT_LAYOUT_FIELDS = PRODUCT_PAGE_TEXT_KEYS.filter(
+	(key) => key !== EVERY_LAYOUT_FIELD
+)
+
+type ProductPageField = ProductPageTextKey
 
 /** Empty-or-whitespace means "not set", which the API stores as null. */
 function textOrNull(value: string): string | null {
@@ -104,14 +121,14 @@ function textOrNull(value: string): string | null {
 /**
  * Builds one value per product-page field. The cast is the one place the keys
  * are trusted: `Object.fromEntries` types its result as a string-keyed record,
- * and the entries come from `PRODUCT_PAGE_FIELDS` itself, so every key is
+ * and the entries come from `PRODUCT_PAGE_TEXT_KEYS` itself, so every key is
  * present.
  */
 function mapProductPageFields<T>(
 	value: (key: ProductPageField) => T
 ): Record<ProductPageField, T> {
 	return Object.fromEntries(
-		PRODUCT_PAGE_FIELDS.map(({ key }) => [key, value(key)])
+		PRODUCT_PAGE_TEXT_KEYS.map((key) => [key, value(key)])
 	) as Record<ProductPageField, T>
 }
 
@@ -339,6 +356,38 @@ export default function ProjectForm({ initialData }: Props) {
 
 	const isPlacementHintShown = isPlacementOverridden(state)
 
+	function renderProductPageField(key: ProductPageField) {
+		const { label, isMultiline } = PRODUCT_PAGE_FIELDS[key]
+		const id = `productPage-${key}`
+		const inputProps = {
+			id,
+			value: state.productPage[key],
+			onChange: (
+				e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+			) => {
+				const { value } = e.target
+
+				updateField("productPage", (prev) => ({ ...prev, [key]: value }))
+			},
+			maxLength: PRODUCT_PAGE_TEXT_LIMITS[key],
+			className: "admin-input",
+		}
+
+		return (
+			<div key={key} className="flex flex-col gap-1.5">
+				<label htmlFor={id} className="text-secondary text-sm font-medium">
+					{label}
+				</label>
+
+				{isMultiline === true ? (
+					<textarea rows={2} {...inputProps} />
+				) : (
+					<input type="text" {...inputProps} />
+				)}
+			</div>
+		)
+	}
+
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-6">
 			<div className="flex flex-col gap-1.5">
@@ -481,6 +530,8 @@ export default function ProjectForm({ initialData }: Props) {
 				/>
 			</div>
 
+			{renderProductPageField(EVERY_LAYOUT_FIELD)}
+
 			<ImageUpload
 				value={state.icon}
 				onChange={(v) => setField("icon", v)}
@@ -605,42 +656,7 @@ export default function ProjectForm({ initialData }: Props) {
 						Product page
 					</legend>
 
-					{PRODUCT_PAGE_FIELDS.map((field) => {
-						const id = `productPage-${field.key}`
-						const inputProps = {
-							id,
-							value: state.productPage[field.key],
-							onChange: (
-								e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-							) => {
-								const { value } = e.target
-
-								updateField("productPage", (prev) => ({
-									...prev,
-									[field.key]: value,
-								}))
-							},
-							maxLength: field.maxLength,
-							className: "admin-input",
-						}
-
-						return (
-							<div key={field.key} className="flex flex-col gap-1.5">
-								<label
-									htmlFor={id}
-									className="text-secondary text-sm font-medium"
-								>
-									{field.label}
-								</label>
-
-								{"isMultiline" in field ? (
-									<textarea rows={2} {...inputProps} />
-								) : (
-									<input type="text" {...inputProps} />
-								)}
-							</div>
-						)
-					})}
+					{PRODUCT_LAYOUT_FIELDS.map(renderProductPageField)}
 				</fieldset>
 			)}
 

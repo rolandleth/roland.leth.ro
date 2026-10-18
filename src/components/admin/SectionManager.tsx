@@ -13,6 +13,7 @@ import {
 	ProjectSectionKind,
 	ProjectSectionLayout,
 } from "@/generated/prisma/enums"
+import { IMAGE_TEXT_MAX_CHARS } from "@/lib/api/schemas"
 
 export interface SectionImage {
 	_key: string
@@ -70,6 +71,19 @@ const DESCRIPTION_LABELS: Record<ProjectSectionKind, string> = {
 	text: "Description",
 	steps: "Intro above the steps (optional)",
 	pricing: "Note under the plan cards (optional)",
+}
+
+/**
+ * The accessible name of an image's caption or alt input. Every image row has
+ * the same two inputs, so the name says which image it is: "Image 2 of
+ * section 1: alt text", rather than ten inputs all called "Alt text".
+ */
+function imageFieldLabel(
+	sectionIndex: number,
+	imageIndex: number,
+	field: "caption" | "alt text"
+): string {
+	return `Image ${imageIndex + 1} of section ${sectionIndex + 1}: ${field}`
 }
 
 /**
@@ -256,6 +270,8 @@ function SectionCard({
 											images.update(image._key, { caption: e.target.value })
 										}
 										placeholder="Caption (optional)"
+										aria-label={imageFieldLabel(index, imageIndex, "caption")}
+										maxLength={IMAGE_TEXT_MAX_CHARS}
 										className="admin-input min-w-0 flex-1"
 									/>
 
@@ -275,8 +291,8 @@ function SectionCard({
 										images.update(image._key, { alt: e.target.value })
 									}
 									placeholder="Alt text (optional, defaults to the caption)"
-									aria-label="Alt text"
-									maxLength={300}
+									aria-label={imageFieldLabel(index, imageIndex, "alt text")}
+									maxLength={IMAGE_TEXT_MAX_CHARS}
 									className="admin-input"
 								/>
 							</div>

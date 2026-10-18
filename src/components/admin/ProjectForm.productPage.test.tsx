@@ -190,20 +190,19 @@ describe("ProjectForm — product page group", () => {
 		expect(screen.getByLabelText("Closing headline")).toHaveValue("10 seconds")
 	})
 
-	it("caps each field at the length the API accepts", () => {
+	it.each([
+		["Meta description (defaults to the summary)", "160"],
+		["Hero eyebrow", "80"],
+		["Hero headline", "80"],
+		["Hero image alt text", "300"],
+		["Store button note", "120"],
+		["Closing headline", "80"],
+		["Closing text", "200"],
+		["Disclaimer", "300"],
+	])("caps %s at the %s characters the API accepts", (label, maxLength) => {
 		render(<ProjectForm initialData={initialData} />)
 
-		expect(screen.getByLabelText("Hero eyebrow")).toHaveAttribute(
-			"maxLength",
-			"80"
-		)
-		expect(screen.getByLabelText("Store button note")).toHaveAttribute(
-			"maxLength",
-			"120"
-		)
-		expect(
-			screen.getByLabelText("Meta description (defaults to the summary)")
-		).toHaveAttribute("maxLength", "160")
+		expect(screen.getByLabelText(label)).toHaveAttribute("maxLength", maxLength)
 	})
 
 	it("sends trimmed values, and null for an empty or whitespace-only field", async () => {
@@ -217,6 +216,39 @@ describe("ProjectForm — product page group", () => {
 		expect(payload.heroHeadline).toBe("Find suspects")
 		expect(payload.disclaimer).toBeNull()
 		expect(payload.storeNote).toBeNull()
+	})
+
+	it("shows the meta description outside the group, since every layout uses it", () => {
+		render(<ProjectForm initialData={initialData} />)
+
+		const group = screen.getByRole("group", { name: "Product page" })
+		const field = screen.getByLabelText(
+			"Meta description (defaults to the summary)"
+		)
+
+		expect(group).not.toContainElement(field)
+	})
+
+	it("lets a portfolio page see, edit and clear its meta description", async () => {
+		render(
+			<ProjectForm
+				initialData={{
+					...initialData,
+					pageLayout: ProjectPageLayout.portfolio,
+					metaDescription: "An old snippet from the product page.",
+				}}
+			/>
+		)
+
+		const field = screen.getByLabelText(
+			"Meta description (defaults to the summary)"
+		)
+		expect(field).toHaveValue("An old snippet from the product page.")
+
+		await user.clear(field)
+		const payload = await saveAndReadPayload()
+
+		expect(payload.metaDescription).toBeNull()
 	})
 
 	it("never sends plans, palette or offers, which only the import writes", async () => {
@@ -271,7 +303,10 @@ describe("ProjectForm — section fields survive a save", () => {
 
 	it("sends an edited alt text", async () => {
 		render(<ProjectForm initialData={initialData} />)
-		await user.type(screen.getAllByLabelText("Alt text")[1], "Second shot")
+		await user.type(
+			screen.getByLabelText("Image 2 of section 2: alt text"),
+			"Second shot"
+		)
 
 		const payload = await saveAndReadPayload()
 		const [, section] = payload.sections as {

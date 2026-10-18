@@ -9,7 +9,12 @@ import {
 	ProjectSectionLayout,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
-import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
+import {
+	CREAM_PALETTE,
+	EMPTY_PRODUCT_PAGE_FIELDS,
+	GREEN_BAND_THEME,
+	textSectionFields,
+} from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProductPage from "./ProductPage"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -1348,13 +1353,7 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 
 describe("ProductPage — theme style", () => {
 	it("writes the accent, and both themes' palette when the project has one", () => {
-		const theme = {
-			band: "#24443a",
-			bandInk: "#f4f1e8",
-			bandInk2: "#c9d3cc",
-			bandHighlight: "#cfa75a",
-			accentText: "#2e7d5b",
-		}
+		const theme = GREEN_BAND_THEME
 		const { container } = renderPage(
 			makeProject({
 				palette: { light: theme, dark: { ...theme, band: "#1b3329" } },
@@ -1372,21 +1371,7 @@ describe("ProductPage — theme style", () => {
 	})
 
 	it("gives the site header each theme's band colour and inks", () => {
-		const light = {
-			band: "#f3ede4",
-			bandInk: "#2a241e",
-			bandInk2: "#6b6158",
-			bandHighlight: "#9a532b",
-			accentText: "#9a532b",
-		}
-		const dark = {
-			band: "#2a211b",
-			bandInk: "#f3ede4",
-			bandInk2: "#c9bbae",
-			bandHighlight: "#e0a27a",
-			accentText: "#e0a27a",
-		}
-		const { container } = renderPage(makeProject({ palette: { light, dark } }))
+		const { container } = renderPage(makeProject({ palette: CREAM_PALETTE }))
 		const css = [...container.querySelectorAll("style")]
 			.map((style) => style.textContent)
 			.join("")

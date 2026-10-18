@@ -160,8 +160,13 @@ const PERIOD_UNITS: Record<string, [singular: string, plural: string]> = {
 	Y: ["year", "years"],
 }
 
-// The ISO-8601 durations `billingPeriod` holds in practice: one count, one unit.
-const SIMPLE_DURATION = /^P(\d+)([DWMY])$/
+/**
+ * The ISO-8601 durations a `billingPeriod` may hold: one count of at least 1,
+ * one unit (`P1M`, `P3M`, `P1Y`). `projectOfferSchema` refuses anything else,
+ * so every stored period gets a label; `P0M` or `""` would print "every 0
+ * months" or nothing where "once" is meant.
+ */
+export const BILLING_PERIOD_PATTERN = /^P([1-9]\d*)([DWMY])$/
 
 /**
  * The label under a price: "a month" for `P1M`, "every 3 months" for `P3M`,
@@ -180,7 +185,7 @@ export function priceLabel(offer: {
 		return "once"
 	}
 
-	const match = SIMPLE_DURATION.exec(offer.billingPeriod)
+	const match = BILLING_PERIOD_PATTERN.exec(offer.billingPeriod)
 
 	if (match == null) {
 		return null
@@ -248,7 +253,7 @@ export function savingsPercent(
 /** `P1M` → 1, `P3M` → 3, `P1Y` → 12; null for no period, days, weeks, or `P1Y6M`. */
 function billingMonths(billingPeriod: string | undefined): number | null {
 	const match =
-		billingPeriod == null ? null : SIMPLE_DURATION.exec(billingPeriod)
+		billingPeriod == null ? null : BILLING_PERIOD_PATTERN.exec(billingPeriod)
 
 	if (match == null) {
 		return null

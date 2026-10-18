@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { ProjectSectionKind } from "@/generated/prisma/enums"
 import {
+	BILLING_PERIOD_PATTERN,
 	formatPrice,
 	groupOffersByPlan,
 	priceLabel,
@@ -169,6 +170,35 @@ describe("priceLabel", () => {
 	it("gives a period it can't read no label rather than a wrong one", () => {
 		expect(priceLabel({ price: "9", billingPeriod: "P1Y6M" })).toBeNull()
 	})
+
+	it("never prints 'every 0 months'", () => {
+		expect(priceLabel({ price: "9", billingPeriod: "P0M" })).toBeNull()
+	})
+
+	it("reads an empty period as unreadable, not as 'once'", () => {
+		// The schema refuses "", so only a hand-edited row could hold it.
+		expect(priceLabel({ price: "9", billingPeriod: "" })).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region BILLING_PERIOD_PATTERN
+
+describe("BILLING_PERIOD_PATTERN", () => {
+	it.each(["P1M", "P3M", "P1Y", "P2W", "P30D", "P12M"])(
+		"matches %s",
+		(period) => {
+			expect(BILLING_PERIOD_PATTERN.test(period)).toBe(true)
+		}
+	)
+
+	it.each(["", "P0M", "P01M", "P1Y6M", "P1m", "1M", "PT1H"])(
+		"doesn't match %j",
+		(period) => {
+			expect(BILLING_PERIOD_PATTERN.test(period)).toBe(false)
+		}
+	)
 })
 
 // #endregion

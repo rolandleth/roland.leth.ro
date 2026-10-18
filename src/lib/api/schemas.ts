@@ -19,6 +19,7 @@ import {
 	SLUG_MAX_LENGTH,
 } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
+import { BILLING_PERIOD_PATTERN } from "@/lib/utils/productPage"
 
 // `z.enum` in Zod 4 wants a const string tuple, but Prisma generates each
 // enum as a runtime object whose values are strings. Casting through the
@@ -227,7 +228,7 @@ const projectLinkSchema = z.object({
 // 3-letter ISO code; `billingPeriod` is an optional ISO-8601 duration (`P1M`,
 // `P1Y`) omitted for one-time purchases (e.g. Lifetime). Stored verbatim in the
 // `offers` Json column — no mapper, no related table.
-const projectOfferSchema = z.object({
+export const projectOfferSchema = z.object({
 	name: z.string().min(1).max(60),
 	// A plain decimal price string: "0" (free), "4.99", "249.00". Constrained to
 	// digits + optional 1-2 decimals so `Number(price)` (used to sort low/high)
@@ -235,8 +236,19 @@ const projectOfferSchema = z.object({
 	price: z.string().regex(/^\d+(\.\d{1,2})?$/, {
 		message: "Price must be a decimal like 0, 4.99, or 249.00",
 	}),
-	priceCurrency: z.string().length(3),
-	billingPeriod: z.string().max(10).optional(),
+	// Three capital letters, the shape `Intl.NumberFormat` needs: anything else
+	// ("US$", "usd ") makes `formatPrice` throw during the render, which takes
+	// the whole product page down. Capitals because the JSON-LD carries it too.
+	priceCurrency: z.string().regex(/^[A-Z]{3}$/, {
+		message: "Currency must be a 3-letter ISO code in capitals, like USD",
+	}),
+	billingPeriod: z
+		.string()
+		.regex(BILLING_PERIOD_PATTERN, {
+			message:
+				"Billing period must be one count and one unit, like P1M, P3M or P1Y; leave it out for a one-time price",
+		})
+		.optional(),
 	// The plan this price belongs to, by its `name`. The product page prints a
 	// plan's prices inside its card; `refineProjectPlans` rejects a name no plan
 	// has. The JSON-LD ignores it.
@@ -251,15 +263,21 @@ const projectOfferSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
+/** The `offers` Json column, as written and as read back (`getProjectBySlug`). */
+export const projectOffersSchema = z.array(projectOfferSchema)
+
 // One plan card on the product page: what the plan includes, with its prices
 // pulled from the offers that name it. Stored in the `plans` Json column, like
 // `offers`.
-const projectPlanSchema = z.object({
+export const projectPlanSchema = z.object({
 	name: z.string().trim().min(1).max(60),
 	isHighlighted: z.boolean().optional(),
 	features: z.array(z.string().trim().min(1).max(160)).min(1).max(12),
 	sortOrder: z.number().int().min(0).optional(),
 })
+
+/** The `plans` Json column, as written and as read back (`getProjectBySlug`). */
+export const projectPlansSchema = z.array(projectPlanSchema).max(4)
 
 const projectFaqSchema = z.object({
 	question: z.string().min(1).max(300),
@@ -268,10 +286,17 @@ const projectFaqSchema = z.object({
 	sortOrder: z.number().int().min(0).optional(),
 })
 
+/**
+ * The longest caption or alt text an image may have: a section image's, and
+ * the product page's hero image alt. The admin inputs take their `maxLength`
+ * from here.
+ */
+export const IMAGE_TEXT_MAX_CHARS = 300
+
 const projectSectionImageSchema = z.object({
 	url: httpUrl,
-	caption: z.string().max(300).nullable().optional(),
-	alt: z.string().max(300).nullable().optional(),
+	caption: z.string().max(IMAGE_TEXT_MAX_CHARS).nullable().optional(),
+	alt: z.string().max(IMAGE_TEXT_MAX_CHARS).nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -347,7 +372,7 @@ const hexColor = z
 // The product page's band and small-text colours for one theme. Hex only: the
 // page writes them into a `<style>` block, so the regex is also what keeps
 // anything but a colour out of the CSS.
-const paletteThemeSchema = z.object({
+export const paletteThemeSchema = z.object({
 	band: hexColor,
 	bandInk: hexColor,
 	bandInk2: hexColor,
@@ -356,11 +381,59 @@ const paletteThemeSchema = z.object({
 })
 
 // Both themes are required: a band designed for one background has no safe
-// default on the other (a cream band is a glaring block on a dark page).
-const projectPaletteSchema = z.object({
+// default on the other (a cream band is a glaring block on a dark page). Also
+// what `getProjectBySlug` parses the column with on read.
+export const projectPaletteSchema = z.object({
 	light: paletteThemeSchema,
 	dark: paletteThemeSchema,
 })
+
+/**
+ * The longest each product-page text field may be. The admin form's inputs
+ * take their `maxLength` from here, so the two can't drift.
+ */
+export const PRODUCT_PAGE_TEXT_LIMITS = {
+	metaDescription: DESCRIPTION_MAX_CHARS,
+	heroEyebrow: 80,
+	heroHeadline: 80,
+	heroImageAlt: IMAGE_TEXT_MAX_CHARS,
+	storeNote: 120,
+	closingHeadline: 80,
+	closingBody: 200,
+	disclaimer: 300,
+} as const
+
+/** The product page's plain-text columns, one per `PRODUCT_PAGE_TEXT_LIMITS` key. */
+export type ProductPageTextKey = keyof typeof PRODUCT_PAGE_TEXT_LIMITS
+
+/** The product-page text field keys, in the order above. */
+export const PRODUCT_PAGE_TEXT_KEYS = Object.keys(
+	PRODUCT_PAGE_TEXT_LIMITS
+) as ProductPageTextKey[]
+
+/** Trimmed, not blank, capped; null clears it, absent leaves it. */
+function optionalTrimmedText(maxLength: number) {
+	return z.string().trim().min(1).max(maxLength).nullable().optional()
+}
+
+// Rendered only by the product layout, apart from `metaDescription`, which
+// sets every project's search snippet (see the Prisma schema). `satisfies`
+// fails the build when a key here and a limit above don't pair up.
+const productPageTextFields = {
+	metaDescription: collapsedWhitespace
+		.pipe(z.string().min(1).max(PRODUCT_PAGE_TEXT_LIMITS.metaDescription))
+		.nullable()
+		.optional(),
+	heroEyebrow: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.heroEyebrow),
+	heroHeadline: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.heroHeadline),
+	heroImageAlt: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.heroImageAlt),
+	storeNote: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.storeNote),
+	closingHeadline: optionalTrimmedText(
+		PRODUCT_PAGE_TEXT_LIMITS.closingHeadline
+	),
+	closingBody: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.closingBody),
+	disclaimer: optionalTrimmedText(PRODUCT_PAGE_TEXT_LIMITS.disclaimer),
+} satisfies Record<ProductPageTextKey, z.ZodType>
 
 // `min(1)` on tags so a project can't be saved with bucket only and no
 // descriptive tags — the detail page needs something to render. `max(8)` is
@@ -413,7 +486,9 @@ const projectFields = {
 	// Capped at 60 so it doesn't truncate in SERPs.
 	metaTitle: z.string().max(60).nullable().optional(),
 	keywords: z.array(z.string().min(1).max(50)).max(10).optional(),
-	offers: z.array(projectOfferSchema).optional(),
+	// The three Json columns are nullable like the text ones, so a PUT can clear
+	// them; the route writes a null as SQL NULL (`toJsonColumnUpdate`).
+	offers: projectOffersSchema.nullable().optional(),
 	// schema.org SoftwareApplication category, e.g. "BusinessApplication".
 	// Omitted from JSON-LD when unset rather than guessed from bucket.
 	applicationCategory: z.string().min(1).max(60).nullable().optional(),
@@ -429,21 +504,9 @@ const projectFields = {
 	pageLayout: z.enum(PROJECT_PAGE_LAYOUTS).optional(),
 	status: z.enum(PROJECT_STATUSES).optional(),
 	isOwnApp: z.boolean().optional(),
-	// Product-page fields, rendered only by the product layout. See the Prisma
-	// schema.
-	metaDescription: collapsedWhitespace
-		.pipe(z.string().min(1).max(DESCRIPTION_MAX_CHARS))
-		.nullable()
-		.optional(),
-	heroEyebrow: z.string().trim().min(1).max(80).nullable().optional(),
-	heroHeadline: z.string().trim().min(1).max(80).nullable().optional(),
-	heroImageAlt: z.string().trim().min(1).max(300).nullable().optional(),
-	storeNote: z.string().trim().min(1).max(120).nullable().optional(),
-	closingHeadline: z.string().trim().min(1).max(80).nullable().optional(),
-	closingBody: z.string().trim().min(1).max(200).nullable().optional(),
-	disclaimer: z.string().trim().min(1).max(300).nullable().optional(),
-	plans: z.array(projectPlanSchema).max(4).optional(),
-	palette: projectPaletteSchema.optional(),
+	...productPageTextFields,
+	plans: projectPlansSchema.nullable().optional(),
+	palette: projectPaletteSchema.nullable().optional(),
 	date: z.string().nullable().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 	sections: z.array(projectSectionSchema).optional(),
@@ -453,12 +516,13 @@ const projectFields = {
 
 type PlanRefineInput = {
 	pageLayout?: ProjectPageLayout
-	plans?: { name: string; isHighlighted?: boolean }[]
-	offers?: { plan?: string; price: string; isBestValue?: boolean }[]
+	plans?: { name: string; isHighlighted?: boolean }[] | null
+	offers?: { plan?: string; price: string; isBestValue?: boolean }[] | null
 	sections?: { kind: ProjectSectionKind }[]
 }
 
 // Cross-field rules for the plan cards:
+//   - a partial update sends `plans` and `offers` together, or neither;
 //   - plan names are unique, since offers point at a plan by name;
 //   - at most one plan is highlighted (it's the one on the band colour);
 //   - with plans present, every offer names one of them, or that price would
@@ -470,9 +534,8 @@ type PlanRefineInput = {
 //     would be a heading over nothing;
 //   - at most one best-value price, paid, with another paid price in its plan.
 // Like `refineBucketTagCoherence`, each rule only fires when the fields it
-// compares are in the payload. The one exception is the create path: there the
-// whole project is in the payload, so an offer naming a plan with no `plans`
-// sent is a dangling reference, and an absent `plans` or `offers` means none.
+// compares are in the payload. A field that is absent is left as stored; a
+// null one, like an absent one on the create path, means none.
 function projectPlansRefinement(isPartial: boolean) {
 	return (value: PlanRefineInput, ctx: z.RefinementCtx) =>
 		refineProjectPlans(value, ctx, isPartial)
@@ -485,7 +548,22 @@ function refineProjectPlans(
 ): void {
 	const { plans, offers, sections } = value
 
-	refineProductPagePlans(value, ctx, isPartial)
+	// The schema can't see the stored row. Plans sent alone could rename the
+	// plan the stored offers name; offers sent alone could name a plan that was
+	// never stored. Either way the prices drop out of every card with no error
+	// (`groupOffersByPlan`), so a partial update must carry both to be checked.
+	if (isPartial && (plans === undefined) !== (offers === undefined)) {
+		ctx.addIssue({
+			code: "custom",
+			path: [plans === undefined ? "plans" : "offers"],
+			message:
+				"Send plans and offers together: each offer names its plan, so neither can be checked alone",
+		})
+
+		return
+	}
+
+	refineProductPagePlans(value, ctx)
 	refinePricingSections(sections, offers, ctx, isPartial)
 	refineBestValueOffer(offers, ctx)
 
@@ -528,12 +606,6 @@ function refineProjectPlans(
 				return
 			}
 
-			if (plans == null && isPartial) {
-				// A partial update may send offers alone; only a payload that sends
-				// both can be checked against the plans it names.
-				return
-			}
-
 			if (!planNames.has(offer.plan)) {
 				ctx.addIssue({
 					code: "custom",
@@ -546,11 +618,11 @@ function refineProjectPlans(
 }
 
 // Keyed to the page, not to ownership: it's the product page that prints
-// prices only inside plan cards.
+// prices only inside plan cards. Offers in a partial update come with their
+// plans (see above), so a missing `plans` here always means none.
 function refineProductPagePlans(
 	value: PlanRefineInput,
-	ctx: z.RefinementCtx,
-	isPartial: boolean
+	ctx: z.RefinementCtx
 ): void {
 	const { pageLayout, plans, offers } = value
 
@@ -559,11 +631,6 @@ function refineProductPagePlans(
 		offers == null ||
 		offers.length === 0
 	) {
-		return
-	}
-
-	// A partial update that leaves `plans` out isn't saying there are none.
-	if (plans == null && isPartial) {
 		return
 	}
 
@@ -599,8 +666,9 @@ function refinePricingSections(
 		})
 	}
 
-	// A partial update that leaves `offers` out isn't saying there are none.
-	if (offers == null && isPartial) {
+	// A partial update that leaves `offers` out isn't saying there are none; one
+	// that sends null is.
+	if (offers === undefined && isPartial) {
 		return
 	}
 

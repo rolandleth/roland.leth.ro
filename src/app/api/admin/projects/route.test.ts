@@ -8,7 +8,7 @@ import {
 	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { prisma } from "@/lib/db/db"
-import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
+import { EMPTY_PRODUCT_PAGE_FIELDS, GREEN_BAND_THEME } from "@/test/fixtures"
 import { POST } from "./route"
 
 vi.mock("@/lib/api/requireAdmin", async () => {
@@ -225,13 +225,7 @@ describe("POST /api/admin/projects", () => {
 	it("writes the product-page fields, plans and palette from the payload", async () => {
 		vi.mocked(prisma.project.create).mockResolvedValue(createdProject)
 		const plans = [{ name: "Free", features: ["Meals."], sortOrder: 1 }]
-		const theme = {
-			band: "#24443a",
-			bandInk: "#f4f1e8",
-			bandInk2: "#c9d3cc",
-			bandHighlight: "#cfa75a",
-			accentText: "#2e7d5b",
-		}
+		const theme = GREEN_BAND_THEME
 
 		await POST(
 			makeRequest({

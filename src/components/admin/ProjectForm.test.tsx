@@ -153,7 +153,7 @@ const user = setupUser()
 async function fillRequiredFields() {
 	await user.type(screen.getByLabelText(/^name$/i), "New App")
 	await user.selectOptions(screen.getByLabelText(/^role$/i), "Sole developer")
-	await user.type(screen.getByLabelText(/summary/i), "A new app.")
+	await user.type(screen.getByLabelText(/^summary$/i), "A new app.")
 }
 
 async function clickSave() {
@@ -183,7 +183,7 @@ describe("ProjectForm — create mode", () => {
 	it("renders the summary textarea", () => {
 		mockRouter()
 		render(<ProjectForm />)
-		expect(screen.getByLabelText(/summary/i)).toBeInTheDocument()
+		expect(screen.getByLabelText(/^summary$/i)).toBeInTheDocument()
 	})
 
 	// Discontinued became a status, so the own-app flag is the one checkbox

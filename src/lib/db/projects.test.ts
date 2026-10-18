@@ -25,7 +25,9 @@ import {
 	type AdminProjectDetail,
 } from "@/lib/db/projects"
 import {
+	CREAM_PALETTE,
 	EMPTY_PRODUCT_PAGE_FIELDS,
+	GREEN_BAND_THEME,
 	makeProjectListItem,
 	textSectionFields,
 } from "@/test/fixtures"
@@ -368,22 +370,7 @@ describe("getProjectsGalleryCached cache key", () => {
 
 describe("toGalleryItem, through getProjectsForAdmin", () => {
 	it("resolves the hero image like the product page and passes the tile fields through", async () => {
-		const palette = {
-			light: {
-				band: "#f3ede4",
-				bandInk: "#2a241e",
-				bandInk2: "#6b6158",
-				bandHighlight: "#9a532b",
-				accentText: "#9a532b",
-			},
-			dark: {
-				band: "#2a211b",
-				bandInk: "#f3ede4",
-				bandInk2: "#c9bbae",
-				bandHighlight: "#e0a27a",
-				accentText: "#e0a27a",
-			},
-		}
+		const palette = CREAM_PALETTE
 		const links = [
 			{ id: 1, label: "App Store", url: "https://apps.apple.com/app/id1" },
 		]
@@ -419,6 +406,32 @@ describe("toGalleryItem, through getProjectsForAdmin", () => {
 		// The raw image columns stay off the item.
 		expect(item).not.toHaveProperty("heroImage")
 		expect(item).not.toHaveProperty("cardImage")
+	})
+
+	it("leaves out a stored palette that fails the schema, since the tile writes it into CSS", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+		vi.mocked(prisma.project.findMany).mockResolvedValue([
+			{
+				...makeGalleryRow({
+					cardImage: null,
+					ogImage: null,
+					heroImage: null,
+					sections: [],
+				}),
+				palette: {
+					light: { ...CREAM_PALETTE.light, band: "red}body{display:none" },
+					dark: CREAM_PALETTE.dark,
+				},
+			},
+		] as unknown as Awaited<ReturnType<typeof prisma.project.findMany>>)
+
+		const [item] = await getProjectsForAdmin()
+
+		expect(item.palette).toBeNull()
+		expect(warn).toHaveBeenCalledWith(
+			"[db:projects] stored palette fail the schema, left out",
+			{ slug: item.slug, paths: ["light.band"] }
+		)
 	})
 })
 
@@ -655,13 +668,7 @@ describe("getProjectBySlug", () => {
 
 	it("hands the plans and palette Json columns back as stored", async () => {
 		const plans = [{ name: "Free", features: ["Meals."], sortOrder: 1 }]
-		const theme = {
-			band: "#24443a",
-			bandInk: "#f4f1e8",
-			bandInk2: "#c9d3cc",
-			bandHighlight: "#cfa75a",
-			accentText: "#2e7d5b",
-		}
+		const theme = GREEN_BAND_THEME
 		vi.mocked(prisma.project.findUnique).mockResolvedValue({
 			...fullProject,
 			plans,
@@ -671,6 +678,53 @@ describe("getProjectBySlug", () => {
 		const result = await getProjectBySlug("my-app")
 		expect(result?.plans).toEqual(plans)
 		expect(result?.palette).toEqual({ light: theme, dark: theme })
+	})
+
+	it("leaves out each stored Json column that fails its schema, and says which", async () => {
+		// A row written around the schema: a currency `formatPrice` would throw
+		// on, a plan with no features, and a colour that isn't one.
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+		vi.mocked(prisma.project.findUnique).mockResolvedValue({
+			...fullProject,
+			offers: [{ name: "Pro", price: "4.99", priceCurrency: "US$" }],
+			plans: [{ name: "Free", features: [] }],
+			palette: { light: GREEN_BAND_THEME, dark: { band: "url(x)" } },
+		} as Awaited<ReturnType<typeof prisma.project.findUnique>>)
+
+		const result = await getProjectBySlug("hand-edited")
+
+		expect(result?.offers).toBeNull()
+		expect(result?.plans).toBeNull()
+		expect(result?.palette).toBeNull()
+		expect(warn).toHaveBeenCalledWith(
+			"[db:projects] stored offers fail the schema, left out",
+			{ slug: "hand-edited", paths: ["0.priceCurrency"] }
+		)
+		expect(warn).toHaveBeenCalledWith(
+			"[db:projects] stored plans fail the schema, left out",
+			{ slug: "hand-edited", paths: ["0.features"] }
+		)
+		expect(warn).toHaveBeenCalledWith(
+			"[db:projects] stored palette fail the schema, left out",
+			expect.objectContaining({ slug: "hand-edited" })
+		)
+	})
+
+	it("reads an empty Json column as null without a warning", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+		vi.mocked(prisma.project.findUnique).mockResolvedValue({
+			...fullProject,
+			offers: null,
+			plans: null,
+			palette: null,
+		} as Awaited<ReturnType<typeof prisma.project.findUnique>>)
+
+		const result = await getProjectBySlug("empty-json")
+
+		expect(result?.offers).toBeNull()
+		expect(result?.plans).toBeNull()
+		expect(result?.palette).toBeNull()
+		expect(warn).not.toHaveBeenCalled()
 	})
 
 	it("keys the cache on the row's shape, so an entry in an older shape is never served", async () => {
