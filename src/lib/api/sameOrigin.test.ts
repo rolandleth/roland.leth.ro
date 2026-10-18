@@ -118,6 +118,38 @@ describe("refuseCrossSiteWrite", () => {
 		)
 	})
 
+	it("caps a header-sized Origin and Sec-Fetch-Site in the log line", () => {
+		const longOrigin = `https://${"a".repeat(5000)}.example`
+		const longFetchSite = "x".repeat(5000)
+
+		refuseCrossSiteWrite(
+			request("POST", { "sec-fetch-site": longFetchSite, origin: longOrigin }),
+			"[test]"
+		)
+
+		const [, payload] = vi.mocked(console.warn).mock.calls[0]
+
+		expect(payload).toEqual({
+			secFetchSite: `${"x".repeat(200)}…`,
+			origin: `${longOrigin.slice(0, 200)}…`,
+		})
+	})
+
+	it("logs an absent header as null", () => {
+		refuseCrossSiteWrite(
+			request("POST", { origin: "https://evil.example" }),
+			"[test]"
+		)
+
+		expect(console.warn).toHaveBeenCalledWith(
+			"[test] cross-site write refused",
+			{
+				secFetchSite: null,
+				origin: "https://evil.example",
+			}
+		)
+	})
+
 	it("does not log a request it lets through", () => {
 		refuseCrossSiteWrite(
 			request("POST", { "sec-fetch-site": "same-origin" }),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { sanitizeLogString } from "@/lib/api/sanitizeLogString"
 
 /** Methods a browser may send cross-site without it being a write. */
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
@@ -45,10 +46,12 @@ export function refuseCrossSiteWrite(
 	// Warn, not error: a stray cross-site form or a browser extension is noise,
 	// not a breach, since the write never ran. Both headers are logged so a
 	// false positive (a proxy rewriting the host) is diagnosable from one line.
+	// Both are capped: login runs this before its rate limiter, so any caller
+	// reaches this line with no budget at all.
 	// eslint-disable-next-line no-console
 	console.warn(`${tag} cross-site write refused`, {
-		secFetchSite: fetchSite,
-		origin,
+		secFetchSite: fetchSite == null ? null : sanitizeLogString(fetchSite),
+		origin: origin == null ? null : sanitizeLogString(origin),
 	})
 
 	return NextResponse.json(
