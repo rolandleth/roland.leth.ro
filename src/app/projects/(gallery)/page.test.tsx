@@ -68,7 +68,6 @@ function makeApp(
 		isOwnApp: true,
 		summary: `${name} summary.`,
 		heroEyebrow: `${name} eyebrow`,
-		heroHeadline: `${name} headline`,
 		productHeroImage: `/${slug}-hero.png`,
 		links: [appStoreLink(name.length)],
 		...overrides,
@@ -139,7 +138,7 @@ describe("ProjectsPage — sections", () => {
 			}),
 		])
 
-		// A lone tile is wide: its heading carries the eyebrow and headline.
+		// A lone tile is wide: its heading carries the eyebrow.
 		expect(
 			within(sectionNamed("Featured projects")).getByRole("heading", {
 				name: /^Reckon/,
@@ -211,7 +210,6 @@ describe("ProjectsPage — sections", () => {
 			makeApp("Agency", {
 				isOwnApp: false,
 				heroEyebrow: null,
-				heroHeadline: null,
 				productHeroImage: null,
 				links: [],
 			}),
@@ -287,18 +285,16 @@ describe("ProjectsPage — sections", () => {
 // #region Tiles
 
 describe("ProjectsPage — tiles", () => {
-	it("pairs two tiles as halves, each with its eyebrow but not the product page's headline", async () => {
+	it("pairs two tiles as halves, each with its eyebrow", async () => {
 		await renderGallery([makeApp("Reckon"), makeApp("Continuum")])
 
 		expect(
 			screen.getByRole("heading", { level: 2, name: /^Reckon/ })
 		).toHaveTextContent(/^Reckon: Reckon eyebrow$/)
-		expect(screen.queryByText("Reckon headline")).not.toBeInTheDocument()
-		expect(screen.queryByText("Continuum headline")).not.toBeInTheDocument()
 		expect(screen.getByText("Reckon summary.")).toBeInTheDocument()
 	})
 
-	it("widens the first of three tiles, with the eyebrow and headline in it", async () => {
+	it("widens the first of three tiles, with the same heading as the halves under it", async () => {
 		await renderGallery([
 			makeApp("Digest"),
 			makeApp("Reckon"),
@@ -306,13 +302,19 @@ describe("ProjectsPage — tiles", () => {
 		])
 
 		const digest = articleTitled(/^Digest/)
+		const digestHeading = within(digest).getByRole("heading", { level: 2 })
+		const reckonHeading = within(articleTitled(/^Reckon/)).getByRole(
+			"heading",
+			{ level: 2 }
+		)
 
 		// One heading, joined for screen readers like the product page's h1.
-		expect(within(digest).getByRole("heading", { level: 2 })).toHaveTextContent(
-			"Digest: Digest eyebrow. Digest headline"
-		)
+		expect(digestHeading).toHaveTextContent(/^Digest: Digest eyebrow$/)
 		expect(digest.parentElement).toHaveClass("min-[900px]:col-span-2")
-		expect(screen.queryByText("Reckon headline")).not.toBeInTheDocument()
+		// The name is every tile's title, at one size across the rows.
+		expect(within(digestHeading).getByText("Digest").className).toBe(
+			within(reckonHeading).getByText("Reckon").className
+		)
 	})
 
 	it("gives a tile its store button and a link to the project named for screen readers", async () => {

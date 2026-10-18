@@ -23,10 +23,10 @@ const HALF_IMAGE_SIZES = "(min-width: 900px) 460px, calc(100vw - 2rem)"
 /**
  * One high-prominence project on the gallery, on its product page's band
  * colours (`AppTileStyle`; the site's defaults without a palette). Both kinds
- * have the name and the eyebrow, the summary, the store buttons and "View
- * project". A wide tile adds the product page's headline, with the full hero
- * image beside it all; a half tile has the top of the hero image rising from
- * its bottom edge. Without a hero image, the text takes the whole tile.
+ * have the same text: the name and the eyebrow, the summary, the store buttons
+ * and "View project". A wide tile has the full hero image beside it; a half
+ * tile has the top of the hero image rising from its bottom edge. Without a
+ * hero image, the text takes the whole tile.
  *
  * An app that isn't live has no store buttons (`linkCtasFor`): its status
  * takes their place, beside "View project", as on its product page.
@@ -75,7 +75,7 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 				}`}
 			>
 				<div className="min-w-0">
-					<TileTitle project={project} isWide />
+					<TileTitle project={project} />
 
 					<p className="mt-5 text-[17px] leading-[1.55] text-pretty text-(--product-band-ink2)">
 						{project.summary}
@@ -111,7 +111,7 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 				image == null ? "pb-9 min-[900px]:pb-11" : ""
 			}`}
 		>
-			<TileTitle project={project} isWide={false} />
+			<TileTitle project={project} />
 
 			<p className="mt-5 text-base leading-[1.6] text-pretty text-(--product-band-ink2)">
 				{project.summary}
@@ -142,41 +142,20 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 	)
 }
 
-// A tile's big title, the wide tile's headline or the half tile's name: one
-// size, so the titles match across the rows.
-const TITLE_SIZE_CLASS = "text-[38px] min-[900px]:text-[44px]"
-
-// The name line: small above the headline on a wide tile; a half tile's title.
-const WIDE_NAME_CLASS =
-	"flex items-center gap-3.5 font-serif text-2xl leading-none font-medium tracking-[-0.015em]"
-const HALF_NAME_CLASS = `flex items-center gap-4 font-serif leading-none font-normal tracking-[-0.02em] ${TITLE_SIZE_CLASS}`
-
 /**
- * A tile's heading: the name and the eyebrow, and on a wide tile the headline,
- * joined for screen readers by visually hidden ": " and ". ", as the product
- * page's `h1` is, so it reads "Digest: Food and symptom journal. Find which
- * foods to suspect" rather than three phrases run together. An `h2`: the apps
- * sit straight under the page's `h1`, with no section heading between.
+ * A tile's heading, the same on both kinds, so the titles match across the
+ * rows: the name and the eyebrow, joined for screen readers by a visually
+ * hidden ": ", as the product page's `h1` is, so it reads "Digest: Food
+ * journal for iPhone and iPad" rather than two phrases run together. An `h2`:
+ * the apps sit straight under the page's `h1`, with no section heading between.
  */
-function TileTitle({
-	project,
-	isWide,
-}: {
-	project: ProjectGalleryItem
-	isWide: boolean
-}) {
-	const { name, icon, heroEyebrow, heroHeadline } = project
-	const headline = isWide ? heroHeadline : null
+function TileTitle({ project }: { project: ProjectGalleryItem }) {
+	const { name, icon, heroEyebrow } = project
 
 	return (
 		<h2 className="flex flex-col gap-3.5 font-normal">
-			<span className={isWide ? WIDE_NAME_CLASS : HALF_NAME_CLASS}>
-				<ProjectIcon
-					name={name}
-					icon={icon}
-					size={isWide ? 44 : 48}
-					className="shadow-sm"
-				/>
+			<span className="flex items-center gap-4 font-serif text-[38px] leading-none font-normal tracking-[-0.02em] min-[900px]:text-[44px]">
+				<ProjectIcon name={name} icon={icon} size={48} className="shadow-sm" />
 				{name}
 			</span>
 
@@ -185,17 +164,6 @@ function TileTitle({
 					<span className="sr-only">: </span>
 					<span className="font-serif text-xl leading-snug text-(--product-band-hi) italic">
 						{heroEyebrow}
-					</span>
-				</>
-			)}
-
-			{headline != null && (
-				<>
-					<span className="sr-only">{heroEyebrow == null ? ": " : ". "}</span>
-					<span
-						className={`font-serif leading-[1.04] tracking-[-0.025em] text-balance ${TITLE_SIZE_CLASS}`}
-					>
-						{headline}
 					</span>
 				</>
 			)}

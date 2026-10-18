@@ -142,7 +142,6 @@ export function makeProjectGalleryItem(
 		productHeroImage: null,
 		heroImageAlt: null,
 		heroEyebrow: null,
-		heroHeadline: null,
 		palette: null,
 		links: [],
 		...overrides,

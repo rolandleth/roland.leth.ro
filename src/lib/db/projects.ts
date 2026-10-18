@@ -48,7 +48,6 @@ export interface ProjectGalleryItem extends ProjectListItem {
 	productHeroImage: string | null
 	heroImageAlt: string | null
 	heroEyebrow: string | null
-	heroHeadline: string | null
 	palette: ProjectPalette | null
 	links: { id: number; label: string; url: string }[]
 }
@@ -206,7 +205,6 @@ const gallerySelect = {
 	heroImage: true,
 	heroImageAlt: true,
 	heroEyebrow: true,
-	heroHeadline: true,
 	palette: true,
 	// The store buttons on an own app's gallery tile.
 	links: {

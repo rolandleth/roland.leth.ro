@@ -360,7 +360,7 @@ describe("getProjectsGalleryCached cache key", () => {
 				?.keys ?? []
 
 		// The fields the own-app tiles added.
-		for (const field of ['"palette"', '"heroHeadline"', '"links"']) {
+		for (const field of ['"palette"', '"heroEyebrow"', '"links"']) {
 			expect(shape).toContain(field)
 		}
 	})
@@ -398,7 +398,6 @@ describe("toGalleryItem, through getProjectsForAdmin", () => {
 				isOwnApp: true,
 				heroImageAlt: "The app.",
 				heroEyebrow: "Decision journal",
-				heroHeadline: "Find out.",
 				palette,
 				links,
 			},
@@ -412,7 +411,6 @@ describe("toGalleryItem, through getProjectsForAdmin", () => {
 			isOwnApp: true,
 			heroImageAlt: "The app.",
 			heroEyebrow: "Decision journal",
-			heroHeadline: "Find out.",
 			palette,
 			links,
 		})
