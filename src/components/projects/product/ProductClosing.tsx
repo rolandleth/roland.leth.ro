@@ -70,7 +70,9 @@ export default function ProductClosing({
 
 				{(storeLinks.length > 0 || label != null) && (
 					<div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-						{label != null && <p className="product-status-cta">{label}</p>}
+						{label != null && (
+							<p className="product-status-cta-large">{label}</p>
+						)}
 
 						{storeLinks.map(({ link, cta }) => (
 							<ProjectLinkCta
@@ -78,6 +80,7 @@ export default function ProductClosing({
 								url={link.url}
 								cta={cta}
 								accent="var(--product-band-hi)"
+								isBadgeLarge
 							/>
 						))}
 					</div>

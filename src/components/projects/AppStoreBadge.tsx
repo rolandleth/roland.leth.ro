@@ -5,11 +5,23 @@ interface Props {
 	storefront: Storefront
 	/** The listing URL; the badge is only ever a link to the store, per Apple's guidelines. */
 	href: string
+	/**
+	 * Draws the badge 56px tall instead of 40px: the product page's store
+	 * buttons, where the badge is the page's main call to action. The gallery
+	 * tiles and the tabbed layout keep the 40px one.
+	 */
+	isLarge?: boolean
 	className?: string
 }
 
 /** Apple authors the artwork at 40pt, the smallest height its guidelines allow on screen. */
 const BADGE_HEIGHT = 40
+
+// The two drawn heights. `.product-status-cta` and `.product-status-cta-large`
+// in `globals.css` match them, so a status in the badge's place keeps the row's
+// shape.
+const BADGE_HEIGHT_CLASS = "h-10"
+const LARGE_BADGE_HEIGHT_CLASS = "h-14"
 
 /**
  * Per-storefront artwork, straight from Apple's marketing kit and unmodified,
@@ -53,8 +65,14 @@ const BADGES: Record<
  * SVG (~10 KB) on every first visit; the repeated CTA reuses the same URLs, so
  * each file downloads once per page.
  */
-export default function AppStoreBadge({ storefront, href, className }: Props) {
+export default function AppStoreBadge({
+	storefront,
+	href,
+	isLarge = false,
+	className,
+}: Props) {
 	const badge = BADGES[storefront]
+	const heightClass = isLarge ? LARGE_BADGE_HEIGHT_CLASS : BADGE_HEIGHT_CLASS
 
 	return (
 		<a
@@ -75,7 +93,7 @@ export default function AppStoreBadge({ storefront, href, className }: Props) {
 				width={badge.width}
 				height={BADGE_HEIGHT}
 				loading="eager"
-				className="h-10 w-auto dark:hidden"
+				className={`${heightClass} w-auto dark:hidden`}
 			/>
 			<Image
 				src={badge.dark}
@@ -83,7 +101,7 @@ export default function AppStoreBadge({ storefront, href, className }: Props) {
 				width={badge.width}
 				height={BADGE_HEIGHT}
 				loading="eager"
-				className="hidden h-10 w-auto dark:block"
+				className={`hidden ${heightClass} w-auto dark:block`}
 			/>
 		</a>
 	)

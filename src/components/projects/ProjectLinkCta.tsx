@@ -6,6 +6,11 @@ interface Props {
 	/** How the link renders; decided by `linkCtasFor`. */
 	cta: LinkCta
 	accent: string
+	/**
+	 * The badge at its large size (`AppStoreBadge`'s `isLarge`): the product
+	 * page's store buttons. A pill keeps its size.
+	 */
+	isBadgeLarge?: boolean
 }
 
 /** Pill styling for a link that isn't the App Store badge. */
@@ -18,7 +23,12 @@ const ctaPillClass =
  * page) and by every spot inside them that shows a store link, so a link
  * renders the same way everywhere.
  */
-export default function ProjectLinkCta({ url, cta, accent }: Props) {
+export default function ProjectLinkCta({
+	url,
+	cta,
+	accent,
+	isBadgeLarge = false,
+}: Props) {
 	if (cta.kind === "badge") {
 		// `justify-self-center`: in the hero grid the anchor would otherwise
 		// stretch to the column and leave the artwork flush left.
@@ -26,6 +36,7 @@ export default function ProjectLinkCta({ url, cta, accent }: Props) {
 			<AppStoreBadge
 				storefront={cta.storefront}
 				href={url}
+				isLarge={isBadgeLarge}
 				className="justify-self-center"
 			/>
 		)

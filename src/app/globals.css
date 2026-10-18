@@ -503,12 +503,20 @@ code[data-theme*=" "] span {
 	}
 
 	/* The same where a live app has its store button, in the button's place: the
-	   product page's hero, pricing and closing, and the gallery's app tiles. The
-	   badge's 40px height, so the row keeps its shape, and filled rather than
-	   outlined, so it reads as a status and not as a link. The text keeps the
-	   surrounding ink, which reads on the band and on the plain page alike. */
-	.product-status-cta {
+	   gallery's app tiles, and as `-large` the product page's hero, pricing and
+	   closing. The badge's height, so the row keeps its shape, and filled rather
+	   than outlined, so it reads as a status and not as a link. The text keeps
+	   the surrounding ink, which reads on the band and on the plain page alike. */
+	.product-status-cta,
+	.product-status-cta-large {
 		@apply inline-flex h-10 items-center rounded-full border border-(--product-band-hi)/40 bg-(--product-band-hi)/15 px-5 text-[15px] font-semibold;
+	}
+
+	/* The product page's: the large badge's 56px (`AppStoreBadge`'s `isLarge`),
+	   with the text and padding grown to suit. After the shared rule, so it wins
+	   over the 40px values. */
+	.product-status-cta-large {
+		@apply h-14 px-6 text-lg;
 	}
 
 }

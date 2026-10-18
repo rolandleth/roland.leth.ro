@@ -23,6 +23,7 @@ vi.mock("next/image", () => ({
 			<img
 				alt={props.alt as string}
 				src={props.src as string}
+				className={props.className as string | undefined}
 				data-priority={props.priority === true ? "true" : undefined}
 			/>
 		)
@@ -1339,6 +1340,57 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 		)
 		expect(screen.queryByText(/updated/i)).not.toBeInTheDocument()
 		expect(screen.queryByText(/made by/i)).not.toBeInTheDocument()
+	})
+})
+
+// #endregion
+
+// #region Store buttons
+
+describe("ProductPage — store buttons", () => {
+	it("draws every store badge at the large size: the hero, the pricing and the closing", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers,
+				sections: [makeSection(1, "Free and paid", PRICING_SECTION)],
+			})
+		)
+
+		const badges = screen.getAllByRole("link", {
+			name: "Download on the App Store",
+		})
+
+		expect(badges).toHaveLength(3)
+		for (const badge of badges) {
+			// The light and the dark artwork.
+			const images = badge.querySelectorAll("img")
+
+			expect(images).toHaveLength(2)
+			for (const image of images) {
+				expect(image).toHaveClass("h-14")
+				expect(image).not.toHaveClass("h-10")
+			}
+		}
+	})
+
+	// The status takes the badge's place, so it takes its size too.
+	it("draws a coming-soon app's status at the large badge's size, wherever it stands", () => {
+		renderPage(
+			makeProject({
+				status: ProjectStatus.comingSoon,
+				plans,
+				offers,
+				sections: [makeSection(1, "Free and paid", PRICING_SECTION)],
+			})
+		)
+
+		const statuses = screen.getAllByText("Coming soon")
+
+		expect(statuses).toHaveLength(3)
+		for (const status of statuses) {
+			expect(status).toHaveClass("product-status-cta-large")
+		}
 	})
 })
 

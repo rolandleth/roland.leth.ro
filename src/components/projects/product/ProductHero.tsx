@@ -139,7 +139,9 @@ export default function ProductHero({
 
 					{(storeLinks.length > 0 || label != null || stepsAnchor != null) && (
 						<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-							{label != null && <p className="product-status-cta">{label}</p>}
+							{label != null && (
+								<p className="product-status-cta-large">{label}</p>
+							)}
 
 							{storeLinks.map(({ link, cta }) => (
 								<ProjectLinkCta
@@ -147,6 +149,7 @@ export default function ProductHero({
 									url={link.url}
 									cta={cta}
 									accent="var(--product-band-hi)"
+									isBadgeLarge
 								/>
 							))}
 

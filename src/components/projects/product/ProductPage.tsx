@@ -133,13 +133,14 @@ export default function ProductPage({
 					url={primaryStoreLink.link.url}
 					cta={primaryStoreLink.cta}
 					accent="var(--project-accent)"
+					isBadgeLarge
 				/>
 			</div>
 		)
 	} else if (label != null) {
 		storeButton = (
 			<div className="flex">
-				<p className="product-status-cta">{label}</p>
+				<p className="product-status-cta-large">{label}</p>
 			</div>
 		)
 	}

@@ -29,9 +29,17 @@ const storefrontCases = Object.entries(expectedBadges) as [
 	(typeof expectedBadges)[Storefront],
 ][]
 
-function renderBadge(storefront: Storefront, className?: string) {
+function renderBadge(
+	storefront: Storefront,
+	{ className, isLarge }: { className?: string; isLarge?: boolean } = {}
+) {
 	render(
-		<AppStoreBadge storefront={storefront} href={href} className={className} />
+		<AppStoreBadge
+			storefront={storefront}
+			href={href}
+			isLarge={isLarge}
+			className={className}
+		/>
 	)
 
 	const link = screen.getByRole("link", {
@@ -103,10 +111,36 @@ describe("AppStoreBadge", () => {
 	})
 
 	it("appends the caller's className to the link", () => {
-		const { link } = renderBadge("AppStore", "justify-self-center")
+		const { link } = renderBadge("AppStore", {
+			className: "justify-self-center",
+		})
 
 		expect(link.className.split(" ")).toEqual(
 			expect.arrayContaining(["block", "justify-self-center"])
 		)
 	})
+
+	it.each(storefrontCases)(
+		"draws both %s images 40px tall by default",
+		(storefront) => {
+			const { light, dark } = renderBadge(storefront)
+
+			for (const image of [light, dark]) {
+				expect(image).toHaveClass("h-10")
+				expect(image).not.toHaveClass("h-14")
+			}
+		}
+	)
+
+	it.each(storefrontCases)(
+		"draws both %s images 56px tall when large",
+		(storefront) => {
+			const { light, dark } = renderBadge(storefront, { isLarge: true })
+
+			for (const image of [light, dark]) {
+				expect(image).toHaveClass("h-14")
+				expect(image).not.toHaveClass("h-10")
+			}
+		}
+	)
 })

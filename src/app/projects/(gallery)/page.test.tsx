@@ -321,10 +321,18 @@ describe("ProjectsPage — tiles", () => {
 		await renderGallery([makeApp("Reckon"), makeApp("Continuum")])
 
 		const reckon = articleTitled(/^Reckon/)
+		const badge = within(reckon).getByRole("link", {
+			name: "Download on the App Store",
+		})
 
-		expect(
-			within(reckon).getByRole("link", { name: "Download on the App Store" })
-		).toHaveAttribute("href", appStoreLink("Reckon".length).url)
+		expect(badge).toHaveAttribute("href", appStoreLink("Reckon".length).url)
+		// The product page's badges are larger; a tile's keeps the 40px one.
+		const images = badge.querySelectorAll("img")
+
+		expect(images).toHaveLength(2)
+		for (const image of images) {
+			expect(image).toHaveClass("h-10")
+		}
 		expect(
 			// The arrow is decoration, hidden from the link's name.
 			within(reckon).getByRole("link", { name: "View Reckon project" })
@@ -345,6 +353,8 @@ describe("ProjectsPage — tiles", () => {
 		})
 
 		expect(within(digest).getAllByText("Coming soon")).toHaveLength(1)
+		// The badge's 40px, as a tile's badge is.
+		expect(status).toHaveClass("product-status-cta")
 		expect(within(digest).getAllByRole("link")).toHaveLength(1)
 		expect(viewLink).toHaveAttribute("href", "/projects/digest")
 		// In the store button's place: after the summary, before the link.
