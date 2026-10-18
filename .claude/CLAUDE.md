@@ -161,6 +161,13 @@ write has local media, and it lists the store once per run.
 A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
 named or not, and counted as skipped rather than failed, so an app can be staged
 before it's ready without every bare run failing on it. Remove the key to import.
+A draft never touches the database: on a slug imported before, the page stays
+live as it was, and a real run warns that it does.
+
+A re-import replaces the project row wholesale, so an admin edit to a field the
+manifest also sets is lost. The run warns with the names of the stored fields
+it replaced with a different value; it can't tell an admin edit from an older
+import, so the list includes the manifest's own changes too.
 
 A draft is hidden; a coming-soon project is shown. Every manifest sets
 `"status"`: `comingSoon`, `live` or `discontinued` (the admin form has the same
