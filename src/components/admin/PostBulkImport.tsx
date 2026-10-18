@@ -122,10 +122,21 @@ export default function PostBulkImport() {
 				router.refresh()
 			}
 		} catch (err) {
-			if (!isMountedRef.current || isAbortError(err)) {
+			if (isAbortError(err)) {
 				return
 			}
 
+			// Logged as `useAdminResource` logs a failed save: the server logs its
+			// own side, but a network failure or a non-JSON reply never reaches it.
+			if (!isMountedRef.current) {
+				// eslint-disable-next-line no-console
+				console.debug("[admin:posts] bulk import failed after unmount", err)
+
+				return
+			}
+
+			// eslint-disable-next-line no-console
+			console.warn("[admin:posts] bulk import failed", err)
 			setError(
 				err instanceof Error
 					? err.message

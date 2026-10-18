@@ -240,6 +240,22 @@ describe("detectImageMime", () => {
 		expect(detectImageMime(box)).toBe("image/avif")
 	})
 
+	it("stops the brand scan at the header end when the box claims 4 GiB", () => {
+		// The clamp bounds the loop, not the type: past the end, a read gives four
+		// NUL characters, never a brand, so only the scan's length shows it. A
+		// synchronous loop can't be cut short by the test timeout, so the time is
+		// asserted instead: unclamped, the scan runs about 10⁹ steps.
+		const box = ftypBox("mif1", ["mif1", "heic"])
+		new DataView(box.buffer).setUint32(0, 0xffffffff)
+
+		const startedAt = performance.now()
+		const mime = detectImageMime(box)
+		const elapsedMs = performance.now() - startedAt
+
+		expect(mime).toBeNull()
+		expect(elapsedMs).toBeLessThan(500)
+	})
+
 	it("reads the box size relative to a subarray's own start", () => {
 		const padded = new Uint8Array(8 + 24)
 		padded.set(ftypBox("mif1", ["mif1", "avif"]), 8)
