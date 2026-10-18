@@ -178,8 +178,8 @@ export type Storefront = "AppStore" | "MacAppStore"
  * that aren't app buckets. Keyed off the bucket rather than the link: an iOS
  * and a Mac listing share the `apps.apple.com/app/id…` URL shape, so the URL
  * can't tell them apart, and the link label is copy. The bucket names one
- * store per project, which is why `linkCtasFor` shows the badge only on a
- * project with a single storefront link.
+ * store per project, which is why `linkCtasFor` shows this store's badge only
+ * on a project with a single storefront link.
  */
 export function storefrontFor(bucket: PlatformBucket): Storefront | null {
 	switch (bucket) {
@@ -194,8 +194,9 @@ export function storefrontFor(bucket: PlatformBucket): Storefront | null {
 
 /**
  * How one project link renders on the detail page:
- * - `badge`: Apple's artwork for `storefront`.
- * - `storePill`: a storefront link as a call to action, `label` already prefixed.
+ * - `badge`: Apple's artwork for `storefront`, on an own app's storefront link.
+ * - `storePill`: any other project's storefront link as a call to action,
+ *   `label` already prefixed.
  * - `plainPill`: any other link, with its bare label.
  */
 export type LinkCta =
@@ -213,17 +214,18 @@ export type LinkCta =
  *   with its bare label: the link stays reachable, but a call to action would
  *   assert availability its status label contradicts. A status this code
  *   doesn't know gets the same, since nothing says the app is on sale.
- * - A storefront link on an own app says "Download on …" — about a product
- *   Roland sells, which an employer's or client's app isn't — and on any other
- *   project "Get on …". Keyed off the URL and `isOwnApp`, never the label.
- * - The badge replaces the "Download on" pill when the bucket has a storefront
- *   (see `storefrontFor`).
+ * - A storefront link on an own app is Apple's "Download on …" badge — about a
+ *   product Roland sells, which an employer's or client's app isn't — and on
+ *   any other project a "Get on …" pill. Keyed off the URL and `isOwnApp`,
+ *   never the label.
+ * - The badge names the bucket's store (see `storefrontFor`) when the project
+ *   has a single storefront link. With several, or with a bucket that names no
+ *   store, it's the generic App Store badge: the URL can't say which listing
+ *   is which, so the bucket's store could be wrong for one of them, and the
+ *   Mac App Store is part of the App Store.
  *
- * simplified: a project with more than one storefront link never gets the
- * badge. The bucket names one store and the URL can't say which listing is
- * which, so a badge on either link could name the wrong store; the pills use
- * each link's own label instead. The upgrade path is a per-link storefront
- * column.
+ * simplified: an own app with an iPhone and a Mac listing shows two identical
+ * App Store badges. The upgrade path is a per-link storefront column.
  */
 export function linkCtasFor<
 	Link extends { label: string; url: string },
@@ -242,25 +244,19 @@ export function linkCtasFor<
 
 	const storeFlags = project.links.map((link) => isStoreUrl(link.url))
 	const storeLinkCount = storeFlags.filter(Boolean).length
-	const badgeStorefront =
-		project.isOwnApp && storeLinkCount === 1
-			? storefrontFor(project.bucket)
-			: null
-	const storePrefix = project.isOwnApp ? "Download on" : "Get on"
+	const badgeStorefront: Storefront =
+		(storeLinkCount === 1 ? storefrontFor(project.bucket) : null) ?? "AppStore"
 
 	return project.links.map((link, index) => {
 		if (!storeFlags[index]) {
 			return { link, cta: { kind: "plainPill", label: link.label } }
 		}
 
-		if (badgeStorefront != null) {
+		if (project.isOwnApp) {
 			return { link, cta: { kind: "badge", storefront: badgeStorefront } }
 		}
 
-		return {
-			link,
-			cta: { kind: "storePill", label: `${storePrefix} ${link.label}` },
-		}
+		return { link, cta: { kind: "storePill", label: `Get on ${link.label}` } }
 	})
 }
 

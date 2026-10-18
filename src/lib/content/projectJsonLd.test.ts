@@ -279,7 +279,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 // #region discontinued availability
 
 // A discontinued project's store links render as plain pills, with no
-// "Get on …" or "Download on …" prefix and no badge (`linkCtasFor`), because a
+// "Get on …" prefix and no badge (`linkCtasFor`), because a
 // store CTA asserts availability the Discontinued badge contradicts. `offers` is the
 // same assertion in machine-readable form, aimed at search and answer engines,
 // so it carries `schema:Discontinued` rather than an unqualified price.

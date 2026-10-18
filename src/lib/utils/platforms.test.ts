@@ -461,26 +461,31 @@ describe("linkCtasFor", () => {
 		).toEqual([{ kind: "badge", storefront: "MacAppStore" }])
 	})
 
-	it("prefixes a storefront link with 'Download on' on an own app outside the app buckets", () => {
-		expect(
-			ctasFor([iosListing], { isOwnApp: true, bucket: PlatformBucket.Web })
-		).toEqual([{ kind: "storePill", label: "Download on App Store" }])
-	})
+	// A bucket that names no store can't pick one, and the App Store badge is
+	// right for any listing.
+	it.each([PlatformBucket.Web, PlatformBucket.OpenSource])(
+		"renders the storefront link of an own %s app as the generic App Store badge",
+		(bucket) => {
+			expect(ctasFor([macListing], { isOwnApp: true, bucket })).toEqual([
+				{ kind: "badge", storefront: "AppStore" },
+			])
+		}
+	)
 
 	// The bucket names one store and the URL can't say which listing is which,
-	// so a badge on either link could name the wrong store.
-	it("keeps every storefront link of an own app on a 'Download on' pill when there are several", () => {
-		expect(
-			ctasFor([iosListing, macListing, github], {
-				isOwnApp: true,
-				bucket: PlatformBucket.Mac,
-			})
-		).toEqual([
-			{ kind: "storePill", label: "Download on App Store" },
-			{ kind: "storePill", label: "Download on Mac App Store" },
-			{ kind: "plainPill", label: "GitHub" },
-		])
-	})
+	// so the bucket's badge could name the wrong store on one of them.
+	it.each([PlatformBucket.iOS, PlatformBucket.Mac])(
+		"renders every storefront link of an own %s app as the generic App Store badge when there are several",
+		(bucket) => {
+			expect(
+				ctasFor([iosListing, macListing, github], { isOwnApp: true, bucket })
+			).toEqual([
+				{ kind: "badge", storefront: "AppStore" },
+				{ kind: "badge", storefront: "AppStore" },
+				{ kind: "plainPill", label: "GitHub" },
+			])
+		}
+	)
 
 	it("keeps 'Get on' on every storefront link of a project that isn't an own app", () => {
 		expect(ctasFor([iosListing, macListing])).toEqual([

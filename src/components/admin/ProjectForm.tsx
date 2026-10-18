@@ -582,10 +582,10 @@ export default function ProjectForm({ initialData }: Props) {
 			</div>
 
 			<div className="flex gap-6">
-				{/* Own product, not client or employer work. Decides only the store CTAs'
-				    wording on the detail page (`linkCtasFor`): the App Store badge with
-				    exactly one storefront link, `Download on …` pills with several.
-				    Placement, layout and status are the selects above. */}
+				{/* Own product, not client or employer work. Decides only the store CTAs
+				    on the detail page (`linkCtasFor`): Apple's badge on each storefront
+				    link, where other work gets `Get on …` pills. Placement, layout and
+				    status are the selects above. */}
 				<label className="flex cursor-pointer items-center gap-2">
 					<input
 						type="checkbox"

@@ -680,46 +680,43 @@ describe("ProjectContent — store CTA", () => {
 		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
 	})
 
-	it("renders a 'Download on' pill on an own app outside the iOS and Mac buckets", () => {
+	it("renders the generic App Store badge on an own app outside the iOS and Mac buckets", () => {
 		renderWithLinks([storeLink], [], {
 			isOwnApp: true,
 			bucket: PlatformBucket.Web,
 			platformTags: [PlatformTag.Frontend],
 		})
 
-		expect(
-			screen.getAllByRole("link", { name: "Download on Mac App Store" })
-		).toHaveLength(2)
+		expect(screen.getAllByRole("link", appStoreBadge)).toHaveLength(2)
 		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
 		expect(
 			screen.queryByRole("link", { name: /Get on/ })
 		).not.toBeInTheDocument()
 	})
 
-	// The bucket names one store, so a badge on either listing could name the
-	// wrong one; each pill takes its own link's label instead.
-	it("renders 'Download on' pills instead of the badge on an own app with several storefront links", () => {
-		renderWithLinks(
-			[
-				iosListing,
-				makeLink(2, "Mac App Store", "https://apps.apple.com/app/id222"),
-			],
-			[],
-			{ isOwnApp: true, bucket: PlatformBucket.Mac }
+	// The bucket names one store, so its badge could name the wrong one on
+	// either listing; the generic App Store badge is right for both.
+	it("renders the generic App Store badge on every storefront link of an own app with several", () => {
+		const macListing = makeLink(
+			2,
+			"Mac App Store",
+			"https://apps.apple.com/app/id222"
 		)
-
-		const iosPills = screen.getAllByRole("link", {
-			name: "Download on App Store",
+		renderWithLinks([iosListing, macListing], [], {
+			isOwnApp: true,
+			bucket: PlatformBucket.Mac,
 		})
-		expect(iosPills).toHaveLength(2)
-		for (const pill of iosPills) {
-			expect(pill).toHaveAttribute("href", iosListing.url)
-		}
+
+		// Both in the hero; the repeated CTA has the first one only.
 		expect(
-			screen.getAllByRole("link", { name: "Download on Mac App Store" })
-		).toHaveLength(1)
-		expect(screen.queryByRole("link", appStoreBadge)).not.toBeInTheDocument()
+			screen
+				.getAllByRole("link", appStoreBadge)
+				.map((badge) => badge.getAttribute("href"))
+		).toEqual([iosListing.url, macListing.url, iosListing.url])
 		expect(screen.queryByRole("link", macAppStoreBadge)).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("link", { name: /Download on (Mac )?App Store$/ })
+		).not.toBeInTheDocument()
 	})
 
 	// The badge asserts the app is on sale, which the Discontinued badge
