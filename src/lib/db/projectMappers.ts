@@ -8,18 +8,23 @@
 import { Prisma } from "@/generated/prisma/client"
 import type { ProjectPalette, ProjectPlan } from "./projects"
 import type { ProjectSectionLayout } from "@/generated/prisma/enums"
+import type { ProductPageTextKey } from "@/lib/api/schemas"
 
-export type ProductPageInput = {
-	metaDescription?: string | null
-	heroEyebrow?: string | null
-	heroHeadline?: string | null
-	heroImageAlt?: string | null
-	storeNote?: string | null
-	closingHeadline?: string | null
-	closingBody?: string | null
-	disclaimer?: string | null
-	plans?: ProjectPlan[]
-	palette?: ProjectPalette
+export type ProductPageInput = Partial<
+	Record<ProductPageTextKey, string | null>
+> & {
+	plans?: ProjectPlan[] | null
+	palette?: ProjectPalette | null
+}
+
+/**
+ * Every product-page column of a create. Spelled out as a type, so a text
+ * field added to `PRODUCT_PAGE_TEXT_LIMITS` and left out of
+ * `toProductPageCreate` fails the build instead of being dropped on create.
+ */
+type ProductPageCreate = Record<ProductPageTextKey, string | null> & {
+	plans: ProjectPlan[] | typeof Prisma.DbNull
+	palette: ProjectPalette | typeof Prisma.DbNull
 }
 
 /**
@@ -29,7 +34,9 @@ export type ProductPageInput = {
  * fields they write. (`PUT` spreads its parsed payload instead, where an absent
  * field means "leave it".)
  */
-export function toProductPageCreate(input: ProductPageInput) {
+export function toProductPageCreate(
+	input: ProductPageInput
+): ProductPageCreate {
 	return {
 		metaDescription: input.metaDescription ?? null,
 		heroEyebrow: input.heroEyebrow ?? null,
@@ -45,6 +52,17 @@ export function toProductPageCreate(input: ProductPageInput) {
 		plans: input.plans ?? Prisma.DbNull,
 		palette: input.palette ?? Prisma.DbNull,
 	}
+}
+
+/**
+ * A nullable Json column's value for an update: absent stays absent, so Prisma
+ * leaves the column, and null becomes `Prisma.DbNull`, SQL NULL. Prisma
+ * refuses a bare `null` there, since it reserves it for JSON filters.
+ */
+export function toJsonColumnUpdate<T>(
+	value: T | null | undefined
+): T | typeof Prisma.DbNull | undefined {
+	return value === null ? Prisma.DbNull : value
 }
 
 export type ProjectImageInput = {

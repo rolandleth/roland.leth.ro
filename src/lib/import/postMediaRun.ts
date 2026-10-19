@@ -34,6 +34,7 @@ import {
 	scanLocalMedia,
 } from "@/lib/import/postMedia"
 import { contentHashFor, placeholderBlobUrl } from "@/lib/import/projectImport"
+import { errorMessage } from "@/lib/utils/errorMessage"
 
 /**
  * Reads one media file by its path relative to the post's folder. Resolves to
@@ -166,11 +167,20 @@ export async function uploadPostMedia(options: {
 		media.paths,
 		media.loaded,
 		existing,
-		hasPending ? log : silent
+		hasPending ? log : silent,
+		POST_MEDIA_COLLISION_FIX
 	)
 
 	return rewriteLocalMedia(media.body, media.refs, urlByPath)
 }
+
+/**
+ * What a size mismatch on a stored post file tells the author to do.
+ * `db:import-posts` has no `--reupload`, and no upload would replace the blob
+ * anyway: the key comes from the bytes, so it has to go first.
+ */
+export const POST_MEDIA_COLLISION_FIX =
+	"Delete that blob from the Blob store, then re-run the import."
 
 export type MediaImportPlan =
 	| {
@@ -389,23 +399,68 @@ export function logPendingUploads(
 }
 
 /**
+ * Which of `urls` some other post's body still names (`namedByOtherPosts` in
+ * `@/lib/db/postMediaReferences` is the database's). A blob under a post's
+ * prefix isn't that post's alone: a post whose section changed after its import
+ * keeps linking to the old section's prefix, a new post can take the same slug
+ * there, and content-addressed keys let two posts share one URL. Every media
+ * delete asks this first and keeps what it returns. Rejecting means nothing is
+ * deleted.
+ */
+export type NamedElsewhere = (
+	urls: readonly string[]
+) => Promise<ReadonlySet<string>>
+
+/**
+ * `blobs` less the ones another post names, logging each one kept. Asks once,
+ * and not at all for an empty list.
+ */
+async function withoutBlobsNamedElsewhere(
+	blobs: ListedBlob[],
+	namedElsewhere: NamedElsewhere,
+	log: Logger
+): Promise<ListedBlob[]> {
+	if (blobs.length === 0) {
+		return blobs
+	}
+
+	const named = await namedElsewhere(blobs.map((blob) => blob.url))
+
+	return blobs.filter((blob) => {
+		if (!named.has(blob.url)) {
+			return true
+		}
+
+		log(`      · kept ${blob.pathname}: another post names it`)
+
+		return false
+	})
+}
+
+/**
  * Deletes the blobs under a post's `prefix` that its stored `body` no longer
- * names, or only reports them on a dry run. Returns how many. Only call it for
- * a post whose write succeeded: `listing` says what existed before the run, and
- * `body` what must survive. Errors propagate raw; the caller decides whether a
- * failed sweep fails the import (it shouldn't: orphans cost storage, not
- * correctness).
+ * names and no other post names (`NamedElsewhere`), or only reports them on a
+ * dry run. Returns how many. Only call it for a post whose write succeeded:
+ * `listing` says what existed before the run, and `body` what must survive.
+ * Errors propagate raw; the caller decides whether a failed sweep fails the
+ * import (it shouldn't: orphans cost storage, not correctness).
  */
 export async function prunePostMedia(options: {
 	store: Pick<BlobStore, "del">
 	listing: readonly ListedBlob[]
 	prefix: string
 	body: string
+	namedElsewhere: NamedElsewhere
 	isDryRun: boolean
 	log: Logger
 }): Promise<number> {
-	const { store, listing, prefix, body, isDryRun, log } = options
-	const orphans = orphanedPostMedia(listing, prefix, body)
+	const { store, listing, prefix, body, namedElsewhere, isDryRun, log } =
+		options
+	const orphans = await withoutBlobsNamedElsewhere(
+		orphanedPostMedia(listing, prefix, body),
+		namedElsewhere,
+		log
+	)
 
 	if (isDryRun) {
 		for (const orphan of orphans) {
@@ -419,38 +474,109 @@ export async function prunePostMedia(options: {
 }
 
 /**
+ * The importer's sweep of old media, after its write: for each written post,
+ * the blobs it no longer names and no other post names go (`prunePostMedia`),
+ * or on a dry run are only reported.
+ *
+ * Lists the store only when there is a post to sweep. The listing is
+ * best-effort: none (no token, `getListing` null) or a failed one skips the
+ * sweep with a warning, and a post whose sweep fails warns and the next one
+ * goes on. The rows are already written, and an orphan costs storage, not
+ * correctness.
+ *
+ * @param namedElsewhereFor The cross-post check for one post, leaving that
+ *   post out of it (`namedByOtherPosts`).
+ */
+export async function sweepWrittenPostMedia(options: {
+	store: Pick<BlobStore, "del">
+	bodyBySlug: ReadonlyMap<string, string>
+	getListing: (() => Promise<ListedBlob[]>) | null
+	section: Section
+	namedElsewhereFor: (slug: string) => NamedElsewhere
+	isDryRun: boolean
+	log: Logger
+	warn: Logger
+}): Promise<void> {
+	const { store, bodyBySlug, getListing, section, isDryRun, log, warn } =
+		options
+
+	if (bodyBySlug.size === 0 || getListing == null) {
+		return
+	}
+
+	let listing: ListedBlob[]
+
+	try {
+		listing = await getListing()
+	} catch (error) {
+		warn(
+			`  ! couldn't list stored media (${errorMessage(error)}); skipping the sweep of old media`
+		)
+
+		return
+	}
+
+	for (const [slug, body] of bodyBySlug) {
+		try {
+			await prunePostMedia({
+				store,
+				listing,
+				prefix: postMediaPrefixFor(section, slug),
+				body,
+				namedElsewhere: options.namedElsewhereFor(slug),
+				isDryRun,
+				log,
+			})
+		} catch (error) {
+			warn(
+				`  ! couldn't prune old media for ${slug} (${errorMessage(error)}); it remains in the store`
+			)
+		}
+	}
+}
+
+/**
  * Deletes the media of a post that was just deleted, and returns how many
  * blobs went. Everything under the post's own prefix goes, stale versions
- * included: no row is left to name any of it.
+ * included, unless another post names it (`NamedElsewhere`).
  *
  * A post whose section was changed in the admin after its import still has its
  * media under the old section's prefix. That prefix can also belong to a
  * different post, since a slug is only unique within its section. So under
  * another section's prefix for the same slug, only the blobs the deleted body
- * names are deleted.
+ * names are candidates. The same goes the other way: a post moved into this
+ * section and given this slug's prefix's media keeps it, through the check.
  *
- * Only call it once the row is gone. Errors propagate raw; the caller decides
- * what a failed cleanup means (the row is deleted either way).
+ * Only call it once the row is gone, so the check can't count the deleted post
+ * itself. Errors propagate raw; the caller decides what a failed cleanup means
+ * (the row is deleted either way).
  */
 export async function deletePostMedia(options: {
 	store: Pick<BlobStore, "list" | "del">
 	section: Section
 	slug: string
 	body: string
+	namedElsewhere: NamedElsewhere
 	log: Logger
 }): Promise<number> {
-	const { store, section, slug, body, log } = options
-	const doomed: ListedBlob[] = []
+	const { store, section, slug, body, namedElsewhere, log } = options
+	const candidates: ListedBlob[] = []
 
 	for (const candidate of SECTIONS) {
 		const blobs = await listBlobs(store, postMediaPrefixFor(candidate, slug))
 
-		doomed.push(
+		candidates.push(
 			...(candidate === section
 				? blobs
 				: blobs.filter((blob) => body.includes(blob.url)))
 		)
 	}
+
+	const doomed = await withoutBlobsNamedElsewhere(
+		candidates,
+		namedElsewhere,
+		log
+	)
 
 	await deleteBlobs(store, doomed, log, "deleted")
 

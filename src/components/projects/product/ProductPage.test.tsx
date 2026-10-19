@@ -9,7 +9,12 @@ import {
 	ProjectSectionLayout,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
-import { EMPTY_PRODUCT_PAGE_FIELDS, textSectionFields } from "@/test/fixtures"
+import {
+	CREAM_PALETTE,
+	EMPTY_PRODUCT_PAGE_FIELDS,
+	GREEN_BAND_THEME,
+	textSectionFields,
+} from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProductPage from "./ProductPage"
 import type { ProjectDetail } from "@/lib/db/projects"
@@ -1400,13 +1405,7 @@ describe("ProductPage — store buttons", () => {
 
 describe("ProductPage — theme style", () => {
 	it("writes the accent, and both themes' palette when the project has one", () => {
-		const theme = {
-			band: "#24443a",
-			bandInk: "#f4f1e8",
-			bandInk2: "#c9d3cc",
-			bandHighlight: "#cfa75a",
-			accentText: "#2e7d5b",
-		}
+		const theme = GREEN_BAND_THEME
 		const { container } = renderPage(
 			makeProject({
 				palette: { light: theme, dark: { ...theme, band: "#1b3329" } },
@@ -1424,30 +1423,16 @@ describe("ProductPage — theme style", () => {
 	})
 
 	it("gives the site header each theme's band colour and inks", () => {
-		const light = {
-			band: "#f3ede4",
-			bandInk: "#2a241e",
-			bandInk2: "#6b6158",
-			bandHighlight: "#9a532b",
-			accentText: "#9a532b",
-		}
-		const dark = {
-			band: "#2a211b",
-			bandInk: "#f3ede4",
-			bandInk2: "#c9bbae",
-			bandHighlight: "#e0a27a",
-			accentText: "#e0a27a",
-		}
-		const { container } = renderPage(makeProject({ palette: { light, dark } }))
+		const { container } = renderPage(makeProject({ palette: CREAM_PALETTE }))
 		const css = [...container.querySelectorAll("style")]
 			.map((style) => style.textContent)
 			.join("")
 
 		expect(css).toContain(
-			"[data-site-header]{--color-header-bg:#f3ede4;--color-primary-value:#2a241e;--color-secondary-value:#6b6158;--color-accent:#9a532b;"
+			"[data-site-header]{--color-header-bg:#f3ede4;--color-primary-value:#2a241e;--color-secondary-value:#6b6158;--color-accent-value:#9a532b;--color-accent:#9a532b;"
 		)
 		expect(css).toContain(
-			".dark [data-site-header]{--color-header-bg:#2a211b;--color-primary-value:#f3ede4;--color-secondary-value:#c9bbae;--color-accent:#e0a27a;"
+			".dark [data-site-header]{--color-header-bg:#2a211b;--color-primary-value:#f3ede4;--color-secondary-value:#c9bbae;--color-accent-value:#e0a27a;--color-accent:#e0a27a;"
 		)
 	})
 

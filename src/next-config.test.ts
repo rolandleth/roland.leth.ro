@@ -85,9 +85,50 @@ describe("production headers", () => {
 		)
 		expect(getDirective(csp, "font-src")).toBe("font-src 'self' data:")
 		expect(getDirective(csp, "connect-src")).toBe(
-			"connect-src 'self' https://vitals.vercel-insights.com https://vercel.com/api/blob/"
+			"connect-src 'self' https://vitals.vercel-insights.com"
 		)
 		expect(getDirective(csp, "frame-ancestors")).toBe("frame-ancestors 'none'")
+	})
+})
+
+// #endregion
+
+// #region CSP — admin
+
+describe("admin headers", () => {
+	async function getAdminRule() {
+		const rules = await nextConfig.headers!()
+
+		return rules.find((rule) => rule.source === "/admin/:path*")
+	}
+
+	it("comes after the site-wide rule, so its policy is the one the admin pages get", async () => {
+		const sources = (await nextConfig.headers!()).map((rule) => rule.source)
+
+		expect(sources.indexOf("/admin/:path*")).toBeGreaterThan(
+			sources.indexOf("/(.*)")
+		)
+	})
+
+	it("lets the admin pages reach the Blob API, for the video upload", async () => {
+		vi.stubEnv("NODE_ENV", "production")
+		const csp = getCsp(((await getAdminRule())?.headers ?? []) as Header[])
+
+		expect(getDirective(csp, "connect-src")).toBe(
+			"connect-src 'self' https://vitals.vercel-insights.com https://vercel.com/api/blob/"
+		)
+	})
+
+	it("changes nothing else from the site-wide policy", async () => {
+		vi.stubEnv("NODE_ENV", "production")
+		const site = getCsp(await getHeaders())
+		const admin = getCsp(((await getAdminRule())?.headers ?? []) as Header[])
+		const withoutConnect = (csp: string) =>
+			csp
+				.split("; ")
+				.filter((directive) => !directive.startsWith("connect-src"))
+
+		expect(withoutConnect(admin)).toEqual(withoutConnect(site))
 	})
 })
 

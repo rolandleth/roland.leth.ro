@@ -1,5 +1,6 @@
 import { revalidateTag } from "next/cache"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { Prisma } from "@/generated/prisma/client"
 import {
 	PlatformBucket,
 	PlatformTag,
@@ -11,7 +12,6 @@ import { cleanUpProjectMedia } from "@/lib/api/mediaCleanup"
 import { isPrismaNotFound, prisma } from "@/lib/db/db"
 import { EMPTY_PRODUCT_PAGE_FIELDS } from "@/test/fixtures"
 import { DELETE, GET, PUT } from "./route"
-import type { Prisma } from "@/generated/prisma/client"
 
 // The cleanup talks to Blob; its own behavior is covered in
 // `mediaCleanup.test.ts`. Here it only matters when the route calls it.
@@ -285,6 +285,54 @@ describe("PUT /api/admin/projects/[id]", () => {
 
 		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
 		expect(data.heroEyebrow).toBeNull()
+	})
+
+	it("clears the Json columns with null, written as SQL NULL", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const res = await PUT(
+			putRequest("1", { plans: null, offers: null, palette: null }),
+			params("1")
+		)
+
+		expect(res.status).toBe(200)
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.plans).toBe(Prisma.DbNull)
+		expect(data.offers).toBe(Prisma.DbNull)
+		expect(data.palette).toBe(Prisma.DbNull)
+	})
+
+	// The schema can't see the stored offers, so plans sent alone could rename
+	// the plan they name, and their prices would drop out of every card.
+	it.each([
+		["plans without offers", { plans: [{ name: "Pro", features: ["All."] }] }],
+		[
+			"offers without plans",
+			{
+				offers: [
+					{ name: "Pro", plan: "Pro", price: "4.99", priceCurrency: "USD" },
+				],
+			},
+		],
+	])("refuses %s with a 400 and writes nothing", async (_case, body) => {
+		const res = await PUT(putRequest("1", body), params("1"))
+
+		expect(res.status).toBe(400)
+		expect(prisma.project.update).not.toHaveBeenCalled()
+	})
+
+	it("writes plans and offers sent together", async () => {
+		vi.mocked(prisma.project.update).mockResolvedValue(existingProject)
+		const plans = [{ name: "Pro", features: ["All."] }]
+		const offers = [
+			{ name: "Pro", plan: "Pro", price: "4.99", priceCurrency: "USD" },
+		]
+
+		const res = await PUT(putRequest("1", { plans, offers }), params("1"))
+
+		expect(res.status).toBe(200)
+		const { data } = vi.mocked(prisma.project.update).mock.calls[0][0]
+		expect(data.plans).toEqual(plans)
+		expect(data.offers).toEqual(offers)
 	})
 
 	it("shifts projects in [new, old) up when moving to a lower position", async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 import { ebmlHeader, ftypBox } from "@/test/mediaBytes"
 import {
 	detectVideoMime,
@@ -7,7 +8,6 @@ import {
 	MAX_VIDEO_UPLOAD_MIB,
 	VIDEO_EXTENSIONS,
 	VIDEO_MIMES,
-	VIDEO_SNIFF_HEADER_BYTES,
 } from "./video"
 
 describe("isVideoUrl", () => {
@@ -113,9 +113,9 @@ describe("detectVideoMime", () => {
 	})
 
 	it("refuses a WebM document type that sits past the sniffed bytes", () => {
-		const late = new Uint8Array(VIDEO_SNIFF_HEADER_BYTES + 8)
+		const late = new Uint8Array(SNIFF_HEADER_BYTES + 8)
 		late.set([0x1a, 0x45, 0xdf, 0xa3], 0)
-		late.set(new TextEncoder().encode("webm"), VIDEO_SNIFF_HEADER_BYTES)
+		late.set(new TextEncoder().encode("webm"), SNIFF_HEADER_BYTES)
 
 		expect(detectVideoMime(late)).toBeNull()
 	})

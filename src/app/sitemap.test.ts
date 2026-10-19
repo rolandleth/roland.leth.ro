@@ -27,7 +27,10 @@ vi.mock("@/lib/db/db", () => ({
 	},
 }))
 
-vi.mock("@/lib/utils/format", () => ({
+// Only the clock is frozen: the rest of the module stays real, since the data
+// layer's schemas read its slug rules at import.
+vi.mock("@/lib/utils/format", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/utils/format")>()),
 	currentDatetimeString: vi.fn().mockReturnValue("2025-06-01-1200"),
 }))
 

@@ -26,14 +26,12 @@ interface Props {
 	sections: LegalSectionEntry[]
 	/** Date shown in the auto-rendered "Last update" section, e.g. `"June 10, 2026"`. */
 	lastUpdated: string
-	/** Address used in the auto-rendered "Contact" section's `mailto:` link. */
-	contactEmail: string
 	/**
-	 * Pronoun for the contact line: `"me"` for the personal site (`/privacy`),
-	 * `"us"` for per-app policies. Defaults to `"us"` so new app pages inherit
-	 * the per-app voice without restating it; only the root page overrides it.
+	 * Address used in the auto-rendered "Contact" section's `mailto:` link,
+	 * which reads "contact us": every legal page speaks as "we", the site's own
+	 * included.
 	 */
-	contactPronoun?: "me" | "us"
+	contactEmail: string
 	/**
 	 * Which legal document this is; selects the boilerplate wording. Defaults to
 	 * `"privacy"` so the existing privacy pages stay one-line callers with no
@@ -94,7 +92,6 @@ export default function LegalPageLayout({
 	sections,
 	lastUpdated,
 	contactEmail,
-	contactPronoun = "us",
 	documentKind = "privacy",
 	relatedLinks,
 }: Props) {
@@ -126,7 +123,7 @@ export default function LegalPageLayout({
 			content: (
 				<p>
 					{boilerplate.contactIntro}
-					<a href={`mailto:${contactEmail}`}>contact {contactPronoun}</a>.
+					<a href={`mailto:${contactEmail}`}>contact us</a>.
 				</p>
 			),
 		},

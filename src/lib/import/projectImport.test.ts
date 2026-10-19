@@ -4,10 +4,15 @@ import {
 	ProjectProminence,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
+import { PRODUCT_PAGE_TEXT_KEYS } from "@/lib/api/schemas"
 import {
+	ADMIN_EDITED_PROJECT_COLUMNS,
 	blobKeyFor,
 	blobPrefixFor,
+	changedColumns,
 	contentHashFor,
+	describeDraftSkip,
+	draftManifestSlug,
 	forEachSectionImage,
 	isLocalImageRef,
 	listManifestImagePaths,
@@ -888,6 +893,106 @@ describe("resolveManifestImageRefs", () => {
 		expect(resolved.faqs).toEqual([
 			{ question: "Is it free?", answer: "Yes.", sortOrder: 0 },
 		])
+	})
+})
+
+// #endregion
+
+// #region draftManifestSlug / describeDraftSkip
+
+describe("draftManifestSlug", () => {
+	it("reads the slug of a draft that names one", () => {
+		expect(
+			draftManifestSlug(JSON.stringify({ isDraft: true, slug: "digest" }))
+		).toBe("digest")
+	})
+
+	it.each([
+		["no slug", { isDraft: true }],
+		["a slug that isn't a string", { isDraft: true, slug: 7 }],
+		["a slug that can't be one", { isDraft: true, slug: "Not A Slug" }],
+		["an empty slug", { isDraft: true, slug: "" }],
+	])(
+		"is null for a draft with %s, which skips validation",
+		(_case, manifest) => {
+			expect(draftManifestSlug(JSON.stringify(manifest))).toBeNull()
+		}
+	)
+})
+
+describe("describeDraftSkip", () => {
+	it("says only that the draft is skipped when nothing is live at its slug", () => {
+		expect(describeDraftSkip("digest", "project.json", null)).toBe(
+			'digest  draft, skipped (remove "isDraft" from project.json to import)'
+		)
+	})
+
+	it("says the live page stays live, so the skip doesn't read as hidden", () => {
+		expect(describeDraftSkip("digest", "project.json", "digest")).toBe(
+			'digest  draft, skipped (remove "isDraft" from project.json to import). /projects/digest is already live and stays live: a draft doesn\'t unpublish it'
+		)
+	})
+})
+
+// #endregion
+
+// #region changedColumns
+
+describe("changedColumns", () => {
+	const keys = ["name", "heroEyebrow", "sortOrder", "isOwnApp"] as const
+
+	it("names the columns whose stored value the import replaces, in key order", () => {
+		expect(
+			changedColumns(
+				{ name: "Digest", heroEyebrow: "Edited", sortOrder: 2, isOwnApp: true },
+				{
+					name: "Digest",
+					heroEyebrow: "Manifest",
+					sortOrder: 0,
+					isOwnApp: true,
+				},
+				keys
+			)
+		).toEqual(["heroEyebrow", "sortOrder"])
+	})
+
+	it("names a column the import clears", () => {
+		expect(
+			changedColumns(
+				{ heroEyebrow: "Edited in the admin" },
+				{ heroEyebrow: null },
+				keys
+			)
+		).toEqual(["heroEyebrow"])
+	})
+
+	it("reads absent and null as the same value", () => {
+		expect(changedColumns({ heroEyebrow: null }, {}, keys)).toEqual([])
+	})
+
+	it("names nothing when every value matches", () => {
+		const row = {
+			name: "Digest",
+			heroEyebrow: null,
+			sortOrder: 1,
+			isOwnApp: false,
+		}
+
+		expect(changedColumns(row, { ...row }, keys)).toEqual([])
+	})
+
+	it("treats false and 0 as values, not as absent", () => {
+		expect(changedColumns({ isOwnApp: false, sortOrder: 0 }, {}, keys)).toEqual(
+			["sortOrder", "isOwnApp"]
+		)
+	})
+})
+
+describe("ADMIN_EDITED_PROJECT_COLUMNS", () => {
+	it("covers every product-page text field, which the admin form and the manifest both write", () => {
+		expect(ADMIN_EDITED_PROJECT_COLUMNS).toEqual(
+			expect.arrayContaining([...PRODUCT_PAGE_TEXT_KEYS])
+		)
 	})
 })
 

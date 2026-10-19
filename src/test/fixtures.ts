@@ -6,12 +6,15 @@ import {
 	ProjectSectionLayout,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
+import type { ProductPageTextKey } from "@/lib/api/schemas"
 import type { GuideListItem, GuideTopicSummary } from "@/lib/db/guides"
 import type { PostListItem } from "@/lib/db/posts"
 import type {
 	ProjectDetail,
 	ProjectGalleryItem,
 	ProjectListItem,
+	ProjectPalette,
+	ProjectPaletteTheme,
 } from "@/lib/db/projects"
 
 export const TEST_SECRET = "abc123"
@@ -19,7 +22,8 @@ export const TEST_SECRET = "abc123"
 /**
  * Every product-page column, empty. Spread into each full project fixture, in
  * the `ProjectDetail` and the Prisma row shapes alike, so a new product-page
- * field means one edit here instead of one per test file.
+ * field means one edit here instead of one per test file. Typed by the
+ * schema's key list, so a field added there and not here fails the build.
  */
 export const EMPTY_PRODUCT_PAGE_FIELDS = {
 	metaDescription: null,
@@ -32,19 +36,38 @@ export const EMPTY_PRODUCT_PAGE_FIELDS = {
 	disclaimer: null,
 	plans: null,
 	palette: null,
-} satisfies Pick<
-	ProjectDetail,
-	| "metaDescription"
-	| "heroEyebrow"
-	| "heroHeadline"
-	| "heroImageAlt"
-	| "storeNote"
-	| "closingHeadline"
-	| "closingBody"
-	| "disclaimer"
-	| "plans"
-	| "palette"
->
+} satisfies Record<ProductPageTextKey, null> &
+	Pick<ProjectDetail, ProductPageTextKey | "plans" | "palette">
+
+/**
+ * One palette theme: light ink on a dark green band. Tests that don't care how
+ * the two themes differ use it for both.
+ */
+export const GREEN_BAND_THEME = {
+	band: "#24443a",
+	bandInk: "#f4f1e8",
+	bandInk2: "#c9d3cc",
+	bandHighlight: "#cfa75a",
+	accentText: "#2e7d5b",
+} satisfies ProjectPaletteTheme
+
+/** A palette whose themes differ: a cream band on light, a brown one on dark. */
+export const CREAM_PALETTE = {
+	light: {
+		band: "#f3ede4",
+		bandInk: "#2a241e",
+		bandInk2: "#6b6158",
+		bandHighlight: "#9a532b",
+		accentText: "#9a532b",
+	},
+	dark: {
+		band: "#2a211b",
+		bandInk: "#f3ede4",
+		bandInk2: "#c9bbae",
+		bandHighlight: "#e0a27a",
+		accentText: "#e0a27a",
+	},
+} satisfies ProjectPalette
 
 /**
  * The kind fields of a plain section row: a stacked text section with no

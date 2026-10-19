@@ -245,6 +245,27 @@ describe("syncImages", () => {
 		expect(store.put).not.toHaveBeenCalled()
 	})
 
+	it("names the project importer's --reupload by default, and the caller's fix when given", async () => {
+		const existing = new Map<string, StoredBlob>([
+			["projects/r/k1", { url: "https://s/k1", size: 999 }],
+		])
+		const loaded = new Map([["a.png", image("projects/r/k1")]])
+
+		await expect(
+			syncImages(makeStore(), ["a.png"], loaded, existing, noopLog)
+		).rejects.toThrow("Re-run with --reupload to overwrite it.")
+		await expect(
+			syncImages(
+				makeStore(),
+				["a.png"],
+				loaded,
+				existing,
+				noopLog,
+				"Delete it first."
+			)
+		).rejects.toThrow(/corrupted upload\. Delete it first\.$/)
+	})
+
 	it("uploads keys the store doesn't hold and maps their URLs", async () => {
 		const store = makeStore()
 		const log = vi.fn()

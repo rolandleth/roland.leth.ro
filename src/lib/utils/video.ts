@@ -7,6 +7,7 @@ import {
 	ftypBrandAt,
 	hasFtypBox,
 } from "@/lib/utils/ftyp"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 
 /**
  * MP4 and WebM only: the two containers every current browser plays. A
@@ -54,11 +55,15 @@ export const MAX_VIDEO_UPLOAD_MIB = 20
 export const MAX_VIDEO_UPLOAD_BYTES = MAX_VIDEO_UPLOAD_MIB * 1024 * 1024
 
 /**
- * How many leading bytes `detectVideoMime` needs. An MP4's major brand ends at
- * byte 12; a WebM's `DocType` sits further into the EBML header, around byte 24
- * as the common muxers write it.
+ * How long the admin's signed video upload stays good. Without one,
+ * `generateClientTokenFromReadWriteToken` defaults to 30 seconds (unlike
+ * `handleUpload`, whose default is an hour), and a 20 MiB video on a slow
+ * connection, or the SDK's retry after a stall, outlasts that and fails with
+ * an error the author can't act on. An hour matches `handleUpload`. The token
+ * still covers only one key, one type and the size cap, so a longer life
+ * widens nothing else.
  */
-export const VIDEO_SNIFF_HEADER_BYTES = 64
+export const VIDEO_UPLOAD_TOKEN_LIFETIME_MS = 60 * 60 * 1000
 
 /**
  * The `ftyp` major brands of an MP4. An allowlist: the same box opens a
@@ -111,9 +116,7 @@ export function detectVideoMime(bytes: Uint8Array): VideoMime | null {
 function hasWebmDocType(bytes: Uint8Array): boolean {
 	// Capped, so a caller that passes a whole file doesn't spread millions of
 	// arguments into one call.
-	const header = String.fromCharCode(
-		...bytes.subarray(0, VIDEO_SNIFF_HEADER_BYTES)
-	)
+	const header = String.fromCharCode(...bytes.subarray(0, SNIFF_HEADER_BYTES))
 
 	return header.includes("webm")
 }

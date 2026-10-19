@@ -7,8 +7,10 @@
 // handled here: `yarn blob:prune-uploads` sweeps those once nothing references
 // them.
 
+import { prisma } from "@/lib/db/db"
+import { namedByOtherPosts } from "@/lib/db/postMediaReferences"
 import { blobStore } from "@/lib/import/blobStore"
-import { pruneOrphans } from "@/lib/import/blobSync"
+import { BlobDeleteError, pruneOrphans } from "@/lib/import/blobSync"
 import { deletePostMedia } from "@/lib/import/postMediaRun"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import type { Section } from "@/lib/db/sections"
@@ -20,16 +22,23 @@ const silent = (): void => undefined
 const NO_REFERENCES: ReadonlySet<string> = new Set()
 
 /**
- * Deletes a just-deleted post's media. Never throws and never fails the
- * request: the row is gone either way, and a blob left behind costs storage,
- * not correctness. A failure is logged under `tag` so it can be found.
+ * Deletes a just-deleted post's media, keeping any blob another post's body
+ * still names. Never throws and never fails the request: the row is gone
+ * either way, and a blob left behind costs storage, not correctness. A failure
+ * is logged under `tag` so it can be found.
  */
 export async function cleanUpPostMedia(
 	post: { section: Section; slug: string; body: string },
 	tag: string
 ): Promise<void> {
 	await runCleanup(tag, { section: post.section, slug: post.slug }, () =>
-		deletePostMedia({ store: blobStore, ...post, log: silent })
+		deletePostMedia({
+			store: blobStore,
+			...post,
+			// The row is already deleted, so every match is another post.
+			namedElsewhere: namedByOtherPosts(prisma, null),
+			log: silent,
+		})
 	)
 }
 
@@ -46,6 +55,10 @@ export async function cleanUpProjectMedia(
 /**
  * Runs one cleanup and logs its outcome: how many blobs went, or why it
  * failed. Silent when there was nothing to delete, the usual case.
+ *
+ * A failure says how far the delete got when it can (a `BlobDeleteError`
+ * carries the split: the blobs gone and the ones that may remain), and carries
+ * the stack, since the per-blob lines are silenced here.
  */
 async function runCleanup(
 	tag: string,
@@ -64,6 +77,10 @@ async function runCleanup(
 		console.warn(`${tag} media cleanup failed`, {
 			...context,
 			message: errorMessage(error),
+			...(error instanceof BlobDeleteError
+				? { deleted: error.deleted, remaining: error.remaining }
+				: {}),
+			stack: error instanceof Error ? error.stack : undefined,
 		})
 	}
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { prisma } from "@/lib/db/db"
 import { blobStore } from "@/lib/import/blobStore"
 import { FAKE_STORE_ORIGIN } from "@/test/blobStore"
 import { cleanUpPostMedia, cleanUpProjectMedia } from "./mediaCleanup"
@@ -7,6 +8,21 @@ import type { BlobListPage, ListedBlob } from "@/lib/import/blobSync"
 vi.mock("@/lib/import/blobStore", () => ({
 	blobStore: { list: vi.fn(), put: vi.fn(), del: vi.fn() },
 }))
+
+// The check for blobs another post still names. Its query is covered in
+// `postMediaReferences.test.ts`; here only its answer matters.
+vi.mock("@/lib/db/db", () => ({
+	prisma: { post: { findMany: vi.fn() } },
+}))
+
+/** Makes the posts table hold these bodies. */
+function otherPostBodies(...bodies: string[]) {
+	vi.mocked(prisma.post.findMany).mockResolvedValue(
+		bodies.map((body) => ({ body })) as Awaited<
+			ReturnType<typeof prisma.post.findMany>
+		>
+	)
+}
 
 const POST_TAG = "[api:admin:posts:DELETE]"
 const PROJECT_TAG = "[api:admin:projects:DELETE]"
@@ -36,6 +52,7 @@ function deletedUrls(): string[] {
 
 beforeEach(() => {
 	vi.resetAllMocks()
+	otherPostBodies()
 	vi.spyOn(console, "info").mockImplementation(() => undefined)
 	vi.spyOn(console, "warn").mockImplementation(() => undefined)
 })
@@ -101,15 +118,16 @@ describe("cleanUpPostMedia", () => {
 		expect(blobStore.del).not.toHaveBeenCalled()
 		expect(console.warn).toHaveBeenCalledWith(
 			`${POST_TAG} media cleanup failed`,
-			{
+			expect.objectContaining({
 				section: "tech",
 				slug: "my-post",
 				message: "Vercel Blob: No token found",
-			}
+				stack: expect.stringContaining("Vercel Blob: No token found"),
+			})
 		)
 	})
 
-	it("resolves and warns when the delete fails", async () => {
+	it("resolves and warns with how far it got when the delete fails", async () => {
 		holdInStore([shot])
 		vi.mocked(blobStore.del).mockRejectedValue(new Error("del down"))
 
@@ -117,9 +135,48 @@ describe("cleanUpPostMedia", () => {
 
 		expect(console.warn).toHaveBeenCalledWith(
 			`${POST_TAG} media cleanup failed`,
-			{ section: "tech", slug: "my-post", message: "del down" }
+			expect.objectContaining({
+				section: "tech",
+				slug: "my-post",
+				message: "Deleted 0 of 1 blob(s), then failed: del down",
+				deleted: 0,
+				remaining: 1,
+			})
 		)
 		expect(console.info).not.toHaveBeenCalled()
+	})
+
+	it("keeps a blob another post's body still names", async () => {
+		// A post moved to life links to this one's screenshot.
+		holdInStore([shot, demo])
+		otherPostBodies(`![Shot](${shot.url})`)
+
+		await cleanUpPostMedia(post, POST_TAG)
+
+		expect(deletedUrls()).toEqual([demo.url])
+	})
+
+	it("asks about every other post, since the deleted row is gone", async () => {
+		holdInStore([shot])
+
+		await cleanUpPostMedia(post, POST_TAG)
+
+		const [args] = vi.mocked(prisma.post.findMany).mock.calls[0]
+
+		expect(args?.where).not.toHaveProperty("NOT")
+	})
+
+	it("deletes nothing and warns when the check fails", async () => {
+		holdInStore([shot])
+		vi.mocked(prisma.post.findMany).mockRejectedValue(new Error("db down"))
+
+		await expect(cleanUpPostMedia(post, POST_TAG)).resolves.toBeUndefined()
+
+		expect(blobStore.del).not.toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			`${POST_TAG} media cleanup failed`,
+			expect.objectContaining({ message: "db down" })
+		)
 	})
 
 	it("never uploads", async () => {
@@ -189,7 +246,7 @@ describe("cleanUpProjectMedia", () => {
 
 		expect(console.warn).toHaveBeenCalledWith(
 			`${PROJECT_TAG} media cleanup failed`,
-			{ slug: "reckon", message: "list down" }
+			expect.objectContaining({ slug: "reckon", message: "list down" })
 		)
 	})
 })

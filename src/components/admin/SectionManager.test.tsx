@@ -269,9 +269,57 @@ describe("SectionManager product-page fields", () => {
 			}),
 		])
 
-		await user.type(screen.getAllByLabelText("Alt text")[1], "Second")
+		await user.type(
+			screen.getByLabelText("Image 2 of section 1: alt text"),
+			"Second"
+		)
 
 		expect(latest()[0].images.map((image) => image.alt)).toEqual(["", "Second"])
+	})
+
+	it("names each image's caption and alt inputs by image and section", () => {
+		renderSections([
+			makeSection({
+				_key: "a",
+				images: [
+					{ _key: "img-1", url: "", caption: "", alt: "", sortOrder: 0 },
+				],
+			}),
+			makeSection({
+				_key: "b",
+				images: [
+					{ _key: "img-2", url: "", caption: "", alt: "", sortOrder: 0 },
+					{ _key: "img-3", url: "", caption: "", alt: "", sortOrder: 1 },
+				],
+			}),
+		])
+
+		for (const name of [
+			"Image 1 of section 1: caption",
+			"Image 1 of section 1: alt text",
+			"Image 1 of section 2: caption",
+			"Image 2 of section 2: alt text",
+		]) {
+			expect(screen.getByLabelText(name)).toBeInTheDocument()
+		}
+	})
+
+	it("caps the caption and the alt text at the 300 characters the API accepts", () => {
+		renderSections([
+			makeSection({
+				_key: "a",
+				images: [
+					{ _key: "img-1", url: "", caption: "", alt: "", sortOrder: 0 },
+				],
+			}),
+		])
+
+		expect(
+			screen.getByLabelText("Image 1 of section 1: caption")
+		).toHaveAttribute("maxLength", "300")
+		expect(
+			screen.getByLabelText("Image 1 of section 1: alt text")
+		).toHaveAttribute("maxLength", "300")
 	})
 })
 

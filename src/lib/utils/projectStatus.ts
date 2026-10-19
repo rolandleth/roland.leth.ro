@@ -14,6 +14,9 @@ export function isDiscontinued(project: { status: ProjectStatus }): boolean {
  * which shows none. Where a live app has its store button (the product page and
  * the gallery's app tiles), the words take its place, so the reader looking for
  * the button finds why there isn't one; elsewhere they sit beside the name.
+ * The compact surfaces that list many projects (`MoreProjects`,
+ * `CompactProjectCard`) show the words for a coming-soon project only, and grey
+ * out a discontinued one's icon instead.
  * Every status has its case: a new one fails the type-check here until it has
  * an answer. A value this code doesn't know (a database ahead of the deploy)
  * shows no label, and the log says so.

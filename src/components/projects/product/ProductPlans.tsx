@@ -149,8 +149,10 @@ function PlanName({ name }: { name: string }) {
 function PlanFeatures({ features }: { features: readonly string[] }) {
 	return (
 		<ul className="product-plan__features grid content-start gap-2 pl-[18px] text-base leading-normal">
-			{features.map((feature) => (
-				<li key={feature}>{feature}</li>
+			{/* Keyed by position too: the schema doesn't make a plan's features
+			    unique, and the list never reorders on the page. */}
+			{features.map((feature, index) => (
+				<li key={`${index}:${feature}`}>{feature}</li>
 			))}
 		</ul>
 	)
@@ -186,14 +188,16 @@ function PriceList({
 				isLast ? "" : "product-plan__prices mb-5 pb-5"
 			}`}
 		>
-			{offers.map((offer) => {
+			{offers.map((offer, index) => {
 				const text = label(offer)
 				const isBest = offer.isBestValue === true
 				const saving = isBest ? savingsPercent(offer, offers) : null
 
 				return (
 					<li
-						key={offer.name}
+						// By position too, as the features are: offer names aren't
+						// unique in the schema.
+						key={`${index}:${offer.name}`}
 						className={`flex flex-col gap-0.5 ${isCentered ? "items-center" : ""} ${
 							hasTiles ? "product-plan__price" : ""
 						} ${isBest ? "product-plan__price--best" : ""}`}

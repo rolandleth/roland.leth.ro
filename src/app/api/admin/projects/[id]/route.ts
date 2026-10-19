@@ -15,6 +15,7 @@ import {
 	projectInclude,
 	revalidateProject,
 	toFaqCreate,
+	toJsonColumnUpdate,
 	toLinkCreate,
 	toSectionCreate,
 } from "@/lib/db/projects"
@@ -83,9 +84,10 @@ export async function PUT(
 
 	// `data` carries the Zod-inferred field types; Prisma treats `undefined` as
 	// "skip this column" and `null` as "set to null" natively, so we don't need
-	// to strip undefineds. It never carries a slug: `projectUpdateSchema` has no
-	// such key, so a renamed project keeps its URL and its guide references.
-	const { sections, links, faqs, ...data } = parsed
+	// to strip undefineds. The Json columns are the exception, mapped below. It
+	// never carries a slug: `projectUpdateSchema` has no such key, so a renamed
+	// project keeps its URL and its guide references.
+	const { sections, links, faqs, offers, plans, palette, ...data } = parsed
 
 	try {
 		// The sortOrder shift reads the current position, then updates the affected
@@ -149,6 +151,9 @@ export async function PUT(
 					where: { id },
 					data: {
 						...data,
+						offers: toJsonColumnUpdate(offers),
+						plans: toJsonColumnUpdate(plans),
+						palette: toJsonColumnUpdate(palette),
 						sections: toSectionCreate(sections),
 						links: toLinkCreate(links),
 						faqs: toFaqCreate(faqs),

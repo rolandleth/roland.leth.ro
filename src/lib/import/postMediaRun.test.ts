@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { BlobDeleteError } from "@/lib/import/blobSync"
 import { buildPostFile, setFrontmatterSlug } from "@/lib/import/frontmatter"
 import { parsePostFiles } from "@/lib/import/postImport"
 import { postMediaPrefixFor } from "@/lib/import/postMedia"
@@ -8,10 +9,13 @@ import {
 	type LoadedPostMedia,
 	logPendingUploads,
 	type MediaReader,
+	type NamedElsewhere,
 	pendingMediaPaths,
+	POST_MEDIA_COLLISION_FIX,
 	planPostImportWithMedia,
 	previewPostBody,
 	prunePostMedia,
+	sweepWrittenPostMedia,
 	uploadPostMedia,
 	writtenBodies,
 	writtenSlugs,
@@ -424,6 +428,23 @@ describe("uploadPostMedia", () => {
 		await expect(
 			uploadPostMedia({ store: makeStore(), media, existing, log: vi.fn() })
 		).rejects.toThrow(/999 B but the local file is 8 B/)
+	})
+
+	it("names a way out the post importer has, not --reupload", async () => {
+		const media = await load(BODY, FILES)
+		const existing = storedFor(media)
+		const shotKey = media.loaded.get("media/shot.png")?.key ?? ""
+		existing.set(shotKey, { url: `${STORE}/${shotKey}`, size: 999 })
+
+		const failure = uploadPostMedia({
+			store: makeStore(),
+			media,
+			existing,
+			log: vi.fn(),
+		})
+
+		await expect(failure).rejects.toThrow(POST_MEDIA_COLLISION_FIX)
+		await expect(failure).rejects.not.toThrow("--reupload")
 	})
 
 	it("lets an upload failure propagate", async () => {
@@ -880,6 +901,17 @@ describe("writtenBodies", () => {
 
 // #region prunePostMedia
 
+/** A check that finds no other post naming any blob. */
+const namedNowhere: NamedElsewhere = async () => new Set()
+
+/** A check that finds another post naming exactly `urls`. */
+function namedBy(...urls: string[]): NamedElsewhere {
+	return vi.fn(
+		async (asked: readonly string[]) =>
+			new Set(asked.filter((url) => urls.includes(url)))
+	)
+}
+
 describe("prunePostMedia", () => {
 	const PREFIX = postMediaPrefixFor("tech", "my-post")
 	const kept = listed(`${PREFIX}aaaa-shot.png`)
@@ -894,6 +926,7 @@ describe("prunePostMedia", () => {
 			listing: [kept, orphan, otherPost],
 			prefix: PREFIX,
 			body: BODY,
+			namedElsewhere: namedNowhere,
 			isDryRun: false,
 			log: vi.fn(),
 		})
@@ -911,6 +944,7 @@ describe("prunePostMedia", () => {
 			listing: [kept, orphan],
 			prefix: PREFIX,
 			body: BODY,
+			namedElsewhere: namedNowhere,
 			isDryRun: true,
 			log,
 		})
@@ -922,17 +956,21 @@ describe("prunePostMedia", () => {
 
 	it("makes no call when nothing is orphaned", async () => {
 		const store = makeStore()
+		const namedElsewhere = namedBy()
 		const pruned = await prunePostMedia({
 			store,
 			listing: [kept, otherPost],
 			prefix: PREFIX,
 			body: BODY,
+			namedElsewhere,
 			isDryRun: false,
 			log: vi.fn(),
 		})
 
 		expect(pruned).toBe(0)
 		expect(store.del).not.toHaveBeenCalled()
+		// No candidates, so no query either.
+		expect(namedElsewhere).not.toHaveBeenCalled()
 	})
 
 	it("deletes the old version once a post names the new one", async () => {
@@ -946,11 +984,74 @@ describe("prunePostMedia", () => {
 			listing: [kept],
 			prefix: PREFIX,
 			body: `![Shot](${fresh})`,
+			namedElsewhere: namedNowhere,
 			isDryRun: false,
 			log: vi.fn(),
 		})
 
 		expect(store.del).toHaveBeenCalledWith([kept.url])
+	})
+
+	it("keeps an orphan another post still names, and says so", async () => {
+		// A post moved here from life links into this prefix: its body names the
+		// blob even though this post's no longer does.
+		const store = makeStore()
+		const log = vi.fn()
+		const namedElsewhere = namedBy(orphan.url)
+
+		const pruned = await prunePostMedia({
+			store,
+			listing: [kept, orphan],
+			prefix: PREFIX,
+			body: BODY,
+			namedElsewhere,
+			isDryRun: false,
+			log,
+		})
+
+		expect(pruned).toBe(0)
+		expect(store.del).not.toHaveBeenCalled()
+		expect(namedElsewhere).toHaveBeenCalledWith([orphan.url])
+		expect(log).toHaveBeenCalledWith(
+			`      · kept ${orphan.pathname}: another post names it`
+		)
+	})
+
+	it("keeps an orphan another post names on a dry run too, and doesn't report it as pruned", async () => {
+		const log = vi.fn()
+
+		await prunePostMedia({
+			store: makeStore(),
+			listing: [orphan],
+			prefix: PREFIX,
+			body: "Text only.",
+			namedElsewhere: namedBy(orphan.url),
+			isDryRun: true,
+			log,
+		})
+
+		expect(log).not.toHaveBeenCalledWith(
+			`      × would prune ${orphan.pathname}`
+		)
+	})
+
+	it("deletes nothing when the check fails", async () => {
+		const store = makeStore()
+
+		await expect(
+			prunePostMedia({
+				store,
+				listing: [orphan],
+				prefix: PREFIX,
+				body: "Text only.",
+				namedElsewhere: async () => {
+					throw new Error("db down")
+				},
+				isDryRun: false,
+				log: vi.fn(),
+			})
+		).rejects.toThrow("db down")
+		expect(store.del).not.toHaveBeenCalled()
 	})
 
 	it("lets a delete failure propagate", async () => {
@@ -966,10 +1067,142 @@ describe("prunePostMedia", () => {
 				listing: [orphan],
 				prefix: PREFIX,
 				body: "Text only.",
+				namedElsewhere: namedNowhere,
 				isDryRun: false,
 				log: vi.fn(),
 			})
 		).rejects.toThrow("del down")
+	})
+})
+
+// #endregion
+
+// #region sweepWrittenPostMedia
+
+describe("sweepWrittenPostMedia", () => {
+	const oldShot = listed("posts/tech/my-post/aaaa-old.png")
+	const otherOld = listed("posts/tech/other/bbbb-old.png")
+
+	function sweep(
+		overrides: Partial<Parameters<typeof sweepWrittenPostMedia>[0]> = {}
+	) {
+		const options = {
+			store: makeStore(),
+			bodyBySlug: new Map([["my-post", "Text only."]]),
+			getListing: vi.fn(async () => [oldShot, otherOld]),
+			section: "tech" as const,
+			namedElsewhereFor: () => namedNowhere,
+			isDryRun: false,
+			log: vi.fn(),
+			warn: vi.fn(),
+			...overrides,
+		}
+
+		return { options, done: sweepWrittenPostMedia(options) }
+	}
+
+	it("deletes each written post's old media", async () => {
+		const store = makeStore()
+		const { done } = sweep({
+			store,
+			bodyBySlug: new Map([
+				["my-post", "Text only."],
+				["other", "Text only."],
+			]),
+		})
+		await done
+
+		expect(vi.mocked(store.del).mock.calls.flatMap(([urls]) => urls)).toEqual([
+			oldShot.url,
+			otherOld.url,
+		])
+	})
+
+	it("doesn't list the store when the run wrote nothing", async () => {
+		const { options, done } = sweep({ bodyBySlug: new Map() })
+		await done
+
+		expect(options.getListing).not.toHaveBeenCalled()
+	})
+
+	it("skips the sweep without a token", async () => {
+		const store = makeStore()
+		const { done } = sweep({ store, getListing: null })
+		await done
+
+		expect(store.del).not.toHaveBeenCalled()
+	})
+
+	it("warns and skips the sweep when the listing fails", async () => {
+		const store = makeStore()
+		const { options, done } = sweep({
+			store,
+			getListing: vi.fn(async () => {
+				throw new Error("list down")
+			}),
+		})
+
+		await expect(done).resolves.toBeUndefined()
+		expect(store.del).not.toHaveBeenCalled()
+		expect(options.warn).toHaveBeenCalledWith(
+			"  ! couldn't list stored media (list down); skipping the sweep of old media"
+		)
+	})
+
+	it("warns for one post's failed sweep and goes on to the next", async () => {
+		const del = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("del down"))
+			.mockResolvedValue(undefined)
+		const { options, done } = sweep({
+			store: makeStore({ del }),
+			bodyBySlug: new Map([
+				["my-post", "Text only."],
+				["other", "Text only."],
+			]),
+		})
+		await done
+
+		expect(options.warn).toHaveBeenCalledWith(
+			expect.stringContaining("couldn't prune old media for my-post")
+		)
+		expect(del).toHaveBeenLastCalledWith([otherOld.url])
+	})
+
+	it("asks the cross-post check for each post by its own slug", async () => {
+		const namedElsewhereFor = vi.fn(() => namedNowhere)
+		const { done } = sweep({
+			namedElsewhereFor,
+			bodyBySlug: new Map([
+				["my-post", "Text only."],
+				["other", "Text only."],
+			]),
+		})
+		await done
+
+		expect(namedElsewhereFor.mock.calls).toEqual([["my-post"], ["other"]])
+	})
+
+	it("keeps what another post names", async () => {
+		const store = makeStore()
+		const { done } = sweep({
+			store,
+			namedElsewhereFor: () => namedBy(oldShot.url),
+		})
+		await done
+
+		expect(store.del).not.toHaveBeenCalled()
+	})
+
+	it("only reports on a dry run", async () => {
+		const store = makeStore()
+		const { options, done } = sweep({ store, isDryRun: true })
+		await done
+
+		expect(store.del).not.toHaveBeenCalled()
+		expect(options.log).toHaveBeenCalledWith(
+			`      × would prune ${oldShot.pathname}`
+		)
 	})
 })
 
@@ -984,13 +1217,18 @@ describe("deletePostMedia", () => {
 	const BODY = `![Shot](${current.url})\n\n![Demo](${nested.url})`
 
 	/** Deletes the tech post `my-post` with `body`, from a store holding `blobs`. */
-	async function deleteFrom(blobs: ListedBlob[], body = BODY) {
+	async function deleteFrom(
+		blobs: ListedBlob[],
+		body = BODY,
+		namedElsewhere: NamedElsewhere = namedNowhere
+	) {
 		const store = makeStoreHolding(blobs)
 		const count = await deletePostMedia({
 			store,
 			section: "tech",
 			slug: "my-post",
 			body,
+			namedElsewhere,
 			log: vi.fn(),
 		})
 		const deleted = vi.mocked(store.del).mock.calls.flatMap(([urls]) => urls)
@@ -1053,6 +1291,135 @@ describe("deletePostMedia", () => {
 		expect(store.del).not.toHaveBeenCalled()
 	})
 
+	it("keeps a blob under its own prefix that another row links to", async () => {
+		// A post moved here from life took this prefix's blob into its body; it
+		// still names it after this post is deleted.
+		const { count, deleted } = await deleteFrom(
+			[current, staleVersion],
+			BODY,
+			namedBy(staleVersion.url)
+		)
+
+		expect(count).toBe(1)
+		expect(deleted).toEqual([current.url])
+	})
+
+	it("keeps a content-addressed blob that a post in another section shares", async () => {
+		// The moved post's file under life holds the same bytes as the life
+		// namesake's, so both bodies name one URL. Deleting the moved post must
+		// not take the namesake's image with it.
+		const shared = listed("posts/life/my-post/iiii-shot.png")
+		const { deleted } = await deleteFrom(
+			[current, shared],
+			`![Shot](${current.url})\n\n![Shared](${shared.url})`,
+			namedBy(shared.url)
+		)
+
+		expect(deleted).toEqual([current.url])
+	})
+
+	it("asks once, with every candidate", async () => {
+		const namedElsewhere = namedBy()
+
+		await deleteFrom([current, staleVersion, nested], BODY, namedElsewhere)
+
+		expect(namedElsewhere).toHaveBeenCalledTimes(1)
+		expect([...vi.mocked(namedElsewhere).mock.calls[0][0]].sort()).toEqual(
+			[current.url, staleVersion.url, nested.url].sort()
+		)
+	})
+
+	it("deletes nothing when the check fails", async () => {
+		const store = makeStoreHolding([current])
+
+		await expect(
+			deletePostMedia({
+				store,
+				section: "tech",
+				slug: "my-post",
+				body: BODY,
+				namedElsewhere: async () => {
+					throw new Error("db down")
+				},
+				log: vi.fn(),
+			})
+		).rejects.toThrow("db down")
+		expect(store.del).not.toHaveBeenCalled()
+	})
+
+	it("reads every page of a long listing", async () => {
+		const many = Array.from({ length: 7 }, (_, index) =>
+			listed(`posts/tech/my-post/${index}-shot.png`)
+		)
+		const store = makeStoreHolding(many, {}, 3)
+
+		const count = await deletePostMedia({
+			store,
+			section: "tech",
+			slug: "my-post",
+			body: "Text only.",
+			namedElsewhere: namedNowhere,
+			log: vi.fn(),
+		})
+
+		expect(count).toBe(7)
+		expect(vi.mocked(store.del).mock.calls.flatMap(([urls]) => urls)).toEqual(
+			many.map((blob) => blob.url)
+		)
+	})
+
+	it("deletes in batches of 50", async () => {
+		const many = Array.from({ length: 120 }, (_, index) =>
+			listed(`posts/tech/my-post/${String(index).padStart(3, "0")}-shot.png`)
+		)
+		const store = makeStoreHolding(many)
+
+		await deletePostMedia({
+			store,
+			section: "tech",
+			slug: "my-post",
+			body: "Text only.",
+			namedElsewhere: namedNowhere,
+			log: vi.fn(),
+		})
+
+		expect(
+			vi.mocked(store.del).mock.calls.map(([urls]) => urls.length)
+		).toEqual([50, 50, 20])
+	})
+
+	it("reports how far it got when a later batch fails, and logs only what went", async () => {
+		const many = Array.from({ length: 120 }, (_, index) =>
+			listed(`posts/tech/my-post/${String(index).padStart(3, "0")}-shot.png`)
+		)
+		const log = vi.fn()
+		let calls = 0
+		const store = makeStoreHolding(many, {
+			del: vi.fn(async () => {
+				calls += 1
+
+				if (calls === 2) {
+					throw new Error("del down")
+				}
+			}),
+		})
+
+		const failure = await deletePostMedia({
+			store,
+			section: "tech",
+			slug: "my-post",
+			body: "Text only.",
+			namedElsewhere: namedNowhere,
+			log,
+		}).catch((error: unknown) => error)
+
+		expect(failure).toBeInstanceOf(BlobDeleteError)
+		expect(failure).toMatchObject({ deleted: 50, remaining: 70 })
+		expect(String((failure as Error).message)).toContain("del down")
+		expect(log).toHaveBeenCalledTimes(50)
+		expect(store.del).toHaveBeenCalledTimes(2)
+	})
+
 	it("logs each deleted blob", async () => {
 		const log = vi.fn()
 
@@ -1061,6 +1428,7 @@ describe("deletePostMedia", () => {
 			section: "tech",
 			slug: "my-post",
 			body: BODY,
+			namedElsewhere: namedNowhere,
 			log,
 		})
 
@@ -1080,6 +1448,7 @@ describe("deletePostMedia", () => {
 				section: "tech",
 				slug: "my-post",
 				body: BODY,
+				namedElsewhere: namedNowhere,
 				log: vi.fn(),
 			})
 		).rejects.toThrow("list down")
@@ -1099,6 +1468,7 @@ describe("deletePostMedia", () => {
 				section: "tech",
 				slug: "my-post",
 				body: BODY,
+				namedElsewhere: namedNowhere,
 				log: vi.fn(),
 			})
 		).rejects.toThrow("del down")

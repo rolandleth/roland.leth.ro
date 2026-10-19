@@ -37,7 +37,7 @@ export default async function PostCard({ post }: Props) {
 			</div>
 
 			<div className="text-secondary prose-sm">
-				<PostMarkdownContent content={excerpt} />
+				<PostMarkdownContent content={excerpt} isListCard />
 			</div>
 
 			{isTruncated && (

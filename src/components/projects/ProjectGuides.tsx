@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import GuideLinkList from "@/components/guides/GuideLinkList"
 import { fadeUp } from "@/lib/client/motion"
+import { GUIDES_HEADING_ID } from "@/lib/utils/productPage"
 import type { GuideLinkItem } from "@/lib/content/guideLinks"
 
 interface Props {
@@ -23,11 +24,11 @@ export default function ProjectGuides({ items, accent }: Props) {
 	return (
 		<motion.section
 			className="mt-12"
-			aria-labelledby="guides-heading"
+			aria-labelledby={GUIDES_HEADING_ID}
 			{...fadeUp(0.2)}
 		>
 			<h2
-				id="guides-heading"
+				id={GUIDES_HEADING_ID}
 				className="mb-4 text-xl font-semibold"
 				style={{ color: accent }}
 			>

@@ -3,8 +3,17 @@
 // those formats apart by the brands the box names. Pure, so it reaches the
 // client bundle.
 
+/** A brand code's length: four characters, one byte each. */
+export const FTYP_BRAND_BYTES = 4
+
 /** Where the major brand sits: after the 4-byte box size and the `ftyp` tag. */
 export const FTYP_MAJOR_BRAND_OFFSET = 8
+
+/**
+ * Where the compatible brands start: after the major brand and the 4-byte
+ * minor version. They run, one brand at a time, to the box's declared size.
+ */
+export const FTYP_COMPATIBLE_BRANDS_OFFSET = 16
 
 /** The fewest bytes that hold a box size, the `ftyp` tag and a major brand. */
 const FTYP_MIN_BYTES = 12

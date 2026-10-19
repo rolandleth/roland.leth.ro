@@ -444,6 +444,53 @@ describe("PostForm — create mode", () => {
 
 // #endregion
 
+// #region Video alt text
+
+describe("PostForm — video alt text", () => {
+	function renderWithBody(body: string) {
+		mockRouter()
+		render(<PostForm initialData={{ ...initialData, body }} />)
+	}
+
+	it("says when a video has no alt text, and where to write it", () => {
+		renderWithBody(`Intro.\n\n![](${VIDEO_URL})`)
+
+		expect(
+			screen.getByText(
+				/A video has no alt text, so screen readers can't name it/
+			)
+		).toBeInTheDocument()
+	})
+
+	it("counts every video with no alt", () => {
+		renderWithBody(`![](${VIDEO_URL})\n\n![ ](${VIDEO_URL})`)
+
+		expect(
+			screen.getByText(/2 videos have no alt text, so screen readers/)
+		).toBeInTheDocument()
+	})
+
+	it("says nothing once each video has its alt", () => {
+		renderWithBody(`![The tour](${VIDEO_URL})`)
+
+		expect(screen.queryByText(/no alt text/)).not.toBeInTheDocument()
+	})
+
+	it("doesn't count an image with no alt, which renders as an image", () => {
+		renderWithBody("![](https://example.com/cover.png)")
+
+		expect(screen.queryByText(/no alt text/)).not.toBeInTheDocument()
+	})
+
+	it("still lets the post be saved", () => {
+		renderWithBody(`![](${VIDEO_URL})`)
+
+		expect(screen.getByRole("button", { name: /save post/i })).toBeEnabled()
+	})
+})
+
+// #endregion
+
 // #region Edit mode (with initialData)
 
 describe("PostForm — edit mode", () => {

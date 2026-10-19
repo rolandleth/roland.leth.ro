@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { DESCRIPTION_MAX_CHARS } from "@/lib/content/descriptionRules"
 import {
+	countVideosWithoutAlt,
 	deriveDescription,
 	extractDefinitions,
 	markdownToHtml,
@@ -513,3 +514,38 @@ describe("extractDefinitions", () => {
 		expect(html).toContain('alt="A diagram"')
 	})
 })
+
+// #region countVideosWithoutAlt
+
+describe("countVideosWithoutAlt", () => {
+	it.each([
+		["a video with an empty alt", "![](/videos/a.mp4)", 1],
+		["a video with a blank alt", "![  ](/videos/a.webm)", 1],
+		["a video with its alt", "![A tour](/videos/a.mp4)", 0],
+		["an image with no alt", "![](/images/a.png)", 0],
+		["a body with no media", "Just text about .mp4 files.", 0],
+		["two videos, one labelled", "![](/v/a.mp4)\n\n![B](/v/b.mp4)", 1],
+		["a video in a list", "- ![](/videos/a.mp4)", 1],
+		["a reference-style video", "![][clip]\n\n[clip]: /videos/a.mp4", 1],
+		[
+			"a reference-style video with its alt",
+			"![A tour][clip]\n\n[clip]: /videos/a.mp4",
+			0,
+		],
+		["image syntax inside a code block", "```\n![](/videos/a.mp4)\n```", 0],
+		["a scheme the renderer doesn't convert", "![](javascript:x//.mp4)", 0],
+	])("counts %s as %i", (_case, markdown, count) => {
+		expect(countVideosWithoutAlt(markdown)).toBe(count)
+	})
+
+	it("agrees with the renderer about which images are videos", async () => {
+		const markdown = "![](/videos/a.mp4) ![](javascript:x//.mp4)"
+		const html = await markdownToHtml(markdown)
+
+		expect(html.match(/<video/g)?.length ?? 0).toBe(
+			countVideosWithoutAlt(markdown)
+		)
+	})
+})
+
+// #endregion

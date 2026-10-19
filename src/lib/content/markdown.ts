@@ -10,7 +10,8 @@ import {
 	capDescription,
 	collapseWhitespace,
 } from "@/lib/content/descriptionRules"
-import { rehypeVideo } from "@/lib/content/rehypeVideo"
+import { rehypeAbsoluteUrls } from "@/lib/content/rehypeAbsoluteUrls"
+import { rehypeVideo, rendersAsVideo } from "@/lib/content/rehypeVideo"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -29,30 +30,83 @@ const prettyCodeOptions: Options = {
 // Used by markdownToReact (blog pages). Includes rehype-pretty-code for
 // Shiki syntax highlighting, whose output relies on CSS classes defined in the
 // site's stylesheet — not suitable for contexts without that CSS (e.g. feeds).
-const markdownProcessor = unified()
-	.use(remarkParse)
-	.use(remarkGfm)
-	.use(remarkRehype)
-	.use(rehypeVideo)
-	.use(rehypePrettyCode, prettyCodeOptions)
+function makePageProcessor(videoPreload: "metadata" | "none") {
+	return unified()
+		.use(remarkParse)
+		.use(remarkGfm)
+		.use(remarkRehype)
+		.use(rehypeVideo, { preload: videoPreload })
+		.use(rehypePrettyCode, prettyCodeOptions)
+}
+
+const markdownProcessor = makePageProcessor("metadata")
+
+// The blog list's cards: the same output, with videos that fetch nothing until
+// played (`RehypeVideoOptions.preload`).
+const cardMarkdownProcessor = makePageProcessor("none")
 
 // Used by markdownToHtml (Atom feed <content>). Produces plain HTML without
 // Shiki spans so the markup is self-contained and renders cleanly in any feed
-// reader, which won't have access to the site's stylesheet.
-const htmlProcessor = unified()
-	.use(remarkParse)
-	.use(remarkGfm)
-	.use(remarkRehype)
-	.use(rehypeVideo)
-	.use(rehypeStringify)
+// reader, which won't have access to the site's stylesheet. With a base URL,
+// root-relative URLs come out absolute (`rehypeAbsoluteUrls`).
+function makeHtmlProcessor(baseUrl: string | null) {
+	const processor = unified()
+		.use(remarkParse)
+		.use(remarkGfm)
+		.use(remarkRehype)
+		.use(rehypeVideo)
+
+	if (baseUrl != null) {
+		processor.use(rehypeAbsoluteUrls, { baseUrl })
+	}
+
+	return processor.use(rehypeStringify)
+}
+
+const htmlProcessor = makeHtmlProcessor(null)
+
+// One per site origin, built on first use and kept, like the processors above.
+// A deployment has one origin, so this holds one entry.
+const htmlProcessorsByBase = new Map<
+	string,
+	ReturnType<typeof makeHtmlProcessor>
+>()
+
+function htmlProcessorFor(
+	baseUrl: string | undefined
+): ReturnType<typeof makeHtmlProcessor> {
+	if (baseUrl == null) {
+		return htmlProcessor
+	}
+
+	let processor = htmlProcessorsByBase.get(baseUrl)
+
+	if (processor == null) {
+		processor = makeHtmlProcessor(baseUrl)
+		htmlProcessorsByBase.set(baseUrl, processor)
+	}
+
+	return processor
+}
 
 // Used by stripMarkdown (Atom feed <summary>). Parse-only — no rehype step
 // needed because we extract text directly from the mdast, never produce HTML.
 const textOnlyProcessor = unified().use(remarkParse).use(remarkGfm)
 
-/** Renders markdown to React nodes for display on blog pages. Includes Shiki syntax highlighting. */
-export async function markdownToReact(content: string): Promise<ReactNode> {
-	const hast = await markdownProcessor.run(markdownProcessor.parse(content))
+/**
+ * Renders markdown to React nodes for display on blog pages. Includes Shiki
+ * syntax highlighting.
+ *
+ * @param options.isListCard The blog list's card preview: videos in it fetch
+ *   nothing until played, since a list page shows many of them.
+ */
+export async function markdownToReact(
+	content: string,
+	options: { isListCard?: boolean } = {}
+): Promise<ReactNode> {
+	const processor =
+		options.isListCard === true ? cardMarkdownProcessor : markdownProcessor
+	const hast = await processor.run(processor.parse(content))
 
 	return toJsxRuntime(hast, { Fragment, jsx, jsxs })
 }
@@ -63,9 +117,15 @@ export async function markdownToReact(content: string): Promise<ReactNode> {
  * Intentionally omits syntax highlighting — feed readers don't load the site's
  * stylesheet, so Shiki's span-based output would render as unstyled monospace at
  * best and a wall of `<span>` tags at worst.
+ *
+ * @param options.baseUrl The site's origin. When set, root-relative image,
+ *   video and link URLs come out absolute on it, which the feed needs.
  */
-export async function markdownToHtml(content: string): Promise<string> {
-	const result = await htmlProcessor.process(content)
+export async function markdownToHtml(
+	content: string,
+	options: { baseUrl?: string } = {}
+): Promise<string> {
+	const result = await htmlProcessorFor(options.baseUrl).process(content)
 
 	return String(result)
 }
@@ -261,4 +321,51 @@ export function stripMarkdown(markdown: string): string {
  */
 export function deriveDescription(markdown: string): string {
 	return capDescription(stripMarkdown(markdown))
+}
+
+/**
+ * How many videos in `markdown` have no alt text: image syntax that renders as
+ * a `<video>` (`rendersAsVideo`) with an empty or blank alt. The alt is the
+ * video's accessible name, so the post form warns while any is missing; the
+ * "Upload video" button inserts one with the alt empty. A reference-style
+ * image counts through the definition it points at. Code blocks don't count,
+ * since they render as text.
+ */
+export function countVideosWithoutAlt(markdown: string): number {
+	// Most bodies have no video at all; skip the parse for them.
+	if (!/\.(?:mp4|webm)/i.test(markdown)) {
+		return 0
+	}
+
+	const tree = textOnlyProcessor.parse(markdown)
+	const urlByDefinition = new Map<string, string>()
+	const unlabelled: { url?: string; identifier?: string }[] = []
+
+	const visit = (node: Nodes): void => {
+		if (node.type === "definition" && !urlByDefinition.has(node.identifier)) {
+			urlByDefinition.set(node.identifier, node.url)
+		} else if (
+			(node.type === "image" || node.type === "imageReference") &&
+			(node.alt ?? "").trim() === ""
+		) {
+			unlabelled.push(
+				node.type === "image"
+					? { url: node.url }
+					: { identifier: node.identifier }
+			)
+		}
+
+		if ("children" in node) {
+			node.children.forEach(visit)
+		}
+	}
+
+	visit(tree)
+
+	return unlabelled.filter(({ url, identifier }) => {
+		const src =
+			url ?? (identifier == null ? null : urlByDefinition.get(identifier))
+
+		return src != null && rendersAsVideo(src)
+	}).length
 }

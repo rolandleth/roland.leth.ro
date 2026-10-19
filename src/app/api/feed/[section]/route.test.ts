@@ -246,6 +246,17 @@ describe("GET /api/feed/:section", () => {
 		expect(text).not.toContain("http://localhost")
 	})
 
+	it("renders each body with the canonical origin, so its root-relative URLs resolve in a reader", async () => {
+		vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://roland.leth.ro")
+		vi.mocked(prisma.post.findMany).mockResolvedValue([basePost])
+
+		await GET(...makeRequest("tech"))
+
+		expect(markdownToHtml).toHaveBeenCalledWith(basePost.body, {
+			baseUrl: "https://roland.leth.ro",
+		})
+	})
+
 	it("escapes the CDATA terminator inside rendered HTML so the feed stays well-formed", async () => {
 		// A body whose rendered HTML contains the literal `]]>` sequence would
 		// otherwise close the `<content>` CDATA section early and break the XML.

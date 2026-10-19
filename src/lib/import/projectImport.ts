@@ -16,6 +16,7 @@ import {
 	ProjectProminence,
 	ProjectStatus,
 } from "@/generated/prisma/enums"
+import { PRODUCT_PAGE_TEXT_KEYS } from "@/lib/api/schemas"
 import { errorMessage } from "@/lib/utils/errorMessage"
 import {
 	CANONICAL_SLUG_MESSAGE,
@@ -319,6 +320,79 @@ function parseManifestObject(raw: string): Record<string, unknown> {
  */
 export function isDraftManifest(raw: string): boolean {
 	return draftFlag(parseManifestObject(raw))
+}
+
+/**
+ * The slug a draft manifest names, or null when it names none that could be
+ * one: a draft skips validation, so its `slug` may be missing or malformed. The
+ * import uses it to say whether skipping the draft leaves a page live.
+ */
+export function draftManifestSlug(raw: string): string | null {
+	const { slug } = parseManifestObject(raw)
+
+	return typeof slug === "string" && CANONICAL_SLUG_PATTERN.test(slug)
+		? slug
+		: null
+}
+
+/**
+ * The import's line for a skipped draft. A draft holds its manifest back but
+ * never touches the database, so a draft whose slug was imported before stays
+ * live as it was. Without saying so, "draft, skipped" reads as "hidden".
+ *
+ * @param liveSlug The draft's slug when a project row already has it.
+ */
+export function describeDraftSkip(
+	folderName: string,
+	manifestFilename: string,
+	liveSlug: string | null
+): string {
+	const skipped = `${folderName}  draft, skipped (remove "isDraft" from ${manifestFilename} to import)`
+
+	if (liveSlug == null) {
+		return skipped
+	}
+
+	return `${skipped}. /projects/${liveSlug} is already live and stays live: a draft doesn't unpublish it`
+}
+
+/**
+ * The project columns a re-import may overwrite that the admin form also
+ * edits, and that compare as plain values. Sections, links and FAQs are
+ * replaced too, but compared by nothing here.
+ */
+export const ADMIN_EDITED_PROJECT_COLUMNS = [
+	"name",
+	"summary",
+	"role",
+	"accentColor",
+	"icon",
+	"cardImage",
+	"ogImage",
+	"heroImage",
+	"prominence",
+	"pageLayout",
+	"status",
+	"isOwnApp",
+	"date",
+	"sortOrder",
+	...PRODUCT_PAGE_TEXT_KEYS,
+] as const
+
+/**
+ * The columns, in `keys` order, whose stored value differs from what the
+ * import is about to write. The import replaces the row wholesale, so an admin
+ * edit to any of them is lost; the script can't tell an edit from an earlier
+ * import's value, so it names the fields and leaves the judging to the author.
+ * Absent and null compare equal; values compare with `===`, so pass only
+ * scalar columns.
+ */
+export function changedColumns<Key extends string>(
+	stored: Partial<Record<Key, unknown>>,
+	incoming: Partial<Record<Key, unknown>>,
+	keys: readonly Key[]
+): Key[] {
+	return keys.filter((key) => (stored[key] ?? null) !== (incoming[key] ?? null))
 }
 
 function draftFlag(manifest: Record<string, unknown>): boolean {

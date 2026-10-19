@@ -448,6 +448,9 @@ code[data-theme*=" "] span {
 }
 
 /* The page's one load moment: the hero rises in, 0.25s, staggered a little.
+   A rise, not a fade: an element at opacity 0 isn't painted as far as Largest
+   Contentful Paint goes, so fading the h1 and the image in put the page's main
+   paint 0.25–0.37s late. The class keeps its old `-fade` name for now.
    Off when the reader asks for less motion. In-page jumps (the section rail,
    "See how it works") scroll there instead of cutting, on product pages only;
    `data-scroll-behavior` on `<html>` keeps route changes instant. The FAQ's
@@ -469,12 +472,10 @@ code[data-theme*=" "] span {
 
 @keyframes product-hero-up {
 	from {
-		opacity: 0;
 		transform: translateY(6px);
 	}
 
 	to {
-		opacity: 1;
 		transform: none;
 	}
 }

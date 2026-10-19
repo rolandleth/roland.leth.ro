@@ -18,13 +18,13 @@ import { unified } from "unified"
 import { formatBytes } from "@/lib/import/blobSync"
 import { contentAddressedKey } from "@/lib/import/projectImport"
 import { IMAGE_EXTENSIONS } from "@/lib/utils/image"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 import {
 	detectVideoMime,
 	MAX_VIDEO_UPLOAD_BYTES,
 	MAX_VIDEO_UPLOAD_MIB,
 	VIDEO_EXTENSIONS,
 	VIDEO_MIMES,
-	VIDEO_SNIFF_HEADER_BYTES,
 } from "@/lib/utils/video"
 import type { Section } from "@/lib/db/sections"
 import type { ListedBlob } from "@/lib/import/blobSync"
@@ -210,6 +210,11 @@ type Destination = {
 /**
  * The destination of every inline image, and of every definition that at least
  * one reference-style image uses. A definition only links use is not media.
+ *
+ * Of two definitions with one label, the first is the one that renders
+ * (CommonMark, and `mdast-util-to-hast` with it), so that is the one kept: with
+ * the last, the rendered one stayed relative and pointed at nothing, with no
+ * warning. A later duplicate renders nothing, so it is left as written.
  */
 function collectDestinations(root: Nodes): Destination[] {
 	const inline: Destination[] = []
@@ -230,7 +235,10 @@ function collectDestinations(root: Nodes): Destination[] {
 					nodeEnd: end,
 					lead: INLINE_DESTINATION_LEAD,
 				})
-			} else if (node.type === "definition") {
+			} else if (
+				node.type === "definition" &&
+				!definitions.has(node.identifier)
+			) {
 				definitions.set(node.identifier, {
 					url: node.url,
 					nodeStart: start,
@@ -366,9 +374,7 @@ export function mediaFileProblem(
 		return `${relativePath} is ${formatBytes(bytes.length)}; a video can be ${MAX_VIDEO_UPLOAD_MIB} MiB at most`
 	}
 
-	const sniffedMime = detectVideoMime(
-		bytes.subarray(0, VIDEO_SNIFF_HEADER_BYTES)
-	)
+	const sniffedMime = detectVideoMime(bytes.subarray(0, SNIFF_HEADER_BYTES))
 
 	if (sniffedMime == null) {
 		return `${relativePath} is not an MP4 or WebM video (convert a .mov to MP4 first)`

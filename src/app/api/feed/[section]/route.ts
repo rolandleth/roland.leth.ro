@@ -124,6 +124,13 @@ function makeFeedPostsCache(section: Section) {
 			// since only the derived fields are needed. `updatedAt` is normalized
 			// to ISO — `unstable_cache` JSON-serializes its return value, turning
 			// `Date` into a string on cache hits.
+			//
+			// Root-relative URLs in the body come out absolute on the canonical
+			// origin, since a feed reader resolves them against its own. The
+			// origin is baked into the cached HTML: a change of domain shows in
+			// the feed once a post mutation busts the tag.
+			const baseUrl = getSiteUrl()
+
 			return Promise.all(
 				posts.map(async (post) => ({
 					title: post.title,
@@ -133,7 +140,7 @@ function makeFeedPostsCache(section: Section) {
 					updatedAt: post.updatedAt.toISOString(),
 					// Keyed `summary` because that's the Atom element it fills below.
 					summary: post.description,
-					htmlBody: await markdownToHtml(post.body),
+					htmlBody: await markdownToHtml(post.body, { baseUrl }),
 				}))
 			)
 		},

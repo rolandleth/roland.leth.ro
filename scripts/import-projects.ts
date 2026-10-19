@@ -55,8 +55,12 @@ import { parseScriptArgs } from "@/lib/import/cliArgs"
 import { isMissingPathError } from "@/lib/import/fsErrors"
 import { readFileInFolder } from "@/lib/import/localFiles"
 import {
+	ADMIN_EDITED_PROJECT_COLUMNS,
 	blobKeyFor,
+	changedColumns,
 	contentHashFor,
+	describeDraftSkip,
+	draftManifestSlug,
 	forEachSectionImage,
 	isDraftManifest,
 	listManifestImagePaths,
@@ -236,6 +240,10 @@ function referencedImageUrls(
  * transaction so a re-import fully refreshes it. The cascade on the relations
  * removes the old sections/images/links; without the delete, the create would
  * trip the unique `slug` constraint.
+ *
+ * Returns the admin-editable columns whose stored value the write replaced
+ * with a different one (`changedColumns`), for the caller to report once the
+ * write has committed; empty for a first import.
  */
 async function writeProject(
 	prisma: PrismaClient,
@@ -244,7 +252,7 @@ async function writeProject(
 	// them optional, and a default here would read as one the import doesn't
 	// have.
 	data: ReturnType<typeof projectCreateSchema.parse> & RequiredProjectFields
-): Promise<void> {
+): Promise<string[]> {
 	// Serializable matches the API routes (`POST /api/admin/projects` and `PUT
 	// /api/admin/projects/:id`) so a concurrent admin edit can't slip a
 	// non-repeatable read between this script's delete-and-create on the same
@@ -257,10 +265,14 @@ async function writeProject(
 	// abort leaves those blobs orphaned until a later run's `pruneOrphans`
 	// sweeps them — acceptable dead weight, not data loss. `processProject`
 	// logs `P2034` distinctly so a conflict isn't mistaken for a manifest typo.
-	await prisma.$transaction(
+	return prisma.$transaction(
 		async (tx) => {
+			// Read inside the transaction, so the comparison sees the row the
+			// delete removes.
+			const stored = await tx.project.findUnique({ where: { slug } })
+
 			await tx.project.deleteMany({ where: { slug } })
-			await tx.project.create({
+			const created = await tx.project.create({
 				data: {
 					name: data.name,
 					slug,
@@ -302,6 +314,10 @@ async function writeProject(
 					faqs: toFaqCreate(data.faqs),
 				},
 			})
+
+			return stored == null
+				? []
+				: changedColumns(stored, created, ADMIN_EDITED_PROJECT_COLUMNS)
 		},
 		{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
 	)
@@ -312,15 +328,15 @@ async function writeProject(
 // #region per-project pipeline
 
 type ManifestRead =
-	| { isDraft: true }
+	| { isDraft: true; slug: string | null }
 	| { isDraft: false; manifest: ProjectManifest & RequiredProjectFields }
 
 /**
- * Reads a manifest. A draft (`isDraftManifest`) comes back as one with no
- * further checks, so a manifest staged before its app is ready is skipped even
- * while incomplete. Anything else goes through `parseManifest`, so the
- * required-flags check runs before anything else in `processProject`, dry runs
- * included.
+ * Reads a manifest. A draft (`isDraftManifest`) comes back with only its slug
+ * (`draftManifestSlug`) and no further checks, so a manifest staged before its
+ * app is ready is skipped even while incomplete. Anything else goes through
+ * `parseManifest`, so the required-flags check runs before anything else in
+ * `processProject`, dry runs included.
  */
 async function readManifest(manifestPath: string): Promise<ManifestRead> {
 	let raw: string
@@ -340,12 +356,42 @@ async function readManifest(manifestPath: string): Promise<ManifestRead> {
 
 	try {
 		if (isDraftManifest(raw)) {
-			return { isDraft: true }
+			return { isDraft: true, slug: draftManifestSlug(raw) }
 		}
 
 		return { isDraft: false, manifest: parseManifest(raw) }
 	} catch (error) {
 		throw new Error(`${MANIFEST_FILENAME}: ${errorMessage(error)}`)
+	}
+}
+
+/**
+ * Prints the skip line for a draft, as a warning when the draft's slug is
+ * already live (`describeDraftSkip`). A dry run has no database client, so it
+ * can't say whether the slug is live; a real run checks.
+ */
+async function reportDraftSkip(
+	folderName: string,
+	slug: string | null,
+	prisma: PrismaClient | null
+): Promise<void> {
+	const isLive =
+		prisma != null &&
+		slug != null &&
+		(await prisma.project.findUnique({
+			where: { slug },
+			select: { id: true },
+		})) != null
+	const line = describeDraftSkip(
+		folderName,
+		MANIFEST_FILENAME,
+		isLive ? slug : null
+	)
+
+	if (isLive) {
+		console.warn(`\n! ${line}`)
+	} else {
+		console.log(`\n▸ ${line}`)
 	}
 }
 
@@ -359,9 +405,7 @@ async function processProject(
 		const read = await readManifest(path.join(projectDir, MANIFEST_FILENAME))
 
 		if (read.isDraft) {
-			console.log(
-				`\n▸ ${folderName}  draft, skipped (remove "isDraft" from ${MANIFEST_FILENAME} to import)`
-			)
+			await reportDraftSkip(folderName, read.slug, prisma)
 
 			return { name: folderName, status: "skipped" }
 		}
@@ -428,11 +472,19 @@ async function processProject(
 			throw new Error("No database client for a non-dry-run import")
 		}
 
-		await writeProject(prisma, slug, {
+		const replaced = await writeProject(prisma, slug, {
 			...data,
 			...requiredProjectFields(manifest),
 		})
 		console.log(`  ✓ imported "${manifest.name}"`)
+
+		if (replaced.length > 0) {
+			// Either an admin edit or the manifest's own change; only the author
+			// knows which, so the line names the fields, not the values.
+			console.warn(
+				`  ! replaced the stored ${replaced.join(", ")}: an admin edit to any of these is gone, since the manifest wins on a re-import`
+			)
+		}
 
 		if (!isPruneDisabled) {
 			// Only after a successful write: blobs the new rows no longer

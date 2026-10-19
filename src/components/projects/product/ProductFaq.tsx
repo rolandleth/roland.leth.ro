@@ -1,3 +1,4 @@
+import { FAQ_ANCHOR, sectionHeadingId } from "@/lib/utils/productPage"
 import FaqItem from "../FaqItem"
 import { PRODUCT_H2_CLASS, TRIM_RENDERED_MARKDOWN } from "./ProductSection"
 import type { ReactNode } from "react"
@@ -20,12 +21,12 @@ interface Props {
 export default function ProductFaq({ faqs, renderedAnswers }: Props) {
 	return (
 		<section
-			id="faq"
-			aria-labelledby="faq-title"
+			id={FAQ_ANCHOR}
+			aria-labelledby={sectionHeadingId(FAQ_ANCHOR)}
 			className="scroll-mt-4 py-14 sm:py-[72px]"
 		>
 			<div className="grid gap-4 sm:grid-cols-[minmax(0,5fr)_minmax(0,9fr)] sm:gap-10">
-				<h2 id="faq-title" className={PRODUCT_H2_CLASS}>
+				<h2 id={sectionHeadingId(FAQ_ANCHOR)} className={PRODUCT_H2_CLASS}>
 					FAQ
 				</h2>
 

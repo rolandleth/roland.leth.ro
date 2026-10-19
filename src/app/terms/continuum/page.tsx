@@ -119,7 +119,7 @@ const sections: LegalSectionEntry[] = [
 		title: "Refunds",
 		content: (
 			<p>
-				Purchases and refunds are handled by Apple, not by me. If you want a
+				Purchases and refunds are handled by Apple, not by us. If you want a
 				refund, request it through Apple at{" "}
 				<a
 					href="https://reportaproblem.apple.com"
@@ -136,7 +136,7 @@ const sections: LegalSectionEntry[] = [
 		title: "Your data and responsible use",
 		content: (
 			<p>
-				Continuum stores everything on your device. It isn&apos;t sent to me or
+				Continuum stores everything on your device. It isn&apos;t sent to us or
 				anyone else — see the{" "}
 				<Link href="/privacy/continuum">privacy policy</Link>. Because
 				you&apos;re recording notes about real people, you&apos;re responsible
@@ -163,7 +163,7 @@ const sections: LegalSectionEntry[] = [
 		title: "Limitation of liability",
 		content: (
 			<p>
-				To the fullest extent permitted by law, I&apos;m not liable for any
+				To the fullest extent permitted by law, we&apos;re not liable for any
 				indirect, incidental, or consequential damages arising from your use of
 				Continuum, including any loss of data. Nothing in these terms limits
 				rights you have under mandatory consumer law.
@@ -187,9 +187,8 @@ export default function ContinuumTermsPage() {
 		<LegalPageLayout
 			title="Continuum – Terms of Use"
 			sections={sections}
-			lastUpdated="June 24, 2026"
+			lastUpdated="October 19, 2026"
 			contactEmail="roland+continuum@leth.ro"
-			contactPronoun="me"
 			documentKind="terms"
 			relatedLinks={relatedContinuumLegalLinks("/terms/continuum")}
 		/>

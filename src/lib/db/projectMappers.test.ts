@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { Prisma } from "@/generated/prisma/client"
+import { PRODUCT_PAGE_TEXT_KEYS } from "@/lib/api/schemas"
+import { GREEN_BAND_THEME } from "@/test/fixtures"
 import {
 	toFaqCreate,
+	toJsonColumnUpdate,
 	toLinkCreate,
 	toProductPageCreate,
 	toSectionCreate,
@@ -203,16 +206,22 @@ describe("toProductPageCreate", () => {
 		})
 	})
 
+	it("writes exactly the schema's product-page columns, so create drops none", () => {
+		expect(Object.keys(toProductPageCreate({})).sort()).toEqual(
+			[...PRODUCT_PAGE_TEXT_KEYS, "plans", "palette"].sort()
+		)
+	})
+
+	it("writes an explicit null Json value as SQL NULL", () => {
+		const result = toProductPageCreate({ plans: null, palette: null })
+
+		expect(result.plans).toBe(Prisma.DbNull)
+		expect(result.palette).toBe(Prisma.DbNull)
+	})
+
 	it("passes set values through unchanged", () => {
 		const plans = [{ name: "Free", features: ["Logging."], sortOrder: 1 }]
-		const theme = {
-			band: "#24443a",
-			bandInk: "#f4f1e8",
-			bandInk2: "#c9d3cc",
-			bandHighlight: "#cfa75a",
-			accentText: "#2e7d5b",
-		}
-		const palette = { light: theme, dark: theme }
+		const palette = { light: GREEN_BAND_THEME, dark: GREEN_BAND_THEME }
 
 		const result = toProductPageCreate({
 			metaDescription: "Meta.",
@@ -243,6 +252,26 @@ describe("toProductPageCreate", () => {
 
 	it("writes an explicit null text field as null", () => {
 		expect(toProductPageCreate({ heroEyebrow: null }).heroEyebrow).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region toJsonColumnUpdate
+
+describe("toJsonColumnUpdate", () => {
+	it("leaves an absent value absent, so the update keeps the column", () => {
+		expect(toJsonColumnUpdate(undefined)).toBeUndefined()
+	})
+
+	it("turns null into SQL NULL, which Prisma needs for a Json column", () => {
+		expect(toJsonColumnUpdate(null)).toBe(Prisma.DbNull)
+	})
+
+	it("passes a value through", () => {
+		const plans = [{ name: "Free", features: ["Logging."] }]
+
+		expect(toJsonColumnUpdate(plans)).toBe(plans)
 	})
 })
 

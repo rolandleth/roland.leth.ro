@@ -15,6 +15,7 @@ vi.mock("next/image", () => ({
 				src={props.src as string}
 				loading={props.loading as "eager" | "lazy" | undefined}
 				data-priority={props.priority === true ? "true" : undefined}
+				onLoad={props.onLoad as React.ReactEventHandler<HTMLImageElement>}
 			/>
 		)
 	},
@@ -234,6 +235,27 @@ describe("ProjectSectionCarousel image loading", () => {
 
 		expect(slideImage("First slide")).toHaveAttribute("loading", "lazy")
 		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("loads a lazy strip's neighbours once its centred slide has loaded", () => {
+		// The neighbour sits outside the clipped stage, where lazy loading never
+		// starts on its own, so the first swipe would land on a blank slide.
+		renderCarousel({ isLazy: true })
+
+		fireEvent.load(slideImage("First slide"))
+
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "eager")
+		// Two away stays lazy, as in the default strip.
+		expect(slideImage("MyApp screenshot")).toHaveAttribute("loading", "lazy")
+	})
+
+	it("waits for the centred slide, not a neighbour, before loading the rest", () => {
+		renderCarousel({ isLazy: true })
+
+		fireEvent.load(slideImage("Second slide"))
+
+		expect(slideImage("Second slide")).toHaveAttribute("loading", "lazy")
+		expect(slideImage("MyApp screenshot")).toHaveAttribute("loading", "lazy")
 	})
 
 	it("gives only the priority slide `priority`, with no `loading` beside it", () => {

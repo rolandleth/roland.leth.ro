@@ -37,8 +37,12 @@ type Phase = "closed" | "opening" | "open" | "closing"
 interface Props {
 	id: string
 	count: number
-	/** The first icons, shown while closed, each linking to its project. */
-	preview: ReactNode
+	/**
+	 * The first icons, shown while closed, each linking to its project. `null`
+	 * when there is nothing to preview (only open source projects): the closed
+	 * box is then the heading alone, and opening grows from it.
+	 */
+	preview: ReactNode | null
 	/** The full list, grouped by platform. */
 	children: ReactNode
 	className?: string
@@ -203,11 +207,13 @@ export default function MoreProjectsDisclosure({
 					style={{ height: isMoving ? height : "auto" }}
 					className="relative isolate overflow-hidden"
 				>
+					{/* Kept with no preview, at no height, so `measure` still has a
+					    closed height to grow from: zero, rather than an empty band. */}
 					<div
 						ref={previewRef}
 						aria-hidden={!isPreviewShown}
 						inert={!isPreviewShown}
-						className={`pt-6 ${isPreviewShown ? "" : "invisible"} ${isOpen ? OVERLAY_CLASS : ""}`}
+						className={`${preview == null ? "" : "pt-6"} ${isPreviewShown ? "" : "invisible"} ${isOpen ? OVERLAY_CLASS : ""}`}
 					>
 						{preview}
 					</div>

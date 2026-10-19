@@ -1,4 +1,5 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
+import { relatedDigestLegalLinks } from "@/components/privacy/digestLegalLinks"
 import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
@@ -132,6 +133,7 @@ export default function DigestPrivacyPage() {
 			sections={sections}
 			lastUpdated="Oct 17, 2026"
 			contactEmail="roland+digest@leth.ro"
+			relatedLinks={relatedDigestLegalLinks("/privacy/digest")}
 		/>
 	)
 }
