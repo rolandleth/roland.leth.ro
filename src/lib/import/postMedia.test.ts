@@ -250,6 +250,29 @@ describe("rewriteLocalMedia", () => {
 		)
 	})
 
+	it("rewrites the first of two definitions with one label, the one that renders", async () => {
+		const body =
+			"![Shot][shot]\n\n[shot]: media/first.png\n[shot]: media/second.png"
+		const rewritten = rewrite(body)
+
+		expect(rewritten).toBe(
+			`![Shot][shot]\n\n[shot]: ${STORE}/media/first.png\n[shot]: media/second.png`
+		)
+		// What the reader sees is the uploaded file, not a path that resolves to
+		// nothing.
+		expect(await markdownToHtml(rewritten)).toContain(
+			`<img src="${STORE}/media/first.png" alt="Shot">`
+		)
+	})
+
+	it("uploads only the definition that renders", () => {
+		const refs = refsOf(
+			"![Shot][shot]\n\n[shot]: media/first.png\n[shot]: media/second.png"
+		)
+
+		expect(localMediaPaths(refs)).toEqual(["media/first.png"])
+	})
+
 	it("keeps the fragment and the query after the URL", () => {
 		expect(rewrite("![a](media/demo.mp4#t=5)")).toBe(
 			`![a](${STORE}/media/demo.mp4#t=5)`

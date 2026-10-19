@@ -9,6 +9,8 @@
 import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import {
+	FTYP_BRAND_BYTES,
+	FTYP_COMPATIBLE_BRANDS_OFFSET,
 	FTYP_MAJOR_BRAND_OFFSET,
 	ftypBrandAt,
 	hasFtypBox,
@@ -94,11 +96,11 @@ export function adminUploadKey(
 }
 
 /**
- * How many leading bytes the route hands `detectImageMime`. 12 cover every
- * magic number; the rest reach the `ftyp` box's compatible brands, which an
- * AVIF with the generic `mif1` major brand needs (encoders write 20-40 bytes).
+ * The bytes every magic number below fits in: WebP's `WEBP` tag ends at byte
+ * 12, as does an `ftyp` major brand. The route reads more (`SNIFF_HEADER_BYTES`
+ * in `@/lib/utils/sniff`) for an AVIF's compatible brands.
  */
-export const SNIFF_HEADER_BYTES = 64
+const IMAGE_MAGIC_BYTES = 12
 
 /**
  * Returns the image MIME type implied by the file's leading bytes, or `null`
@@ -107,7 +109,7 @@ export const SNIFF_HEADER_BYTES = 64
  * `text/html` payload) is rejected before reaching Blob storage.
  */
 export function detectImageMime(bytes: Uint8Array): ImageMime | null {
-	if (bytes.length < 12) return null
+	if (bytes.length < IMAGE_MAGIC_BYTES) return null
 
 	if (
 		bytes[0] === 0x89 &&
@@ -187,10 +189,11 @@ function isAvifFtyp(bytes: Uint8Array): boolean {
 }
 
 /**
- * Whether the `ftyp` box's compatible-brands list (from byte 16 to the box's
- * declared size) names an AVIF brand. Brands past the end of `bytes` are not
- * seen, so a box longer than `SNIFF_HEADER_BYTES` can yield a false `false`:
- * a refused upload, never a wrong type.
+ * Whether the `ftyp` box's compatible-brands list (from
+ * `FTYP_COMPATIBLE_BRANDS_OFFSET` to the box's declared size) names an AVIF
+ * brand. Brands past the end of `bytes` are not seen, so a box longer than
+ * `SNIFF_HEADER_BYTES` can yield a false `false`: a refused upload, never a
+ * wrong type.
  */
 function hasCompatibleAvifBrand(bytes: Uint8Array): boolean {
 	const boxSize = new DataView(
@@ -200,7 +203,11 @@ function hasCompatibleAvifBrand(bytes: Uint8Array): boolean {
 	).getUint32(0)
 	const end = Math.min(boxSize, bytes.length)
 
-	for (let offset = 16; offset + 4 <= end; offset += 4) {
+	for (
+		let offset = FTYP_COMPATIBLE_BRANDS_OFFSET;
+		offset + FTYP_BRAND_BYTES <= end;
+		offset += FTYP_BRAND_BYTES
+	) {
 		if (AVIF_BRANDS.has(ftypBrandAt(bytes, offset))) {
 			return true
 		}

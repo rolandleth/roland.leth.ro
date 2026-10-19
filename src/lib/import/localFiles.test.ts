@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -98,5 +98,66 @@ describe("readFileInFolder", () => {
 		await expect(readFileInFolder(folder, "media")).rejects.toThrow(
 			/^Could not read media: /
 		)
+	})
+
+	it("refuses a symlink in the folder that points outside it", async () => {
+		// The file would be uploaded to a public URL.
+		await writeFile(path.join(root, "secret.png"), "secret")
+		await symlink(
+			path.join(root, "secret.png"),
+			path.join(folder, "media", "shot.png")
+		)
+
+		await expect(readFileInFolder(folder, "media/shot.png")).rejects.toThrow(
+			'The path "media/shot.png" links outside the folder'
+		)
+	})
+
+	it("refuses a path through a symlinked folder that points outside", async () => {
+		await mkdir(path.join(root, "elsewhere"))
+		await writeFile(path.join(root, "elsewhere", "a.png"), "outside")
+		await symlink(path.join(root, "elsewhere"), path.join(folder, "linked"))
+
+		await expect(readFileInFolder(folder, "linked/a.png")).rejects.toThrow(
+			"links outside the folder"
+		)
+	})
+
+	it("reads through a symlink that stays inside the folder", async () => {
+		await writeFile(path.join(folder, "icon.png"), "icon")
+		await symlink(
+			path.join(folder, "icon.png"),
+			path.join(folder, "media", "alias.png")
+		)
+
+		expect(
+			(await readFileInFolder(folder, "media/alias.png"))?.toString()
+		).toBe("icon")
+	})
+
+	it("reads from a folder reached through a symlink", async () => {
+		await writeFile(path.join(folder, "icon.png"), "icon")
+		await symlink(folder, path.join(root, "posts-link"))
+
+		expect(
+			(
+				await readFileInFolder(path.join(root, "posts-link"), "icon.png")
+			)?.toString()
+		).toBe("icon")
+	})
+
+	it("resolves to null for a dangling symlink, as for a missing file", async () => {
+		await symlink(
+			path.join(folder, "gone.png"),
+			path.join(folder, "media", "dangling.png")
+		)
+
+		expect(await readFileInFolder(folder, "media/dangling.png")).toBeNull()
+	})
+
+	it("reads an encoded `..` as a folder name, not as a climb out", async () => {
+		await writeFile(path.join(root, "secret.png"), "secret")
+
+		expect(await readFileInFolder(folder, "%2e%2e/secret.png")).toBeNull()
 	})
 })

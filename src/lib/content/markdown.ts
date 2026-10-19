@@ -11,7 +11,7 @@ import {
 	collapseWhitespace,
 } from "@/lib/content/descriptionRules"
 import { rehypeAbsoluteUrls } from "@/lib/content/rehypeAbsoluteUrls"
-import { rehypeVideo } from "@/lib/content/rehypeVideo"
+import { rehypeVideo, rendersAsVideo } from "@/lib/content/rehypeVideo"
 import type { Nodes } from "mdast"
 import type { ReactNode } from "react"
 import type { Options } from "rehype-pretty-code"
@@ -321,4 +321,51 @@ export function stripMarkdown(markdown: string): string {
  */
 export function deriveDescription(markdown: string): string {
 	return capDescription(stripMarkdown(markdown))
+}
+
+/**
+ * How many videos in `markdown` have no alt text: image syntax that renders as
+ * a `<video>` (`rendersAsVideo`) with an empty or blank alt. The alt is the
+ * video's accessible name, so the post form warns while any is missing; the
+ * "Upload video" button inserts one with the alt empty. A reference-style
+ * image counts through the definition it points at. Code blocks don't count,
+ * since they render as text.
+ */
+export function countVideosWithoutAlt(markdown: string): number {
+	// Most bodies have no video at all; skip the parse for them.
+	if (!/\.(?:mp4|webm)/i.test(markdown)) {
+		return 0
+	}
+
+	const tree = textOnlyProcessor.parse(markdown)
+	const urlByDefinition = new Map<string, string>()
+	const unlabelled: { url?: string; identifier?: string }[] = []
+
+	const visit = (node: Nodes): void => {
+		if (node.type === "definition" && !urlByDefinition.has(node.identifier)) {
+			urlByDefinition.set(node.identifier, node.url)
+		} else if (
+			(node.type === "image" || node.type === "imageReference") &&
+			(node.alt ?? "").trim() === ""
+		) {
+			unlabelled.push(
+				node.type === "image"
+					? { url: node.url }
+					: { identifier: node.identifier }
+			)
+		}
+
+		if ("children" in node) {
+			node.children.forEach(visit)
+		}
+	}
+
+	visit(tree)
+
+	return unlabelled.filter(({ url, identifier }) => {
+		const src =
+			url ?? (identifier == null ? null : urlByDefinition.get(identifier))
+
+		return src != null && rendersAsVideo(src)
+	}).length
 }

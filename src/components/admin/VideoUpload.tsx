@@ -5,12 +5,12 @@ import { useState } from "react"
 import ErrorMessage from "@/components/admin/ErrorMessage"
 import { useFileUpload } from "@/components/admin/useFileUpload"
 import { readErrorMessage } from "@/lib/client/readErrorMessage"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 import {
 	detectVideoMime,
 	MAX_VIDEO_UPLOAD_BYTES,
 	MAX_VIDEO_UPLOAD_MIB,
 	VIDEO_MIMES,
-	VIDEO_SNIFF_HEADER_BYTES,
 } from "@/lib/utils/video"
 
 interface Props {
@@ -85,7 +85,7 @@ async function uploadVideo(
 	// Sniffed, not read from `file.type`: the browser derives that from the
 	// file's extension, so a renamed `.mov` would pass and then never play.
 	const header = new Uint8Array(
-		await file.slice(0, VIDEO_SNIFF_HEADER_BYTES).arrayBuffer()
+		await file.slice(0, SNIFF_HEADER_BYTES).arrayBuffer()
 	)
 	const contentType = detectVideoMime(header)
 

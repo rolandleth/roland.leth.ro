@@ -44,11 +44,55 @@ describe("insertMarkdownBlock", () => {
 		)
 	})
 
-	it("breaks out of a paragraph of several lines after the cursor's line", () => {
-		const text = "Line one\nline two\nline three"
+	it("puts the block after a hard-wrapped paragraph, never between its lines", () => {
+		const text = "Line one\nline two\nline three\n\nNext."
 
 		expect(insertMarkdownBlock(text, BLOCK, 11).text).toBe(
-			`Line one\nline two\n\n${BLOCK}\n\nline three`
+			`Line one\nline two\nline three\n\n${BLOCK}\n\nNext.`
+		)
+	})
+
+	it("puts the block after a fenced code block, never inside it", () => {
+		const text = "```ts\nconst a = 1\nconst b = 2\n```\n\nAfter."
+		const cursor = text.indexOf("const b")
+
+		expect(insertMarkdownBlock(text, BLOCK, cursor).text).toBe(
+			`\`\`\`ts\nconst a = 1\nconst b = 2\n\`\`\`\n\n${BLOCK}\n\nAfter.`
+		)
+	})
+
+	it("puts the block after a whole list, so its numbering carries on", () => {
+		const text = "1. One\n2. Two\n3. Three\n\nAfter."
+		const cursor = text.indexOf("Two")
+
+		expect(insertMarkdownBlock(text, BLOCK, cursor).text).toBe(
+			`1. One\n2. Two\n3. Three\n\n${BLOCK}\n\nAfter.`
+		)
+	})
+
+	it("puts the block after a quote of several lines", () => {
+		const text = "> One\n> two\n\nAfter."
+
+		expect(insertMarkdownBlock(text, BLOCK, 3).text).toBe(
+			`> One\n> two\n\n${BLOCK}\n\nAfter.`
+		)
+	})
+
+	it("puts the block after a table, never between its rows", () => {
+		const text = "| A |\n|---|\n| 1 |\n| 2 |\n\nAfter."
+		const cursor = text.indexOf("1")
+
+		expect(insertMarkdownBlock(text, BLOCK, cursor).text).toBe(
+			`| A |\n|---|\n| 1 |\n| 2 |\n\n${BLOCK}\n\nAfter.`
+		)
+	})
+
+	it("puts the block before a list when the cursor is at its start", () => {
+		const text = "Intro.\n\n- One\n- Two"
+		const cursor = text.indexOf("- One")
+
+		expect(insertMarkdownBlock(text, BLOCK, cursor).text).toBe(
+			`Intro.\n\n${BLOCK}\n\n- One\n- Two`
 		)
 	})
 

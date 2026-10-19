@@ -57,6 +57,10 @@ import "dotenv/config"
 import { readdir, readFile } from "node:fs/promises"
 import path from "node:path"
 import { Prisma } from "@/generated/prisma/client"
+import {
+	namedByOtherPosts,
+	type PostBodySearch,
+} from "@/lib/db/postMediaReferences"
 import { makeScriptPrisma } from "@/lib/db/scriptPrisma"
 import {
 	applySlugRewrites,
@@ -77,20 +81,16 @@ import {
 	type SkippedFile,
 	UNCHANGED_SKIP_REASON,
 } from "@/lib/import/postImport"
-import {
-	postMediaPrefixFor,
-	postMediaSectionPrefix,
-} from "@/lib/import/postMedia"
+import { postMediaSectionPrefix } from "@/lib/import/postMedia"
 import {
 	logPendingUploads,
 	planPostImportWithMedia,
-	prunePostMedia,
+	sweepWrittenPostMedia,
 	writtenBodies,
 	writtenSlugs,
 } from "@/lib/import/postMediaRun"
 import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { parsePostScriptArgs } from "@/lib/import/sectionArg"
-import { errorMessage } from "@/lib/utils/errorMessage"
 import { currentDatetimeString } from "@/lib/utils/format"
 import type { Section } from "@/lib/db/sections"
 
@@ -247,7 +247,9 @@ function printPlan(
 /**
  * The section's media blobs as they were before this run, listed once on first
  * use and shared from then on: one Blob operation however many posts carry
- * media, and none for a run that never asks.
+ * media. Two things ask: media resolution, for a post with local media, and
+ * the sweep of old media, for any post the run writes, since an edit can drop
+ * a file. A run that writes nothing, dry or real, never lists.
  */
 function makeMediaListing(section: Section): () => Promise<ListedBlob[]> {
 	let listing: Promise<ListedBlob[]> | null = null
@@ -260,56 +262,26 @@ function makeMediaListing(section: Section): () => Promise<ListedBlob[]> {
 }
 
 /**
- * The listing for the sweep of old media, or `null` when there is none to
- * sweep with: no token, or the store can't be listed right now. Best-effort,
- * unlike the listing media resolution needs: the sweep is housekeeping and
- * must not fail a run whose rows are written or about to be.
- */
-async function listingForSweep(
-	getListing: (() => Promise<ListedBlob[]>) | null
-): Promise<ListedBlob[] | null> {
-	if (getListing == null) {
-		return null
-	}
-
-	try {
-		return await getListing()
-	} catch (error) {
-		console.warn(
-			`  ! couldn't list stored media (${errorMessage(error)}); skipping the sweep of old media`
-		)
-
-		return null
-	}
-}
-
-/**
- * Deletes, or on a dry run reports, the blobs each written post no longer
- * names: the old version of an edited file, a file the post dropped. A failed
- * sweep warns and moves on; the rows are already written, and an orphan costs
- * storage, not correctness.
+ * The sweep of old media for the posts this run wrote (`sweepWrittenPostMedia`),
+ * with a blob another post still names kept: a post moved here from another
+ * section can link into this prefix.
  */
 async function pruneWrittenMedia(
 	bodyBySlug: ReadonlyMap<string, string>,
-	listing: readonly ListedBlob[],
-	section: Section
+	getListing: (() => Promise<ListedBlob[]>) | null,
+	section: Section,
+	prisma: PostBodySearch
 ): Promise<void> {
-	for (const [slug, body] of bodyBySlug) {
-		try {
-			await prunePostMedia({
-				store: blobStore,
-				listing,
-				prefix: postMediaPrefixFor(section, slug),
-				body,
-				isDryRun,
-				log: console.log,
-			})
-		} catch (error) {
-			console.warn(
-				`  ! couldn't prune old media for ${slug} (${errorMessage(error)}); it remains in the store`
-			)
-		}
-	}
+	await sweepWrittenPostMedia({
+		store: blobStore,
+		bodyBySlug,
+		getListing,
+		section,
+		namedElsewhereFor: (slug) => namedByOtherPosts(prisma, { section, slug }),
+		isDryRun,
+		log: console.log,
+		warn: console.warn,
+	})
 }
 
 // #endregion
@@ -424,15 +396,12 @@ async function main(): Promise<void> {
 		printSkips(skipped)
 
 		if (isDryRun) {
-			const listing = await listingForSweep(getListing)
-
-			if (listing != null) {
-				await pruneWrittenMedia(
-					writtenBodies(plan, existingBySlug, new Set(writtenSlugs(plan))),
-					listing,
-					section
-				)
-			}
+			await pruneWrittenMedia(
+				writtenBodies(plan, existingBySlug, new Set(writtenSlugs(plan))),
+				getListing,
+				section,
+				prisma
+			)
 
 			console.log(
 				`\nDry run complete: ${plan.creates.length} to create, ` +
@@ -493,20 +462,17 @@ async function main(): Promise<void> {
 
 		// Only after the write, and only for rows it wrote: a create the insert
 		// skipped belongs to whoever wrote that row first.
-		const listing = await listingForSweep(getListing)
+		const written = new Set([
+			...created.map((row) => row.slug),
+			...plan.updates.map((update) => update.slug),
+		])
 
-		if (listing != null) {
-			const written = new Set([
-				...created.map((row) => row.slug),
-				...plan.updates.map((update) => update.slug),
-			])
-
-			await pruneWrittenMedia(
-				writtenBodies(plan, existingBySlug, written),
-				listing,
-				section
-			)
-		}
+		await pruneWrittenMedia(
+			writtenBodies(plan, existingBySlug, written),
+			getListing,
+			section,
+			prisma
+		)
 
 		console.log(
 			`\nImport complete: ${created.length} created, ${plan.updates.length} updated, ` +

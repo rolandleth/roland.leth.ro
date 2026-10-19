@@ -26,17 +26,38 @@ export function makeStore(overrides: Partial<BlobStore> = {}): BlobStore {
  * A fake store that holds `blobs`: `list` answers with the ones under the
  * prefix it is asked for, as the real store does. For code that lists more
  * than one prefix, where a single canned page would answer every call alike.
+ *
+ * With a `pageSize`, `list` pages as the real store does: `hasMore` and a
+ * cursor (the next page's start, as a string) until the last page, so a caller
+ * that reads only the first page misses the rest.
  */
 export function makeStoreHolding(
 	blobs: readonly ListedBlob[],
-	overrides: Partial<BlobStore> = {}
+	overrides: Partial<BlobStore> = {},
+	pageSize = Number.POSITIVE_INFINITY
 ): BlobStore {
 	return makeStore({
 		list: vi.fn(
-			async ({ prefix }: { prefix: string }): Promise<BlobListPage> => ({
-				blobs: blobs.filter((blob) => blob.pathname.startsWith(prefix)),
-				hasMore: false,
-			})
+			async ({
+				prefix,
+				cursor,
+			}: {
+				prefix: string
+				cursor?: string
+			}): Promise<BlobListPage> => {
+				const matching = blobs.filter((blob) =>
+					blob.pathname.startsWith(prefix)
+				)
+				const start = cursor == null ? 0 : Number(cursor)
+				const end = start + pageSize
+				const hasMore = end < matching.length
+
+				return {
+					blobs: matching.slice(start, end),
+					hasMore,
+					...(hasMore ? { cursor: String(end) } : {}),
+				}
+			}
 		),
 		...overrides,
 	})

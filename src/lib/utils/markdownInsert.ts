@@ -1,3 +1,7 @@
+import remarkGfm from "remark-gfm"
+import remarkParse from "remark-parse"
+import { unified } from "unified"
+
 export interface BlockInsertion {
 	/** The text with the block in place. */
 	text: string
@@ -8,11 +12,17 @@ export interface BlockInsertion {
 /** Newlines a paragraph break needs: one ends the line, the second leaves it blank. */
 const PARAGRAPH_BREAK_NEWLINES = 2
 
+// Parse-only, built once: only the top-level blocks' positions are read.
+const blockParser = unified().use(remarkParse).use(remarkGfm)
+
 /**
  * Puts `block` into `text` as a paragraph of its own, near `cursor`. Nothing is
- * ever replaced or split: a cursor at the start of a line puts the block before
- * that line, and a cursor anywhere else puts it after the cursor's line. So a
- * block can't land inside a sentence, or inside the block a previous call
+ * ever replaced or split. The unit is a top-level markdown block (a paragraph,
+ * a list, a fenced code block, a quote, a table): a cursor at a block's start
+ * puts the new one before it, a cursor anywhere inside puts it after the whole
+ * block, and a cursor on a blank line between blocks puts it there. So it can't
+ * land inside a sentence, a code block, a hard-wrapped paragraph or a list
+ * (where it would restart the numbering), or inside the block a previous call
  * inserted when the cursor was left in it.
  *
  * Adds only the blank lines that are missing around the block, so inserting
@@ -38,8 +48,33 @@ export function insertMarkdownBlock(
 	}
 }
 
-/** `cursor` itself at the start of a line, the end of its line otherwise. */
+/**
+ * The start of the top-level block `cursor` starts, the end of the one it sits
+ * inside, and otherwise its own line's boundary (`lineBoundary`).
+ */
 function insertionPoint(text: string, cursor: number): number {
+	for (const node of blockParser.parse(text).children) {
+		const start = node.position?.start.offset
+		const end = node.position?.end.offset
+
+		if (start == null || end == null) {
+			continue
+		}
+
+		if (cursor === start) {
+			return start
+		}
+
+		if (cursor > start && cursor <= end) {
+			return end
+		}
+	}
+
+	return lineBoundary(text, cursor)
+}
+
+/** `cursor` itself at the start of a line, the end of its line otherwise. */
+function lineBoundary(text: string, cursor: number): number {
 	if (cursor === 0 || text[cursor - 1] === "\n") {
 		return cursor
 	}

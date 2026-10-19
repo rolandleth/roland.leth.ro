@@ -102,9 +102,32 @@ export function storedBlobsByKey(
 }
 
 /**
+ * A batch delete that stopped partway. The batches before the failing one are
+ * gone; the failing one and those after it are not known to be, so a caller
+ * logging with `silent` (the admin routes) still says how far it got. The
+ * store's own error is the `cause`.
+ */
+export class BlobDeleteError extends Error {
+	constructor(
+		readonly deleted: number,
+		readonly remaining: number,
+		cause: unknown
+	) {
+		super(
+			`Deleted ${deleted} of ${deleted + remaining} blob(s), then failed: ${
+				cause instanceof Error ? cause.message : String(cause)
+			}`,
+			{ cause }
+		)
+		this.name = "BlobDeleteError"
+	}
+}
+
+/**
  * Deletes `blobs` `DELETE_BATCH_SIZE` at a time, logging each pathname with
  * `note` once its batch succeeds — so a failure mid-sweep leaves a log of
- * exactly what went, never a line for a blob that didn't. Errors propagate raw.
+ * exactly what went, never a line for a blob that didn't. A failing batch
+ * throws a `BlobDeleteError` with the split.
  */
 export async function deleteBlobs(
 	store: Pick<BlobStore, "del">,
@@ -115,7 +138,11 @@ export async function deleteBlobs(
 	for (let start = 0; start < blobs.length; start += DELETE_BATCH_SIZE) {
 		const batch = blobs.slice(start, start + DELETE_BATCH_SIZE)
 
-		await store.del(batch.map((blob) => blob.url))
+		try {
+			await store.del(batch.map((blob) => blob.url))
+		} catch (error) {
+			throw new BlobDeleteError(start, blobs.length - start, error)
+		}
 
 		for (const blob of batch) {
 			log(`  × ${blob.pathname} (${note})`)
@@ -131,13 +158,18 @@ export async function deleteBlobs(
  * serve wrong content forever. Uploads run `UPLOAD_CONCURRENCY` at a time;
  * after a failure no new uploads start, in-flight ones settle, and the first
  * error is rethrown. Reuses and uploads are both logged, never silent.
+ *
+ * @param collisionFix The way out a size mismatch's error names, which
+ *   depends on the script: the project importer has `--reupload`, the post
+ *   importer doesn't.
  */
 export async function syncImages(
 	store: BlobStore,
 	imagePaths: string[],
 	loaded: Map<string, LoadedImage>,
 	existing: Map<string, StoredBlob>,
-	log: Logger
+	log: Logger,
+	collisionFix = "Re-run with --reupload to overwrite it."
 ): Promise<Map<string, string>> {
 	const urlByPath = new Map<string, string>()
 	const pending: { relativePath: string; image: LoadedImage }[] = []
@@ -160,7 +192,7 @@ export async function syncImages(
 			throw new Error(
 				`Stored blob ${image.key} is ${stored.size} B but the local file is ${image.size} B — ` +
 					`likely a content-hash collision or a corrupted upload. ` +
-					`Re-run with --reupload to overwrite it.`
+					collisionFix
 			)
 		}
 

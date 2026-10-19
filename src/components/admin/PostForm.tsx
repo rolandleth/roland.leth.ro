@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useMemo, useRef } from "react"
 import DescriptionField, {
 	isDescriptionOverCap,
 } from "@/components/admin/DescriptionField"
@@ -13,6 +13,7 @@ import { useFormState } from "@/components/admin/useFormState"
 import { useUnsavedChangesGuard } from "@/components/admin/useUnsavedChangesGuard"
 import { useUploadTracker } from "@/components/admin/useUploadTracker"
 import VideoUpload from "@/components/admin/VideoUpload"
+import { countVideosWithoutAlt } from "@/lib/content/markdown"
 import { SECTIONS } from "@/lib/db/sections"
 import { currentDatetimeString, followTitleSlug } from "@/lib/utils/format"
 import type { MarkdownEditorHandle } from "@/components/admin/MarkdownEditor"
@@ -97,9 +98,14 @@ export default function PostForm({ initialData }: Props) {
 	// An upload in flight counts: its URL reaches the state only when it lands.
 	useUnsavedChangesGuard((isDirty || isUploading) && !hasSucceeded)
 	const editorRef = useRef<MarkdownEditorHandle>(null)
+	const videosWithoutAlt = useMemo(
+		() => countVideosWithoutAlt(state.body),
+		[state.body]
+	)
 
 	// The alt text is left empty with the cursor inside it: it becomes the
-	// video's accessible name, and only the author can write it.
+	// video's accessible name, and only the author can write it. The hint under
+	// the editor stays until it's written.
 	function handleVideoUploaded(url: string) {
 		editorRef.current?.insertBlock(
 			`${VIDEO_MARKDOWN_OPENING}](${url})`,
@@ -252,6 +258,23 @@ export default function PostForm({ initialData }: Props) {
 					onChange={(v) => setField("body", v)}
 					placeholder="Write your post in markdown…"
 				/>
+				{/* A hint, not a block: a draft can be saved mid-thought. */}
+				{videosWithoutAlt > 0 && (
+					<p className="text-xs text-amber-600 dark:text-amber-400">
+						{videosWithoutAlt === 1 ? (
+							<>
+								A video has no alt text, so screen readers can&apos;t name it.
+								Write it between <code>![</code> and <code>]</code>.
+							</>
+						) : (
+							<>
+								{videosWithoutAlt} videos have no alt text, so screen readers
+								can&apos;t name them. Write each between <code>![</code> and{" "}
+								<code>]</code>.
+							</>
+						)}
+					</p>
+				)}
 			</div>
 
 			{error && <ErrorMessage>{error}</ErrorMessage>}

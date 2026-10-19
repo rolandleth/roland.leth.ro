@@ -128,11 +128,21 @@ function hasContent(node: Element): boolean {
  */
 const VIDEO_SCHEME = /^(?:https?:|[^:/?#]*(?:[/?#]|$))/i
 
+/**
+ * Whether image syntax with this URL renders as a `<video>`: a video file by
+ * its extension, on a scheme a link may carry. The admin form's alt check
+ * (`countVideosWithoutAlt`) asks the same, so it warns about exactly the
+ * images this plugin turns into players.
+ */
+export function rendersAsVideo(src: string): boolean {
+	return VIDEO_SCHEME.test(src) && isVideoUrl(src)
+}
+
 /** Rewrites `image` in place when its `src` is a video; leaves it alone otherwise. */
 function convertToVideo(image: Element, preload: "metadata" | "none"): void {
 	const { src, alt, title } = image.properties
 
-	if (typeof src !== "string" || !VIDEO_SCHEME.test(src) || !isVideoUrl(src)) {
+	if (typeof src !== "string" || !rendersAsVideo(src)) {
 		return
 	}
 

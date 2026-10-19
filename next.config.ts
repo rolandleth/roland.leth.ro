@@ -4,6 +4,35 @@ import {
 } from "./src/lib/routing/legacyRoutes"
 import type { NextConfig } from "next"
 
+/**
+ * The Content-Security-Policy. `unsafe-inline` is required by Next.js for
+ * hydration scripts and Tailwind inline styles; tighten further with a
+ * nonce-based CSP if inline scripts become a concern.
+ *
+ * @param canUploadToBlob The admin pages only: the video upload goes from the
+ *   browser straight to the Vercel Blob API, which no public page talks to.
+ */
+function contentSecurityPolicy(
+	isProd: boolean,
+	{ canUploadToBlob }: { canUploadToBlob: boolean }
+): string {
+	return [
+		"default-src 'self'",
+		// Next.js hydration requires unsafe-inline; React dev mode requires unsafe-eval.
+		`script-src 'self' 'unsafe-inline'${!isProd ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
+		"style-src 'self' 'unsafe-inline'",
+		// Allow images from self, Vercel Blob, and data URIs (e.g. base64 favicons).
+		`img-src 'self' data: https://*.public.blob.vercel-storage.com${!isProd ? " https://picsum.photos https://fastly.picsum.photos" : ""}`,
+		// Videos in a markdown body: uploaded to Vercel Blob, or served from `public/`.
+		"media-src 'self' https://*.public.blob.vercel-storage.com",
+		"font-src 'self' data:",
+		// Vercel Analytics reporting endpoint, and on the admin pages the Vercel
+		// Blob API.
+		`connect-src 'self' https://vitals.vercel-insights.com${canUploadToBlob ? " https://vercel.com/api/blob/" : ""}`,
+		"frame-ancestors 'none'",
+	].join("; ")
+}
+
 const nextConfig: NextConfig = {
 	images: {
 		remotePatterns: [
@@ -54,25 +83,9 @@ const nextConfig: NextConfig = {
 				key: "Permissions-Policy",
 				value: "camera=(), microphone=(), geolocation=()",
 			},
-			// CSP: unsafe-inline required by Next.js for hydration scripts and Tailwind inline styles.
-			// Tighten further with nonce-based CSP if inline scripts become a concern.
 			{
 				key: "Content-Security-Policy",
-				value: [
-					"default-src 'self'",
-					// Next.js hydration requires unsafe-inline; React dev mode requires unsafe-eval.
-					`script-src 'self' 'unsafe-inline'${!isProd ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
-					"style-src 'self' 'unsafe-inline'",
-					// Allow images from self, Vercel Blob, and data URIs (e.g. base64 favicons).
-					`img-src 'self' data: https://*.public.blob.vercel-storage.com${!isProd ? " https://picsum.photos https://fastly.picsum.photos" : ""}`,
-					// Videos in a markdown body: uploaded to Vercel Blob, or served from `public/`.
-					"media-src 'self' https://*.public.blob.vercel-storage.com",
-					"font-src 'self' data:",
-					// Vercel Analytics reporting endpoint, and the Vercel Blob API: the
-					// admin's video upload goes from the browser straight to it.
-					"connect-src 'self' https://vitals.vercel-insights.com https://vercel.com/api/blob/",
-					"frame-ancestors 'none'",
-				].join("; "),
+				value: contentSecurityPolicy(isProd, { canUploadToBlob: false }),
 			},
 		]
 
@@ -80,6 +93,17 @@ const nextConfig: NextConfig = {
 			{
 				source: "/(.*)",
 				headers: securityHeaders,
+			},
+			{
+				// Later entries override a key an earlier one set, so this replaces
+				// the site-wide policy on the admin pages only.
+				source: "/admin/:path*",
+				headers: [
+					{
+						key: "Content-Security-Policy",
+						value: contentSecurityPolicy(isProd, { canUploadToBlob: true }),
+					},
+				],
 			},
 			{
 				// Bluesky/AT Protocol handle verification. The file has no

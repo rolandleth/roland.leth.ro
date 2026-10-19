@@ -1,12 +1,12 @@
 import { put } from "@vercel/blob"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 import { ftypBox } from "@/test/mediaBytes"
 import { POST } from "./route"
 import {
 	adminUploadKey,
 	detectImageMime,
 	sanitizeFilename,
-	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 
 vi.mock("@/lib/api/requireAdmin", async () => {

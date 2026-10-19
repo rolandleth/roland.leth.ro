@@ -3,12 +3,12 @@ import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api/requireAdmin"
 import { sanitizeLogString } from "@/lib/api/sanitizeLogString"
 import { errorMessage } from "@/lib/utils/errorMessage"
+import { SNIFF_HEADER_BYTES } from "@/lib/utils/sniff"
 import {
 	adminUploadKey,
 	detectImageMime,
 	refuseDisabledUploads,
 	respondUploadFailed,
-	SNIFF_HEADER_BYTES,
 } from "./uploadHelpers"
 
 const MAX_UPLOAD_MIB = 10

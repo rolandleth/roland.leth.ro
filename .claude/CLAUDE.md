@@ -238,8 +238,12 @@ scripts uploaded for it: everything under `posts/<section>/<slug>/` or
 `projects/<slug>/` (`src/lib/api/mediaCleanup.ts`). A post whose section was
 changed after its import has its media under the old section, where only the
 blobs its body names are deleted, because that prefix can belong to another
-post with the same slug. The cleanup runs after the row is gone and never fails
-the delete; a failure is a warning in the route's log. Files uploaded through
+post with the same slug. Before any post media delete, here and in the import's
+sweep, the posts table is asked which of the blobs another post's body still
+names, and those stay: a moved post links into its old prefix, and two posts can
+share one content-addressed file. A failed check deletes nothing. The cleanup
+runs after the row is gone and never fails the delete; a failure is a warning in
+the route's log, with how many blobs went before it. Files uploaded through
 the admin have UUID keys at the store root and are left to
 `blob:prune-uploads`.
 
