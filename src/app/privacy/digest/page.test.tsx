@@ -12,6 +12,15 @@ describe("Digest privacy page", () => {
 		)
 	})
 
+	it("links to the terms of use from Related", () => {
+		render(<DigestPrivacyPage />)
+
+		expect(screen.getByRole("link", { name: "Terms of use" })).toHaveAttribute(
+			"href",
+			"/terms/digest"
+		)
+	})
+
 	// Digest gives iOS its template names for Siri and Shortcuts, so data
 	// doesn't leave the device through iCloud alone; the page has to say both.
 	it("names every way data leaves the device, Siri and Shortcuts included", () => {

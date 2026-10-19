@@ -9,6 +9,7 @@ import PrivacyPage from "./privacy/page"
 import ReckonPrivacyPage from "./privacy/reckon/page"
 import WeeklyGymPrivacyPage from "./privacy/weekly-gym/page"
 import ContinuumTermsPage from "./terms/continuum/page"
+import DigestTermsPage from "./terms/digest/page"
 import WeeklyGymTermsPage from "./terms/weekly-gym/page"
 import type { ComponentType } from "react"
 
@@ -24,6 +25,7 @@ const LEGAL_PAGES: [string, ComponentType][] = [
 	["/privacy/reckon", ReckonPrivacyPage],
 	["/privacy/weekly-gym", WeeklyGymPrivacyPage],
 	["/terms/continuum", ContinuumTermsPage],
+	["/terms/digest", DigestTermsPage],
 	["/terms/weekly-gym", WeeklyGymTermsPage],
 ]
 
