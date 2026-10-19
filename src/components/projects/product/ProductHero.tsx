@@ -1,13 +1,6 @@
 import Image from "next/image"
-import { statusLabel } from "@/lib/utils/projectStatus"
-import ProjectLinkCta from "../ProjectLinkCta"
-import type { ProjectStatus } from "@/generated/prisma/enums"
-import type { LinkCta } from "@/lib/utils/platforms"
-
-export interface StoreLink {
-	link: { id: number; url: string }
-	cta: LinkCta
-}
+import StoreLinks from "../StoreLinks"
+import type { StoreLink } from "../StoreLinks"
 
 interface Props {
 	name: string
@@ -23,8 +16,8 @@ interface Props {
 	disclaimer: string | null
 	heroImage: string | null
 	heroImageAlt: string | null
-	/** Shown in place of the store button when it isn't live (`statusLabel`). */
-	status: ProjectStatus
+	/** Shown in place of the store buttons when it isn't live (`statusLabel`). */
+	statusLabel: string | null
 	storeLinks: readonly StoreLink[]
 	/** The id of the section with numbered steps, for "See how it works". */
 	stepsAnchor: string | null
@@ -53,35 +46,35 @@ export default function ProductHero({
 	disclaimer,
 	heroImage,
 	heroImageAlt,
-	status,
+	statusLabel,
 	storeLinks,
 	stepsAnchor,
 	storeNote,
 }: Props) {
 	const isBare = eyebrow == null && headline == null
-	const label = statusLabel(status)
 	const iconSize = isBare ? 64 : 44
 	const hasImage = heroImage != null
 
-	// The band runs up under the fixed site header: `-mt-14` pulls it over the
-	// header's 3.5rem spacer, and the top padding adds the same back so the text
-	// starts below the bar. `ProductPageStyle` gives the header the band colour.
+	// The band runs up under the fixed site header: the negative margin pulls it
+	// over the header's spacer, and the top padding adds the same height back
+	// before its own 4rem (88px from 1024px), so the text starts below the bar.
+	// `ProductPageStyle` gives the header the band colour.
 	//
 	// Stacked, the summary sits 24px under the title and the image 48px under
 	// the buttons, as margins rather than the grid's gap. From 1024px the grid's
 	// gap takes over: 40px under the title, 64px between text and image. The
 	// image takes about 590px of the full frame against 450px of text.
 	return (
-		<section className="product-band -mt-14 bg-(--product-band) text-(--product-band-ink)">
+		<section className="product-band -mt-(--site-header-height) bg-(--product-band) text-(--product-band-ink)">
 			<div
-				className={`product-frame grid items-start pt-[7.5rem] pb-20 lg:pt-[calc(88px+3.5rem)] lg:pb-24 ${
+				className={`product-frame grid items-start pt-[calc(var(--site-header-height)+4rem)] pb-20 lg:pt-[calc(var(--site-header-height)+88px)] lg:pb-24 ${
 					hasImage
 						? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-x-16 lg:gap-y-10"
 						: ""
 				}`}
 			>
 				<div
-					className={`product-hero-fade min-w-0 ${hasImage ? "lg:col-span-2" : ""}`}
+					className={`product-hero-rise min-w-0 ${hasImage ? "lg:col-span-2" : ""}`}
 				>
 					<h1 className="flex flex-col gap-4 font-normal">
 						<span
@@ -125,7 +118,7 @@ export default function ProductHero({
 				</div>
 
 				<div
-					className={`product-hero-fade mt-6 min-w-0 ${hasImage ? "lg:mt-0" : ""}`}
+					className={`product-hero-rise mt-6 min-w-0 ${hasImage ? "lg:mt-0" : ""}`}
 				>
 					<p className="max-w-[34em] text-lg leading-relaxed text-pretty text-(--product-band-ink2) sm:text-[19px]">
 						{summary}
@@ -137,42 +130,28 @@ export default function ProductHero({
 						</p>
 					)}
 
-					{(storeLinks.length > 0 || label != null || stepsAnchor != null) && (
-						<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-							{label != null && (
-								<p className="product-status-cta-large">{label}</p>
-							)}
-
-							{storeLinks.map(({ link, cta }) => (
-								<ProjectLinkCta
-									key={link.id}
-									url={link.url}
-									cta={cta}
-									accent="var(--product-band-hi)"
-									isBadgeLarge
-								/>
-							))}
-
-							{stepsAnchor != null && (
+					<StoreLinks
+						storeLinks={storeLinks}
+						statusLabel={statusLabel}
+						accent="var(--product-band-hi)"
+						isLarge
+						className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3"
+						storeNote={storeNote}
+						trailingLink={
+							stepsAnchor == null ? null : (
 								<a
 									href={`#${stepsAnchor}`}
 									className="inline-flex min-h-11 items-center text-[15px] font-medium underline decoration-(--product-band-hi) decoration-[1.5px] underline-offset-[5px]"
 								>
 									See how it works
 								</a>
-							)}
-						</div>
-					)}
-
-					{storeNote != null && storeLinks.length > 0 && (
-						<p className="mt-3 text-sm text-(--product-band-ink2)">
-							{storeNote}
-						</p>
-					)}
+							)
+						}
+					/>
 				</div>
 
 				{heroImage != null && (
-					<figure className="product-hero-fade m-0 mt-12 min-w-0 lg:mt-0">
+					<figure className="product-hero-rise m-0 mt-12 min-w-0 lg:mt-0">
 						<div className="product-shot relative aspect-[1270/760] overflow-hidden rounded-[14px]">
 							<Image
 								src={heroImage}

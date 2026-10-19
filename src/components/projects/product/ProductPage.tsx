@@ -14,7 +14,7 @@ import {
 } from "@/lib/utils/productPage"
 import { isDiscontinued, statusLabel } from "@/lib/utils/projectStatus"
 import ProjectGuides from "../ProjectGuides"
-import ProjectLinkCta from "../ProjectLinkCta"
+import StoreLinks from "../StoreLinks"
 import ProductClosing from "./ProductClosing"
 import ProductFaq from "./ProductFaq"
 import { ProductGalleryProvider } from "./ProductGallery"
@@ -51,33 +51,32 @@ function hasText(markdown: string): boolean {
 }
 
 /**
- * What the page prices, or null when there's nothing to show: no offers, or a
+ * What the page prices, or null when there's nothing to show: no offers (plans
+ * alone would be cards with no price in them, under a "Pricing" heading), or a
  * discontinued app (nothing left to buy). A coming-soon app shows its prices
  * when it has them: what it will cost helps a reader decide whether to wait.
  */
 function pricingFor(project: ProjectDetail): Pricing | null {
-	if (isDiscontinued(project)) {
+	const { offers } = project
+
+	if (isDiscontinued(project) || offers == null || offers.length === 0) {
 		return null
 	}
 
-	const plans = groupOffersByPlan(project.plans, project.offers)
+	const plans = groupOffersByPlan(project.plans, offers)
 
 	if (plans != null) {
 		return { kind: "plans", plans }
 	}
 
-	if (project.offers != null && project.offers.length > 0) {
-		return { kind: "offers", offers: project.offers }
-	}
-
-	return null
+	return { kind: "offers", offers }
 }
 
 /**
  * The project page for `pageLayout: product`: a product page rather than the
  * tabbed portfolio entry. Every section is on the page at
  * once, each with its own `h2` and anchor, so search engines and answer engines
- * read all of it; prices print as text; the page ends on the store button.
+ * read all of it; prices print as text; the page ends on the store buttons.
  *
  * Server-rendered. Only the carousels and lightbox (`ProductGalleryProvider`),
  * the section list's current-section marker (`ProductToc`) and the guides
@@ -118,32 +117,22 @@ export default function ProductPage({
 	// heading over nothing, so it's left off the page and the section list.
 	const isShown = (section: (typeof sections)[number]) =>
 		section.kind !== ProjectSectionKind.pricing || pricing != null
-	const [primaryStoreLink] = storeLinks
 	const label = statusLabel(project.status)
-	// A flex row, so the badge sits at its own width on the left: it carries
-	// `justify-self-center` for the tabbed layout's link grid, which browsers
-	// now apply in block layout too. An app that isn't live has no store link,
-	// and its status takes the button's place.
-	let storeButton: ReactNode | null = null
-
-	if (primaryStoreLink != null) {
-		storeButton = (
-			<div className="flex">
-				<ProjectLinkCta
-					url={primaryStoreLink.link.url}
-					cta={primaryStoreLink.cta}
-					accent="var(--project-accent)"
-					isBadgeLarge
-				/>
-			</div>
-		)
-	} else if (label != null) {
-		storeButton = (
-			<div className="flex">
-				<p className="product-status-cta-large">{label}</p>
-			</div>
-		)
-	}
+	const hasStoreLinks = storeLinks.length > 0
+	// Every store, as the hero and the closing name them. A flex row, so a badge
+	// sits at its own width on the left: it carries `justify-self-center` for
+	// the tabbed layout's link grid, which browsers now apply in block layout
+	// too. An app that isn't live keeps its store link, but as a bare pill that
+	// lands in `otherLinks`, so its status takes the buttons' place.
+	const storeButtons = (
+		<StoreLinks
+			storeLinks={storeLinks}
+			statusLabel={label}
+			accent="var(--project-accent)"
+			isLarge
+			className="flex flex-wrap items-center gap-3"
+		/>
+	)
 	const tocItems: TocItem[] = [
 		...sections.flatMap((section, index) =>
 			isShown(section) ? [{ id: anchors[index], title: section.title }] : []
@@ -206,7 +195,7 @@ export default function ProductPage({
 								</div>
 							) : null
 						}
-						storeButton={storeButton}
+						storeButtons={storeButtons}
 					/>
 				)
 		}
@@ -229,7 +218,7 @@ export default function ProductPage({
 				disclaimer={project.disclaimer}
 				heroImage={heroImage}
 				heroImageAlt={project.heroImageAlt}
-				status={project.status}
+				statusLabel={label}
 				storeLinks={storeLinks}
 				stepsAnchor={stepsIndex === -1 ? null : anchors[stepsIndex]}
 				storeNote={project.storeNote}
@@ -268,13 +257,13 @@ export default function ProductPage({
 									(offer) => offer.priceCurrency === "USD"
 								) ? (
 									<p className="text-secondary text-sm">
-										{primaryStoreLink == null
-											? "US prices."
-											: "US prices. The App Store shows yours."}
+										{hasStoreLinks
+											? "US prices. The App Store shows yours."
+											: "US prices."}
 									</p>
 								) : null
 							}
-							storeButton={storeButton}
+							storeButtons={storeButtons}
 						/>
 					)}
 
@@ -289,7 +278,7 @@ export default function ProductPage({
 				icon={project.icon}
 				headline={project.closingHeadline}
 				body={project.closingBody}
-				status={project.status}
+				statusLabel={label}
 				storeLinks={storeLinks}
 				storeNote={project.storeNote}
 			/>

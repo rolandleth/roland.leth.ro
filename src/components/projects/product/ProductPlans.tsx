@@ -27,26 +27,26 @@ interface PricingSectionProps {
 	pricing: Pricing
 	/** Shown under the cards; null for none. */
 	note: ReactNode | null
-	/** The store button that follows the plans; null without a store link. */
-	storeButton: ReactNode | null
+	/** The store buttons after the plans, or the status in their place. */
+	storeButtons: ReactNode
 }
 
 /**
  * Where the plans go: a `pricing` section, or the automatic "Pricing" block
- * before the FAQ when the project has none. Title, cards, note, store button.
+ * before the FAQ when the project has none. Title, cards, note, store buttons.
  */
 export function ProductPricingSection({
 	id,
 	title,
 	pricing,
 	note,
-	storeButton,
+	storeButtons,
 }: PricingSectionProps) {
 	return (
 		<ProductSectionShell id={id} title={title}>
 			<ProductPlans pricing={pricing} />
 			{note}
-			{storeButton}
+			{storeButtons}
 		</ProductSectionShell>
 	)
 }

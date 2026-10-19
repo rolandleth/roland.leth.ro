@@ -66,10 +66,18 @@
 /* The site frame, from the product page design: 1200px wide, with a gutter
    that grows from 16 to 32 to 48px. The site header uses it on every page, so
    the bar doesn't change width between pages; the product page lays its hero
-   and sections on it (`.product-frame`), so its logo lines up with the hero. */
+   and sections on it (`.product-frame`), so its logo lines up with the hero.
+
+   `--site-header-height` is the fixed site header's bar and the spacer under
+   it (`Header`). The product page builds on it: the hero's band runs up under
+   the bar and pads the same height back, and the section rail sticks below it
+   (`ProductToc`). Its section anchors stop 16px from the top (`scroll-mt-4`)
+   and clear the bar only through their own `py-14`, so that padding has to
+   stay at least this tall. */
 :root {
 	--site-max-width: 1200px;
 	--site-gutter: 1rem;
+	--site-header-height: 3.5rem;
 
 	@variant sm {
 		--site-gutter: 2rem;
@@ -450,8 +458,7 @@ code[data-theme*=" "] span {
 /* The page's one load moment: the hero rises in, 0.25s, staggered a little.
    A rise, not a fade: an element at opacity 0 isn't painted as far as Largest
    Contentful Paint goes, so fading the h1 and the image in put the page's main
-   paint 0.25–0.37s late. The class keeps its old `-fade` name for now.
-   Off when the reader asks for less motion. In-page jumps (the section rail,
+   paint 0.25–0.37s late. Off when the reader asks for less motion. In-page jumps (the section rail,
    "See how it works") scroll there instead of cutting, on product pages only;
    `data-scroll-behavior` on `<html>` keeps route changes instant. The FAQ's
    answers animate in `FaqItem`, with Framer: CSS can animate a height to
@@ -461,11 +468,11 @@ code[data-theme*=" "] span {
 		scroll-behavior: smooth;
 	}
 
-	.product-hero-fade {
+	.product-hero-rise {
 		animation: product-hero-up 0.25s ease-out both;
 	}
 
-	.product-hero-fade + .product-hero-fade {
+	.product-hero-rise + .product-hero-rise {
 		animation-delay: 120ms;
 	}
 }

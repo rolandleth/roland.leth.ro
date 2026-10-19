@@ -33,7 +33,7 @@ export default function Header() {
 			>
 				<nav
 					aria-label="Main"
-					className="mx-auto flex h-14 max-w-(--site-max-width) items-center justify-between px-(--site-gutter)"
+					className="mx-auto flex h-(--site-header-height) max-w-(--site-max-width) items-center justify-between px-(--site-gutter)"
 				>
 					<Link
 						href="/"
@@ -57,7 +57,7 @@ export default function Header() {
 				</nav>
 			</header>
 
-			<div className="h-14" />
+			<div className="h-(--site-header-height)" />
 		</>
 	)
 }

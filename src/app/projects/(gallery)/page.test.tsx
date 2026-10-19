@@ -8,7 +8,7 @@ import {
 	ProjectStatus,
 } from "@/generated/prisma/enums"
 import { getProjectsGalleryCached } from "@/lib/db/projects"
-import { makeProjectGalleryItem } from "@/test/fixtures"
+import { CREAM_PALETTE, makeProjectGalleryItem } from "@/test/fixtures"
 import { setupUser } from "@/test/user"
 import ProjectsPage, { metadata } from "./page"
 import type { ProjectGalleryItem } from "@/lib/db/projects"
@@ -87,15 +87,6 @@ function makeCardProject(
 		...overrides,
 	})
 }
-
-const theme = {
-	band: "#f3ede4",
-	bandInk: "#2a241e",
-	bandInk2: "#6b6158",
-	bandHighlight: "#9a532b",
-	accentText: "#9a532b",
-}
-const darkTheme = { ...theme, band: "#2a211b", bandInk: "#f3ede4" }
 
 // #region Metadata
 
@@ -339,48 +330,60 @@ describe("ProjectsPage — tiles", () => {
 		).toHaveAttribute("href", "/projects/reckon")
 	})
 
-	it("says a coming-soon app is coming soon, with no store button, only the link to its page", async () => {
+	// The two tile kinds lay their text out apart, so each gets the check.
+	it.each([
+		["a half tile", [makeApp("Reckon")], false],
+		["a wide tile", [], true],
+	])(
+		"says a coming-soon app is coming soon on %s, in the store button's place, with only the link to its page",
+		async (_label, others, isWide) => {
+			await renderGallery([
+				makeApp("Digest", { status: ProjectStatus.comingSoon }),
+				...others,
+			])
+
+			const digest = articleTitled(/^Digest/)
+			const summary = within(digest).getByText("Digest summary.")
+			const status = within(digest).getByText("Coming soon")
+			const viewLink = within(digest).getByRole("link", {
+				name: "View Digest project",
+			})
+
+			// The kind under test: a wide tile spans the row and is a grid; a
+			// half tile is a column.
+			expect(
+				digest.parentElement?.classList.contains("min-[900px]:col-span-2")
+			).toBe(isWide)
+			expect(digest.classList.contains("flex-col")).toBe(!isWide)
+			expect(within(digest).getAllByText("Coming soon")).toHaveLength(1)
+			// The badge's 40px, as a tile's badge is.
+			expect(status).toHaveClass("product-status-cta")
+			expect(within(digest).getAllByRole("link")).toHaveLength(1)
+			expect(viewLink).toHaveAttribute("href", "/projects/digest")
+			// In the store button's place: after the summary, before the link.
+			expect(
+				summary.compareDocumentPosition(status) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy()
+			expect(
+				status.compareDocumentPosition(viewLink) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy()
+		}
+	)
+
+	it("keeps the live tile beside a coming-soon one as it was: its button, no status", async () => {
 		await renderGallery([
 			makeApp("Digest", { status: ProjectStatus.comingSoon }),
 			makeApp("Reckon"),
 		])
 
-		const digest = articleTitled(/^Digest/)
-		const summary = within(digest).getByText("Digest summary.")
-		const status = within(digest).getByText("Coming soon")
-		const viewLink = within(digest).getByRole("link", {
-			name: "View Digest project",
-		})
-
-		expect(within(digest).getAllByText("Coming soon")).toHaveLength(1)
-		// The badge's 40px, as a tile's badge is.
-		expect(status).toHaveClass("product-status-cta")
-		expect(within(digest).getAllByRole("link")).toHaveLength(1)
-		expect(viewLink).toHaveAttribute("href", "/projects/digest")
-		// In the store button's place: after the summary, before the link.
-		expect(
-			summary.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
-		).toBeTruthy()
-		expect(
-			status.compareDocumentPosition(viewLink) &
-				Node.DOCUMENT_POSITION_FOLLOWING
-		).toBeTruthy()
-		// The live tile beside it keeps its button and has no pill.
 		const reckon = articleTitled(/^Reckon/)
+
 		expect(
 			within(reckon).getByRole("link", { name: "Download on the App Store" })
 		).toBeInTheDocument()
 		expect(within(reckon).queryByText("Coming soon")).not.toBeInTheDocument()
-	})
-
-	it("labels a wide coming-soon tile too", async () => {
-		await renderGallery([
-			makeApp("Digest", { status: ProjectStatus.comingSoon }),
-		])
-
-		expect(
-			within(articleTitled(/^Digest/)).getByText("Coming soon")
-		).toBeInTheDocument()
 	})
 
 	it("shows a tile without an eyebrow as its name alone", async () => {
@@ -429,7 +432,7 @@ describe("ProjectsPage — tiles", () => {
 		const { container } = await renderGallery([
 			makeApp("Reckon", {
 				accentColor: "#b5673f",
-				palette: { light: theme, dark: darkTheme },
+				palette: CREAM_PALETTE,
 			}),
 			makeApp("Continuum"),
 		])
@@ -438,10 +441,10 @@ describe("ProjectsPage — tiles", () => {
 
 		expect(container.querySelector('[data-app-tile="reckon"]')).not.toBeNull()
 		expect(css).toContain(
-			`[data-app-tile="reckon"]{--project-accent:#b5673f;--product-band:${theme.band}`
+			`[data-app-tile="reckon"]{--project-accent:#b5673f;--product-band:${CREAM_PALETTE.light.band}`
 		)
 		expect(css).toContain(
-			`.dark [data-app-tile="reckon"]{--product-band:${darkTheme.band}`
+			`.dark [data-app-tile="reckon"]{--product-band:${CREAM_PALETTE.dark.band}`
 		)
 		// No palette and no accent: nothing to write, the defaults apply.
 		expect(css).not.toContain("continuum")
