@@ -283,6 +283,23 @@ describe("ProductPage — hero", () => {
 		)
 	})
 
+	it("leaves no empty paragraph in the hero without a disclaimer", () => {
+		renderPage(makeProject({ disclaimer: null }))
+
+		const hero = screen
+			.getByRole("heading", { level: 1 })
+			.closest("section") as HTMLElement
+		const summary = within(hero).getByText(
+			"Digest is a food and symptom journal."
+		)
+
+		// The store row follows the summary, where the disclaimer would be.
+		expect(summary.nextElementSibling?.tagName).not.toBe("P")
+		for (const paragraph of hero.querySelectorAll("p")) {
+			expect(paragraph.textContent.trim()).not.toBe("")
+		}
+	})
+
 	it("shows no status pill for a live app", () => {
 		renderPage(makeProject())
 
@@ -319,6 +336,24 @@ describe("ProductPage — hero", () => {
 			"href",
 			"https://apps.apple.com/app/id123"
 		)
+	})
+
+	// No link of any kind and no steps section: the status is all that keeps
+	// the hero's row and the closing's.
+	it("says a coming-soon app with no links is coming soon, in the hero and the closing", () => {
+		renderPage(makeProject({ status: ProjectStatus.comingSoon, links: [] }))
+
+		const hero = screen
+			.getByRole("heading", { level: 1 })
+			.closest("section") as HTMLElement
+		const closing = document.getElementById("get") as HTMLElement
+
+		for (const band of [hero, closing]) {
+			expect(within(band).getByText("Coming soon")).toHaveClass(
+				"product-status-cta-large"
+			)
+			expect(within(band).queryByRole("link")).not.toBeInTheDocument()
+		}
 	})
 
 	// The reader looking for the download button finds why there isn't one, so
@@ -1116,6 +1151,148 @@ describe("ProductPage — pricing", () => {
 		).toBeInTheDocument()
 	})
 
+	it("leaves the US-prices note out when the plans' prices are in another currency", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: offers.map((offer) => ({ ...offer, priceCurrency: "EUR" })),
+			})
+		)
+
+		const pricing = screen
+			.getByRole("heading", { level: 2, name: "Pricing" })
+			.closest("section") as HTMLElement
+
+		expect(within(pricing).getByText(/6\.99/)).toBeInTheDocument()
+		expect(within(pricing).queryByText(/US prices/)).not.toBeInTheDocument()
+	})
+
+	// An app on the App Store and the Mac App Store names both stores here, as
+	// the hero and the closing do.
+	it("puts every store button after the plans, not only the first", () => {
+		const macLink = {
+			id: 2,
+			projectId: 1,
+			label: "Mac App Store",
+			url: "https://apps.apple.com/app/id456",
+			sortOrder: 2,
+		}
+		const project = makeProject({ plans, offers })
+
+		renderPage({ ...project, links: [...project.links, macLink] })
+
+		const pricing = screen
+			.getByRole("heading", { level: 2, name: "Pricing" })
+			.closest("section") as HTMLElement
+		const badgeLinks = (scope: HTMLElement) =>
+			within(scope)
+				.getAllByRole("link", { name: "Download on the App Store" })
+				.map((link) => link.getAttribute("href"))
+		const hero = screen
+			.getByRole("heading", { level: 1 })
+			.closest("section") as HTMLElement
+		const closing = document.getElementById("get") as HTMLElement
+
+		expect(badgeLinks(pricing)).toEqual([
+			"https://apps.apple.com/app/id123",
+			"https://apps.apple.com/app/id456",
+		])
+		expect(badgeLinks(hero)).toEqual(badgeLinks(pricing))
+		expect(badgeLinks(closing)).toEqual(badgeLinks(pricing))
+		expect(
+			within(pricing).getByText("US prices. The App Store shows yours.")
+		).toBeInTheDocument()
+	})
+
+	// The status takes the store buttons' place here too: after the cards and
+	// the note, at the end of the block.
+	it("puts a coming-soon app's status after the automatic Pricing block's note", () => {
+		renderPage(makeProject({ status: ProjectStatus.comingSoon, plans, offers }))
+
+		const pricing = screen
+			.getByRole("heading", { level: 2, name: "Pricing" })
+			.closest("section") as HTMLElement
+		const price = within(pricing).getByText("$6.99")
+		const note = within(pricing).getByText("US prices.")
+		const status = within(pricing).getByText("Coming soon")
+
+		expect(
+			price.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(
+			note.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy()
+		expect(status).toHaveClass("product-status-cta-large")
+		expect(within(pricing).queryByRole("link")).not.toBeInTheDocument()
+	})
+
+	// Cards with no price in them, under "Pricing" and a note about US prices,
+	// would price nothing.
+	it.each([
+		["no offers", null],
+		["an empty offer list", []],
+	])("gives plans with %s no Pricing block", (_label, noOffers) => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: noOffers,
+				sections: [makeSection(1, "Overview")],
+			})
+		)
+
+		expect(
+			screen.queryByRole("heading", { level: 2, name: "Pricing" })
+		).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("heading", { level: 3, name: "Insights" })
+		).not.toBeInTheDocument()
+		expect(screen.queryByText(/US prices/)).not.toBeInTheDocument()
+		expect(railEntries().map((link) => link.textContent)).toEqual(["Overview"])
+	})
+
+	it("shows a plan with no price of its own as a card with its features, beside the priced ones", () => {
+		renderPage(makeProject({ plans, offers: offers.slice(1) }))
+
+		const free = screen
+			.getByRole("heading", { level: 3, name: "Free, forever" })
+			.closest(".product-plan") as HTMLElement
+		const insights = screen
+			.getByRole("heading", { level: 3, name: "Insights" })
+			.closest(".product-plan") as HTMLElement
+
+		expect(within(free).getByText("Meals.")).toBeInTheDocument()
+		expect(within(free).queryByText(/^\$/)).not.toBeInTheDocument()
+		expect(within(insights).getByText("$6.99")).toBeInTheDocument()
+		expect(within(insights).getByText("$89.99")).toBeInTheDocument()
+	})
+
+	// The schema doesn't make offer names unique.
+	it("shows two offers with the same name, each with its price", () => {
+		renderPage(
+			makeProject({
+				plans,
+				offers: [
+					offers[0],
+					{ ...offers[1], name: "Insights" },
+					{ ...offers[2], name: "Insights" },
+				],
+			})
+		)
+
+		const insights = screen
+			.getByRole("heading", { level: 3, name: "Insights" })
+			.closest(".product-plan") as HTMLElement
+		const logged = vi
+			.mocked(console.error)
+			.mock.calls.flat()
+			.map(String)
+			.join("\n")
+
+		expect(within(insights).getByText("$6.99")).toBeInTheDocument()
+		expect(within(insights).getByText("$89.99")).toBeInTheDocument()
+		expect(logged).not.toMatch(/same key/)
+	})
+
 	// No store button means no listing to show the reader's own prices yet.
 	it.each([
 		["a coming-soon app", { status: ProjectStatus.comingSoon }],
@@ -1345,6 +1522,38 @@ describe("ProductPage — FAQ, closing and the last row", () => {
 		)
 		expect(screen.queryByText(/updated/i)).not.toBeInTheDocument()
 		expect(screen.queryByText(/made by/i)).not.toBeInTheDocument()
+	})
+
+	// The disclaimer sits in the hero now, so it no longer opens a last row of
+	// its own under the closing.
+	it("ends on the closing with a disclaimer but no guides and no other links", () => {
+		const disclaimer = "Digest is not a medical device."
+		const lastBlock = (container: HTMLElement) =>
+			container.querySelector(".product-page")?.lastElementChild
+
+		const { container, unmount } = renderPage(makeProject({ disclaimer }))
+
+		expect(lastBlock(container)).toHaveAttribute("id", "get")
+		unmount()
+
+		// The same page with a privacy link does get the row.
+		const project = makeProject({ disclaimer })
+		const withPrivacy = renderPage({
+			...project,
+			links: [
+				...project.links,
+				{
+					id: 2,
+					projectId: 1,
+					label: "Privacy",
+					url: "https://roland.leth.ro/privacy/digest",
+					sortOrder: 2,
+				},
+			],
+		})
+
+		expect(lastBlock(withPrivacy.container)).toHaveClass("product-frame")
+		expect(lastBlock(withPrivacy.container)).not.toHaveTextContent(disclaimer)
 	})
 })
 

@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { linkCtasFor } from "@/lib/utils/platforms"
 import { statusLabel } from "@/lib/utils/projectStatus"
-import ProjectLinkCta from "../ProjectLinkCta"
+import StoreLinks from "../StoreLinks"
 import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "./galleryLayout"
 import ProjectIcon from "./ProjectIcon"
 import ViewProjectLink from "./ViewProjectLink"
@@ -28,8 +28,10 @@ const HALF_IMAGE_SIZES = "(min-width: 900px) 460px, calc(100vw - 2rem)"
  * tile has the top of the hero image rising from its bottom edge. Without a
  * hero image, the text takes the whole tile.
  *
- * An app that isn't live has no store buttons (`linkCtasFor`): its status
- * takes their place, beside "View project", as on its product page.
+ * A coming-soon app's store link is a bare pill (`linkCtasFor`), which a tile
+ * leaves out: its status takes the buttons' place, beside "View project", as
+ * on its product page. A discontinued app never gets a tile:
+ * `gallerySectionOf` sends it to More projects whatever its prominence.
  *
  * No price: a store note can't speak for several (a monthly, a yearly and a
  * lifetime one), and the product page has the plans. Not one big link, since
@@ -42,26 +44,22 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 	)
 	const image = project.productHeroImage
 	const imageAlt = project.heroImageAlt ?? `${project.name} screenshot`
-	const label = statusLabel(project.status)
 
 	const actions = (
-		<div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-			{label != null && <p className="product-status-cta">{label}</p>}
-
-			{storeLinks.map(({ link, cta }) => (
-				<ProjectLinkCta
-					key={link.id}
-					url={link.url}
-					cta={cta}
-					accent="var(--product-band-hi)"
+		<StoreLinks
+			storeLinks={storeLinks}
+			statusLabel={statusLabel(project.status)}
+			accent="var(--product-band-hi)"
+			isLarge={false}
+			className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3"
+			trailingLink={
+				<ViewProjectLink
+					slug={project.slug}
+					name={project.name}
+					decorationClassName="decoration-(--product-band-hi)"
 				/>
-			))}
-			<ViewProjectLink
-				slug={project.slug}
-				name={project.name}
-				decorationClassName="decoration-(--product-band-hi)"
-			/>
-		</div>
+			}
+		/>
 	)
 
 	// From 900px both kinds pad 44px at the sides (`p-11`, `px-11`), so a wide

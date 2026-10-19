@@ -1,23 +1,21 @@
 import Image from "next/image"
-import { statusLabel } from "@/lib/utils/projectStatus"
-import ProjectLinkCta from "../ProjectLinkCta"
-import type { StoreLink } from "./ProductHero"
-import type { ProjectStatus } from "@/generated/prisma/enums"
+import StoreLinks from "../StoreLinks"
+import type { StoreLink } from "../StoreLinks"
 
 interface Props {
 	name: string
 	icon: string | null
 	headline: string | null
 	body: string | null
-	/** Shown in place of the store button when it isn't live (`statusLabel`). */
-	status: ProjectStatus
+	/** Shown in place of the store buttons when it isn't live (`statusLabel`). */
+	statusLabel: string | null
 	storeLinks: readonly StoreLink[]
 	storeNote: string | null
 }
 
 /**
  * The end of an own-app page: the same band as the hero (an accent tint when
- * the project has no palette), the store button again, and the closing lines.
+ * the project has no palette), the store buttons again, and the closing lines.
  * Without a closing headline the `h2` is the app's name, rather than words
  * the copy didn't supply.
  */
@@ -26,12 +24,10 @@ export default function ProductClosing({
 	icon,
 	headline,
 	body,
-	status,
+	statusLabel,
 	storeLinks,
 	storeNote,
 }: Props) {
-	const label = statusLabel(status)
-
 	return (
 		<section
 			id="get"
@@ -68,27 +64,14 @@ export default function ProductClosing({
 					</p>
 				)}
 
-				{(storeLinks.length > 0 || label != null) && (
-					<div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-						{label != null && (
-							<p className="product-status-cta-large">{label}</p>
-						)}
-
-						{storeLinks.map(({ link, cta }) => (
-							<ProjectLinkCta
-								key={link.id}
-								url={link.url}
-								cta={cta}
-								accent="var(--product-band-hi)"
-								isBadgeLarge
-							/>
-						))}
-					</div>
-				)}
-
-				{storeNote != null && storeLinks.length > 0 && (
-					<p className="mt-3 text-sm text-(--product-band-ink2)">{storeNote}</p>
-				)}
+				<StoreLinks
+					storeLinks={storeLinks}
+					statusLabel={statusLabel}
+					accent="var(--product-band-hi)"
+					isLarge
+					className="mt-8 flex flex-wrap items-center justify-center gap-3"
+					storeNote={storeNote}
+				/>
 			</div>
 		</section>
 	)
