@@ -24,7 +24,10 @@ export type LegalDocumentKind = "privacy" | "terms"
 interface Props {
 	title: string
 	sections: LegalSectionEntry[]
-	/** Date shown in the auto-rendered "Last update" section, e.g. `"June 10, 2026"`. */
+	/**
+	 * Date shown in the auto-rendered "Last update" section, with the month
+	 * abbreviated as on every legal page, e.g. `"Jun 10, 2026"`.
+	 */
 	lastUpdated: string
 	/**
 	 * Address used in the auto-rendered "Contact" section's `mailto:` link,

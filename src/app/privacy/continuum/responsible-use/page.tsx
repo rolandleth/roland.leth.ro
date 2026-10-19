@@ -98,7 +98,7 @@ export default function ContinuumResponsibleUsePage() {
 		<LegalPageLayout
 			title="Continuum – Using it responsibly"
 			sections={sections}
-			lastUpdated="June 10, 2026"
+			lastUpdated="Jun 10, 2026"
 			contactEmail="roland+continuum@leth.ro"
 			relatedLinks={relatedContinuumLegalLinks(
 				"/privacy/continuum/responsible-use"
