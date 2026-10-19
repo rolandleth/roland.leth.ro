@@ -3,7 +3,11 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { parseJsonBody } from "@/lib/api/apiErrors"
 import { requireAdmin } from "@/lib/api/requireAdmin"
-import { MAX_VIDEO_UPLOAD_BYTES, VIDEO_MIMES } from "@/lib/utils/video"
+import {
+	MAX_VIDEO_UPLOAD_BYTES,
+	VIDEO_MIMES,
+	VIDEO_UPLOAD_TOKEN_LIFETIME_MS,
+} from "@/lib/utils/video"
 import {
 	adminUploadKey,
 	refuseDisabledUploads,
@@ -64,6 +68,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 			pathname,
 			allowedContentTypes: [parsed.contentType],
 			maximumSizeInBytes: MAX_VIDEO_UPLOAD_BYTES,
+			validUntil: Date.now() + VIDEO_UPLOAD_TOKEN_LIFETIME_MS,
 			// A suffix would change the key after it was authored above.
 			addRandomSuffix: false,
 		})

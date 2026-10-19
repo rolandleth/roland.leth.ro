@@ -1,7 +1,11 @@
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { isAdminUploadKey } from "@/lib/import/uploadPrune"
-import { isVideoUrl, MAX_VIDEO_UPLOAD_BYTES } from "@/lib/utils/video"
+import {
+	isVideoUrl,
+	MAX_VIDEO_UPLOAD_BYTES,
+	VIDEO_UPLOAD_TOKEN_LIFETIME_MS,
+} from "@/lib/utils/video"
 import { POST } from "./route"
 
 vi.mock("@/lib/api/requireAdmin", async () => {
@@ -77,6 +81,24 @@ describe("POST /api/admin/upload/video", () => {
 
 		expect(options.allowedContentTypes).toEqual(["video/webm"])
 		expect(options.maximumSizeInBytes).toBe(MAX_VIDEO_UPLOAD_BYTES)
+	})
+
+	it("keeps the token good for an hour, not the SDK's 30-second default", async () => {
+		vi.useFakeTimers({ now: new Date("2026-10-18T12:00:00Z") })
+
+		try {
+			await POST(
+				tokenRequest({ filename: "demo.mp4", contentType: "video/mp4" })
+			)
+		} finally {
+			vi.useRealTimers()
+		}
+
+		const [options] = vi.mocked(generateClientTokenFromReadWriteToken).mock
+			.calls[0]
+
+		expect(VIDEO_UPLOAD_TOKEN_LIFETIME_MS).toBe(60 * 60 * 1000)
+		expect(options.validUntil).toBe(new Date("2026-10-18T13:00:00Z").getTime())
 	})
 
 	it("never lets the token overwrite an existing blob", async () => {

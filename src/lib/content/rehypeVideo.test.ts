@@ -134,12 +134,89 @@ describe("a video in the feed HTML", () => {
 		expect(html.match(/<img/g)).toHaveLength(1)
 	})
 
-	it("converts a video inside a link without touching the link", async () => {
+	it("lifts a video out of a link and puts the link after it, named by its URL", async () => {
+		// A <video> inside an <a> is invalid, and its fallback <a> would nest in
+		// the outer one.
 		const html = await markdownToHtml(
 			"[![A demo](/videos/demo.mp4)](https://example.com)"
 		)
 
-		expect(html).toContain('<a href="https://example.com"><video')
+		expect(html).toBe(
+			'<p><span><video src="/videos/demo.mp4" controls preload="metadata" playsinline aria-label="A demo"><a href="/videos/demo.mp4">A demo</a></video><a href="https://example.com">https://example.com</a></span></p>'
+		)
+		expect(html).not.toMatch(/<a [^>]*>(?:(?!<\/a>).)*<video/)
+	})
+
+	it("keeps a lifted link's own text and title", async () => {
+		const html = await markdownToHtml(
+			'[![A demo](/videos/demo.mp4) Watch the tour](https://example.com "Tour")'
+		)
+
+		expect(html).toContain(
+			'</video><a href="https://example.com" title="Tour"> Watch the tour</a></span>'
+		)
+	})
+
+	it("lifts a video nested deeper inside a link", async () => {
+		const html = await markdownToHtml(
+			"[**![A demo](/videos/demo.mp4)**](https://example.com)"
+		)
+
+		// The emptied `<strong>` goes with the rest of the link's empty content.
+		expect(html).toMatch(/^<p><span><video /)
+		expect(html).toContain(
+			'</video><a href="https://example.com">https://example.com</a></span>'
+		)
+	})
+
+	it("lifts every video out of one link, in order", async () => {
+		const html = await markdownToHtml(
+			"[![One](/videos/one.mp4)![Two](/videos/two.webm)](https://example.com)"
+		)
+
+		expect(html.indexOf("one.mp4")).toBeLessThan(html.indexOf("two.webm"))
+		expect(html.indexOf("two.webm")).toBeLessThan(
+			html.indexOf('href="https://example.com"')
+		)
+	})
+
+	it("leaves a link around an ordinary image alone", async () => {
+		const html = await markdownToHtml(
+			"[![A cover](/images/cover.png)](https://example.com)"
+		)
+
+		expect(html).toBe(
+			'<p><a href="https://example.com"><img src="/images/cover.png" alt="A cover"></a></p>'
+		)
+	})
+
+	it("carries a title with no alt, and falls back to the generic link text", async () => {
+		const html = await markdownToHtml('![](/videos/demo.mp4 "The tour")')
+
+		expect(html).toContain('title="The tour"')
+		expect(html).not.toContain("aria-label")
+		expect(html).toContain(">Video</a>")
+	})
+
+	it.each([
+		"javascript:alert(1)//.mp4",
+		"data:video/mp4;base64,AAAA.mp4",
+		"vbscript:x.mp4",
+	])("leaves %j an image, so no link carries its scheme", async (url) => {
+		const html = await markdownToHtml(`![A demo](${url})`)
+
+		expect(html).not.toContain("<video")
+		expect(html).not.toContain("<a ")
+	})
+
+	it.each([
+		"https://example.com/demo.mp4",
+		"HTTP://example.com/demo.mp4",
+		"/videos/demo.mp4",
+		"media/demo.mp4",
+		"./demo.mp4",
+	])("converts the http(s) or scheme-less URL %j", async (url) => {
+		expect(await markdownToHtml(`![A demo](${url})`)).toContain("<video")
 	})
 
 	it("leaves a plain link to a video file as a link", async () => {
@@ -170,6 +247,59 @@ describe("a video in the feed HTML", () => {
 
 // #endregion
 
+// #region Feed URLs
+
+describe("a video in the feed HTML, with the site's origin", () => {
+	const baseUrl = "https://roland.leth.ro"
+
+	it("makes a root-relative video and its fallback link absolute", async () => {
+		const html = await markdownToHtml("![A demo](/videos/demo.mp4)", {
+			baseUrl,
+		})
+
+		expect(html).toContain(
+			'<video src="https://roland.leth.ro/videos/demo.mp4"'
+		)
+		expect(html).toContain(
+			'<a href="https://roland.leth.ro/videos/demo.mp4">A demo</a>'
+		)
+	})
+
+	it("makes root-relative images and links absolute too", async () => {
+		const html = await markdownToHtml(
+			"![A cover](/images/cover.png) [Older post](/blog/tech/older)",
+			{ baseUrl }
+		)
+
+		expect(html).toContain('src="https://roland.leth.ro/images/cover.png"')
+		expect(html).toContain('href="https://roland.leth.ro/blog/tech/older"')
+	})
+
+	it.each([
+		["an absolute URL", "https://example.com/demo.mp4"],
+		["a protocol-relative URL", "//cdn.example.com/demo.mp4"],
+		["a path relative to the post", "media/demo.mp4"],
+	])("leaves %s as written", async (_case, url) => {
+		const html = await markdownToHtml(`![A demo](${url})`, { baseUrl })
+
+		expect(html).toContain(`<video src="${url}"`)
+	})
+
+	it("leaves a fragment link as written", async () => {
+		const html = await markdownToHtml("[Notes](#notes)", { baseUrl })
+
+		expect(html).toContain('href="#notes"')
+	})
+
+	it("leaves every URL as written without an origin", async () => {
+		const html = await markdownToHtml("![A demo](/videos/demo.mp4)")
+
+		expect(html).toContain('<video src="/videos/demo.mp4"')
+	})
+})
+
+// #endregion
+
 // #region Page render
 
 describe("a video on the page", () => {
@@ -182,6 +312,18 @@ describe("a video on the page", () => {
 		expect(html).toMatch(/<video[^>]* playsinline=""/i)
 		expect(html).toMatch(/<video[^>]* aria-label="A demo"/)
 		expect(html).not.toContain("<img")
+	})
+
+	it("fetches nothing before play in a blog list card", async () => {
+		// A list page shows many cards; a video near the top of each post would
+		// otherwise fetch its metadata on every view of the list.
+		const node = await markdownToReact("![A demo](/videos/demo.mp4)", {
+			isListCard: true,
+		})
+		const html = renderToStaticMarkup(node as React.ReactElement)
+
+		expect(html).toMatch(/<video[^>]* preload="none"/)
+		expect(html).not.toContain('preload="metadata"')
 	})
 
 	it("never autoplays, loops or mutes", async () => {

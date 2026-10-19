@@ -54,6 +54,17 @@ export const MAX_VIDEO_UPLOAD_MIB = 20
 export const MAX_VIDEO_UPLOAD_BYTES = MAX_VIDEO_UPLOAD_MIB * 1024 * 1024
 
 /**
+ * How long the admin's signed video upload stays good. Without one,
+ * `generateClientTokenFromReadWriteToken` defaults to 30 seconds (unlike
+ * `handleUpload`, whose default is an hour), and a 20 MiB video on a slow
+ * connection, or the SDK's retry after a stall, outlasts that and fails with
+ * an error the author can't act on. An hour matches `handleUpload`. The token
+ * still covers only one key, one type and the size cap, so a longer life
+ * widens nothing else.
+ */
+export const VIDEO_UPLOAD_TOKEN_LIFETIME_MS = 60 * 60 * 1000
+
+/**
  * How many leading bytes `detectVideoMime` needs. An MP4's major brand ends at
  * byte 12; a WebM's `DocType` sits further into the EBML header, around byte 24
  * as the common muxers write it.
