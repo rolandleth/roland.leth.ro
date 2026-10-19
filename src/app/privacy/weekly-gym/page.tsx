@@ -43,10 +43,10 @@ const sections: LegalSectionEntry[] = [
 				</p>
 				<p>
 					Weekly Gym contains no analytics, telemetry, advertising or
-					third-party tracking. There&apos;s no server of ours behind it.
-					Apart from iCloud sync and a check that you&apos;re signed in to
-					iCloud, both handled by Apple, the app makes no network requests of
-					its own. We never receive your data.
+					third-party tracking. There&apos;s no server of ours behind it. Apart
+					from iCloud sync and a check that you&apos;re signed in to iCloud,
+					both handled by Apple, the app makes no network requests of its own.
+					We never receive your data.
 				</p>
 				<p>
 					If you back up your device, your Weekly Gym data may be included in
@@ -62,9 +62,9 @@ const sections: LegalSectionEntry[] = [
 			<>
 				<p>
 					Weekly Gym&apos;s widgets and its controls, in Control Center, on the
-					Lock Screen and on the Action button, read your data on your device.
-					A set you log from one of them is saved there, like one you log in
-					the app.
+					Lock Screen and on the Action button, read your data on your device. A
+					set you log from one of them is saved there, like one you log in the
+					app.
 				</p>
 				<p>
 					Siri and the Action button run Weekly Gym&apos;s shortcuts on your
