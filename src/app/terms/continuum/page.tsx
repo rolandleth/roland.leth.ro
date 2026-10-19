@@ -187,7 +187,7 @@ export default function ContinuumTermsPage() {
 		<LegalPageLayout
 			title="Continuum – Terms of Use"
 			sections={sections}
-			lastUpdated="October 19, 2026"
+			lastUpdated="Oct 19, 2026"
 			contactEmail="roland+continuum@leth.ro"
 			documentKind="terms"
 			relatedLinks={relatedContinuumLegalLinks("/terms/continuum")}
