@@ -11,17 +11,24 @@ describe("Continuum terms page", () => {
 		expect(
 			screen.getByRole("heading", { level: 2, name: "What Continuum is" })
 		).toBeInTheDocument()
-		expect(container.textContent).not.toMatch(/as is/i)
+		// Whole words: "has issues" or "was issued" mustn't trip it.
+		expect(container.textContent).not.toMatch(/\bas is\b/i)
 	})
 
-	// The body speaks as "I" ("not by me", "I'm not liable"), so the contact
-	// line does too.
-	it("asks readers to contact me, at Continuum's address", () => {
+	// Every legal page speaks as "we" ("not by us", "we're not liable"), and
+	// the contact line with it.
+	it("asks readers to contact us, at Continuum's address", () => {
 		render(<ContinuumTermsPage />)
 
-		expect(screen.getByRole("link", { name: "contact me" })).toHaveAttribute(
+		expect(screen.getByRole("link", { name: "contact us" })).toHaveAttribute(
 			"href",
 			"mailto:roland+continuum@leth.ro"
 		)
+	})
+
+	it("speaks as 'we', never 'I' or 'me'", () => {
+		const { container } = render(<ContinuumTermsPage />)
+
+		expect(container.textContent).not.toMatch(/\b(I|I'm|me|my)\b/)
 	})
 })

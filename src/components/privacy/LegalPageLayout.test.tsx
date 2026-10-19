@@ -80,30 +80,21 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 		expect(link).toHaveAttribute("href", "mailto:roland+reckon@leth.ro")
 	})
 
-	it("defaults the contact pronoun to 'us' (per-app voice)", () => {
-		const { getByRole } = render(
-			<LegalPageLayout
-				title="Reckon – Privacy Policy"
-				sections={[]}
-				lastUpdated="May 30, 2026"
-				contactEmail="roland+reckon@leth.ro"
-			/>
-		)
-		expect(getByRole("link", { name: "contact us" })).toBeInTheDocument()
-	})
-
-	it("uses 'me' when the root personal page overrides the pronoun", () => {
-		const { getByRole } = render(
+	it("asks readers to contact us, as every legal page speaks as 'we'", () => {
+		const { getByRole, queryByRole } = render(
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="Apr 7, 2026"
+				lastUpdated="Oct 19, 2026"
 				contactEmail="roland+hi@leth.ro"
-				contactPronoun="me"
 			/>
 		)
-		const link = getByRole("link", { name: "contact me" })
-		expect(link).toHaveAttribute("href", "mailto:roland+hi@leth.ro")
+
+		expect(getByRole("link", { name: "contact us" })).toHaveAttribute(
+			"href",
+			"mailto:roland+hi@leth.ro"
+		)
+		expect(queryByRole("link", { name: "contact me" })).not.toBeInTheDocument()
 	})
 
 	it("defaults to privacy-policy boilerplate wording", () => {
