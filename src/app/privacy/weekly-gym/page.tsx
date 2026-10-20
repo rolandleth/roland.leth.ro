@@ -25,7 +25,7 @@ const sections: LegalSectionEntry[] = [
 				</p>
 				<p>
 					What you enter in Weekly Gym (your plan, with its exercises, sets,
-					reps or seconds, weights, days and day names; the sets you log, with
+					reps or seconds, weights, supersets, days and day names; the sets you log, with
 					their exercise, values, day and time; the exercises you create; and
 					any changes you make to an exercise&apos;s muscles) is stored on your
 					device. If you&apos;re signed in to iCloud and iCloud sync is on in
@@ -125,7 +125,7 @@ export default function WeeklyGymPrivacyPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-10-15"
+			lastUpdated="2026-10-20"
 			contactEmail="roland+weeklygym@leth.ro"
 			relatedLinks={relatedWeeklyGymLegalLinks("/privacy/weekly-gym")}
 		/>
