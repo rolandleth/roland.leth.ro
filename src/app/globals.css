@@ -526,5 +526,4 @@ code[data-theme*=" "] span {
 	.product-status-cta-large {
 		@apply h-14 px-6 text-lg;
 	}
-
 }
