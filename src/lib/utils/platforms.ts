@@ -261,6 +261,30 @@ export function linkCtasFor<
 }
 
 /**
+ * Splits `linkCtasFor`'s entries into the store links (a badge or a store
+ * pill: what a reader downloads from) and the rest (bare pills), each in link
+ * order. Every surface that names a project's stores reads them from here, so
+ * they can't disagree on which links count. A project that isn't live has no
+ * store links: `linkCtasFor` makes each of its links a bare pill.
+ */
+export function splitStoreLinks<Entry extends { cta: LinkCta }>(
+	linkCtas: readonly Entry[]
+): { storeLinks: Entry[]; otherLinks: Entry[] } {
+	const storeLinks: Entry[] = []
+	const otherLinks: Entry[] = []
+
+	for (const entry of linkCtas) {
+		if (entry.cta.kind === "plainPill") {
+			otherLinks.push(entry)
+		} else {
+			storeLinks.push(entry)
+		}
+	}
+
+	return { storeLinks, otherLinks }
+}
+
+/**
  * Hostnames that count as a storefront. Apple-only because that's every
  * storefront the projects carry today; another store (Play, Setapp, a direct
  * download) renders as a plain link until its host is added here.

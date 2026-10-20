@@ -6,7 +6,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useScrollOverflow } from "@/components/ui/useScrollOverflow"
 import { firstIndexOfGroup, flattenSections } from "@/lib/client/gallery"
 import { fadeUp } from "@/lib/client/motion"
-import { detailLabel, linkCtasFor } from "@/lib/utils/platforms"
+import {
+	detailLabel,
+	linkCtasFor,
+	splitStoreLinks,
+} from "@/lib/utils/platforms"
 import { statusLabel } from "@/lib/utils/projectStatus"
 import ProjectAccentStyle from "./ProjectAccentStyle"
 import ProjectFaq from "./ProjectFaq"
@@ -51,11 +55,11 @@ export default function ProjectContent({
 	// live in `linkCtasFor`.
 	const linkCtas = linkCtasFor(project)
 	// The primary storefront link, repeated as a standalone CTA below the content
-	// — by then the hero pill has long scrolled off-screen. `find` takes the
+	// — by then the hero pill has long scrolled off-screen. Only the first, the
 	// lowest-`sortOrder` storefront when a project lists several (an iOS and a
 	// Mac listing are both `apps.apple.com`), so the author picks the primary one
 	// by ordering the links. A project that isn't live has no storefront CTA.
-	const storeCta = linkCtas.find(({ cta }) => cta.kind !== "plainPill")
+	const storeCta = splitStoreLinks(linkCtas).storeLinks.at(0)
 	const [activeTab, setActiveTab] = useState(0)
 	// Every section's images flattened into one continuous gallery. The carousel
 	// and lightbox both slide across this whole strip; each slide carries its

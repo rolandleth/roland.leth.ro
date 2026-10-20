@@ -12,6 +12,7 @@ import {
 	groupByBucket,
 	isCompactLabelRedundant,
 	linkCtasFor,
+	splitStoreLinks,
 	storefrontFor,
 	tagLabel,
 } from "@/lib/utils/platforms"
@@ -546,6 +547,80 @@ describe("linkCtasFor", () => {
 			{ kind: "plainPill", label: "Broken" },
 			{ kind: "badge", storefront: "AppStore" },
 		])
+	})
+})
+
+// #endregion
+
+// #region splitStoreLinks
+
+describe("splitStoreLinks", () => {
+	const iosListing = {
+		label: "App Store",
+		url: "https://apps.apple.com/app/id111",
+	}
+	const macListing = {
+		label: "Mac App Store",
+		url: "https://apps.apple.com/app/id222",
+	}
+	const github = { label: "GitHub", url: "https://github.com/rolandleth/test" }
+	const privacy = { label: "Privacy", url: "https://roland.leth.ro/privacy" }
+
+	function split(
+		links: { label: string; url: string }[],
+		overrides: Partial<{ isOwnApp: boolean; status: ProjectStatus }> = {}
+	) {
+		const { storeLinks, otherLinks } = splitStoreLinks(
+			linkCtasFor({
+				bucket: PlatformBucket.iOS,
+				isOwnApp: true,
+				status: ProjectStatus.live,
+				links,
+				...overrides,
+			})
+		)
+
+		return {
+			storeLinks: storeLinks.map(({ link }) => link.label),
+			otherLinks: otherLinks.map(({ link }) => link.label),
+		}
+	}
+
+	it("puts every store link first-to-last in storeLinks, the rest in otherLinks", () => {
+		expect(split([github, iosListing, privacy, macListing])).toEqual({
+			storeLinks: ["App Store", "Mac App Store"],
+			otherLinks: ["GitHub", "Privacy"],
+		})
+	})
+
+	it("counts a store pill as a store link, as a badge is", () => {
+		expect(split([iosListing, github], { isOwnApp: false })).toEqual({
+			storeLinks: ["App Store"],
+			otherLinks: ["GitHub"],
+		})
+	})
+
+	it.each([ProjectStatus.comingSoon, ProjectStatus.discontinued])(
+		"gives a %s project no store links: its listing is a bare pill",
+		(status) => {
+			expect(split([iosListing, github], { status })).toEqual({
+				storeLinks: [],
+				otherLinks: ["App Store", "GitHub"],
+			})
+		}
+	)
+
+	it("returns two empty lists for a project without links", () => {
+		expect(split([])).toEqual({ storeLinks: [], otherLinks: [] })
+	})
+
+	it("keeps each entry as it came, so callers keep their own link type", () => {
+		const entry = {
+			link: { id: 7, url: iosListing.url },
+			cta: { kind: "badge", storefront: "AppStore" } as const,
+		}
+
+		expect(splitStoreLinks([entry]).storeLinks[0]).toBe(entry)
 	})
 })
 

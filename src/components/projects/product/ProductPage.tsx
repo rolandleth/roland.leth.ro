@@ -4,7 +4,7 @@ import {
 } from "@/generated/prisma/enums"
 import { flattenGroups } from "@/lib/client/gallery"
 import { resolveHeroImage } from "@/lib/db/projects"
-import { linkCtasFor } from "@/lib/utils/platforms"
+import { linkCtasFor, splitStoreLinks } from "@/lib/utils/platforms"
 import {
 	AUTOMATIC_PRICING_ANCHOR,
 	groupOffersByPlan,
@@ -104,9 +104,7 @@ export default function ProductPage({
 		sections.map((section) => section.title),
 		reservedAnchors(hasAutomaticPricing)
 	)
-	const linkCtas = linkCtasFor(project)
-	const storeLinks = linkCtas.filter(({ cta }) => cta.kind !== "plainPill")
-	const otherLinks = linkCtas.filter(({ cta }) => cta.kind === "plainPill")
+	const { storeLinks, otherLinks } = splitStoreLinks(linkCtasFor(project))
 	const stepsIndex = sections.findIndex(
 		(section) => section.kind === ProjectSectionKind.steps
 	)
