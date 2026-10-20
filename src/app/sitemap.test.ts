@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import sitemap from "@/app/sitemap"
 import * as sitemapRoute from "@/app/sitemap"
+import { LEGAL_PAGE_LAST_UPDATED } from "@/lib/content/legalPages"
 import { prisma } from "@/lib/db/db"
 import { currentDatetimeString } from "@/lib/utils/format"
 
@@ -135,18 +136,38 @@ describe("sitemap — static routes", () => {
 		expect(route?.changeFrequency).toBe("monthly")
 	})
 
-	it("includes the privacy index", async () => {
-		const result = await sitemap()
-		const route = result.find((r) => r.url === `${BASE}/privacy`)
-		expect(route).toBeDefined()
-		expect(route?.changeFrequency).toBe("yearly")
-	})
+	it.each(Object.entries(LEGAL_PAGE_LAST_UPDATED))(
+		"includes the legal page %s, with its own date as lastModified",
+		async (path, lastUpdated) => {
+			const result = await sitemap()
+			const routes = result.filter((r) => r.url === `${BASE}${path}`)
 
-	it("includes the body-tracking privacy subpage", async () => {
+			expect(routes).toHaveLength(1)
+			expect(routes[0]).toEqual({
+				url: `${BASE}${path}`,
+				lastModified: lastUpdated,
+				changeFrequency: "yearly",
+				priority: 0.3,
+			})
+		}
+	)
+
+	// Every legal page is listed, the ones added after the first two included:
+	// /terms/digest and the Weekly Gym pages have no other way in for a crawler.
+	it("lists the legal pages beyond the two it started with", async () => {
 		const result = await sitemap()
-		const route = result.find((r) => r.url === `${BASE}/privacy/body-tracking`)
-		expect(route).toBeDefined()
-		expect(route?.changeFrequency).toBe("yearly")
+		const urls = result.map((r) => r.url)
+
+		for (const path of [
+			"/privacy",
+			"/privacy/body-tracking",
+			"/privacy/continuum/dpia",
+			"/terms/digest",
+			"/privacy/weekly-gym",
+			"/terms/weekly-gym",
+		]) {
+			expect(urls).toContain(`${BASE}${path}`)
+		}
 	})
 
 	it("includes the tech blog index with priority 0.8", async () => {
@@ -184,11 +205,12 @@ describe("sitemap — static routes", () => {
 		expect(route?.changeFrequency).toBe("weekly")
 	})
 
-	it("returns 11 static routes when there are no posts, projects, or guides", async () => {
+	it("returns 20 static routes when there are no posts, projects, or guides", async () => {
 		const result = await sitemap()
-		// home + about + projects + tools/loan-calculator + privacy + privacy/body-tracking
+		// home + about + projects + tools/loan-calculator + 11 legal pages
 		// + 2 section indexes + 2 archives + guides index
-		expect(result).toHaveLength(11)
+		expect(Object.keys(LEGAL_PAGE_LAST_UPDATED)).toHaveLength(11)
+		expect(result).toHaveLength(20)
 	})
 
 	it("marks home/about/projects/blog-index/archive routes as 'weekly'", async () => {
@@ -264,8 +286,8 @@ describe("sitemap — post routes", () => {
 	it("combines static and post routes", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([postStub() as never])
 		const result = await sitemap()
-		// 11 static + 1 post
-		expect(result).toHaveLength(12)
+		// 20 static + 1 post
+		expect(result).toHaveLength(21)
 	})
 
 	it("queries every published post (including scheduled) so the read-time filter can surface them", async () => {

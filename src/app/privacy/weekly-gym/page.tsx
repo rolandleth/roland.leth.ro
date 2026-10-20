@@ -25,14 +25,14 @@ const sections: LegalSectionEntry[] = [
 				</p>
 				<p>
 					What you enter in Weekly Gym (your plan, with its exercises, sets,
-					reps or seconds, weights, supersets, days and day names; the sets you log, with
-					their exercise, values, day and time; the exercises you create; and
-					any changes you make to an exercise&apos;s muscles) is stored on your
-					device. If you&apos;re signed in to iCloud and iCloud sync is on in
-					Weekly Gym&apos;s Settings, as it is by default, this data syncs
-					through your own private iCloud database, to keep it in step across
-					your devices. This sync is handled by Apple and governed by{" "}
-					<AppleLegalLink />. We have no access to this data.
+					reps or seconds, weights, supersets, days and day names; the sets you
+					log, with their exercise, values, day and time; the exercises you
+					create; and any changes you make to an exercise&apos;s muscles) is
+					stored on your device. If you&apos;re signed in to iCloud and iCloud
+					sync is on in Weekly Gym&apos;s Settings, as it is by default, this
+					data syncs through your own private iCloud database, to keep it in
+					step across your devices. This sync is handled by Apple and governed
+					by <AppleLegalLink />. We have no access to this data.
 				</p>
 				<p>
 					If you turn iCloud sync off, that device stops syncing the next time
@@ -125,7 +125,7 @@ export default function WeeklyGymPrivacyPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-10-20"
+			path="/privacy/weekly-gym"
 			contactEmail="roland+weeklygym@leth.ro"
 			relatedLinks={relatedWeeklyGymLegalLinks("/privacy/weekly-gym")}
 		/>

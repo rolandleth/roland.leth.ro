@@ -178,7 +178,7 @@ export default function DigestTermsPage() {
 		<LegalPageLayout
 			title="Digest – Terms of Use"
 			sections={sections}
-			lastUpdated="2026-10-19"
+			path="/terms/digest"
 			contactEmail="roland+digest@leth.ro"
 			documentKind="terms"
 			relatedLinks={relatedDigestLegalLinks("/terms/digest")}

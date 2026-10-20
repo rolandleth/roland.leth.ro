@@ -42,7 +42,7 @@ export default function BodyTrackingPrivacyPage() {
 		<LegalPageLayout
 			title="Body Tracking – Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-04-07"
+			path="/privacy/body-tracking"
 			contactEmail="roland+bodytracking@leth.ro"
 		/>
 	)
