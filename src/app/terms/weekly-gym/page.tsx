@@ -161,7 +161,7 @@ export default function WeeklyGymTermsPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Terms of Use"
 			sections={sections}
-			lastUpdated="Oct 15, 2026"
+			lastUpdated="2026-10-15"
 			contactEmail="roland+weeklygym@leth.ro"
 			documentKind="terms"
 			relatedLinks={relatedWeeklyGymLegalLinks("/terms/weekly-gym")}

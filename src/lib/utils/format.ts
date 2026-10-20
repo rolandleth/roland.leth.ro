@@ -6,6 +6,16 @@ import { PAGE_SIZE } from "@/lib/utils/pagination"
 // the same regex so falls back to returning the raw input on non-match.
 const DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?$/
 
+// A calendar day and nothing else, for `formatIsoDay`.
+const ISO_DAY_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/
+
+// The site's one date shape, "Jul 17, 2026": posts, guides and legal pages.
+const SHORT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+	year: "numeric",
+	month: "short",
+	day: "numeric",
+}
+
 // Strict so trailing garbage (`"12abc"`) is rejected — `Number.parseInt` would
 // silently return `12` and let `/admin/posts/12abc/edit` resolve to id=12.
 const INT_ID_REGEX = /^-?\d+$/
@@ -161,11 +171,35 @@ function formatCalendarDay(
  * Parses a `yyyy-MM-dd-HHmm` datetime string into a human-readable date.
  */
 export function formatDate(datetime: string): string {
-	return formatCalendarDay(datetime, {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	})
+	return formatCalendarDay(datetime, SHORT_DATE_OPTIONS)
+}
+
+/**
+ * Formats a `yyyy-MM-dd` calendar day in `formatDate`'s shape ("Jun 10, 2026"),
+ * or null when it isn't one. Stricter than `formatDate`, which renders a legacy
+ * row's raw value rather than fail: this one also refuses a time part and a
+ * day that doesn't exist (`2026-02-30`), which `Date` would roll into March.
+ * Same local-midnight calendar-day semantics as `formatDate`.
+ */
+export function formatIsoDay(day: string): string | null {
+	const match = day.match(ISO_DAY_REGEX)
+
+	if (!match) {
+		return null
+	}
+
+	const [year, month, dayOfMonth] = match.slice(1).map(Number)
+	const date = new Date(year, month - 1, dayOfMonth)
+	const isRealDay =
+		date.getFullYear() === year &&
+		date.getMonth() === month - 1 &&
+		date.getDate() === dayOfMonth
+
+	if (!isRealDay) {
+		return null
+	}
+
+	return date.toLocaleDateString("en-US", SHORT_DATE_OPTIONS)
 }
 
 /**
@@ -196,9 +230,7 @@ export function formatDayMonth(datetime: string): string {
  */
 export function formatDateValue(date: Date): string {
 	return date.toLocaleDateString("en-US", {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
+		...SHORT_DATE_OPTIONS,
 		timeZone: "UTC",
 	})
 }

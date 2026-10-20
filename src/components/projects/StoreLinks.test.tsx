@@ -8,7 +8,9 @@ const iPhoneLink: StoreLink = {
 	link: { id: 1, url: "https://apps.apple.com/app/id1" },
 	cta: { kind: "badge", storefront: "AppStore" },
 }
-const macLink: StoreLink = {
+// A second listing, as an app on the iPhone and the Mac has. With two store
+// links, `linkCtasFor` gives both the generic App Store badge.
+const secondListing: StoreLink = {
 	link: { id: 2, url: "https://apps.apple.com/app/id2" },
 	cta: { kind: "badge", storefront: "AppStore" },
 }
@@ -44,13 +46,15 @@ function isBefore(first: Element, second: Element): boolean {
 
 describe("StoreLinks — buttons and status", () => {
 	it("shows every store button, in link order, in one row", () => {
-		const { container } = renderLinks({ storeLinks: [iPhoneLink, macLink] })
+		const { container } = renderLinks({
+			storeLinks: [iPhoneLink, secondListing],
+		})
 
 		const row = container.querySelector(`.${ROW_CLASS}`)
 
 		expect(badges().map((badge) => badge.getAttribute("href"))).toEqual([
 			iPhoneLink.link.url,
-			macLink.link.url,
+			secondListing.link.url,
 		])
 		for (const badge of badges()) {
 			expect(row).toContainElement(badge)
@@ -66,6 +70,21 @@ describe("StoreLinks — buttons and status", () => {
 		for (const image of badges()[0].querySelectorAll("img")) {
 			expect(image).toHaveClass(heightClass)
 		}
+	})
+
+	// A Mac app's only listing names its store.
+	it("draws the Mac App Store badge for a Mac App Store link", () => {
+		const macOnlyLink: StoreLink = {
+			link: { id: 3, url: "https://apps.apple.com/app/id3" },
+			cta: { kind: "badge", storefront: "MacAppStore" },
+		}
+
+		renderLinks({ storeLinks: [macOnlyLink] })
+
+		expect(
+			screen.getByRole("link", { name: "Download on the Mac App Store" })
+		).toHaveAttribute("href", macOnlyLink.link.url)
+		expect(badges()).toHaveLength(0)
 	})
 
 	it.each([

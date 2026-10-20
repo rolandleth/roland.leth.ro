@@ -59,7 +59,7 @@ export default function ReckonPrivacyPage() {
 		<LegalPageLayout
 			title="Reckon – Privacy Policy"
 			sections={sections}
-			lastUpdated="May 30, 2026"
+			lastUpdated="2026-05-30"
 			contactEmail="roland+reckon@leth.ro"
 		/>
 	)

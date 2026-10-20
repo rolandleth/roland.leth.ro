@@ -9,7 +9,7 @@ export interface StoreLink {
 }
 
 interface Props {
-	/** Every `linkCtasFor` entry that isn't a bare pill, in link order. */
+	/** The project's store links, in link order (`splitStoreLinks`). */
 	storeLinks: readonly StoreLink[]
 	/** The project's status words (`statusLabel`); null for a live app. */
 	statusLabel: string | null

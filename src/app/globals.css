@@ -68,12 +68,15 @@
    the bar doesn't change width between pages; the product page lays its hero
    and sections on it (`.product-frame`), so its logo lines up with the hero.
 
-   `--site-header-height` is the fixed site header's bar and the spacer under
-   it (`Header`). The product page builds on it: the hero's band runs up under
-   the bar and pads the same height back, and the section rail sticks below it
-   (`ProductToc`). Its section anchors stop 16px from the top (`scroll-mt-4`)
-   and clear the bar only through their own `py-14`, so that padding has to
-   stay at least this tall. */
+   `--site-header-height` is the fixed site header's nav row and the spacer
+   under it (`Header`). The header's 1px bottom border sits below the row, so
+   the bar is 1px taller than the spacer and its border overlaps the page's
+   first pixel. The product page builds on the token: the hero's band runs up
+   under the bar and pads the same height back, and the section rail sticks
+   below it (`ProductToc`). Its section anchors stop 16px from the top
+   (`scroll-mt-4`) and clear the bar only through their own padding (`py-14`
+   on the sections and the FAQ, `py-20` on the closing), so that padding has
+   to stay at least this tall. */
 :root {
 	--site-max-width: 1200px;
 	--site-gutter: 1rem;
@@ -458,11 +461,11 @@ code[data-theme*=" "] span {
 /* The page's one load moment: the hero rises in, 0.25s, staggered a little.
    A rise, not a fade: an element at opacity 0 isn't painted as far as Largest
    Contentful Paint goes, so fading the h1 and the image in put the page's main
-   paint 0.25–0.37s late. Off when the reader asks for less motion. In-page jumps (the section rail,
-   "See how it works") scroll there instead of cutting, on product pages only;
-   `data-scroll-behavior` on `<html>` keeps route changes instant. The FAQ's
-   answers animate in `FaqItem`, with Framer: CSS can animate a height to
-   `auto` only in Chromium. */
+   paint 0.25–0.37s late. Off when the reader asks for less motion. In-page
+   jumps (the section rail, "See how it works") scroll there instead of
+   cutting, on product pages only; `data-scroll-behavior` on `<html>` keeps
+   route changes instant. The FAQ's answers animate in `FaqItem`, with Framer:
+   CSS can animate a height to `auto` only in Chromium. */
 @media (prefers-reduced-motion: no-preference) {
 	html:has(.product-page) {
 		scroll-behavior: smooth;

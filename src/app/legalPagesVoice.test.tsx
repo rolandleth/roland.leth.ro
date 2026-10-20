@@ -40,4 +40,17 @@ describe("legal pages", () => {
 			expect(container.textContent).not.toMatch(FIRST_PERSON_SINGULAR)
 		}
 	)
+
+	// `LegalPageLayout` formats the page's `yyyy-MM-dd` and throws on a bad one,
+	// so this also catches a page whose date doesn't parse.
+	it.each(LEGAL_PAGES)(
+		"%s prints its last-update date as every legal page does",
+		(_path, Page) => {
+			const { container } = render(<Page />)
+
+			expect(container.textContent).toMatch(
+				/last updated on [A-Z][a-z]{2} \d{1,2}, \d{4}\./
+			)
+		}
+	)
 })

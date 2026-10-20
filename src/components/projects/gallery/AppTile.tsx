@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { linkCtasFor } from "@/lib/utils/platforms"
+import { linkCtasFor, splitStoreLinks } from "@/lib/utils/platforms"
 import { statusLabel } from "@/lib/utils/projectStatus"
 import StoreLinks from "../StoreLinks"
 import { TEXT_BESIDE_IMAGE_COLUMNS_CLASS } from "./galleryLayout"
@@ -39,9 +39,7 @@ const HALF_IMAGE_SIZES = "(min-width: 900px) 460px, calc(100vw - 2rem)"
  * hover either.
  */
 export default function AppTile({ project, isWide, isImagePriority }: Props) {
-	const storeLinks = linkCtasFor(project).filter(
-		({ cta }) => cta.kind !== "plainPill"
-	)
+	const { storeLinks } = splitStoreLinks(linkCtasFor(project))
 	const image = project.productHeroImage
 	const imageAlt = project.heroImageAlt ?? `${project.name} screenshot`
 

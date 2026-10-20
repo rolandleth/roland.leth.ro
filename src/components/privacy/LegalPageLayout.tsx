@@ -1,6 +1,7 @@
 import Link from "next/link"
 import PageGlow from "@/components/PageGlow"
 import PrivacySection from "@/components/privacy/PrivacySection"
+import { formatIsoDay } from "@/lib/utils/format"
 
 export interface LegalSectionEntry {
 	title: string
@@ -21,14 +22,22 @@ export interface LegalRelatedLink {
  */
 export type LegalDocumentKind = "privacy" | "terms"
 
+/**
+ * A `yyyy-MM-dd` day. The type catches the display form (`"Jun 10, 2026"`);
+ * `formatIsoDay` catches the rest (`"2026-6-10"`, `"2026-02-30"`).
+ */
+type IsoDay = `${number}-${number}-${number}`
+
 interface Props {
 	title: string
 	sections: LegalSectionEntry[]
 	/**
-	 * Date shown in the auto-rendered "Last update" section, with the month
-	 * abbreviated as on every legal page, e.g. `"Jun 10, 2026"`.
+	 * The day the page last changed, as `yyyy-MM-dd` (`"2026-06-10"`). The
+	 * auto-rendered "Last update" section formats it (`formatIsoDay`), so every
+	 * legal page prints the same shape ("Jun 10, 2026"). A value that isn't a
+	 * real day throws, which fails the page's build and its tests.
 	 */
-	lastUpdated: string
+	lastUpdated: IsoDay
 	/**
 	 * Address used in the auto-rendered "Contact" section's `mailto:` link,
 	 * which reads "contact us": every legal page speaks as "we", the site's own
@@ -99,6 +108,14 @@ export default function LegalPageLayout({
 	relatedLinks,
 }: Props) {
 	const boilerplate = BOILERPLATE[documentKind]
+	const lastUpdatedText = formatIsoDay(lastUpdated)
+
+	if (lastUpdatedText == null) {
+		throw new Error(
+			`LegalPageLayout: "${title}" has lastUpdated "${lastUpdated}", which isn't a yyyy-MM-dd day`
+		)
+	}
+
 	const allSections: LegalSectionEntry[] = [
 		...sections,
 		...(relatedLinks && relatedLinks.length > 0
@@ -119,7 +136,7 @@ export default function LegalPageLayout({
 			: []),
 		{
 			title: "Last update",
-			content: boilerplate.lastUpdate(lastUpdated),
+			content: boilerplate.lastUpdate(lastUpdatedText),
 		},
 		{
 			title: "Contact",
