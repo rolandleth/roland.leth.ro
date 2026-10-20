@@ -1167,8 +1167,9 @@ describe("ProductPage — pricing", () => {
 		expect(within(pricing).queryByText(/US prices/)).not.toBeInTheDocument()
 	})
 
-	// An app on the App Store and the Mac App Store names both stores here, as
-	// the hero and the closing do.
+	// An app on the App Store and the Mac App Store gets a button for each
+	// listing here, as in the hero and the closing. Both are the generic App
+	// Store badge: with two store links, `linkCtasFor` can't tell which is which.
 	it("puts every store button after the plans, not only the first", () => {
 		const macLink = {
 			id: 2,

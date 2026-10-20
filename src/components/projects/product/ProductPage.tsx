@@ -111,8 +111,9 @@ export default function ProductPage({
 	const { groups, sectionGroups, stepGroups } = productGalleryGroups(sections)
 	const gallery = flattenGroups(groups)
 	const heroImage = resolveHeroImage(project)
-	// A `pricing` section with nothing to price (a discontinued app) would be a
-	// heading over nothing, so it's left off the page and the section list.
+	// A `pricing` section with nothing to price (no offers, or a discontinued
+	// app: `pricingFor`) would be a heading over nothing, so it's left off the
+	// page and the section list.
 	const isShown = (section: (typeof sections)[number]) =>
 		section.kind !== ProjectSectionKind.pricing || pricing != null
 	const label = statusLabel(project.status)
