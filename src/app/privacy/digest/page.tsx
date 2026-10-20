@@ -131,7 +131,7 @@ export default function DigestPrivacyPage() {
 		<LegalPageLayout
 			title="Digest – Privacy Policy"
 			sections={sections}
-			lastUpdated="Oct 17, 2026"
+			lastUpdated="2026-10-17"
 			contactEmail="roland+digest@leth.ro"
 			relatedLinks={relatedDigestLegalLinks("/privacy/digest")}
 		/>

@@ -21,7 +21,7 @@ describe("LegalPageLayout — landmark structure", () => {
 					{ title: "Section A", content: <p>body A</p> },
 					{ title: "Section B", content: <p>body B</p> },
 				]}
-				lastUpdated="Apr 7, 2026"
+				lastUpdated="2026-04-07"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -41,7 +41,7 @@ describe("LegalPageLayout — landmark structure", () => {
 					{ title: "Data we collect", content: <p>nothing</p> },
 					{ title: "Sharing", content: <p>nobody</p> },
 				]}
-				lastUpdated="Apr 7, 2026"
+				lastUpdated="2026-04-07"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -59,7 +59,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="May 30, 2026"
+				lastUpdated="2026-05-30"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
@@ -67,12 +67,43 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 		expect(getByText(/last updated on May 30, 2026/)).toBeInTheDocument()
 	})
 
+	it("prints a single-digit day without padding", () => {
+		const { getByText } = render(
+			<LegalPageLayout
+				title="Privacy Policy"
+				sections={[]}
+				lastUpdated="2026-06-08"
+				contactEmail="roland+reckon@leth.ro"
+			/>
+		)
+
+		expect(getByText(/last updated on Jun 8, 2026\./)).toBeInTheDocument()
+	})
+
+	// The type lets these through; the layout refuses them, so a typo fails the
+	// page's build rather than printing a raw or rolled-over date.
+	it.each(["2026-6-10", "2026-02-30", "2026-13-01"] as const)(
+		"throws for %s, which isn't a real yyyy-MM-dd day",
+		(lastUpdated) => {
+			expect(() =>
+				render(
+					<LegalPageLayout
+						title="Privacy Policy"
+						sections={[]}
+						lastUpdated={lastUpdated}
+						contactEmail="roland+reckon@leth.ro"
+					/>
+				)
+			).toThrow(`"Privacy Policy" has lastUpdated "${lastUpdated}"`)
+		}
+	)
+
 	it("renders the contact section with a mailto: link from props", () => {
 		const { getByRole } = render(
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="May 30, 2026"
+				lastUpdated="2026-05-30"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
@@ -85,7 +116,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="Oct 19, 2026"
+				lastUpdated="2026-10-19"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -102,7 +133,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Continuum – Privacy Policy"
 				sections={[]}
-				lastUpdated="June 10, 2026"
+				lastUpdated="2026-06-10"
 				contactEmail="roland+continuum@leth.ro"
 			/>
 		)
@@ -121,7 +152,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Continuum – Terms of Use"
 				sections={[]}
-				lastUpdated="June 10, 2026"
+				lastUpdated="2026-06-10"
 				contactEmail="roland+continuum@leth.ro"
 				documentKind="terms"
 			/>
@@ -142,7 +173,7 @@ describe("LegalPageLayout — related links", () => {
 			<LegalPageLayout
 				title="Continuum – Privacy Policy"
 				sections={[]}
-				lastUpdated="June 10, 2026"
+				lastUpdated="2026-06-10"
 				contactEmail="roland+continuum@leth.ro"
 				relatedLinks={[
 					{ label: "Terms of use", href: "/terms/continuum" },
@@ -166,7 +197,7 @@ describe("LegalPageLayout — related links", () => {
 			<LegalPageLayout
 				title="Reckon – Privacy Policy"
 				sections={[]}
-				lastUpdated="May 30, 2026"
+				lastUpdated="2026-05-30"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
@@ -190,7 +221,7 @@ describe("LegalPageLayout — text links", () => {
 						),
 					},
 				]}
-				lastUpdated="Apr 7, 2026"
+				lastUpdated="2026-04-07"
 				contactEmail="roland+hi@leth.ro"
 				relatedLinks={[{ label: "Terms of use", href: "/terms/continuum" }]}
 			/>

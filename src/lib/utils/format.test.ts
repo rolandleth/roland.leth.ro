@@ -11,6 +11,7 @@ import {
 	formatDate,
 	formatDateValue,
 	formatDayMonth,
+	formatIsoDay,
 	MAX_PAGE,
 	MAX_SAFE_ADMIN_PAGE,
 	parseAdminPageParam,
@@ -301,6 +302,45 @@ describe("formatDate", () => {
 
 	it("returns the raw string for an empty string", () => {
 		expect(formatDate("")).toBe("")
+	})
+})
+
+// #endregion
+
+// #region formatIsoDay
+
+describe("formatIsoDay", () => {
+	it.each([
+		["2026-06-10", "Jun 10, 2026"],
+		["2026-10-19", "Oct 19, 2026"],
+		["2026-05-30", "May 30, 2026"],
+		["2026-09-04", "Sep 4, 2026"],
+		["2024-02-29", "Feb 29, 2024"],
+		["2026-12-31", "Dec 31, 2026"],
+		["2026-01-01", "Jan 1, 2026"],
+	])("formats %s as %s", (day, expected) => {
+		expect(formatIsoDay(day)).toBe(expected)
+	})
+
+	it("matches formatDate's shape for the same day", () => {
+		expect(formatIsoDay("2026-06-10")).toBe(formatDate("2026-06-10-0000"))
+	})
+
+	it.each([
+		["a day that doesn't exist", "2026-02-30"],
+		["a leap day outside a leap year", "2026-02-29"],
+		["month 13", "2026-13-01"],
+		["month 0", "2026-00-10"],
+		["day 0", "2026-06-00"],
+		["day 32", "2026-01-32"],
+		["unpadded parts", "2026-6-10"],
+		["a time part", "2026-06-10-0930"],
+		["an ISO instant", "2026-06-10T00:00:00Z"],
+		["the display form", "Jun 10, 2026"],
+		["surrounding spaces", " 2026-06-10 "],
+		["an empty string", ""],
+	])("refuses %s", (_label, day) => {
+		expect(formatIsoDay(day)).toBeNull()
 	})
 })
 
