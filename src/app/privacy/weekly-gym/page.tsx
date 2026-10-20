@@ -125,7 +125,7 @@ export default function WeeklyGymPrivacyPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-10-15"
+			path="/privacy/weekly-gym"
 			contactEmail="roland+weeklygym@leth.ro"
 			relatedLinks={relatedWeeklyGymLegalLinks("/privacy/weekly-gym")}
 		/>

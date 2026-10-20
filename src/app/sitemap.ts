@@ -1,4 +1,5 @@
 import { getSiteUrl } from "@/lib/auth/env"
+import { LEGAL_PAGE_LAST_UPDATED } from "@/lib/content/legalPages"
 import { allGuides, getGuidesOverview } from "@/lib/db/guides"
 import { getAllPublishedPostSlugs } from "@/lib/db/posts"
 import { getAllProjectSlugs } from "@/lib/db/projects"
@@ -44,16 +45,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 			changeFrequency: "monthly",
 			priority: 0.5,
 		},
-		{
-			url: url(base, "/privacy"),
-			changeFrequency: "yearly",
+		// Every legal page, from the list each page prints its date from, so a new
+		// one can't be left out and `lastModified` matches the page's own date.
+		...Object.entries(LEGAL_PAGE_LAST_UPDATED).map(([path, lastUpdated]) => ({
+			url: url(base, path),
+			lastModified: lastUpdated,
+			changeFrequency: "yearly" as const,
 			priority: 0.3,
-		},
-		{
-			url: url(base, "/privacy/body-tracking"),
-			changeFrequency: "yearly",
-			priority: 0.3,
-		},
+		})),
 		...SECTIONS.map((section) => ({
 			url: url(base, `/blog/${section}`),
 			changeFrequency: "weekly" as const,

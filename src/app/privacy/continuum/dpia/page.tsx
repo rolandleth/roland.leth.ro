@@ -115,7 +115,7 @@ export default function ContinuumDpiaPage() {
 		<LegalPageLayout
 			title="Continuum – Data Protection Impact Assessment (template)"
 			sections={sections}
-			lastUpdated="2026-06-08"
+			path="/privacy/continuum/dpia"
 			contactEmail="roland+continuum@leth.ro"
 			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum/dpia")}
 		/>

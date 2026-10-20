@@ -82,7 +82,7 @@ export default function PrivacyPage() {
 		<LegalPageLayout
 			title="Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-10-19"
+			path="/privacy"
 			contactEmail="roland+hi@leth.ro"
 		/>
 	)

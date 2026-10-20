@@ -1,7 +1,9 @@
 import Link from "next/link"
 import PageGlow from "@/components/PageGlow"
 import PrivacySection from "@/components/privacy/PrivacySection"
+import { LEGAL_PAGE_LAST_UPDATED } from "@/lib/content/legalPages"
 import { formatIsoDay } from "@/lib/utils/format"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 
 export interface LegalSectionEntry {
 	title: string
@@ -22,22 +24,16 @@ export interface LegalRelatedLink {
  */
 export type LegalDocumentKind = "privacy" | "terms"
 
-/**
- * A `yyyy-MM-dd` day. The type catches the display form (`"Jun 10, 2026"`);
- * `formatIsoDay` catches the rest (`"2026-6-10"`, `"2026-02-30"`).
- */
-type IsoDay = `${number}-${number}-${number}`
-
 interface Props {
 	title: string
 	sections: LegalSectionEntry[]
 	/**
-	 * The day the page last changed, as `yyyy-MM-dd` (`"2026-06-10"`). The
-	 * auto-rendered "Last update" section formats it (`formatIsoDay`), so every
-	 * legal page prints the same shape ("Jun 10, 2026"). A value that isn't a
-	 * real day throws, which fails the page's build and its tests.
+	 * The page's own path. Its "Last update" date comes from
+	 * `LEGAL_PAGE_LAST_UPDATED`, the list the sitemap reads too, and prints in
+	 * `formatIsoDay`'s shape ("Jun 10, 2026"). A date that isn't a real day
+	 * throws, which fails the page's build and its tests.
 	 */
-	lastUpdated: IsoDay
+	path: LegalPagePath
 	/**
 	 * Address used in the auto-rendered "Contact" section's `mailto:` link,
 	 * which reads "contact us": every legal page speaks as "we", the site's own
@@ -102,17 +98,18 @@ const BOILERPLATE: Record<
 export default function LegalPageLayout({
 	title,
 	sections,
-	lastUpdated,
+	path,
 	contactEmail,
 	documentKind = "privacy",
 	relatedLinks,
 }: Props) {
 	const boilerplate = BOILERPLATE[documentKind]
+	const lastUpdated = LEGAL_PAGE_LAST_UPDATED[path]
 	const lastUpdatedText = formatIsoDay(lastUpdated)
 
 	if (lastUpdatedText == null) {
 		throw new Error(
-			`LegalPageLayout: "${title}" has lastUpdated "${lastUpdated}", which isn't a yyyy-MM-dd day`
+			`LegalPageLayout: ${path} has the date "${lastUpdated}" in LEGAL_PAGE_LAST_UPDATED, which isn't a yyyy-MM-dd day`
 		)
 	}
 

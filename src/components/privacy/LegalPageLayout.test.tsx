@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { render } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
+import { LEGAL_PAGE_LAST_UPDATED } from "@/lib/content/legalPages"
+import { formatIsoDay } from "@/lib/utils/format"
 import LegalPageLayout from "./LegalPageLayout"
 
 // Resolved from this file, like `windowInvariant.test.ts` and
@@ -21,7 +23,7 @@ describe("LegalPageLayout — landmark structure", () => {
 					{ title: "Section A", content: <p>body A</p> },
 					{ title: "Section B", content: <p>body B</p> },
 				]}
-				lastUpdated="2026-04-07"
+				path="/privacy"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -41,7 +43,7 @@ describe("LegalPageLayout — landmark structure", () => {
 					{ title: "Data we collect", content: <p>nothing</p> },
 					{ title: "Sharing", content: <p>nobody</p> },
 				]}
-				lastUpdated="2026-04-07"
+				path="/privacy"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -54,47 +56,47 @@ describe("LegalPageLayout — landmark structure", () => {
 })
 
 describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
-	it("renders the last-updated date from props", () => {
+	it("prints the page's date from the legal-page list", () => {
 		const { getByText } = render(
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-05-30"
+				path="/privacy/reckon"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
+		const expected = formatIsoDay(LEGAL_PAGE_LAST_UPDATED["/privacy/reckon"])
+
 		// Date is interpolated mid-sentence, so match on a substring node.
-		expect(getByText(/last updated on May 30, 2026/)).toBeInTheDocument()
+		expect(expected).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/)
+		expect(
+			getByText(`last updated on ${expected}.`, { exact: false })
+		).toBeInTheDocument()
 	})
 
-	it("prints a single-digit day without padding", () => {
-		const { getByText } = render(
-			<LegalPageLayout
-				title="Privacy Policy"
-				sections={[]}
-				lastUpdated="2026-06-08"
-				contactEmail="roland+reckon@leth.ro"
-			/>
-		)
+	// The list's type lets these through; the layout refuses them, so a typo
+	// fails the page's build rather than printing a raw or rolled-over date.
+	it.each(["2026-6-10", "2026-02-30", "2026-13-01"])(
+		"throws for a listed date of %s, which isn't a real yyyy-MM-dd day",
+		async (badDay) => {
+			vi.resetModules()
+			vi.doMock("@/lib/content/legalPages", () => ({
+				LEGAL_PAGE_LAST_UPDATED: { "/privacy": badDay },
+			}))
+			const { default: Layout } = await import("./LegalPageLayout")
 
-		expect(getByText(/last updated on Jun 8, 2026\./)).toBeInTheDocument()
-	})
-
-	// The type lets these through; the layout refuses them, so a typo fails the
-	// page's build rather than printing a raw or rolled-over date.
-	it.each(["2026-6-10", "2026-02-30", "2026-13-01"] as const)(
-		"throws for %s, which isn't a real yyyy-MM-dd day",
-		(lastUpdated) => {
 			expect(() =>
 				render(
-					<LegalPageLayout
+					<Layout
 						title="Privacy Policy"
 						sections={[]}
-						lastUpdated={lastUpdated}
-						contactEmail="roland+reckon@leth.ro"
+						path="/privacy"
+						contactEmail="roland+hi@leth.ro"
 					/>
 				)
-			).toThrow(`"Privacy Policy" has lastUpdated "${lastUpdated}"`)
+			).toThrow(`/privacy has the date "${badDay}"`)
+
+			vi.doUnmock("@/lib/content/legalPages")
 		}
 	)
 
@@ -103,7 +105,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-05-30"
+				path="/privacy/reckon"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
@@ -116,7 +118,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-10-19"
+				path="/privacy"
 				contactEmail="roland+hi@leth.ro"
 			/>
 		)
@@ -133,7 +135,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Continuum – Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-06-10"
+				path="/privacy/continuum"
 				contactEmail="roland+continuum@leth.ro"
 			/>
 		)
@@ -152,7 +154,7 @@ describe("LegalPageLayout — auto-rendered boilerplate sections", () => {
 			<LegalPageLayout
 				title="Continuum – Terms of Use"
 				sections={[]}
-				lastUpdated="2026-06-10"
+				path="/privacy/continuum"
 				contactEmail="roland+continuum@leth.ro"
 				documentKind="terms"
 			/>
@@ -173,7 +175,7 @@ describe("LegalPageLayout — related links", () => {
 			<LegalPageLayout
 				title="Continuum – Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-06-10"
+				path="/privacy/continuum"
 				contactEmail="roland+continuum@leth.ro"
 				relatedLinks={[
 					{ label: "Terms of use", href: "/terms/continuum" },
@@ -197,7 +199,7 @@ describe("LegalPageLayout — related links", () => {
 			<LegalPageLayout
 				title="Reckon – Privacy Policy"
 				sections={[]}
-				lastUpdated="2026-05-30"
+				path="/privacy/reckon"
 				contactEmail="roland+reckon@leth.ro"
 			/>
 		)
@@ -221,7 +223,7 @@ describe("LegalPageLayout — text links", () => {
 						),
 					},
 				]}
-				lastUpdated="2026-04-07"
+				path="/privacy"
 				contactEmail="roland+hi@leth.ro"
 				relatedLinks={[{ label: "Terms of use", href: "/terms/continuum" }]}
 			/>

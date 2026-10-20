@@ -9,6 +9,12 @@ const DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})(?:-(\d{2})(\d{2}))?$/
 // A calendar day and nothing else, for `formatIsoDay`.
 const ISO_DAY_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/
 
+/**
+ * A `yyyy-MM-dd` day. The type catches the display form (`"Jun 10, 2026"`);
+ * `formatIsoDay` catches the rest (`"2026-6-10"`, `"2026-02-30"`).
+ */
+export type IsoDay = `${number}-${number}-${number}`
+
 // The site's one date shape, "Jul 17, 2026": posts, guides and legal pages.
 const SHORT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 	year: "numeric",

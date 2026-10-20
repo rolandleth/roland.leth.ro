@@ -59,7 +59,7 @@ export default function ContinuumPrivacyPage() {
 		<LegalPageLayout
 			title="Continuum – Privacy Policy"
 			sections={sections}
-			lastUpdated="2026-05-30"
+			path="/privacy/continuum"
 			contactEmail="roland+continuum@leth.ro"
 			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum")}
 		/>
