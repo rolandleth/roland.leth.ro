@@ -1,7 +1,5 @@
 import { render } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
-import { LEGAL_PAGE_LAST_UPDATED } from "@/lib/content/legalPages"
-import { formatIsoDay } from "@/lib/utils/format"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import BodyTrackingPrivacyPage from "./privacy/body-tracking/page"
 import ContinuumDpiaPage from "./privacy/continuum/dpia/page"
 import ContinuumPrivacyPage from "./privacy/continuum/page"
@@ -14,8 +12,28 @@ import ContinuumTermsPage from "./terms/continuum/page"
 import DigestTermsPage from "./terms/digest/page"
 import WeeklyGymTermsPage from "./terms/weekly-gym/page"
 import type { LegalPagePath } from "@/lib/content/legalPages"
-import type { IsoDay } from "@/lib/utils/format"
-import type { ComponentType } from "react"
+import type { ComponentProps, ComponentType } from "react"
+
+// The `path` each render hands `LegalPageLayout`. The layout still renders for
+// real, so the voice test below reads the full page, boilerplate included.
+const renderedPaths = vi.hoisted((): string[] => [])
+
+vi.mock("@/components/privacy/LegalPageLayout", async (importOriginal) => {
+	const actual =
+		await importOriginal<
+			typeof import("@/components/privacy/LegalPageLayout")
+		>()
+	const Layout = actual.default
+
+	return {
+		...actual,
+		default: (props: ComponentProps<typeof Layout>) => {
+			renderedPaths.push(props.path)
+
+			return <Layout {...props} />
+		},
+	}
+})
 
 // Every legal page in `LEGAL_PAGE_LAST_UPDATED`, with its component. Keyed by
 // that list's paths, so a page added there and not here fails to type-check;
@@ -36,14 +54,13 @@ const PAGES: Record<LegalPagePath, ComponentType> = {
 
 const LEGAL_PAGES = Object.entries(PAGES)
 
-// The list widened to string keys, so the entries above can look their dates
-// up without a cast.
-const LISTED_DATES: Readonly<Record<string, IsoDay | undefined>> =
-	LEGAL_PAGE_LAST_UPDATED
-
 const FIRST_PERSON_SINGULAR = /\b(I|I'm|I've|I'd|I'll|me|my|mine|myself)\b/
 
 describe("legal pages", () => {
+	beforeEach(() => {
+		renderedPaths.length = 0
+	})
+
 	// Every legal page speaks as "we" and "us", the site's own privacy page
 	// included (owner, 2026-10-19).
 	it.each(LEGAL_PAGES)(
@@ -55,17 +72,12 @@ describe("legal pages", () => {
 		}
 	)
 
-	// Its own date, the one the sitemap gives as `lastModified`: a page passing
-	// a sibling's path would print the sibling's.
-	it.each(LEGAL_PAGES)("%s prints its own listed date", (path, Page) => {
-		const { container } = render(<Page />)
-		const lastUpdated = LISTED_DATES[path]
+	// The path picks the page's date, the one the sitemap gives as
+	// `lastModified`. Checked as the prop, not the printed date: several pages
+	// share a date, so a page passing a sibling's path can print the right day.
+	it.each(LEGAL_PAGES)("%s passes its own path to the layout", (path, Page) => {
+		render(<Page />)
 
-		expect(lastUpdated).toBeDefined()
-
-		const expected = formatIsoDay(lastUpdated ?? "")
-
-		expect(expected).not.toBeNull()
-		expect(container.textContent).toContain(`last updated on ${expected}.`)
+		expect(renderedPaths).toEqual([path])
 	})
 })

@@ -3,12 +3,15 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/body-tracking"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Body Tracking – Privacy Policy",
 	description: "Privacy policy for the Body Tracking app.",
-	path: "/privacy/body-tracking",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -42,7 +45,7 @@ export default function BodyTrackingPrivacyPage() {
 		<LegalPageLayout
 			title="Body Tracking – Privacy Policy"
 			sections={sections}
-			path="/privacy/body-tracking"
+			path={PAGE_PATH}
 			contactEmail="roland+bodytracking@leth.ro"
 		/>
 	)

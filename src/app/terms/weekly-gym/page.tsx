@@ -4,12 +4,15 @@ import LegalPageLayout, {
 } from "@/components/privacy/LegalPageLayout"
 import { relatedWeeklyGymLegalLinks } from "@/components/privacy/weeklyGymLegalLinks"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/terms/weekly-gym"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Weekly Gym – Terms of Use",
 	description: "Terms of use for the Weekly Gym app.",
-	path: "/terms/weekly-gym",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -161,10 +164,10 @@ export default function WeeklyGymTermsPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Terms of Use"
 			sections={sections}
-			path="/terms/weekly-gym"
+			path={PAGE_PATH}
 			contactEmail="roland+weeklygym@leth.ro"
 			documentKind="terms"
-			relatedLinks={relatedWeeklyGymLegalLinks("/terms/weekly-gym")}
+			relatedLinks={relatedWeeklyGymLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

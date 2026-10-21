@@ -1,5 +1,6 @@
 import { relatedLegalLinks } from "@/components/privacy/relatedLegalLinks"
 import type { LegalRelatedLink } from "@/components/privacy/LegalPageLayout"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 
 /**
  * The Continuum legal cluster: privacy policy, responsible-use guide, DPIA
@@ -17,7 +18,7 @@ const continuumLegalLinks: LegalRelatedLink[] = [
 
 /** The Continuum legal links other than `currentPath` (`relatedLegalLinks`). */
 export function relatedContinuumLegalLinks(
-	currentPath: string
+	currentPath: LegalPagePath
 ): LegalRelatedLink[] {
 	return relatedLegalLinks(continuumLegalLinks, currentPath)
 }

@@ -4,13 +4,16 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/terms/continuum"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Continuum – Terms of Use",
 	description:
 		"Terms of use for Continuum, including Continuum Pro subscription and lifetime purchase terms.",
-	path: "/terms/continuum",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -187,10 +190,10 @@ export default function ContinuumTermsPage() {
 		<LegalPageLayout
 			title="Continuum – Terms of Use"
 			sections={sections}
-			path="/terms/continuum"
+			path={PAGE_PATH}
 			contactEmail="roland+continuum@leth.ro"
 			documentKind="terms"
-			relatedLinks={relatedContinuumLegalLinks("/terms/continuum")}
+			relatedLinks={relatedContinuumLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

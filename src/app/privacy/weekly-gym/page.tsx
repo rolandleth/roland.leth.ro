@@ -4,12 +4,15 @@ import LegalPageLayout, {
 } from "@/components/privacy/LegalPageLayout"
 import { relatedWeeklyGymLegalLinks } from "@/components/privacy/weeklyGymLegalLinks"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/weekly-gym"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Weekly Gym – Privacy Policy",
 	description: "Privacy policy for the Weekly Gym app.",
-	path: "/privacy/weekly-gym",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -125,9 +128,9 @@ export default function WeeklyGymPrivacyPage() {
 		<LegalPageLayout
 			title="Weekly Gym – Privacy Policy"
 			sections={sections}
-			path="/privacy/weekly-gym"
+			path={PAGE_PATH}
 			contactEmail="roland+weeklygym@leth.ro"
-			relatedLinks={relatedWeeklyGymLegalLinks("/privacy/weekly-gym")}
+			relatedLinks={relatedWeeklyGymLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

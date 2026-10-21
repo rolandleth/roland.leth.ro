@@ -3,13 +3,16 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/continuum/dpia"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Continuum – Data Protection Impact Assessment (template)",
 	description:
 		"A pre-filled DPIA template for using Continuum to record information about people you manage.",
-	path: "/privacy/continuum/dpia",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -115,9 +118,9 @@ export default function ContinuumDpiaPage() {
 		<LegalPageLayout
 			title="Continuum – Data Protection Impact Assessment (template)"
 			sections={sections}
-			path="/privacy/continuum/dpia"
+			path={PAGE_PATH}
 			contactEmail="roland+continuum@leth.ro"
-			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum/dpia")}
+			relatedLinks={relatedContinuumLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

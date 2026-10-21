@@ -4,12 +4,15 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/digest"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Digest – Privacy Policy",
 	description: "Privacy policy for the Digest app.",
-	path: "/privacy/digest",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -131,9 +134,9 @@ export default function DigestPrivacyPage() {
 		<LegalPageLayout
 			title="Digest – Privacy Policy"
 			sections={sections}
-			path="/privacy/digest"
+			path={PAGE_PATH}
 			contactEmail="roland+digest@leth.ro"
-			relatedLinks={relatedDigestLegalLinks("/privacy/digest")}
+			relatedLinks={relatedDigestLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

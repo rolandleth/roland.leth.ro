@@ -2,12 +2,15 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Privacy Policy",
 	description: "Privacy policy for roland.leth.ro.",
-	path: "/privacy",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -82,7 +85,7 @@ export default function PrivacyPage() {
 		<LegalPageLayout
 			title="Privacy Policy"
 			sections={sections}
-			path="/privacy"
+			path={PAGE_PATH}
 			contactEmail="roland+hi@leth.ro"
 		/>
 	)

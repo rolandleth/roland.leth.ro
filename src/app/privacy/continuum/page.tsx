@@ -4,12 +4,15 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/continuum"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Continuum – Privacy Policy",
 	description: "Privacy policy for the Continuum app.",
-	path: "/privacy/continuum",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -59,9 +62,9 @@ export default function ContinuumPrivacyPage() {
 		<LegalPageLayout
 			title="Continuum – Privacy Policy"
 			sections={sections}
-			path="/privacy/continuum"
+			path={PAGE_PATH}
 			contactEmail="roland+continuum@leth.ro"
-			relatedLinks={relatedContinuumLegalLinks("/privacy/continuum")}
+			relatedLinks={relatedContinuumLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

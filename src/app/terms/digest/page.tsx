@@ -4,13 +4,16 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/terms/digest"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Digest – Terms of Use",
 	description:
 		"Terms of use for Digest, including the Digest Pro subscription and one-time purchase terms.",
-	path: "/terms/digest",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -178,10 +181,10 @@ export default function DigestTermsPage() {
 		<LegalPageLayout
 			title="Digest – Terms of Use"
 			sections={sections}
-			path="/terms/digest"
+			path={PAGE_PATH}
 			contactEmail="roland+digest@leth.ro"
 			documentKind="terms"
-			relatedLinks={relatedDigestLegalLinks("/terms/digest")}
+			relatedLinks={relatedDigestLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

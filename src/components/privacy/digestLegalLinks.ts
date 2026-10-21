@@ -1,5 +1,6 @@
 import { relatedLegalLinks } from "@/components/privacy/relatedLegalLinks"
 import type { LegalRelatedLink } from "@/components/privacy/LegalPageLayout"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 
 /**
  * The Digest legal pair: privacy policy and terms. The two cross-link each
@@ -14,7 +15,7 @@ const digestLegalLinks: LegalRelatedLink[] = [
 
 /** The Digest legal links other than `currentPath` (`relatedLegalLinks`). */
 export function relatedDigestLegalLinks(
-	currentPath: string
+	currentPath: LegalPagePath
 ): LegalRelatedLink[] {
 	return relatedLegalLinks(digestLegalLinks, currentPath)
 }

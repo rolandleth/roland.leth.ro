@@ -3,13 +3,16 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/continuum/responsible-use"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Continuum – Using it responsibly",
 	description:
 		"How to use Continuum responsibly when recording notes about people you manage.",
-	path: "/privacy/continuum/responsible-use",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -98,11 +101,9 @@ export default function ContinuumResponsibleUsePage() {
 		<LegalPageLayout
 			title="Continuum – Using it responsibly"
 			sections={sections}
-			path="/privacy/continuum/responsible-use"
+			path={PAGE_PATH}
 			contactEmail="roland+continuum@leth.ro"
-			relatedLinks={relatedContinuumLegalLinks(
-				"/privacy/continuum/responsible-use"
-			)}
+			relatedLinks={relatedContinuumLegalLinks(PAGE_PATH)}
 		/>
 	)
 }

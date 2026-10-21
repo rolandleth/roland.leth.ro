@@ -3,12 +3,15 @@ import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
 import { buildPageMetadata } from "@/lib/content/metadata"
+import type { LegalPagePath } from "@/lib/content/legalPages"
 import type { Metadata } from "next"
+
+const PAGE_PATH: LegalPagePath = "/privacy/reckon"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Reckon – Privacy Policy",
 	description: "Privacy policy for the Reckon app.",
-	path: "/privacy/reckon",
+	path: PAGE_PATH,
 })
 
 const sections: LegalSectionEntry[] = [
@@ -59,7 +62,7 @@ export default function ReckonPrivacyPage() {
 		<LegalPageLayout
 			title="Reckon – Privacy Policy"
 			sections={sections}
-			path="/privacy/reckon"
+			path={PAGE_PATH}
 			contactEmail="roland+reckon@leth.ro"
 		/>
 	)
