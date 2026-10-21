@@ -68,8 +68,8 @@ const sections: LegalSectionEntry[] = [
 		title: "Your data",
 		content: (
 			<p>
-				Weekly Gym stores your data on your device and, when iCloud sync is on,
-				in your own iCloud account. It isn&apos;t sent to us; see the{" "}
+				Weekly Gym stores your data on your device and, when it syncs, in your
+				own iCloud account. It isn&apos;t sent to us; see the{" "}
 				<Link href="/privacy/weekly-gym">privacy policy</Link>. You&apos;re
 				responsible for keeping your own backups: if you lose your device and
 				your data is in neither a backup nor iCloud, we have no copy to restore

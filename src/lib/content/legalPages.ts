@@ -17,10 +17,10 @@ export const LEGAL_PAGE_LAST_UPDATED = {
 	"/privacy/continuum/responsible-use": "2026-06-10",
 	"/privacy/digest": "2026-10-17",
 	"/privacy/reckon": "2026-05-30",
-	"/privacy/weekly-gym": "2026-10-20",
+	"/privacy/weekly-gym": "2026-10-21",
 	"/terms/continuum": "2026-10-19",
 	"/terms/digest": "2026-10-19",
-	"/terms/weekly-gym": "2026-10-15",
+	"/terms/weekly-gym": "2026-10-20",
 } as const satisfies Record<string, IsoDay>
 
 export type LegalPagePath = keyof typeof LEGAL_PAGE_LAST_UPDATED

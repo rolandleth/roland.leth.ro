@@ -31,25 +31,28 @@ const sections: LegalSectionEntry[] = [
 					reps or seconds, weights, supersets, days and day names; the sets you
 					log, with their exercise, values, day and time; the exercises you
 					create; and any changes you make to an exercise&apos;s muscles) is
-					stored on your device. If you&apos;re signed in to iCloud and iCloud
-					sync is on in Weekly Gym&apos;s Settings, as it is by default, this
-					data syncs through your own private iCloud database, to keep it in
-					step across your devices. This sync is handled by Apple and governed
-					by <AppleLegalLink />. We have no access to this data.
+					stored on your device, and so are your settings, such as units and
+					theme. If you&apos;re signed in to iCloud and iCloud is on for Weekly
+					Gym, all of it also syncs through your own iCloud account and is
+					stored there, to keep it in step across your devices. The app icon
+					you pick is the one exception: iOS keeps it on each device. This sync
+					is handled by Apple and governed by <AppleLegalLink />. We have no
+					access to any of it.
 				</p>
 				<p>
-					If you turn iCloud sync off, that device stops syncing the next time
-					Weekly Gym starts and keeps its data. What was already synced stays in
-					your iCloud account until you delete it (see Deleting your data,
-					below). Your preferences, such as units and theme, never sync: they
-					stay on each device.
+					Weekly Gym has no sync switch of its own: it follows each
+					device&apos;s iCloud settings. If you turn iCloud off for Weekly Gym
+					on a device, that device stops syncing, and Apple&apos;s iCloud sync
+					removes what you entered in Weekly Gym from it. Your settings stay on
+					the device. What was already synced stays in your iCloud account until
+					you delete it (see Deleting your data, below), and it comes back to the
+					device when you turn iCloud on for Weekly Gym again.
 				</p>
 				<p>
 					Weekly Gym contains no analytics, telemetry, advertising or
 					third-party tracking. There&apos;s no server of ours behind it. Apart
-					from iCloud sync and a check that you&apos;re signed in to iCloud,
-					both handled by Apple, the app makes no network requests of its own.
-					We never receive your data.
+					from iCloud sync, handled by Apple, the app makes no network requests
+					of its own. We never receive your data.
 				</p>
 				<p>
 					If you back up your device, your Weekly Gym data may be included in
@@ -115,8 +118,9 @@ const sections: LegalSectionEntry[] = [
 				</p>
 				<p>
 					If you&apos;re not signed in to iCloud, deleting the app is enough. If
-					you&apos;re signed in but turned iCloud sync off, it isn&apos;t: what
-					was synced before stays in iCloud until you delete it there.
+					you&apos;re signed in but turned iCloud off for Weekly Gym, it
+					isn&apos;t: what was synced before stays in iCloud until you delete it
+					there.
 				</p>
 			</>
 		),
