@@ -11,7 +11,6 @@ import type { IsoDay } from "@/lib/utils/format"
  */
 export const LEGAL_PAGE_LAST_UPDATED = {
 	"/privacy": "2026-10-19",
-	"/privacy/body-tracking": "2026-04-07",
 	"/privacy/continuum": "2026-05-30",
 	"/privacy/continuum/dpia": "2026-06-08",
 	"/privacy/continuum/responsible-use": "2026-06-10",

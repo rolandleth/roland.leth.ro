@@ -160,7 +160,6 @@ describe("sitemap — static routes", () => {
 
 		for (const path of [
 			"/privacy",
-			"/privacy/body-tracking",
 			"/privacy/continuum/dpia",
 			"/terms/digest",
 			"/privacy/weekly-gym",
@@ -205,12 +204,12 @@ describe("sitemap — static routes", () => {
 		expect(route?.changeFrequency).toBe("weekly")
 	})
 
-	it("returns 20 static routes when there are no posts, projects, or guides", async () => {
+	it("returns 19 static routes when there are no posts, projects, or guides", async () => {
 		const result = await sitemap()
-		// home + about + projects + tools/loan-calculator + 11 legal pages
+		// home + about + projects + tools/loan-calculator + 10 legal pages
 		// + 2 section indexes + 2 archives + guides index
-		expect(Object.keys(LEGAL_PAGE_LAST_UPDATED)).toHaveLength(11)
-		expect(result).toHaveLength(20)
+		expect(Object.keys(LEGAL_PAGE_LAST_UPDATED)).toHaveLength(10)
+		expect(result).toHaveLength(19)
 	})
 
 	it("marks home/about/projects/blog-index/archive routes as 'weekly'", async () => {
@@ -286,8 +285,8 @@ describe("sitemap — post routes", () => {
 	it("combines static and post routes", async () => {
 		vi.mocked(prisma.post.findMany).mockResolvedValue([postStub() as never])
 		const result = await sitemap()
-		// 20 static + 1 post
-		expect(result).toHaveLength(21)
+		// 19 static + 1 post
+		expect(result).toHaveLength(20)
 	})
 
 	it("queries every published post (including scheduled) so the read-time filter can surface them", async () => {

@@ -1,6 +1,5 @@
 import { render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import BodyTrackingPrivacyPage from "./privacy/body-tracking/page"
 import ContinuumDpiaPage from "./privacy/continuum/dpia/page"
 import ContinuumPrivacyPage from "./privacy/continuum/page"
 import ContinuumResponsibleUsePage from "./privacy/continuum/responsible-use/page"
@@ -40,7 +39,6 @@ vi.mock("@/components/privacy/LegalPageLayout", async (importOriginal) => {
 // and `LegalPageLayout` takes a listed path, so a page can't skip the list.
 const PAGES: Record<LegalPagePath, ComponentType> = {
 	"/privacy": PrivacyPage,
-	"/privacy/body-tracking": BodyTrackingPrivacyPage,
 	"/privacy/continuum": ContinuumPrivacyPage,
 	"/privacy/continuum/dpia": ContinuumDpiaPage,
 	"/privacy/continuum/responsible-use": ContinuumResponsibleUsePage,
