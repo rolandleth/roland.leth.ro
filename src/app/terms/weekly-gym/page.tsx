@@ -11,7 +11,8 @@ const PAGE_PATH: LegalPagePath = "/terms/weekly-gym"
 
 export const metadata: Metadata = buildPageMetadata({
 	title: "Weekly Gym – Terms of Use",
-	description: "Terms of use for the Weekly Gym app.",
+	description:
+		"Terms of use for Weekly Gym, including the Weekly Gym Pro subscription and Lifetime purchase terms.",
 	path: PAGE_PATH,
 })
 
@@ -78,14 +79,42 @@ const sections: LegalSectionEntry[] = [
 		),
 	},
 	{
-		title: "Purchases",
+		title: "The free app and Weekly Gym Pro",
 		content: (
-			<p>
-				Some features of Weekly Gym may require a purchase or a subscription in
-				the future. If they do, the app shows the price, the billing period and
-				any free trial before you buy. Not buying, or ending a subscription,
-				never deletes data you created.
-			</p>
+			<>
+				<p>
+					Weekly Gym is free to download, and the free app covers the whole
+					week: planning, logging, the week&apos;s progress per exercise and per
+					muscle, the widgets, Siri, the controls, the Action button and iCloud
+					sync. In History, it shows your most recent weeks with sets logged.
+				</p>
+				<p>
+					<strong>Weekly Gym Pro</strong> adds every week in History, more than
+					one plan with a rotation (plans taking turns, one per week), and the
+					alternate app icons and the themes other than Original. Weekly Gym Pro
+					is available two ways:
+				</p>
+				<ul className="list-disc space-y-2 pl-5">
+					<li>
+						<strong>A subscription</strong>, monthly or yearly, or
+					</li>
+					<li>
+						<strong>Lifetime</strong>: a one-time purchase, not a subscription.
+					</li>
+				</ul>
+				<p>
+					The current prices, the billing period and any free trial are shown in
+					the app before you buy.
+				</p>
+				<p>
+					Not buying Weekly Gym Pro, or losing it when a subscription ends or a
+					purchase is refunded, never deletes anything: your older weeks and
+					your other plans stay saved and keep syncing, and the app only stops
+					showing them. When Weekly Gym Pro ends, you keep the plan you&apos;re
+					on and the app icon you picked, and the theme goes back to Original.
+					If you get Weekly Gym Pro again, everything shows as it was.
+				</p>
+			</>
 		),
 	},
 	{
@@ -115,6 +144,11 @@ const sections: LegalSectionEntry[] = [
 					<li>
 						If a subscription offers a free trial, buying the subscription ends
 						what&apos;s left of the trial.
+					</li>
+					<li>
+						Lifetime doesn&apos;t renew. Buying it doesn&apos;t cancel a
+						subscription you already have; cancel that in your App Store account
+						settings.
 					</li>
 				</ul>
 			</>

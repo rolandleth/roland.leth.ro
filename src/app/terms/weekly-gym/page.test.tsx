@@ -35,10 +35,14 @@ describe("Weekly Gym terms page", () => {
 		).toHaveAttribute("href", "/privacy/weekly-gym")
 	})
 
-	// Purchases aren't decided yet: the page must not promise tiers or prices.
-	it("speaks of purchases only in general terms", () => {
+	// Weekly Gym Pro is named in full, and prices live in the app, never here:
+	// they aren't decided, and the App Store shows them before a purchase.
+	it("names Weekly Gym Pro in full and states no price", () => {
 		const { container } = render(<WeeklyGymTermsPage />)
+		const text = container.textContent ?? ""
 
-		expect(container.textContent).not.toMatch(/\bPro\b|lifetime|\$|€/)
+		expect(text).toContain("Weekly Gym Pro")
+		expect(text.replaceAll("Weekly Gym Pro", "")).not.toMatch(/\bPro\b/)
+		expect(text).not.toMatch(/\$|€|£/)
 	})
 })

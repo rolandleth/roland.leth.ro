@@ -51,8 +51,9 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					Weekly Gym contains no analytics, telemetry, advertising or
 					third-party tracking. There&apos;s no server of ours behind it. Apart
-					from iCloud sync, handled by Apple, the app makes no network requests
-					of its own. We never receive your data.
+					from iCloud sync and the App Store purchases and checks for Weekly Gym
+					Pro, both handled by Apple, the app makes no network requests of its
+					own. We never receive your data.
 				</p>
 				<p>
 					If you back up your device, your Weekly Gym data may be included in
@@ -97,12 +98,22 @@ const sections: LegalSectionEntry[] = [
 	{
 		title: "Purchases",
 		content: (
-			<p>
-				If Weekly Gym offers purchases, they go through the App Store and are
-				processed by Apple. We never receive or store your payment details;
-				Apple&apos;s handling of that information is governed by{" "}
-				<AppleLegalLink />.
-			</p>
+			<>
+				<p>
+					Weekly Gym is free to download, and Weekly Gym Pro is an optional
+					purchase through the App Store: a monthly or yearly subscription, or
+					Lifetime, a one-time purchase. Weekly Gym Pro adds every week in
+					History, more than one plan, and the alternate app icons and themes.
+					Any purchase is processed by Apple. We never receive or store your
+					payment details; Apple&apos;s handling of that information is governed
+					by <AppleLegalLink />.
+				</p>
+				<p>
+					To know whether you have Weekly Gym Pro, the app asks the App Store on
+					your device and keeps the answer on that device, where the widgets
+					read it too. That answer never syncs, and nothing about it reaches us.
+				</p>
+			</>
 		),
 	},
 	{
@@ -117,10 +128,11 @@ const sections: LegalSectionEntry[] = [
 					order, so no device is left that could sync its copy back.
 				</p>
 				<p>
-					If you&apos;re not signed in to iCloud, deleting the app is enough. If
-					you&apos;re signed in but turned iCloud off for Weekly Gym, it
-					isn&apos;t: what was synced before stays in iCloud until you delete it
-					there.
+					If Weekly Gym has never synced, because you&apos;ve never been signed
+					in to iCloud or iCloud has always been off for Weekly Gym, deleting
+					the app is enough. Signing out of iCloud, or turning iCloud off for
+					Weekly Gym, leaves what already synced in your iCloud account until
+					you delete it there, with the steps above.
 				</p>
 			</>
 		),
