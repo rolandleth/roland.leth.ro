@@ -34,19 +34,19 @@ const sections: LegalSectionEntry[] = [
 					settings, such as notifications and your default category. If
 					you&apos;re signed in to iCloud and iCloud is on for Reckon, what you
 					enter also syncs through your own iCloud account, to keep it in step
-					across your devices; your settings stay on each device. This sync is
-					handled by Apple and governed by <AppleLegalLink />. We have no access
-					to this data, and it only leaves your device through Apple&apos;s
-					iCloud sync.
+					across your devices. This sync is handled by Apple and governed by{" "}
+					<AppleLegalLink />. We have no access to this data, and it only leaves
+					your device through Apple&apos;s iCloud sync. Your settings don&apos;t
+					sync.
 				</p>
 				<p>
 					Reckon has no sync switch of its own: it follows each device&apos;s
 					iCloud settings. If you turn iCloud off for Reckon on a device, that
 					device stops syncing, and Apple&apos;s iCloud sync removes what you
-					entered in Reckon from it. Your settings stay on the device. What was
-					already synced stays in your iCloud account until you delete it (see
-					Deleting your data, below), and it comes back to the device when you
-					turn iCloud on for Reckon again.
+					entered in Reckon from it. What was already synced stays in your
+					iCloud account until you delete it (see Deleting your data, below),
+					and it comes back to the device when you turn iCloud on for Reckon
+					again.
 				</p>
 				<p>
 					Reckon contains no analytics, telemetry, advertising, or third-party

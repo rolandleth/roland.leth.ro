@@ -33,15 +33,15 @@ const sections: LegalSectionEntry[] = [
 					on your device, and so are your settings, such as the log reminder and
 					the fasting timer. If you&apos;re signed in to iCloud and iCloud is on
 					for Digest, what you log also syncs through your own iCloud account,
-					to keep it in step across your devices; your settings stay on each
-					device. Digest has no switch for this sync: it follows the iCloud
-					settings on your device. If you turn iCloud off for Digest, iOS
-					removes the synced data from that device and keeps it in iCloud, and
-					it comes back when you turn iCloud on again. This sync is handled by
-					Apple and governed by <AppleLegalLink />. We have no access to this
-					data, and it only leaves your device through Apple&apos;s iCloud sync,
-					through Siri and Shortcuts as described below, or in a file you export
-					yourself.
+					to keep it in step across your devices. Digest has no switch for this
+					sync: it follows the iCloud settings on your device. If you turn
+					iCloud off for Digest, iOS removes the synced data from that device
+					and keeps it in iCloud, and it comes back when you turn iCloud on
+					again. This sync is handled by Apple and governed by{" "}
+					<AppleLegalLink />. We have no access to this data, and it only leaves
+					your device through Apple&apos;s iCloud sync, through Siri and
+					Shortcuts as described below, or in a file you export yourself. Your
+					settings don&apos;t sync.
 				</p>
 				<p>
 					Digest contains no analytics, telemetry, advertising or third-party
