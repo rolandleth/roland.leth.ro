@@ -30,15 +30,18 @@ const sections: LegalSectionEntry[] = [
 					What you log in Digest (meals, with their foods, drinks, amounts,
 					times and notes; stools, with their consistency, whether you had to
 					rush, times and notes; and your colors, templates and links) is stored
-					on your device. If you&apos;re signed in to iCloud, it syncs through
-					your own iCloud account, to keep it in step across your devices.
-					Digest has no switch for this: it follows the iCloud settings on your
-					device. If you turn iCloud off for Digest, iOS removes the synced data
-					from that device and keeps it in iCloud, and it comes back when you
-					turn iCloud on again. This sync is handled by Apple and governed by{" "}
-					<AppleLegalLink />. We have no access to this data, and it only leaves
-					your device through Apple&apos;s iCloud sync, through Siri and
-					Shortcuts as described below, or in a file you export yourself.
+					on your device, and so are your settings, such as the log reminder and
+					the fasting timer. If you&apos;re signed in to iCloud and iCloud is on
+					for Digest, what you log also syncs through your own iCloud account,
+					to keep it in step across your devices; your settings stay on each
+					device. Digest has no switch for this sync: it follows the iCloud
+					settings on your device. If you turn iCloud off for Digest, iOS
+					removes the synced data from that device and keeps it in iCloud, and
+					it comes back when you turn iCloud on again. This sync is handled by
+					Apple and governed by <AppleLegalLink />. We have no access to this
+					data, and it only leaves your device through Apple&apos;s iCloud sync,
+					through Siri and Shortcuts as described below, or in a file you export
+					yourself.
 				</p>
 				<p>
 					Digest contains no analytics, telemetry, advertising or third-party
@@ -108,7 +111,11 @@ const sections: LegalSectionEntry[] = [
 					order, so no device is left that could sync its copy back.
 				</p>
 				<p>
-					If you&apos;re not signed in to iCloud, deleting the app is enough.
+					If Digest has never synced, because you&apos;ve never been signed in
+					to iCloud or iCloud has always been off for Digest, deleting the app
+					is enough. Signing out of iCloud, or turning iCloud off for Digest,
+					leaves what already synced in your iCloud account until you delete it
+					there, with the steps above.
 				</p>
 			</>
 		),

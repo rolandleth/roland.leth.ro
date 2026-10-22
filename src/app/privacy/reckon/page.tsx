@@ -25,12 +25,28 @@ const sections: LegalSectionEntry[] = [
 					your device, except as described below.
 				</p>
 				<p>
-					The decisions you log — your predictions, confidence levels, review
-					dates, check-in notes, resolutions, and satisfaction scores — are
-					stored on your device and synced via iCloud by default, to keep them
-					in sync across your devices. This sync is handled by Apple and
-					governed by <AppleLegalLink />. We have no access to this data, and it
-					only leaves your device through Apple&apos;s iCloud sync.
+					What you enter in Reckon (your decisions, with their titles,
+					predictions, confidence levels and review dates; your check-ins, with
+					their titles, notes, sentiment and updated confidence; your
+					resolutions, with what happened, whether you were right, your
+					satisfaction score and your reflection; the follow-ups you answer
+					later; and your categories) is stored on your device, and so are your
+					settings, such as notifications and your default category. If
+					you&apos;re signed in to iCloud and iCloud is on for Reckon, what you
+					enter also syncs through your own iCloud account, to keep it in step
+					across your devices; your settings stay on each device. This sync is
+					handled by Apple and governed by <AppleLegalLink />. We have no access
+					to this data, and it only leaves your device through Apple&apos;s
+					iCloud sync.
+				</p>
+				<p>
+					Reckon has no sync switch of its own: it follows each device&apos;s
+					iCloud settings. If you turn iCloud off for Reckon on a device, that
+					device stops syncing, and Apple&apos;s iCloud sync removes what you
+					entered in Reckon from it. Your settings stay on the device. What was
+					already synced stays in your iCloud account until you delete it (see
+					Deleting your data, below), and it comes back to the device when you
+					turn iCloud on for Reckon again.
 				</p>
 				<p>
 					Reckon contains no analytics, telemetry, advertising, or third-party
@@ -53,6 +69,27 @@ const sections: LegalSectionEntry[] = [
 				Apple&apos;s handling of that information is governed by{" "}
 				<AppleLegalLink />.
 			</p>
+		),
+	},
+	{
+		title: "Deleting your data",
+		content: (
+			<>
+				<p>
+					Reckon has no button that deletes everything. To delete your data,
+					delete Reckon from every device that has it, then delete its data from
+					iCloud: in Settings, tap your name, then iCloud, then Storage, choose
+					Reckon and tap Delete Data from iCloud. Do it in that order, so no
+					device is left that could sync its copy back.
+				</p>
+				<p>
+					If Reckon has never synced, because you&apos;ve never been signed in
+					to iCloud or iCloud has always been off for Reckon, deleting the app
+					is enough. Signing out of iCloud, or turning iCloud off for Reckon,
+					leaves what already synced in your iCloud account until you delete it
+					there, with the steps above.
+				</p>
+			</>
 		),
 	},
 ]
