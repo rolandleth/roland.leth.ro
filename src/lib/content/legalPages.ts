@@ -19,7 +19,7 @@ export const LEGAL_PAGE_LAST_UPDATED = {
 	"/privacy/weekly-gym": "2026-10-22",
 	"/terms/continuum": "2026-10-19",
 	"/terms/digest": "2026-10-19",
-	"/terms/weekly-gym": "2026-10-22",
+	"/terms/weekly-gym": "2026-10-25",
 } as const satisfies Record<string, IsoDay>
 
 export type LegalPagePath = keyof typeof LEGAL_PAGE_LAST_UPDATED

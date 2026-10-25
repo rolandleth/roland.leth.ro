@@ -13,6 +13,16 @@ describe("Weekly Gym terms page", () => {
 		)
 	})
 
+	// The built-in muscle tags drive the per-muscle progress, and the app lets
+	// the user change them on any exercise, so the terms say both.
+	it("says the built-in muscles may contain errors and can be changed", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+
+		expect(container.textContent).toContain(
+			"The muscles listed for each built-in exercise are general information. We try to keep them accurate, but we can't promise they're free of errors. You can change the muscles of any exercise in the app."
+		)
+	})
+
 	// The body speaks as "we" ("not by us", "we're not liable"), so the contact
 	// line does too.
 	it("asks readers to contact us, at Weekly Gym's address", () => {

@@ -62,6 +62,11 @@ const sections: LegalSectionEntry[] = [
 					doesn&apos;t prescribe weights or programs: you decide what you train
 					and how.
 				</p>
+				<p>
+					The muscles listed for each built-in exercise are general information.
+					We try to keep them accurate, but we can&apos;t promise they&apos;re
+					free of errors. You can change the muscles of any exercise in the app.
+				</p>
 			</>
 		),
 	},
