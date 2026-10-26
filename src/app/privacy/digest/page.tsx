@@ -1,5 +1,6 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
 import { relatedDigestLegalLinks } from "@/components/privacy/digestLegalLinks"
+import ICloudDeletionSteps from "@/components/privacy/ICloudDeletionSteps"
 import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
@@ -101,24 +102,7 @@ const sections: LegalSectionEntry[] = [
 	},
 	{
 		title: "Deleting your data",
-		content: (
-			<>
-				<p>
-					Digest has no button that deletes everything. To delete your journal,
-					delete Digest from every device that has it, then delete Digest&apos;s
-					data from iCloud: in Settings, tap your name, then iCloud, then
-					Storage, choose Digest and tap Delete Data from iCloud. Do it in that
-					order, so no device is left that could sync its copy back.
-				</p>
-				<p>
-					If Digest has never synced, because you&apos;ve never been signed in
-					to iCloud or iCloud has always been off for Digest, deleting the app
-					is enough. Signing out of iCloud, or turning iCloud off for Digest,
-					leaves what already synced in your iCloud account until you delete it
-					there, with the steps above.
-				</p>
-			</>
-		),
+		content: <ICloudDeletionSteps appName="Digest" dataName="your journal" />,
 	},
 	{
 		title: "Purchases",

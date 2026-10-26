@@ -53,6 +53,6 @@ describe("Weekly Gym terms page", () => {
 
 		expect(text).toContain("Weekly Gym Pro")
 		expect(text.replaceAll("Weekly Gym Pro", "")).not.toMatch(/\bPro\b/)
-		expect(text).not.toMatch(/\$|€|£/)
+		expect(text).not.toMatch(/[$€£]/)
 	})
 })

@@ -1,4 +1,5 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
+import ICloudDeletionSteps from "@/components/privacy/ICloudDeletionSteps"
 import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
@@ -73,24 +74,7 @@ const sections: LegalSectionEntry[] = [
 	},
 	{
 		title: "Deleting your data",
-		content: (
-			<>
-				<p>
-					Reckon has no button that deletes everything. To delete your data,
-					delete Reckon from every device that has it, then delete its data from
-					iCloud: in Settings, tap your name, then iCloud, then Storage, choose
-					Reckon and tap Delete Data from iCloud. Do it in that order, so no
-					device is left that could sync its copy back.
-				</p>
-				<p>
-					If Reckon has never synced, because you&apos;ve never been signed in
-					to iCloud or iCloud has always been off for Reckon, deleting the app
-					is enough. Signing out of iCloud, or turning iCloud off for Reckon,
-					leaves what already synced in your iCloud account until you delete it
-					there, with the steps above.
-				</p>
-			</>
-		),
+		content: <ICloudDeletionSteps appName="Reckon" />,
 	},
 ]
 

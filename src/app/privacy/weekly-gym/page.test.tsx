@@ -30,4 +30,15 @@ describe("Weekly Gym privacy page", () => {
 		expect(container.textContent).toMatch(/gives iOS the names of this week/)
 		expect(container.textContent).not.toMatch(/only leaves your device/)
 	})
+
+	// Same rule as the terms: Weekly Gym Pro is named in full, and prices live in
+	// the app, where the App Store shows them before a purchase.
+	it("names Weekly Gym Pro in full and states no price", () => {
+		const { container } = render(<WeeklyGymPrivacyPage />)
+		const text = container.textContent ?? ""
+
+		expect(text).toContain("Weekly Gym Pro")
+		expect(text.replaceAll("Weekly Gym Pro", "")).not.toMatch(/\bPro\b/)
+		expect(text).not.toMatch(/[$€£]/)
+	})
 })

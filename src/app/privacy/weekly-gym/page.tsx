@@ -1,4 +1,5 @@
 import AppleLegalLink from "@/components/privacy/AppleLegalLink"
+import ICloudDeletionSteps from "@/components/privacy/ICloudDeletionSteps"
 import LegalPageLayout, {
 	type LegalSectionEntry,
 } from "@/components/privacy/LegalPageLayout"
@@ -34,10 +35,10 @@ const sections: LegalSectionEntry[] = [
 					stored on your device, and so are your settings, such as units and
 					theme. If you&apos;re signed in to iCloud and iCloud is on for Weekly
 					Gym, all of it also syncs through your own iCloud account and is
-					stored there, to keep it in step across your devices. The app icon
-					you pick is the one exception: iOS keeps it on each device. This sync
-					is handled by Apple and governed by <AppleLegalLink />. We have no
-					access to any of it.
+					stored there, to keep it in step across your devices. The app icon you
+					pick is the one exception: iOS keeps it on each device. This sync is
+					handled by Apple and governed by <AppleLegalLink />. We have no access
+					to any of it.
 				</p>
 				<p>
 					Weekly Gym has no sync switch of its own: it follows each
@@ -45,8 +46,8 @@ const sections: LegalSectionEntry[] = [
 					on a device, that device stops syncing, and Apple&apos;s iCloud sync
 					removes what you entered in Weekly Gym from it. Your settings stay on
 					the device. What was already synced stays in your iCloud account until
-					you delete it (see Deleting your data, below), and it comes back to the
-					device when you turn iCloud on for Weekly Gym again.
+					you delete it (see Deleting your data, below), and it comes back to
+					the device when you turn iCloud on for Weekly Gym again.
 				</p>
 				<p>
 					Weekly Gym contains no analytics, telemetry, advertising or
@@ -118,24 +119,7 @@ const sections: LegalSectionEntry[] = [
 	},
 	{
 		title: "Deleting your data",
-		content: (
-			<>
-				<p>
-					Weekly Gym has no button that deletes everything. To delete your data,
-					delete Weekly Gym from every device that has it, then delete its data
-					from iCloud: in Settings, tap your name, then iCloud, then Storage,
-					choose Weekly Gym and tap Delete Data from iCloud. Do it in that
-					order, so no device is left that could sync its copy back.
-				</p>
-				<p>
-					If Weekly Gym has never synced, because you&apos;ve never been signed
-					in to iCloud or iCloud has always been off for Weekly Gym, deleting
-					the app is enough. Signing out of iCloud, or turning iCloud off for
-					Weekly Gym, leaves what already synced in your iCloud account until
-					you delete it there, with the steps above.
-				</p>
-			</>
-		),
+		content: <ICloudDeletionSteps appName="Weekly Gym" />,
 	},
 ]
 
