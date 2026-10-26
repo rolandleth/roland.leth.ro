@@ -109,17 +109,19 @@ export default function AppTile({ project, isWide, isImagePriority }: Props) {
 		>
 			<TileTitle project={project} />
 
-			<p className="mt-5 text-base leading-[1.6] text-pretty text-(--product-band-ink2)">
+			{/* `grow` takes the space a shorter summary leaves, so the buttons
+			    and the image below sit at the bottom: two halves in a row have
+			    their buttons level whatever their text's length. */}
+			<p className="mt-5 grow text-base leading-[1.6] text-pretty text-(--product-band-ink2)">
 				{project.summary}
 			</p>
 
 			{actions}
 
 			{/* The top of the hero image, cut off by the tile's bottom edge: the
-			    crop shows 630 of its 760 rows. `mt-auto` pins it to the bottom, so
-			    two halves in a row end level whatever their text's length. */}
+			    crop shows 630 of its 760 rows. */}
 			{image != null && (
-				<div className="mt-auto pt-10">
+				<div className="pt-10">
 					<div className="aspect-[1270/630] overflow-hidden">
 						<div className="product-shot relative aspect-[1270/760] overflow-hidden rounded-xl">
 							<Image
