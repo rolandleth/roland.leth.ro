@@ -9,7 +9,11 @@ interface ICloudDeletionStepsProps {
  * The "Deleting your data" text for an app that syncs through the reader's own
  * iCloud and has no in-app delete-all. The Digest, Reckon and Weekly Gym privacy
  * pages share it, so the Settings path and the order of the steps live here
- * once: the app goes first, so no device is left to sync its copy back.
+ * once: the app goes first, so no device is left to sync its copy back. The
+ * order is ours; the Settings path is Apple's, linked to its own article
+ * (support.apple.com/108922), which names both "Storage" and "Manage Account
+ * Storage". It promises nothing about what Apple's button removes: one test on
+ * a device (2026-10-21) found nothing deleted.
  */
 export default function ICloudDeletionSteps({
 	appName,
@@ -20,9 +24,17 @@ export default function ICloudDeletionSteps({
 			<p>
 				{appName} has no button that deletes everything. To delete {dataName},
 				delete {appName} from every device that has it, then delete its data
-				from iCloud: in Settings, tap your name, then iCloud, then Storage,
-				choose {appName} and tap Delete Data from iCloud. Do it in that order,
-				so no device is left that could sync its copy back.
+				from iCloud, as{" "}
+				<a
+					href="https://support.apple.com/en-us/108922"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					Apple describes it
+				</a>
+				: in Settings, tap your name, then iCloud, then Storage or Manage
+				Account Storage, choose {appName} and tap Delete Data from iCloud. Do it
+				in that order, so no device is left that could sync its copy back.
 			</p>
 			<p>
 				If {appName} has never synced, because you&apos;ve never been signed in

@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import ICloudDeletionSteps from "./ICloudDeletionSteps"
 
@@ -15,8 +15,9 @@ describe("ICloudDeletionSteps", () => {
 
 		expect(text).toContain("Weekly Gym has no button that deletes everything.")
 		expect(text).toContain("delete Weekly Gym from every device that has it")
+		// Apple's own two names for the screen, as its article has them.
 		expect(text).toContain(
-			"in Settings, tap your name, then iCloud, then Storage, choose Weekly Gym and tap Delete Data from iCloud."
+			"in Settings, tap your name, then iCloud, then Storage or Manage Account Storage, choose Weekly Gym and tap Delete Data from iCloud."
 		)
 		expect(text).toContain("If Weekly Gym has never synced")
 		expect(text).toContain("iCloud has always been off for Weekly Gym")
@@ -32,6 +33,18 @@ describe("ICloudDeletionSteps", () => {
 			text.indexOf("tap Delete Data from iCloud")
 		)
 		expect(text).toContain("so no device is left that could sync its copy back")
+	})
+
+	// The path is Apple's, so the page links Apple's article for it, the way the
+	// other outbound legal links open.
+	it("links Apple's article for the Settings path, in a new tab", () => {
+		render(<ICloudDeletionSteps appName="Reckon" />)
+
+		const link = screen.getByRole("link", { name: "Apple describes it" })
+
+		expect(link).toHaveAttribute("href", "https://support.apple.com/en-us/108922")
+		expect(link).toHaveAttribute("target", "_blank")
+		expect(link).toHaveAttribute("rel", "noopener noreferrer")
 	})
 
 	it("calls the data 'your data' by default", () => {

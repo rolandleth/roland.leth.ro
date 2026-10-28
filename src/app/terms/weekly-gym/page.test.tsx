@@ -45,6 +45,26 @@ describe("Weekly Gym terms page", () => {
 		).toHaveAttribute("href", "/privacy/weekly-gym")
 	})
 
+	// All three purchases are family-shareable, and a subscription is managed
+	// from the Apple Account that bought it, which with purchase sharing may not
+	// be the one that pays.
+	it("covers Family Sharing, and who can manage a shared purchase", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain("With Family Sharing")
+		expect(text).toContain("Only the family member who bought it can manage or cancel it.")
+	})
+
+	// More plans with a rotation aren't built: no surface sells them until they
+	// ship (the app's paywall hides its point).
+	it("sells nothing the app doesn't have yet", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+		const text = container.textContent ?? ""
+
+		expect(text).not.toMatch(/rotation|more than one plan|other plans/)
+	})
+
 	// Weekly Gym Pro is named in full, and prices live in the app, never here:
 	// they aren't decided, and the App Store shows them before a purchase.
 	it("names Weekly Gym Pro in full and states no price", () => {

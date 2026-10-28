@@ -94,8 +94,7 @@ const sections: LegalSectionEntry[] = [
 					sync. In History, it shows your most recent weeks with sets logged.
 				</p>
 				<p>
-					<strong>Weekly Gym Pro</strong> adds every week in History, more than
-					one plan with a rotation (plans taking turns, one per week), and the
+					<strong>Weekly Gym Pro</strong> adds every week in History, the
 					alternate app icons and the themes other than Original. Weekly Gym Pro
 					is available two ways:
 				</p>
@@ -108,16 +107,23 @@ const sections: LegalSectionEntry[] = [
 					</li>
 				</ul>
 				<p>
+					With Family Sharing, the people in your family group get Weekly Gym
+					Pro from your subscription or your Lifetime purchase. Only the family
+					member who bought it can manage or cancel it. A family member&apos;s
+					Weekly Gym Pro ends when the purchase ends or is no longer shared with
+					them.
+				</p>
+				<p>
 					The current prices, the billing period and any free trial are shown in
 					the app before you buy.
 				</p>
 				<p>
-					Not buying Weekly Gym Pro, or losing it when a subscription ends or a
-					purchase is refunded, never deletes anything: your older weeks and
-					your other plans stay saved and keep syncing, and the app only stops
-					showing them. When Weekly Gym Pro ends, you keep the plan you&apos;re
-					on and the app icon you picked, and the theme goes back to Original.
-					If you get Weekly Gym Pro again, everything shows as it was.
+					Not buying Weekly Gym Pro, or losing it, never deletes anything: when a
+					subscription ends, a purchase is refunded or your family stops sharing
+					it, your older weeks stay saved and keep syncing, and the app only
+					stops showing them. When Weekly Gym Pro ends, you keep the app icon
+					you picked, and the theme goes back to Original. If you get Weekly Gym
+					Pro again, everything shows as it was.
 				</p>
 			</>
 		),
@@ -142,18 +148,21 @@ const sections: LegalSectionEntry[] = [
 						period ends.
 					</li>
 					<li>
-						You can manage or cancel a subscription at any time in your App
-						Store account settings. Canceling stops future renewals; it
-						doesn&apos;t refund the current period.
-					</li>
-					<li>
-						If a subscription offers a free trial, buying the subscription ends
-						what&apos;s left of the trial.
+						You can manage or cancel a subscription at any time, from Manage
+						subscription in Weekly Gym&apos;s Settings or in your App Store
+						account settings. Canceling stops future renewals; it doesn&apos;t
+						refund the current period, and you keep Weekly Gym Pro until that
+						period ends.
 					</li>
 					<li>
 						Lifetime doesn&apos;t renew. Buying it doesn&apos;t cancel a
-						subscription you already have; cancel that in your App Store account
-						settings.
+						subscription you already have; cancel that in Manage subscription or
+						in your App Store account settings.
+					</li>
+					<li>
+						Weekly Gym Pro belongs to your Apple Account, so it works on any
+						iPhone signed in to it; Restore purchases, in Settings, asks the App
+						Store again.
 					</li>
 				</ul>
 			</>

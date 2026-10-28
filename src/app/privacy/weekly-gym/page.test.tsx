@@ -31,6 +31,17 @@ describe("Weekly Gym privacy page", () => {
 		expect(container.textContent).not.toMatch(/only leaves your device/)
 	})
 
+	// Sync follows the device's iCloud settings and the app has no switch of its
+	// own, so the page states the condition and never that data stays on the device.
+	it("says where data is stored, with the iCloud condition", () => {
+		const { container } = render(<WeeklyGymPrivacyPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain("while iCloud is on for Weekly Gym, in your own iCloud account")
+		expect(text).not.toMatch(/stays on your device/)
+		expect(text).not.toMatch(/more than one plan/)
+	})
+
 	// Same rule as the terms: Weekly Gym Pro is named in full, and prices live in
 	// the app, where the App Store shows them before a purchase.
 	it("names Weekly Gym Pro in full and states no price", () => {
