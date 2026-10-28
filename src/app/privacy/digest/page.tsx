@@ -41,8 +41,8 @@ const sections: LegalSectionEntry[] = [
 					again. This sync is handled by Apple and governed by{" "}
 					<AppleLegalLink />. We have no access to this data, and it only leaves
 					your device through Apple&apos;s iCloud sync, through Siri and
-					Shortcuts as described below, or in a file you export yourself. Your
-					settings don&apos;t sync.
+					Shortcuts as described below, in a device backup, or in a file you
+					export yourself. Your settings don&apos;t sync.
 				</p>
 				<p>
 					Digest contains no analytics, telemetry, advertising or third-party

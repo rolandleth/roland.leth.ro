@@ -21,9 +21,10 @@ describe("Digest privacy page", () => {
 		)
 	})
 
-	// Digest gives iOS its template names for Siri and Shortcuts, so data
-	// doesn't leave the device through iCloud alone; the page has to say both.
-	it("names every way data leaves the device, Siri and Shortcuts included", () => {
+	// Digest gives iOS its template names for Siri and Shortcuts, and a device
+	// backup can carry the journal too, so data doesn't leave the device through
+	// iCloud alone; the list has to name every way.
+	it("names every way data leaves the device, Siri, Shortcuts and backups included", () => {
 		const { container } = render(<DigestPrivacyPage />)
 
 		expect(
@@ -33,7 +34,7 @@ describe("Digest privacy page", () => {
 			/Digest gives iOS\s+the names of your templates/
 		)
 		expect(container.textContent).toMatch(
-			/only leaves\s+your device through Apple's iCloud sync, through Siri and\s+Shortcuts/
+			/only leaves\s+your device through Apple's iCloud sync, through Siri and\s+Shortcuts as described below, in a device backup, or in a file you\s+export yourself\./
 		)
 	})
 
