@@ -242,17 +242,19 @@ export type RequiredProjectFields = {
 
 /**
  * Throws unless the manifest sets every field in `REQUIRED_FIELDS` to one of
- * its values, or still sets `isFeatured` or `isDiscontinued`. The import replaces the row
+ * its values, or still sets `isFeatured`, `isDiscontinued` or an offer's
+ * `isBestValue`. The import replaces the row
  * wholesale (delete, then create), so a left-out field would quietly reset
  * whatever the admin set: a project ticked "Own app" in the admin lost its App
  * Store badge on the next import. Checked before any upload, so `--dry-run`
  * catches it too. Only these are required: each has no answer that a default
  * could stand for, while a left-out text field is just empty.
  *
- * `isFeatured` became `prominence` and `pageLayout`, and `isDiscontinued`
- * became `status`; a manifest still setting either was written for the old
- * model, and importing it would silently drop the author's choice, so it's
- * refused with the replacement named.
+ * `isFeatured` became `prominence` and `pageLayout`, `isDiscontinued` became
+ * `status`, and an offer's `isBestValue` became `isHighlighted`; a manifest
+ * still setting any of them was written for the old model, and importing it
+ * would silently drop the author's choice, so it's refused with the
+ * replacement named.
  *
  * Private on purpose: `parseManifest` is the only way in, so the check can't be
  * skipped by reaching for the parts separately. Tested through `parseManifest`.
@@ -274,6 +276,13 @@ function assertRequiredFields(
 		)
 	}
 
+	if (Array.isArray(manifest.offers) && manifest.offers.some(setsBestValue)) {
+		throw new Error(
+			`Manifest still sets "isBestValue" on an offer, which became "isHighlighted". ` +
+				`Rename it: the page no longer says "Best value", only the highlighted price's saving against a shorter one.`
+		)
+	}
+
 	const problems = REQUIRED_FIELDS.filter(
 		({ key, values }) =>
 			!(values as readonly unknown[]).includes(
@@ -287,6 +296,11 @@ function assertRequiredFields(
 				`The import replaces the whole row, so a left-out value would reset the one set in the admin.`
 		)
 	}
+}
+
+/** Whether an offer, still untrusted JSON, carries the retired `isBestValue`. */
+function setsBestValue(offer: unknown): boolean {
+	return typeof offer === "object" && offer !== null && "isBestValue" in offer
 }
 
 /** The manifest text as a JSON object, or a readable error when it isn't one. */

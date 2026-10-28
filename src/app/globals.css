@@ -296,50 +296,33 @@ code[data-theme*=" "] span {
 	color: var(--color-primary-value);
 }
 
-/* The best-value price (`ProductPlans`): a tile with the accent border, the
-   price in the accent, and the "Best value" badge sitting on the tile's top
-   edge. Every price on the page gets the same tile, invisible, so they stay
-   level; the top padding leaves the badge room. */
+/* The highlighted price (`ProductPlans`): a tile with the accent border, and
+   the price and its "Save X%" line in the accent. Every price on the page gets
+   the same tile, invisible, so they stay level. */
 .product-plan__price {
-	position: relative;
-	padding: 22px 10px 10px;
+	padding: 10px;
 	border: 1px solid transparent;
 	border-radius: 10px;
 }
 
-.product-plan__price--best {
-	--best-value-accent: var(--product-accent-text);
+.product-plan__price--highlighted {
+	--highlight-accent: var(--product-accent-text);
 
-	border-color: var(--best-value-accent);
+	border-color: var(--highlight-accent);
 	background: var(--product-surface);
 }
 
-.product-plan--highlighted .product-plan__price--best {
-	--best-value-accent: var(--product-band-hi);
+.product-plan--highlighted .product-plan__price--highlighted {
+	--highlight-accent: var(--product-band-hi);
 }
 
-.product-plan__price--best .product-plan__amount,
+.product-plan__price--highlighted .product-plan__amount,
 .product-plan__saving {
-	color: var(--best-value-accent);
+	color: var(--highlight-accent);
 }
 
 .product-plan__saving {
 	font-weight: 600;
-}
-
-.product-plan__badge {
-	position: absolute;
-	top: 0;
-	left: 50%;
-	translate: -50% -50%;
-	padding: 3px 8px;
-	border-radius: 999px;
-	background: var(--best-value-accent);
-	color: var(--product-surface);
-	font-size: 12px;
-	font-weight: 600;
-	line-height: 1.1;
-	white-space: nowrap;
 }
 
 .product-plan__prices {

@@ -1893,7 +1893,7 @@ describe("projectCreateSchema — product-page fields", () => {
 		).toBe(false)
 	})
 
-	// #region Best value
+	// #region Highlighted price
 
 	const proPlans = [
 		plans[0],
@@ -1915,79 +1915,116 @@ describe("projectCreateSchema — product-page fields", () => {
 			priceCurrency: "USD",
 			billingPeriod: "P1Y",
 		},
+		{
+			name: "Pro, lifetime",
+			plan: "Pro",
+			price: "249.00",
+			priceCurrency: "USD",
+		},
 	]
+	const noSavingMessage =
+		"A highlighted price needs a saving to show: a monthly or yearly price, cheaper per month than a shorter paid one in its plan and currency"
 
-	function withBestValue(flagged: readonly number[], offerList = proOffers) {
+	function withHighlighted(flagged: readonly number[], offerList = proOffers) {
 		return {
 			...base,
 			plans: proPlans,
 			offers: offerList.map((offer, index) =>
-				flagged.includes(index) ? { ...offer, isBestValue: true } : offer
+				flagged.includes(index) ? { ...offer, isHighlighted: true } : offer
 			),
 		}
 	}
 
-	it("accepts a best-value price beside another paid price in its plan", () => {
-		expect(projectCreateSchema.safeParse(withBestValue([2])).success).toBe(true)
+	it("accepts a highlighted yearly price that saves against the monthly one in its plan", () => {
+		expect(projectCreateSchema.safeParse(withHighlighted([2])).success).toBe(
+			true
+		)
 	})
 
 	it("keeps the flag through the parse, so the import stores it", () => {
-		const result = projectCreateSchema.safeParse(withBestValue([2]))
+		const result = projectCreateSchema.safeParse(withHighlighted([2]))
 
-		expect(result.success && result.data.offers?.[2].isBestValue).toBe(true)
+		expect(result.success && result.data.offers?.[2].isHighlighted).toBe(true)
 	})
 
-	it("rejects two best-value prices", () => {
-		expect(issueMessages(withBestValue([1, 2]))).toContain(
-			"At most one offer can be the best value"
-		)
+	// The page's only words for the highlight are its "Save X%" line; a
+	// one-time price has no per-month cost to compare, so it would be boxed
+	// with nothing to say why.
+	it("rejects a highlighted one-time price, even beside cheaper subscriptions", () => {
+		expect(issueMessages(withHighlighted([3]))).toContain(noSavingMessage)
 	})
 
-	it("rejects a free price as the best value", () => {
-		expect(issueMessages(withBestValue([0]))).toContain(
-			"A free price can't be the best value"
-		)
+	it("rejects a highlighted monthly price, which nothing shorter undercuts", () => {
+		expect(issueMessages(withHighlighted([1]))).toContain(noSavingMessage)
 	})
 
-	it("rejects a best-value price that is its plan's only paid price", () => {
-		const message =
-			"A best-value price needs another paid price in its plan to compare against"
+	it("rejects a highlighted price that saves nothing per month", () => {
+		const atMonthlyRate = { ...proOffers[2], price: "144.00" }
 
-		// Alone in its plan, though the project has other prices.
-		expect(
-			issueMessages(withBestValue([1], [proOffers[0], proOffers[1]]))
-		).toContain(message)
-		// The only other price in its plan is free.
 		expect(
 			issueMessages(
-				withBestValue(
-					[1],
-					[proOffers[0], proOffers[1], { ...proOffers[2], price: "0" }]
-				)
+				withHighlighted([2], [proOffers[0], proOffers[1], atMonthlyRate])
 			)
-		).toContain(message)
+		).toContain(noSavingMessage)
+	})
+
+	it("rejects a highlighted price whose only cheaper rival is in another plan, a free one, or another currency", () => {
+		const yearly = proOffers[2]
+		const elsewhere = { ...proOffers[1], plan: plans[0].name }
+		const freeMonthly = { ...proOffers[1], price: "0" }
+		const euroMonthly = { ...proOffers[1], priceCurrency: "EUR" }
+
+		for (const rival of [elsewhere, freeMonthly, euroMonthly]) {
+			expect(
+				issueMessages(withHighlighted([2], [proOffers[0], rival, yearly]))
+			).toContain(noSavingMessage)
+		}
+	})
+
+	it("rejects two highlighted prices", () => {
+		expect(issueMessages(withHighlighted([1, 2]))).toContain(
+			"At most one offer can be highlighted"
+		)
+	})
+
+	it("rejects a free price as the highlight, which would otherwise read as a 100% saving", () => {
+		const freeYearly = { ...proOffers[2], price: "0" }
+
+		expect(
+			issueMessages(
+				withHighlighted([2], [proOffers[0], proOffers[1], freeYearly])
+			)
+		).toContain("A free price can't be highlighted")
 	})
 
 	it("compares across all offers when none names a plan", () => {
 		const unplanned = [
-			{ name: "Monthly", price: "2.99", priceCurrency: "USD" },
-			{ name: "Lifetime", price: "19.99", priceCurrency: "USD" },
+			{
+				name: "Monthly",
+				price: "2.99",
+				priceCurrency: "USD",
+				billingPeriod: "P1M",
+			},
+			{
+				name: "Yearly",
+				price: "19.99",
+				priceCurrency: "USD",
+				billingPeriod: "P1Y",
+			},
 		]
 
 		expect(
 			projectCreateSchema.safeParse({
 				...base,
-				offers: [unplanned[0], { ...unplanned[1], isBestValue: true }],
+				offers: [unplanned[0], { ...unplanned[1], isHighlighted: true }],
 			}).success
 		).toBe(true)
 		expect(
 			issueMessages({
 				...base,
-				offers: [{ ...unplanned[1], isBestValue: true }],
+				offers: [{ ...unplanned[1], isHighlighted: true }],
 			})
-		).toContain(
-			"A best-value price needs another paid price in its plan to compare against"
-		)
+		).toContain(noSavingMessage)
 	})
 
 	// #endregion
@@ -2292,7 +2329,7 @@ describe("projectUpdateSchema — product-page fields", () => {
 		expect(result.success).toBe(false)
 	})
 
-	it("checks the best-value price on an update that sends the offers", () => {
+	it("checks the highlighted price on an update that sends the offers", () => {
 		const result = projectUpdateSchema.safeParse({
 			plans: [{ name: "Pro", features: ["Everything."] }],
 			offers: [
@@ -2301,14 +2338,15 @@ describe("projectUpdateSchema — product-page fields", () => {
 					plan: "Pro",
 					price: "9",
 					priceCurrency: "USD",
-					isBestValue: true,
+					billingPeriod: "P1Y",
+					isHighlighted: true,
 				},
 			],
 		})
 
 		expect(result.success).toBe(false)
 		expect(result.error?.issues[0].message).toBe(
-			"A best-value price needs another paid price in its plan to compare against"
+			"A highlighted price needs a saving to show: a monthly or yearly price, cheaper per month than a shorter paid one in its plan and currency"
 		)
 	})
 })

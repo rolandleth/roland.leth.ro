@@ -300,6 +300,50 @@ describe("parseManifest — required fields", () => {
 
 		expect(() => parseManifest(raw)).toThrow(/still sets "isDiscontinued"/)
 	})
+
+	// An offer's `isBestValue` became `isHighlighted`: the schema would strip
+	// the old key and the price would lose its highlight without a word.
+	it.each([true, false])(
+		"refuses a manifest whose offer still sets isBestValue (%s), naming the replacement",
+		(isBestValue) => {
+			const raw = JSON.stringify({
+				...allFields,
+				offers: [
+					{ name: "Pro, monthly", price: "2.99", priceCurrency: "USD" },
+					{
+						name: "Pro, yearly",
+						price: "19.99",
+						priceCurrency: "USD",
+						isBestValue,
+					},
+				],
+			})
+
+			expect(() => parseManifest(raw)).toThrow(
+				/still sets "isBestValue" on an offer, which became "isHighlighted"/
+			)
+		}
+	)
+
+	it("refuses isBestValue even when the rest is missing, so the old key is named first", () => {
+		const raw = JSON.stringify({
+			name: "Reckon",
+			offers: [{ name: "Pro", isBestValue: true }],
+		})
+
+		expect(() => parseManifest(raw)).toThrow(/still sets "isBestValue"/)
+	})
+
+	it("accepts offers that set isHighlighted, and offers that aren't objects reach the schema untouched", () => {
+		const highlighted = JSON.stringify({
+			...allFields,
+			offers: [{ name: "Pro, yearly", isHighlighted: true }],
+		})
+		const malformed = JSON.stringify({ ...allFields, offers: [null, "Pro"] })
+
+		expect(() => parseManifest(highlighted)).not.toThrow()
+		expect(() => parseManifest(malformed)).not.toThrow()
+	})
 })
 
 // #endregion

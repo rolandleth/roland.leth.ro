@@ -65,7 +65,7 @@ export default function ProductPlans({ pricing }: Props) {
 				<PriceList
 					offers={pricing.offers}
 					label={(offer) => offer.name}
-					hasTiles={hasBestValue(pricing.offers)}
+					hasTiles={hasHighlightedOffer(pricing.offers)}
 					isCentered={false}
 					isLast
 				/>
@@ -73,9 +73,9 @@ export default function ProductPlans({ pricing }: Props) {
 		)
 	}
 
-	// One flag for every card, so a card without the best value still boxes its
-	// prices the same way, and they stay level with the other card's.
-	const hasTiles = hasBestValue(
+	// One flag for every card, so a card without the highlighted price still
+	// boxes its prices the same way, and they stay level with the other card's.
+	const hasTiles = hasHighlightedOffer(
 		pricing.plans.flatMap((planWithOffers) => planWithOffers.offers)
 	)
 	const [singlePlan] = pricing.plans
@@ -134,8 +134,8 @@ function planHighlightClass(plan: { isHighlighted?: boolean }): string {
 	return plan.isHighlighted === true ? "product-plan--highlighted" : ""
 }
 
-function hasBestValue(offers: readonly ProjectOffer[]): boolean {
-	return offers.some((offer) => offer.isBestValue === true)
+function hasHighlightedOffer(offers: readonly ProjectOffer[]): boolean {
+	return offers.some((offer) => offer.isHighlighted === true)
 }
 
 function PlanName({ name }: { name: string }) {
@@ -162,8 +162,8 @@ interface PriceListProps {
 	offers: readonly ProjectOffer[]
 	label: (offer: ProjectOffer) => string | null
 	/**
-	 * Some price on the page is the best value: every price sits in a tile of
-	 * the same size, and only the best value's tile shows, so all of them stay
+	 * Some price on the page is highlighted: every price sits in a tile of the
+	 * same size, and only the highlighted one's tile shows, so all of them stay
 	 * level. The tiles' own padding replaces most of the gap between prices.
 	 */
 	hasTiles: boolean
@@ -190,8 +190,11 @@ function PriceList({
 		>
 			{offers.map((offer, index) => {
 				const text = label(offer)
-				const isBest = offer.isBestValue === true
-				const saving = isBest ? savingsPercent(offer, offers) : null
+				const isHighlighted = offer.isHighlighted === true
+				// The schema (`refineHighlightedOffer`) admits the flag only on a
+				// price with a saving against this same group, so it's never null
+				// here for a stored row.
+				const saving = isHighlighted ? savingsPercent(offer, offers) : null
 
 				return (
 					<li
@@ -200,9 +203,8 @@ function PriceList({
 						key={`${index}:${offer.name}`}
 						className={`flex flex-col gap-0.5 ${isCentered ? "items-center" : ""} ${
 							hasTiles ? "product-plan__price" : ""
-						} ${isBest ? "product-plan__price--best" : ""}`}
+						} ${isHighlighted ? "product-plan__price--highlighted" : ""}`}
 					>
-						{isBest && <span className="product-plan__badge">Best value</span>}
 						<span className="product-plan__amount font-serif text-[32px] leading-[1.1] tracking-[-0.015em] tabular-nums">
 							{formatPrice(offer.price, offer.priceCurrency)}
 						</span>

@@ -1031,50 +1031,54 @@ describe("ProductPage — pricing", () => {
 		expect(price).toHaveTextContent("$39.99a year14-day free trial")
 	})
 
-	it("puts the best-value price in its tile with the badge, and every other price in every card in the same tile, unmarked", () => {
+	// A yearly price beside the monthly and the one-time one. Only a price with a
+	// saving to show can be highlighted (`refineHighlightedOffer`), so this is
+	// the one the tests flag.
+	const yearly = {
+		name: "Insights, yearly",
+		plan: "Insights",
+		price: "41.94",
+		priceCurrency: "USD",
+		billingPeriod: "P1Y",
+		note: "14-day free trial",
+	}
+
+	it("puts the highlighted price in its tile, and every other price in every card in the same tile, unmarked", () => {
 		renderPage(
 			makeProject({
 				plans,
-				offers: [offers[0], offers[1], { ...offers[2], isBestValue: true }],
+				offers: [offers[0], offers[1], { ...yearly, isHighlighted: true }],
 			})
 		)
 
-		const prices = ["$0", "$6.99", "$89.99"].map(
+		const prices = ["$0", "$6.99", "$41.94"].map(
 			(price) => screen.getByText(price).closest("li") as HTMLElement
 		)
 
-		expect(prices[2]).toContainElement(screen.getByText("Best value"))
-		expect(prices[2]).toHaveTextContent("Best value$89.99once")
 		expect(prices[2]).toHaveClass(
 			"product-plan__price",
-			"product-plan__price--best"
+			"product-plan__price--highlighted"
 		)
 		// The free card's price and the monthly one get the same tile, unmarked,
 		// so all three sit level.
 		for (const price of prices.slice(0, 2)) {
 			expect(price).toHaveClass("product-plan__price")
-			expect(price).not.toHaveClass("product-plan__price--best")
+			expect(price).not.toHaveClass("product-plan__price--highlighted")
 		}
-		// A one-time price has no per-month cost to compare.
-		expect(screen.queryByText(/^Save/)).not.toBeInTheDocument()
 	})
 
-	it("says how much the best value saves against the monthly price", () => {
+	// "Best value" was an unqualified superlative, and false: a yearly plan
+	// costs as much as the lifetime one after a few years. The saving against
+	// the monthly price is the claim the page can stand behind.
+	it("says only how much the highlighted price saves against the monthly one, and never calls it the best value", () => {
 		renderPage(
 			makeProject({
 				plans,
 				offers: [
 					offers[0],
 					offers[1],
-					{
-						name: "Insights, yearly",
-						plan: "Insights",
-						price: "41.94",
-						priceCurrency: "USD",
-						billingPeriod: "P1Y",
-						note: "14-day free trial",
-						isBestValue: true,
-					},
+					{ ...yearly, isHighlighted: true },
+					offers[2],
 				],
 			})
 		)
@@ -1082,16 +1086,20 @@ describe("ProductPage — pricing", () => {
 		// 41.94 against 12 × 6.99 = 83.88 is exactly half.
 		expect(
 			screen.getByText("$41.94").closest("li") as HTMLElement
-		).toHaveTextContent("Best value$41.94a yearSave 50%14-day free trial")
+		).toHaveTextContent(/^\$41\.94a yearSave 50%14-day free trial$/)
+		// The one-time price has no per-month cost to compare, and no line.
+		expect(screen.getAllByText(/^Save/)).toHaveLength(1)
+		expect(document.body).not.toHaveTextContent(/best value/i)
 	})
 
-	it("adds no tiles and no badge when no price is the best value", () => {
-		renderPage(makeProject({ plans, offers }))
+	it("adds no tiles and no saving when no price is highlighted", () => {
+		renderPage(makeProject({ plans, offers: [...offers, yearly] }))
 
-		expect(screen.queryByText("Best value")).not.toBeInTheDocument()
 		expect(screen.getByText("$6.99").closest("li")).not.toHaveClass(
 			"product-plan__price"
 		)
+		// The yearly price would save 50%, but the line belongs to the highlight.
+		expect(screen.queryByText(/^Save/)).not.toBeInTheDocument()
 	})
 
 	it("centres the prices in a row of cards, and keeps a lone card's under its name", () => {

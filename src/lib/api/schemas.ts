@@ -19,7 +19,7 @@ import {
 	SLUG_MAX_LENGTH,
 } from "@/lib/utils/format"
 import { BUCKET_SUGGESTED_TAGS } from "@/lib/utils/platforms"
-import { BILLING_PERIOD_PATTERN } from "@/lib/utils/productPage"
+import { BILLING_PERIOD_PATTERN, savingsPercent } from "@/lib/utils/productPage"
 
 // `z.enum` in Zod 4 wants a const string tuple, but Prisma generates each
 // enum as a runtime object whose values are strings. Casting through the
@@ -256,10 +256,10 @@ export const projectOfferSchema = z.object({
 	// A short line printed with the price on the product page, e.g. "14-day
 	// free trial". The JSON-LD ignores it.
 	note: z.string().trim().min(1).max(80).optional(),
-	// The price the product page marks "Best value". `refineBestValueOffer`
-	// keeps it to one paid price that has another paid price in its plan to
-	// beat. The JSON-LD ignores it.
-	isBestValue: z.boolean().optional(),
+	// The price the product page boxes in the accent, with its "Save X%" line.
+	// `refineHighlightedOffer` keeps it to one paid price that has that line,
+	// so the box always shows its reason. The JSON-LD ignores it.
+	isHighlighted: z.boolean().optional(),
 	sortOrder: z.number().int().min(0).optional(),
 })
 
@@ -517,7 +517,15 @@ const projectFields = {
 type PlanRefineInput = {
 	pageLayout?: ProjectPageLayout
 	plans?: { name: string; isHighlighted?: boolean }[] | null
-	offers?: { plan?: string; price: string; isBestValue?: boolean }[] | null
+	offers?:
+		| {
+				plan?: string
+				price: string
+				priceCurrency: string
+				billingPeriod?: string
+				isHighlighted?: boolean
+		  }[]
+		| null
 	sections?: { kind: ProjectSectionKind }[]
 }
 
@@ -532,7 +540,7 @@ type PlanRefineInput = {
 //     page prints prices only inside plan cards;
 //   - at most one `pricing` section, and only on a project with offers, or it
 //     would be a heading over nothing;
-//   - at most one best-value price, paid, with another paid price in its plan.
+//   - at most one highlighted price, paid, with a saving to show in its plan.
 // Like `refineBucketTagCoherence`, each rule only fires when the fields it
 // compares are in the payload. A field that is absent is left as stored; a
 // null one, like an absent one on the create path, means none.
@@ -565,7 +573,7 @@ function refineProjectPlans(
 
 	refineProductPagePlans(value, ctx)
 	refinePricingSections(sections, offers, ctx, isPartial)
-	refineBestValueOffer(offers, ctx)
+	refineHighlightedOffer(offers, ctx)
 
 	if (plans != null) {
 		const names = plans.map((plan) => plan.name)
@@ -681,11 +689,14 @@ function refinePricingSections(
 	}
 }
 
-// "Best value" is a comparison, so the flagged price needs something to beat:
-// another paid price in the same plan, or among the offers when none names a
-// plan. A free price is never it. Offers alone decide this, so a partial
-// update that sends them can be checked whole.
-function refineBestValueOffer(
+// The highlight's only words are its "Save X%" line, so the flagged price must
+// get one: `savingsPercent` against the prices in its plan, or among the offers
+// when none names a plan, the same group the page prints it in. A one-time
+// price, a lone one, or one that saves under 1% would be boxed with nothing to
+// say why. A free price is refused first, since `savingsPercent` would call it
+// a 100% saving. Offers alone decide this, so a partial update that sends them
+// can be checked whole.
+function refineHighlightedOffer(
 	offers: PlanRefineInput["offers"],
 	ctx: z.RefinementCtx
 ): void {
@@ -693,42 +704,39 @@ function refineBestValueOffer(
 		return
 	}
 
-	const flagged = offers.filter((offer) => offer.isBestValue === true)
+	const flagged = offers.filter((offer) => offer.isHighlighted === true)
 
 	if (flagged.length > 1) {
 		ctx.addIssue({
 			code: "custom",
 			path: ["offers"],
-			message: "At most one offer can be the best value",
+			message: "At most one offer can be highlighted",
 		})
 	}
 
 	offers.forEach((offer, index) => {
-		if (offer.isBestValue !== true) {
+		if (offer.isHighlighted !== true) {
 			return
 		}
 
 		if (!isPaidPrice(offer.price)) {
 			ctx.addIssue({
 				code: "custom",
-				path: ["offers", index, "isBestValue"],
-				message: "A free price can't be the best value",
+				path: ["offers", index, "isHighlighted"],
+				message: "A free price can't be highlighted",
 			})
 
 			return
 		}
 
-		const hasRival = offers.some(
-			(other) =>
-				other !== offer && other.plan === offer.plan && isPaidPrice(other.price)
-		)
+		const planOffers = offers.filter((other) => other.plan === offer.plan)
 
-		if (!hasRival) {
+		if (savingsPercent(offer, planOffers) == null) {
 			ctx.addIssue({
 				code: "custom",
-				path: ["offers", index, "isBestValue"],
+				path: ["offers", index, "isHighlighted"],
 				message:
-					"A best-value price needs another paid price in its plan to compare against",
+					"A highlighted price needs a saving to show: a monthly or yearly price, cheaper per month than a shorter paid one in its plan and currency",
 			})
 		}
 	})
