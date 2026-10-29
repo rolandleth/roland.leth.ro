@@ -2,6 +2,7 @@ import {
 	LEGACY_REDIRECTS,
 	LEGACY_REWRITES,
 } from "./src/lib/routing/legacyRoutes"
+import { RESUME_REDIRECT } from "./src/lib/routing/resumeRedirect"
 import type { NextConfig } from "next"
 
 /**
@@ -54,9 +55,10 @@ const nextConfig: NextConfig = {
 	// Legacy URL handling. Both lists live in `src/lib/routing/legacyRoutes.ts`
 	// and used to run in `src/proxy.ts`; Vercel compiles them into its routing
 	// layer, so they resolve without a function invocation. `redirects()` also
-	// runs ahead of middleware, so a legacy hit never reaches one.
+	// runs ahead of middleware, so a legacy hit never reaches one. The résumé
+	// redirect to Vercel Blob sits beside them for the same reason.
 	async redirects() {
-		return LEGACY_REDIRECTS
+		return [...LEGACY_REDIRECTS, RESUME_REDIRECT]
 	},
 	// `beforeFiles`, so the rewrite wins over the filesystem route that would
 	// otherwise capture the URL — see the note in `legacyRoutes.ts`.

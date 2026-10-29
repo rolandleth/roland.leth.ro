@@ -69,7 +69,7 @@ src/
     content/                    # Rendering: markdown.ts, page metadata, JSON-LD, feed identity, .md exports, IndexNow
     db/                         # Prisma client (db.ts), cached queries and tag busts (posts.ts, projects.ts, guides.ts), sections.ts
     import/                     # Pure cores for the scripts/ importers and the admin bulk upload
-    routing/legacyRoutes.ts     # Legacy redirect + rewrite rules, consumed by next.config.ts
+    routing/                    # Redirect + rewrite rules, consumed by next.config.ts: legacyRoutes.ts, resumeRedirect.ts
     utils/                      # Pure functions (format.ts, pagination.ts, platforms.ts); reaches the client bundle
   generated/prisma/             # Generated Prisma client output
   test/                         # Vitest setup files
@@ -264,6 +264,25 @@ Rewrites (`beforeFiles`, so they win over the filesystem route that would otherw
 - `/blog/:section/:slug.md` → `/api/blog/:section/:slug/md`
 
 Root-level legacy slugs (`/:slug` → the canonical post/project URL) were **removed** — the route invoked a function on every unmatched path, including scanner probes, and carried no measurable traffic. Unmatched paths now resolve to the static 404 at zero compute.
+
+## Résumé
+
+The résumé lives in Vercel Blob, so an update is an upload in the Blob
+dashboard, not a deploy. `/downloads/resume.pdf` (the About link) redirects to
+its Blob URL with `?download=1`, which makes Blob send it as an attachment; the
+link's `download` attribute does nothing once the file is on another origin. The
+rule is `src/lib/routing/resumeRedirect.ts`, wired into `redirects()` beside the
+legacy rules, so it costs no function invocation.
+
+Upload to the same pathname every time. A Blob URL is the store host plus the
+pathname, so that keeps the redirect valid; a new pathname or a random suffix
+changes the URL and needs a deploy. The redirect is a 307 on purpose: browsers
+can cache a 308 for good. Blob's default cache is a month, so a visitor who
+downloaded the old copy can get it again from their browser cache.
+
+`blob:prune-uploads` deletes only `<uuid>-name` keys at the store root, and the
+post and project cleanup only touches `posts/` and `projects/`, so the résumé is
+outside all of them. Keep its pathname out of those shapes.
 
 ## Scheduled content and revalidation
 

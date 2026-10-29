@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
+import { LEGACY_REDIRECTS } from "@/lib/routing/legacyRoutes"
+import { RESUME_PATH, RESUME_REDIRECT } from "@/lib/routing/resumeRedirect"
 import nextConfig from "../next.config"
 
 type Header = { key: string; value: string }
@@ -151,6 +153,26 @@ describe("development headers", () => {
 		expect(getDirective(csp, "img-src")).toBe(
 			"img-src 'self' data: https://*.public.blob.vercel-storage.com https://picsum.photos https://fastly.picsum.photos"
 		)
+	})
+})
+
+// #endregion
+
+// #region Redirects
+
+describe("nextConfig.redirects", () => {
+	it("serves every legacy rule and the résumé redirect", async () => {
+		const redirects = await nextConfig.redirects!()
+
+		expect(redirects).toEqual([...LEGACY_REDIRECTS, RESUME_REDIRECT])
+	})
+
+	it("has one rule for the résumé path, so nothing shadows the Blob redirect", async () => {
+		const redirects = await nextConfig.redirects!()
+
+		expect(redirects.filter((rule) => rule.source === RESUME_PATH)).toEqual([
+			RESUME_REDIRECT,
+		])
 	})
 })
 

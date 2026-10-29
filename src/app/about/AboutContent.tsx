@@ -1,5 +1,6 @@
 import Image from "next/image"
 import FadeIn from "@/components/about/FadeIn"
+import { RESUME_PATH } from "@/lib/routing/resumeRedirect"
 
 const chips = [
 	"15+ years",
@@ -41,7 +42,7 @@ const contactLinks = [
 	},
 	{
 		label: "Résumé",
-		href: "/downloads/resume.pdf",
+		href: RESUME_PATH,
 		download: true,
 	},
 ]
