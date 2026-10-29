@@ -37,9 +37,26 @@ describe("Weekly Gym privacy page", () => {
 		const { container } = render(<WeeklyGymPrivacyPage />)
 		const text = (container.textContent ?? "").replace(/\s+/g, " ")
 
-		expect(text).toContain("while iCloud is on for Weekly Gym, in your own iCloud account")
+		expect(text).toContain(
+			"while iCloud is on for Weekly Gym, in your own iCloud account"
+		)
 		expect(text).not.toMatch(/stays on your device/)
 		expect(text).not.toMatch(/more than one plan/)
+	})
+
+	// A set logged from a widget or control syncs only once the app opens, and
+	// Siri gets the reply text; both are data handed beyond the app itself.
+	it("says when a widget's set syncs, and what Weekly Gym gives Siri", () => {
+		const { container } = render(<WeeklyGymPrivacyPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"reaches your other devices once you next open Weekly Gym on that device"
+		)
+		expect(text).toContain("each with its main muscles")
+		expect(text).toContain(
+			"it gives Siri the reply to show and say: the exercise, which set it was and its values."
+		)
 	})
 
 	// Same rule as the terms: Weekly Gym Pro is named in full, and prices live in

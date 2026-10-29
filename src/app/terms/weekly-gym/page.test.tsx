@@ -53,7 +53,9 @@ describe("Weekly Gym terms page", () => {
 		const text = (container.textContent ?? "").replace(/\s+/g, " ")
 
 		expect(text).toContain("With Family Sharing")
-		expect(text).toContain("Only the family member who bought it can manage or cancel it.")
+		expect(text).toContain(
+			"Only the family member who bought it can manage or cancel it."
+		)
 	})
 
 	// Yearly has a free trial, so "charged when you confirm" alone would be
@@ -68,6 +70,21 @@ describe("Weekly Gym terms page", () => {
 		)
 		expect(text).toContain(
 			"Cancel at least 24 hours before a trial ends and nothing is charged."
+		)
+	})
+
+	// The app has its own Manage subscription and Restore purchases rows in
+	// Settings, so the terms point there as well as to the App Store.
+	it("names the in-app Manage subscription and Restore purchases", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"from Manage subscription in Weekly Gym's Settings or in your App Store account settings"
+		)
+		expect(text).toContain("you keep Weekly Gym Pro until that period ends")
+		expect(text).toContain(
+			"Restore purchases, in Settings, asks the App Store again."
 		)
 	})
 

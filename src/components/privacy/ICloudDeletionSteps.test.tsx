@@ -42,7 +42,10 @@ describe("ICloudDeletionSteps", () => {
 
 		const link = screen.getByRole("link", { name: "Apple describes it" })
 
-		expect(link).toHaveAttribute("href", "https://support.apple.com/en-us/108922")
+		expect(link).toHaveAttribute(
+			"href",
+			"https://support.apple.com/en-us/108922"
+		)
 		expect(link).toHaveAttribute("target", "_blank")
 		expect(link).toHaveAttribute("rel", "noopener noreferrer")
 	})

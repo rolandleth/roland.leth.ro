@@ -31,4 +31,18 @@ describe("Continuum terms page", () => {
 
 		expect(container.textContent).not.toMatch(/\b(I|I'm|me|my)\b/)
 	})
+
+	// The yearly plan has a free trial, and Apple charges it when it ends, not
+	// on confirm, so "charged when you confirm" alone would be false.
+	it("says when the free trial is charged", () => {
+		const { container } = render(<ContinuumTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"Payment is charged to your Apple Account when you confirm the purchase or, after the free trial, when the trial ends."
+		)
+		expect(text).toContain(
+			"Cancel at least 24 hours before the trial ends and nothing is charged."
+		)
+	})
 })

@@ -24,8 +24,8 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					We do not collect any personally identifiable information: no name,
 					address, phone number or email address. Weekly Gym has no account and
-					no sign-up. What you create in Weekly Gym is stored on your device and,
-					while iCloud is on for Weekly Gym, in your own iCloud account, as
+					no sign-up. What you create in Weekly Gym is stored on your device
+					and, while iCloud is on for Weekly Gym, in your own iCloud account, as
 					described below.
 				</p>
 				<p>
@@ -109,9 +109,9 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					Weekly Gym is free to download, and Weekly Gym Pro is an optional
 					purchase through the App Store: a monthly or yearly subscription, or
-					Lifetime, a one-time purchase. Any purchase is processed by Apple. We never receive or store your
-					payment details; Apple&apos;s handling of that information is governed
-					by <AppleLegalLink />.
+					Lifetime, a one-time purchase. Any purchase is processed by Apple. We
+					never receive or store your payment details; Apple&apos;s handling of
+					that information is governed by <AppleLegalLink />.
 				</p>
 				<p>
 					To know whether you have Weekly Gym Pro, the app asks the App Store on

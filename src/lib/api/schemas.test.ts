@@ -2027,6 +2027,26 @@ describe("projectCreateSchema — product-page fields", () => {
 		).toContain(noSavingMessage)
 	})
 
+	// The rule groups by `offer.plan`, and the page groups by plan card, or all
+	// offers when there are no plans. The two agree only while a planless offer
+	// beside plans is refused, so a planless monthly can't stand in as the
+	// highlighted yearly's rival in a card it never prints in.
+	it("refuses a planless rival beside plans, so the rule's group is always the card's", () => {
+		const { plan: _plan, ...planlessMonthly } = proOffers[1]
+
+		expect(
+			issueMessages({
+				...base,
+				plans: proPlans,
+				offers: [
+					proOffers[0],
+					planlessMonthly,
+					{ ...proOffers[2], isHighlighted: true },
+				],
+			})
+		).toContain("Every offer needs a plan when the project has plans")
+	})
+
 	// #endregion
 
 	it("rejects a palette value that isn't a hex colour, which would otherwise reach the page's CSS", () => {

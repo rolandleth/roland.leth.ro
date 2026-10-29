@@ -98,7 +98,8 @@ const sections: LegalSectionEntry[] = [
 				<ul className="list-disc space-y-2 pl-5">
 					<li>
 						Payment is charged to your Apple Account when you confirm the
-						purchase.
+						purchase or, after a free trial, when the trial ends. Cancel at
+						least 24 hours before a trial ends and nothing is charged.
 					</li>
 					<li>
 						A subscription renews automatically for the same period unless you

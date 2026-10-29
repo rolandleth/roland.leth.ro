@@ -118,12 +118,12 @@ const sections: LegalSectionEntry[] = [
 					the app before you buy.
 				</p>
 				<p>
-					Not buying Weekly Gym Pro, or losing it, never deletes anything: when a
-					subscription ends, a purchase is refunded or your family stops sharing
-					it, your older weeks stay saved and keep syncing, and the app only
-					stops showing them. When Weekly Gym Pro ends, you keep the app icon
-					you picked, and the theme goes back to Original. If you get Weekly Gym
-					Pro again, everything shows as it was.
+					Not buying Weekly Gym Pro, or losing it, never deletes anything: when
+					a subscription ends, a purchase is refunded or your family stops
+					sharing it, your older weeks stay saved and keep syncing, and the app
+					only stops showing them. When Weekly Gym Pro ends, you keep the app
+					icon you picked, and the theme goes back to Original. If you get
+					Weekly Gym Pro again, everything shows as it was.
 				</p>
 			</>
 		),

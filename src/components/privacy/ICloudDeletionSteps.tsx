@@ -12,8 +12,7 @@ interface ICloudDeletionStepsProps {
  * once: the app goes first, so no device is left to sync its copy back. The
  * order is ours; the Settings path is Apple's, linked to its own article
  * (support.apple.com/108922), which names both "Storage" and "Manage Account
- * Storage". It promises nothing about what Apple's button removes: one test on
- * a device (2026-10-21) found nothing deleted.
+ * Storage".
  */
 export default function ICloudDeletionSteps({
 	appName,

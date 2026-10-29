@@ -50,4 +50,18 @@ describe("Digest terms page", () => {
 			/Buying it doesn't\s+cancel a subscription you already have/
 		)
 	})
+
+	// Apple charges a trial when it ends, not on confirm, so "charged when you
+	// confirm" alone would be false for a trial.
+	it("says when a free trial is charged", () => {
+		const { container } = render(<DigestTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"Payment is charged to your Apple Account when you confirm the purchase or, after a free trial, when the trial ends."
+		)
+		expect(text).toContain(
+			"Cancel at least 24 hours before a trial ends and nothing is charged."
+		)
+	})
 })
