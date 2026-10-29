@@ -56,6 +56,21 @@ describe("Weekly Gym terms page", () => {
 		expect(text).toContain("Only the family member who bought it can manage or cancel it.")
 	})
 
+	// Yearly has a free trial, so "charged when you confirm" alone would be
+	// false. The app's paywall (`PaywallPlans` in the Weekly Gym repo) states
+	// the same sentence under its buy button.
+	it("says when a free trial is charged, as the app's paywall does", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"Payment is charged to your Apple Account when you confirm the purchase or, after a free trial, when the trial ends."
+		)
+		expect(text).toContain(
+			"Cancel at least 24 hours before a trial ends and nothing is charged."
+		)
+	})
+
 	// More plans with a rotation aren't built: no surface sells them until they
 	// ship (the app's paywall hides its point).
 	it("sells nothing the app doesn't have yet", () => {
