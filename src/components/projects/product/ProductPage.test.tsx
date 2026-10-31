@@ -1092,6 +1092,23 @@ describe("ProductPage — pricing", () => {
 		expect(document.body).not.toHaveTextContent(/best value/i)
 	})
 
+	it("prints what the monthly price comes to over a year, beside a yearly price", () => {
+		renderPage(makeProject({ plans, offers: [...offers, yearly] }))
+
+		// 12 × 6.99.
+		expect(
+			screen.getByText("$6.99").closest("li") as HTMLElement
+		).toHaveTextContent(/^\$6\.99a month\$83\.88 a year$/)
+	})
+
+	it("leaves the yearly cost out when the plan has no yearly price", () => {
+		renderPage(makeProject({ plans, offers }))
+
+		expect(
+			screen.getByText("$6.99").closest("li") as HTMLElement
+		).toHaveTextContent(/^\$6\.99a month$/)
+	})
+
 	it("adds no tiles and no saving when no price is highlighted", () => {
 		renderPage(makeProject({ plans, offers: [...offers, yearly] }))
 

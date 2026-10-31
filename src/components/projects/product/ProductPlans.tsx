@@ -2,6 +2,7 @@ import {
 	formatPrice,
 	priceLabel,
 	savingsPercent,
+	yearlyCostLabel,
 } from "@/lib/utils/productPage"
 import { ProductSectionShell } from "./ProductSection"
 import type { ProjectOffer } from "@/lib/db/projects"
@@ -195,6 +196,7 @@ function PriceList({
 				// price with a saving against this same group, so it's never null
 				// here for a stored row.
 				const saving = isHighlighted ? savingsPercent(offer, offers) : null
+				const yearlyCost = yearlyCostLabel(offer, offers)
 
 				return (
 					<li
@@ -210,6 +212,11 @@ function PriceList({
 						</span>
 						{text != null && (
 							<span className="product-plan__label text-[13px]">{text}</span>
+						)}
+						{yearlyCost != null && (
+							<span className="product-plan__label text-[13px]">
+								{yearlyCost}
+							</span>
 						)}
 						{saving != null && (
 							<span className="product-plan__saving text-[13px]">

@@ -11,6 +11,7 @@ import {
 	savingsPercent,
 	sectionAnchors,
 	sectionHeadingId,
+	yearlyCostLabel,
 } from "./productPage"
 
 // #region sectionAnchors
@@ -303,6 +304,76 @@ describe("savingsPercent", () => {
 		expect(savingsPercent({ ...yearly, price: "150.00" }, [monthly])).toBeNull()
 		// 143.00 against 144.00 is 0.7%: under 1%, so nothing.
 		expect(savingsPercent({ ...yearly, price: "143.00" }, [monthly])).toBeNull()
+	})
+})
+
+// #endregion
+
+// #region yearlyCostLabel
+
+describe("yearlyCostLabel", () => {
+	const monthly = { price: "2.99", priceCurrency: "USD", billingPeriod: "P1M" }
+	const yearly = { price: "19.99", priceCurrency: "USD", billingPeriod: "P1Y" }
+	const lifetime = { price: "49.99", priceCurrency: "USD" }
+
+	it("gives twelve months of a monthly price", () => {
+		expect(yearlyCostLabel(monthly, [monthly, yearly, lifetime])).toBe(
+			"$35.88 a year"
+		)
+	})
+
+	it("drops the decimals of a whole amount, as every price does", () => {
+		expect(yearlyCostLabel({ ...monthly, price: "12.00" }, [yearly])).toBe(
+			"$144 a year"
+		)
+	})
+
+	it("prints cents exactly when the float product wouldn't be", () => {
+		// 1.1 × 12 is 13.200000000000001 in floats.
+		expect(yearlyCostLabel({ ...monthly, price: "1.10" }, [yearly])).toBe(
+			"$13.20 a year"
+		)
+	})
+
+	it("uses the offer's currency", () => {
+		expect(
+			yearlyCostLabel({ ...monthly, priceCurrency: "EUR" }, [
+				{ ...yearly, priceCurrency: "EUR" },
+			])
+		).toBe("€35.88 a year")
+	})
+
+	it("says nothing for a price that isn't billed monthly", () => {
+		expect(yearlyCostLabel(yearly, [monthly, yearly])).toBeNull()
+		expect(yearlyCostLabel(lifetime, [monthly, yearly])).toBeNull()
+		expect(
+			yearlyCostLabel({ ...monthly, billingPeriod: "P3M" }, [yearly])
+		).toBeNull()
+		expect(
+			yearlyCostLabel({ ...monthly, billingPeriod: "P1W" }, [yearly])
+		).toBeNull()
+	})
+
+	it("says nothing for a free monthly price", () => {
+		expect(yearlyCostLabel({ ...monthly, price: "0" }, [yearly])).toBeNull()
+	})
+
+	it("says nothing without a paid yearly price in the same currency", () => {
+		expect(yearlyCostLabel(monthly, [monthly])).toBeNull()
+		expect(yearlyCostLabel(monthly, [monthly, lifetime])).toBeNull()
+		expect(
+			yearlyCostLabel(monthly, [{ ...yearly, priceCurrency: "EUR" }])
+		).toBeNull()
+		expect(yearlyCostLabel(monthly, [{ ...yearly, price: "0" }])).toBeNull()
+		expect(
+			yearlyCostLabel(monthly, [{ ...yearly, billingPeriod: "P2Y" }])
+		).toBeNull()
+	})
+
+	it("takes twelve months as a yearly price", () => {
+		expect(
+			yearlyCostLabel(monthly, [{ ...yearly, billingPeriod: "P12M" }])
+		).toBe("$35.88 a year")
 	})
 })
 

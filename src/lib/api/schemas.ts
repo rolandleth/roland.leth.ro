@@ -378,6 +378,10 @@ export const paletteThemeSchema = z.object({
 	bandInk2: hexColor,
 	bandHighlight: hexColor,
 	accentText: hexColor,
+	// The highlighted price in a highlighted plan, whose tile keeps the page's
+	// surface. Optional: `bandHighlight` when absent, which suits a band whose
+	// highlight also reads on that surface. A dark band's pale highlight doesn't.
+	priceHighlight: hexColor.optional(),
 })
 
 // Both themes are required: a band designed for one background has no safe

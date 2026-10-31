@@ -258,6 +258,7 @@ code[data-theme*=" "] span {
 	   reach 4.5:1 on both the light and the dark page, so a palette sets one
 	   per theme; without one, the accent is all there is. */
 	--product-accent-text: var(--project-accent);
+	--product-price-highlight: var(--product-band-hi);
 	--product-surface: var(--color-surface-value);
 }
 
@@ -313,7 +314,7 @@ code[data-theme*=" "] span {
 }
 
 .product-plan--highlighted .product-plan__price--highlighted {
-	--highlight-accent: var(--product-band-hi);
+	--highlight-accent: var(--product-price-highlight);
 }
 
 .product-plan__price--highlighted .product-plan__amount,
@@ -377,6 +378,14 @@ code[data-theme*=" "] span {
 
 .product-plan--highlighted .product-plan__label {
 	color: var(--product-band-ink2);
+}
+
+/* The highlighted price's tile keeps the page's surface, so its small lines
+   keep the page's colour, not the band's. */
+.product-plan--highlighted
+	.product-plan__price--highlighted
+	.product-plan__label {
+	color: var(--color-secondary-value);
 }
 
 .product-plan--highlighted .product-plan__features li::marker {

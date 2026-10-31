@@ -225,9 +225,11 @@ model Project {
   // same reason as `offers`: small, render-only, manifest-driven.
   plans           Json?
   // `{ light, dark }`, each `{ band, bandInk, bandInk2, bandHighlight,
-  // accentText }`: the hero and closing band colours plus a darker or lighter
-  // accent for small text, since no single hex reads at 4.5:1 on both the
-  // light and the dark page. Null means no band: the hero sits on the page.
+  // accentText, priceHighlight? }`: the hero and closing band colours plus a
+  // darker or lighter accent for small text, since no single hex reads at 4.5:1
+  // on both the light and the dark page, and the highlighted price's colour when
+  // the band highlight doesn't read on the page's surface. Null means no band:
+  // the hero sits on the page.
   palette         Json?
   date           String?
   sortOrder      Int              @default(0)

@@ -17,6 +17,9 @@ export function bandDeclarations(theme: ProjectPaletteTheme): string {
 		`--product-band-ink2:${theme.bandInk2}`,
 		`--product-band-hi:${theme.bandHighlight}`,
 		`--product-accent-text:${theme.accentText}`,
+		// Always declared: the dark rule only adds to the light one on the same
+		// element, so a theme without its own would inherit the other's.
+		`--product-price-highlight:${theme.priceHighlight ?? theme.bandHighlight}`,
 	].join(";")
 }
 

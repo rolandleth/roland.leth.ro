@@ -235,7 +235,9 @@ export function priceLabel(offer: {
 	return count === 1 ? `a ${singular}` : `every ${count} ${plural}`
 }
 
-interface SavingsOffer {
+const MONTHS_IN_YEAR = 12
+
+interface ComparedOffer {
 	price: string
 	priceCurrency: string
 	billingPeriod?: string
@@ -250,8 +252,8 @@ interface SavingsOffer {
  * and integers throughout, so float error can't round 25 down to 24.
  */
 export function savingsPercent(
-	offer: SavingsOffer,
-	others: readonly SavingsOffer[]
+	offer: ComparedOffer,
+	others: readonly ComparedOffer[]
 ): number | null {
 	const months = billingMonths(offer.billingPeriod)
 
@@ -259,13 +261,7 @@ export function savingsPercent(
 		return null
 	}
 
-	const base = others
-		.filter(
-			(other) =>
-				other !== offer &&
-				other.priceCurrency === offer.priceCurrency &&
-				Number(other.price) > 0
-		)
+	const base = paidPeers(offer, others)
 		.map((other) => ({
 			cents: priceInCents(other.price),
 			months: billingMonths(other.billingPeriod),
@@ -288,6 +284,46 @@ export function savingsPercent(
 	return percent >= 1 ? percent : null
 }
 
+/**
+ * What a monthly price comes to over a year, to read against the yearly price
+ * beside it: "$35.88 a year" for $2.99 a month. Null for any other price, and
+ * without a paid yearly price in the same currency: alone, the line would read
+ * as a yearly option nobody can buy.
+ */
+export function yearlyCostLabel(
+	offer: ComparedOffer,
+	others: readonly ComparedOffer[]
+): string | null {
+	if (billingMonths(offer.billingPeriod) !== 1 || Number(offer.price) === 0) {
+		return null
+	}
+
+	const hasYearlyPrice = paidPeers(offer, others).some(
+		(other) => billingMonths(other.billingPeriod) === MONTHS_IN_YEAR
+	)
+
+	if (!hasYearlyPrice) {
+		return null
+	}
+
+	const yearlyCost = (priceInCents(offer.price) * MONTHS_IN_YEAR) / 100
+
+	return `${formatPrice(String(yearlyCost), offer.priceCurrency)} a year`
+}
+
+/** The other paid prices `offer` can be compared with: same currency, not free. */
+function paidPeers(
+	offer: ComparedOffer,
+	others: readonly ComparedOffer[]
+): ComparedOffer[] {
+	return others.filter(
+		(other) =>
+			other !== offer &&
+			other.priceCurrency === offer.priceCurrency &&
+			Number(other.price) > 0
+	)
+}
+
 /** `P1M` → 1, `P3M` → 3, `P1Y` → 12; null for no period, days, weeks, or `P1Y6M`. */
 function billingMonths(billingPeriod: string | undefined): number | null {
 	const match =
@@ -303,7 +339,7 @@ function billingMonths(billingPeriod: string | undefined): number | null {
 		case "M":
 			return count
 		case "Y":
-			return count * 12
+			return count * MONTHS_IN_YEAR
 		default:
 			return null
 	}
