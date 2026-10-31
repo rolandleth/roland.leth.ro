@@ -131,7 +131,9 @@ const sections: LegalSectionEntry[] = [
 					from the next week, and going back to another plan after that needs
 					Weekly Gym Pro. You keep the app icon you picked, and the theme goes
 					back to Original. If you get Weekly Gym Pro again, everything shows as
-					it was, and a rotation goes on with the plan after the current one.
+					it was, and a rotation goes on with the plan after the current one. If
+					you used the switch to your default plan, that plan stays the one your
+					weeks follow, and any rotation stays off until you turn it on.
 				</p>
 			</>
 		),

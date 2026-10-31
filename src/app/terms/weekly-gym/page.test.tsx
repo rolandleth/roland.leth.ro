@@ -45,79 +45,75 @@ describe("Weekly Gym terms page", () => {
 		).toHaveAttribute("href", "/privacy/weekly-gym")
 	})
 
-	// All three purchases are family-shareable, and a subscription is managed
-	// from the Apple Account that bought it, which with purchase sharing may not
-	// be the one that pays.
-	it("covers Family Sharing, and who can manage a shared purchase", () => {
+	it.each([
+		// All three purchases are family-shareable, and a subscription is managed
+		// from the Apple Account that bought it, which with purchase sharing may
+		// not be the one that pays.
+		{
+			topic: "Family Sharing, and who can manage a shared purchase",
+			phrases: [
+				"With Family Sharing",
+				"Only the family member who bought it can manage or cancel it.",
+			],
+		},
+		// Yearly has a free trial, so "charged when you confirm" alone would be
+		// false. The app's paywall (`PaywallPlans` in the Weekly Gym repo) states
+		// the same sentence under its buy button.
+		{
+			topic: "when a free trial is charged, as the app's paywall does",
+			phrases: [
+				"Payment is charged to your Apple Account when you confirm the purchase or, after a free trial, when the trial ends.",
+				"Cancel at least 24 hours before a trial ends and nothing is charged.",
+			],
+		},
+		// The app has its own Manage subscription and Restore purchases rows in
+		// Settings, so the terms point there as well as to the App Store.
+		{
+			topic: "the in-app Manage subscription and Restore purchases",
+			phrases: [
+				"from Manage subscription in Weekly Gym's Settings or in your App Store account settings",
+				"you keep Weekly Gym Pro until that period ends",
+				"Restore purchases, in Settings, asks the App Store again.",
+			],
+		},
+		// More plans with a rotation ship as Weekly Gym Pro's second point, so the
+		// terms list them with what it adds, and say what the free app keeps.
+		{
+			topic: "more plans and the rotation in Weekly Gym Pro, and one plan free",
+			phrases: [
+				"The free app has one plan",
+				"more than one plan, and a rotation in which your plans take turns, one per calendar week",
+			],
+		},
+		// A lapse hides plans, never deletes them, and keeps the plan the user is
+		// on (the Weekly Gym Pro brief's rule 9); renewing brings them back.
+		{
+			topic: "what happens to plans when Weekly Gym Pro ends, and on renewal",
+			phrases: [
+				"your older weeks and your plans stay saved and keep syncing",
+				"the plan you're on stays the one your weeks follow, for as long as you want, and any rotation pauses",
+				"your other plans are hidden",
+				"a rotation goes on with the plan after the current one",
+			],
+		},
+		// The switch is offered only while the default plan has exercises
+		// (`PlansOverview.showsLapsedSwitch`), and it turns the rotation off, so
+		// renewal doesn't bring that rotation back (`PlanScheduleService.renew`).
+		{
+			topic: "the one switch to the default plan, and renewal after it",
+			phrases: [
+				"While your default plan, the one you started with, has exercises, the Plan tab offers one switch to it, from the next week",
+				"going back to another plan after that needs Weekly Gym Pro",
+				"If you used the switch to your default plan, that plan stays the one your weeks follow, and any rotation stays off until you turn it on.",
+			],
+		},
+	])("covers $topic", ({ phrases }) => {
 		const { container } = render(<WeeklyGymTermsPage />)
 		const text = (container.textContent ?? "").replace(/\s+/g, " ")
 
-		expect(text).toContain("With Family Sharing")
-		expect(text).toContain(
-			"Only the family member who bought it can manage or cancel it."
-		)
-	})
-
-	// Yearly has a free trial, so "charged when you confirm" alone would be
-	// false. The app's paywall (`PaywallPlans` in the Weekly Gym repo) states
-	// the same sentence under its buy button.
-	it("says when a free trial is charged, as the app's paywall does", () => {
-		const { container } = render(<WeeklyGymTermsPage />)
-		const text = (container.textContent ?? "").replace(/\s+/g, " ")
-
-		expect(text).toContain(
-			"Payment is charged to your Apple Account when you confirm the purchase or, after a free trial, when the trial ends."
-		)
-		expect(text).toContain(
-			"Cancel at least 24 hours before a trial ends and nothing is charged."
-		)
-	})
-
-	// The app has its own Manage subscription and Restore purchases rows in
-	// Settings, so the terms point there as well as to the App Store.
-	it("names the in-app Manage subscription and Restore purchases", () => {
-		const { container } = render(<WeeklyGymTermsPage />)
-		const text = (container.textContent ?? "").replace(/\s+/g, " ")
-
-		expect(text).toContain(
-			"from Manage subscription in Weekly Gym's Settings or in your App Store account settings"
-		)
-		expect(text).toContain("you keep Weekly Gym Pro until that period ends")
-		expect(text).toContain(
-			"Restore purchases, in Settings, asks the App Store again."
-		)
-	})
-
-	// More plans with a rotation ship as Weekly Gym Pro's second point, so the
-	// terms list them with what it adds, and say what the free app keeps.
-	it("names more plans and the rotation in Weekly Gym Pro, and one plan free", () => {
-		const { container } = render(<WeeklyGymTermsPage />)
-		const text = (container.textContent ?? "").replace(/\s+/g, " ")
-
-		expect(text).toContain("The free app has one plan")
-		expect(text).toContain(
-			"more than one plan, and a rotation in which your plans take turns, one per calendar week"
-		)
-	})
-
-	// A lapse hides plans, never deletes them, and keeps the plan the user is on
-	// (the Weekly Gym Pro brief's rule 9); renewing brings them back.
-	it("says what happens to plans when Weekly Gym Pro ends, and on renewal", () => {
-		const { container } = render(<WeeklyGymTermsPage />)
-		const text = (container.textContent ?? "").replace(/\s+/g, " ")
-
-		expect(text).toContain(
-			"your older weeks and your plans stay saved and keep syncing"
-		)
-		expect(text).toContain(
-			"the plan you're on stays the one your weeks follow, for as long as you want, and any rotation pauses"
-		)
-		expect(text).toContain(
-			"going back to another plan after that needs Weekly Gym Pro"
-		)
-		expect(text).toContain(
-			"a rotation goes on with the plan after the current one"
-		)
+		for (const phrase of phrases) {
+			expect(text).toContain(phrase)
+		}
 	})
 
 	// Weekly Gym Pro is named in full, and prices live in the app, never here:

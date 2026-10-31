@@ -58,7 +58,9 @@ describe("Weekly Gym privacy page", () => {
 		expect(text).toContain(
 			"a record of the plan stays, with its name and the date you deleted it"
 		)
-		expect(text).toContain("Past weeks keep their copy of the plan and its name.")
+		expect(text).toContain(
+			"Past weeks keep their copy of the plan and its name."
+		)
 	})
 
 	// The note that a renewal should carry the rotation on lives beside the
@@ -70,7 +72,8 @@ describe("Weekly Gym privacy page", () => {
 		expect(text).toContain(
 			"the app also keeps a note of that on the device until you get Weekly Gym Pro again"
 		)
-		expect(text).toContain("Neither one syncs")
+		expect(text).toContain("the app keeps the date it ended on the device")
+		expect(text).toContain("None of this syncs")
 	})
 
 	// A set logged from a widget or control syncs only once the app opens, and

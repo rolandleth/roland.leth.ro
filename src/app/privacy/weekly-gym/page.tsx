@@ -34,9 +34,9 @@ const sections: LegalSectionEntry[] = [
 					names; which plan new weeks follow, and your rotation of plans, with
 					its order, whether it&apos;s on and the week it counts from; the day
 					your weeks start on; each week&apos;s own copy of its plan, with that
-					plan&apos;s name, the week&apos;s place in your rotation, any switch to
-					another plan during the week, with that plan&apos;s name and the day
-					it started, and the moves, swaps and day names you change in that
+					plan&apos;s name, the week&apos;s place in your rotation, any switch
+					to another plan during the week, with that plan&apos;s name and the
+					day it started, and the moves, swaps and day names you change in that
 					week; the sets you log, with their exercise, values, day and time; the
 					exercises you create, the ones you hide from the library included; and
 					any changes you make to an exercise&apos;s muscles) is stored on your
@@ -129,9 +129,11 @@ const sections: LegalSectionEntry[] = [
 					your device and keeps the answer on that device, where the widgets
 					read it too. When the answer shows Weekly Gym Pro has ended, the app
 					also keeps a note of that on the device until you get Weekly Gym Pro
-					again, so that your rotation, if you have one, can go on from where
-					it paused. Neither one syncs, since each device asks the App Store for
-					itself, and nothing about either reaches us.
+					again, so that your rotation, if you have one, can go on from where it
+					paused. If you close the message the app shows when Weekly Gym Pro
+					ends, the app keeps the date it ended on the device, so that the
+					message doesn&apos;t come back. None of this syncs, since each device
+					asks the App Store for itself, and nothing about it reaches us.
 				</p>
 			</>
 		),
