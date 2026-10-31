@@ -41,7 +41,36 @@ describe("Weekly Gym privacy page", () => {
 			"while iCloud is on for Weekly Gym, in your own iCloud account"
 		)
 		expect(text).not.toMatch(/stays on your device/)
-		expect(text).not.toMatch(/more than one plan/)
+	})
+
+	// Weekly Gym Pro keeps several plans and a rotation in the synced store, each
+	// week records the plan it came from, and a deleted plan leaves a record
+	// behind, so the page names all of it.
+	it("says what it stores for plans and the rotation, and what deleting a plan keeps", () => {
+		const { container } = render(<WeeklyGymPrivacyPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain("your plans, each with its name")
+		expect(text).toContain(
+			"your rotation of plans, with its order, whether it's on and the week it counts from"
+		)
+		expect(text).toContain("the day your weeks start on")
+		expect(text).toContain(
+			"a record of the plan stays, with its name and the date you deleted it"
+		)
+		expect(text).toContain("Past weeks keep their copy of the plan and its name.")
+	})
+
+	// The note that a renewal should carry the rotation on lives beside the
+	// Weekly Gym Pro answer, in the app's own defaults, and never syncs.
+	it("keeps the renewal note on the device, with the Weekly Gym Pro answer", () => {
+		const { container } = render(<WeeklyGymPrivacyPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"the app also keeps a note of that on the device until you get Weekly Gym Pro again"
+		)
+		expect(text).toContain("Neither one syncs")
 	})
 
 	// A set logged from a widget or control syncs only once the app opens, and

@@ -29,19 +29,30 @@ const sections: LegalSectionEntry[] = [
 					described below.
 				</p>
 				<p>
-					What you enter in Weekly Gym (your plan, with its exercises, sets,
-					reps or seconds, weights, supersets, days and day names; each
-					week&apos;s own copy of the plan, with the moves, swaps and day names
-					you change in that week; the sets you log, with their exercise,
-					values, day and time; the exercises you create, the ones you hide from
-					the library included; and any changes you make to an exercise&apos;s
-					muscles) is stored on your device, and so are your settings, such as
-					units and theme. If you&apos;re signed in to iCloud and iCloud is on
-					for Weekly Gym, all of it also syncs through your own iCloud account
-					and is stored there, to keep it in step across your devices. The app
-					icon you pick stays on each device, where iOS keeps it. This sync is
-					handled by Apple and governed by <AppleLegalLink />. We have no access
-					to any of it.
+					What you enter in Weekly Gym (your plans, each with its name,
+					exercises, sets, reps or seconds, weights, supersets, days and day
+					names; which plan new weeks follow, and your rotation of plans, with
+					its order, whether it&apos;s on and the week it counts from; the day
+					your weeks start on; each week&apos;s own copy of its plan, with that
+					plan&apos;s name, the week&apos;s place in your rotation, any switch to
+					another plan during the week, with that plan&apos;s name and the day
+					it started, and the moves, swaps and day names you change in that
+					week; the sets you log, with their exercise, values, day and time; the
+					exercises you create, the ones you hide from the library included; and
+					any changes you make to an exercise&apos;s muscles) is stored on your
+					device, and so are your settings, such as units and theme. If
+					you&apos;re signed in to iCloud and iCloud is on for Weekly Gym, all
+					of it also syncs through your own iCloud account and is stored there,
+					to keep it in step across your devices. The app icon you pick stays on
+					each device, where iOS keeps it. This sync is handled by Apple and
+					governed by <AppleLegalLink />. We have no access to any of it.
+				</p>
+				<p>
+					When you delete a plan, its days and exercises are deleted and it
+					leaves your rotation, but a record of the plan stays, with its name
+					and the date you deleted it, so that a device that still has the plan
+					can&apos;t sync it back. Past weeks keep their copy of the plan and
+					its name.
 				</p>
 				<p>
 					Weekly Gym has no sync switch of its own: it follows each
@@ -116,8 +127,11 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					To know whether you have Weekly Gym Pro, the app asks the App Store on
 					your device and keeps the answer on that device, where the widgets
-					read it too. That answer never syncs, since each device asks the App
-					Store for itself, and nothing about it reaches us.
+					read it too. When the answer shows Weekly Gym Pro has ended, the app
+					also keeps a note of that on the device until you get Weekly Gym Pro
+					again, so that your rotation, if you have one, can go on from where
+					it paused. Neither one syncs, since each device asks the App Store for
+					itself, and nothing about either reaches us.
 				</p>
 			</>
 		),

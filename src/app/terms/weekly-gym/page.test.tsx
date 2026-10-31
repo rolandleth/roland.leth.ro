@@ -88,13 +88,36 @@ describe("Weekly Gym terms page", () => {
 		)
 	})
 
-	// More plans with a rotation aren't built: no surface sells them until they
-	// ship (the app's paywall hides its point).
-	it("sells nothing the app doesn't have yet", () => {
+	// More plans with a rotation ship as Weekly Gym Pro's second point, so the
+	// terms list them with what it adds, and say what the free app keeps.
+	it("names more plans and the rotation in Weekly Gym Pro, and one plan free", () => {
 		const { container } = render(<WeeklyGymTermsPage />)
-		const text = container.textContent ?? ""
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
 
-		expect(text).not.toMatch(/rotation|more than one plan|other plans/)
+		expect(text).toContain("The free app has one plan")
+		expect(text).toContain(
+			"more than one plan, and a rotation in which your plans take turns, one per calendar week"
+		)
+	})
+
+	// A lapse hides plans, never deletes them, and keeps the plan the user is on
+	// (the Weekly Gym Pro brief's rule 9); renewing brings them back.
+	it("says what happens to plans when Weekly Gym Pro ends, and on renewal", () => {
+		const { container } = render(<WeeklyGymTermsPage />)
+		const text = (container.textContent ?? "").replace(/\s+/g, " ")
+
+		expect(text).toContain(
+			"your older weeks and your plans stay saved and keep syncing"
+		)
+		expect(text).toContain(
+			"the plan you're on stays the one your weeks follow, for as long as you want, and any rotation pauses"
+		)
+		expect(text).toContain(
+			"going back to another plan after that needs Weekly Gym Pro"
+		)
+		expect(text).toContain(
+			"a rotation goes on with the plan after the current one"
+		)
 	})
 
 	// Weekly Gym Pro is named in full, and prices live in the app, never here:
