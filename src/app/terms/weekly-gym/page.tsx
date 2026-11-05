@@ -21,9 +21,9 @@ const sections: LegalSectionEntry[] = [
 		title: "Overview",
 		content: (
 			<p>
-				Weekly Gym is an iPhone app for planning your strength training by the
-				week and logging your sets whenever you do them. By downloading or using
-				Weekly Gym, you agree to these terms.{" "}
+				Weekly Gym is an iPhone and iPad app for planning your strength training
+				by the week and logging your sets whenever you do them. By downloading
+				or using Weekly Gym, you agree to these terms.{" "}
 				<strong>
 					Because Weekly Gym is distributed through the App Store, Apple&apos;s{" "}
 					<a
@@ -90,9 +90,9 @@ const sections: LegalSectionEntry[] = [
 				<p>
 					Weekly Gym is free to download, and the free app covers the whole
 					week: planning, logging, the week&apos;s progress per exercise and per
-					muscle, the widgets, Siri, the controls, the Action button and iCloud
-					sync. The free app has one plan, and in History it shows your most
-					recent weeks with sets logged.
+					muscle, the widgets, Siri, the controls, the Action button on iPhone
+					and iCloud sync. The free app has one plan, and in History it shows
+					your most recent weeks with sets logged.
 				</p>
 				<p>
 					<strong>Weekly Gym Pro</strong> adds every week in History; more than
@@ -172,8 +172,8 @@ const sections: LegalSectionEntry[] = [
 					</li>
 					<li>
 						Weekly Gym Pro belongs to your Apple Account, so it works on any
-						iPhone signed in to it; Restore purchases, in Settings, asks the App
-						Store again.
+						iPhone or iPad signed in to it; Restore purchases, in Settings, asks
+						the App Store again.
 					</li>
 				</ul>
 			</>

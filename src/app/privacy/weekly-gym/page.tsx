@@ -84,21 +84,22 @@ const sections: LegalSectionEntry[] = [
 			<>
 				<p>
 					Weekly Gym&apos;s widgets, on the Home Screen and the Lock Screen, and
-					its controls, in Control Center, on the Lock Screen and on the Action
-					button, read your data on your device. A set you log from one of them
-					is saved there, like one you log in the app, and reaches your other
-					devices once you next open Weekly Gym on that device.
+					its controls, in Control Center and, on iPhone, on the Lock Screen and
+					the Action button, read your data on your device. A set you log from
+					one of them is saved there, like one you log in the app, and reaches
+					your other devices once you next open Weekly Gym on that device.
 				</p>
 				<p>
-					Siri and the Action button run Weekly Gym&apos;s shortcuts on your
-					device. What you say to Siri is processed by Apple and governed by{" "}
-					<AppleLegalLink />; Weekly Gym receives only the request itself, such
-					as an exercise and how many reps. To let you say an exercise&apos;s
-					name to Siri, or pick it for the Action button, a control or a widget,
-					Weekly Gym gives iOS the names of this week&apos;s exercises and of
-					the ones you logged recently, each with its main muscles. When Weekly
-					Gym logs a set for Siri, it gives Siri the reply to show and say: the
-					exercise, which set it was and its values.
+					Siri and, on iPhone, the Action button run Weekly Gym&apos;s shortcuts
+					on your device. What you say to Siri is processed by Apple and
+					governed by <AppleLegalLink />; Weekly Gym receives only the request
+					itself, such as an exercise and how many reps. To let you say an
+					exercise&apos;s name to Siri, or pick it for a control, a widget or,
+					on iPhone, the Action button, Weekly Gym gives iOS the names of this
+					week&apos;s exercises and of the ones you logged recently, each with
+					its main muscles. When Weekly Gym logs a set for Siri, it gives Siri
+					the reply to show and say: the exercise, which set it was and its
+					values.
 				</p>
 			</>
 		),
