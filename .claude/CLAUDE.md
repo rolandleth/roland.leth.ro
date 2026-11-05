@@ -137,7 +137,7 @@ yarn test                   # Vitest in watch mode; `yarn test run` for a single
 yarn tsc --noEmit           # Type-check, scripts/ included
 yarn run db:push            # Push schema.prisma to the database (see below)
 
-yarn run db:import-posts <folder> [--dry-run] [--overwrite] [--verbose] [--section=tech|life]
+yarn run db:import-posts <folder> [--dry-run] [--overwrite] [--verbose] [--section=tech|life] [--last=N]
 yarn run db:import-guides <folder> [--dry-run] [--overwrite]
 yarn run db:import-projects [name…] [--dry-run] [--cleanup] [--reupload] [--no-prune]
 yarn tsx scripts/init-post-slugs.ts <folder> [--dry-run] [--section=tech|life]   # Stamp post files with their DB slugs
@@ -157,6 +157,11 @@ that one in by hand. Next.js loads `.env.local` over `.env`, so keep a developme
 `db:import-posts` uploads the local media a post file references; see "Media in
 post bodies" below. It needs `BLOB_READ_WRITE_TOKEN` only when a post it could
 write has local media, and it lists the store once per run.
+
+`db:import-posts` acts on the 10 newest files by filename datetime unless told
+otherwise: `--last=N` changes the count, `--last=0` takes every file. It still
+parses the whole folder, so a new file that reuses an old file's slug skips as a
+duplicate instead of overwriting the old post.
 
 A project manifest with `"isDraft": true` is skipped by `db:import-projects`,
 named or not, and counted as skipped rather than failed, so an app can be staged

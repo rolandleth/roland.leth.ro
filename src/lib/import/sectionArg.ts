@@ -14,18 +14,19 @@ export type PostScriptArgs = ParsedCliArgs &
 
 /**
  * Parses a post script's arguments: exactly one `<folder>`, an optional
- * `--section=`, and the script's own boolean flags. On top of the shared
- * checks, the section must resolve (see `resolveSectionArg`); `folder` and
- * `section` are set only when `problem` is `null`.
+ * `--section=`, and the script's own boolean and value flags. On top of the
+ * shared checks, the section must resolve (see `resolveSectionArg`); `folder`
+ * and `section` are set only when `problem` is `null`. The script validates
+ * the values of its own value flags.
  */
 export function parsePostScriptArgs(
 	argv: readonly string[],
-	spec: Pick<CliSpec, "command" | "knownFlags">
+	spec: Pick<CliSpec, "command" | "knownFlags" | "valueFlags">
 ): PostScriptArgs {
 	const parsed = parseScriptArgs(argv, {
 		...spec,
 		positionals: { count: "one", name: "folder" },
-		valueFlags: new Set([SECTION_FLAG]),
+		valueFlags: new Set([SECTION_FLAG, ...(spec.valueFlags ?? [])]),
 	})
 
 	if (parsed.problem != null) {

@@ -116,4 +116,27 @@ describe("parsePostScriptArgs", () => {
 			parsePostScriptArgs(["../blog/posts/tech", "--section="], SPEC).problem
 		).toMatch(/^"" is not a valid section \(tech, life\)\./)
 	})
+
+	it("accepts the script's own value flag next to --section, and lists it", () => {
+		const spec = { ...SPEC, valueFlags: new Set(["--last"]) }
+		const result = parsePostScriptArgs(
+			["../blog/posts/tech", "--last=5", "--section=life"],
+			spec
+		)
+
+		expect(result).toMatchObject({ problem: null, section: "life" })
+		expect(result.values.get("--last")).toBe("5")
+		expect(parsePostScriptArgs(["--last=5"], spec).problem).toBe(
+			"Usage: yarn db:import-posts <folder> [--section=<section>] [--last=<last>] [--overwrite] [--dry-run]"
+		)
+	})
+
+	it("refuses another script's value flag", () => {
+		// `--last` belongs to the importer; init-post-slugs must not accept it.
+		expect(
+			parsePostScriptArgs(["../blog/posts/tech", "--last=5"], SPEC).problem
+		).toBe(
+			"Unknown flag(s): --last=5. Supported: --overwrite, --dry-run, --section=<section>."
+		)
+	})
 })

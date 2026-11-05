@@ -5,11 +5,18 @@
 //   yarn db:import-posts ../blog/tech --overwrite     # also update existing slugs in place
 //   yarn db:import-posts ../blog/life --dry-run       # report the plan, write nothing
 //   yarn db:import-posts /some/folder --section=tech        # explicit section override
+//   yarn db:import-posts ../blog/tech --last=0        # every file, not the newest 10
 //
 // Reads only the folder's direct `*.md` files — a `drafts/` subfolder never
 // imports. The filename carries datetime + title (same convention as the admin
 // bulk picker); a first line equal to the title is stripped from the body (the
 // content repo keeps the title as the file's first line).
+//
+// A run acts on the 10 newest files by filename datetime, the edit window;
+// `--last=<n>` changes the count and `--last=0` takes every file. The whole
+// folder is still parsed, so a new file reusing an old file's slug skips as a
+// duplicate; files outside the window are then dropped without a line. See
+// `parseRecentPostFiles`.
 //
 // The slug comes from `slug:` frontmatter, and a file without one is skipped:
 // no slug is derived from the title. A non-canonical value gets the normalized
@@ -75,7 +82,6 @@ import {
 	type ExistingPost,
 	type ImportFile,
 	type ImportPlan,
-	parsePostFiles,
 	type PlannedCreate,
 	type PlannedUpdate,
 	type SkippedFile,
@@ -89,6 +95,11 @@ import {
 	writtenBodies,
 	writtenSlugs,
 } from "@/lib/import/postMediaRun"
+import {
+	LAST_FLAG,
+	parseRecentPostFiles,
+	resolveLastArg,
+} from "@/lib/import/recentPosts"
 import { readScriptEnv, SCRIPT_CREDENTIALS_HINT } from "@/lib/import/scriptEnv"
 import { parsePostScriptArgs } from "@/lib/import/sectionArg"
 import { currentDatetimeString } from "@/lib/utils/format"
@@ -102,7 +113,9 @@ const DIFF_LINE_CAP = 8
 const cli = parsePostScriptArgs(process.argv.slice(2), {
 	command: "yarn db:import-posts",
 	knownFlags: new Set(["--overwrite", "--dry-run", "--verbose"]),
+	valueFlags: new Set([LAST_FLAG]),
 })
+const lastArg = resolveLastArg(cli.values.get(LAST_FLAG))
 const isDryRun = cli.flags.has("--dry-run")
 const isOverwrite = cli.flags.has("--overwrite")
 const isVerbose = cli.flags.has("--verbose")
@@ -296,6 +309,13 @@ async function main(): Promise<void> {
 		return
 	}
 
+	if ("problem" in lastArg) {
+		console.error(lastArg.problem)
+		process.exitCode = 1
+
+		return
+	}
+
 	const { folder, section } = cli
 	const files = await readMarkdownFiles(folder)
 
@@ -306,13 +326,23 @@ async function main(): Promise<void> {
 		return
 	}
 
-	console.log(
-		`${isDryRun ? "DRY RUN — " : ""}importing ${files.length} file(s) from ` +
-			`${path.relative(process.cwd(), path.resolve(folder)) || "."} into "${section}"` +
-			(isOverwrite ? " (overwrite)" : "")
-	)
+	const {
+		parsed,
+		skipped: parseSkips,
+		leftOut,
+	} = parseRecentPostFiles(files, lastArg.count)
+	// The window is on by default, so a run that leaves files out says so.
+	const scope =
+		leftOut > 0
+			? `the newest ${lastArg.count} of ${files.length}`
+			: `${files.length}`
 
-	const { parsed, skipped: parseSkips } = parsePostFiles(files)
+	console.log(
+		`${isDryRun ? "DRY RUN — " : ""}importing ${scope} file(s) from ` +
+			`${path.relative(process.cwd(), path.resolve(folder)) || "."} into "${section}"` +
+			(isOverwrite ? " (overwrite)" : "") +
+			(leftOut > 0 ? `; ${LAST_FLAG}=0 imports all` : "")
+	)
 
 	const rewriteFailures = logSlugRewrites(
 		await applySlugRewrites(folder, parsed, isDryRun)
