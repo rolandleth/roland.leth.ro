@@ -13,7 +13,7 @@ import PageGlow from "@/components/PageGlow"
 // on 2026-08-17.
 //
 // A route group adds no URL segment, so `/blog/:section` is unchanged while the
-// boundary now covers exactly one page. `src/app/blog/loadingBoundaries.test.ts`
+// boundary now covers exactly one page. `src/app/loadingBoundaries.test.ts`
 // fails if a `loading.tsx` reappears above any of the affected routes.
 
 function PostCardSkeleton() {
