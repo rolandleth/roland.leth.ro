@@ -14,7 +14,7 @@ import type { ProjectGalleryItem } from "@/lib/db/projects"
 // Route handlers are dynamic by default, hence the explicit opt-in. The tags of
 // all three reads ride up onto the route-cache entry — `projects`, `guides` and
 // `blog-tech` — so a project, guide or post mutation regenerates it, and so does
-// the daily cron when a scheduled post or guide comes due.
+// the scheduled-content run when a scheduled post or guide comes due.
 export const dynamic = "force-static"
 
 // `/llms.txt` is the agent-facing counterpart to the sitemap: a short, plain

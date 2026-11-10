@@ -45,11 +45,11 @@ const OVER_CAP = 201
  *
  * Restating it is the point here: this file asserts the window is exactly what
  * the route intends, so a change to the constant has to be made deliberately in
- * two places. Whether that number is still *correct* for the cron schedule is a
+ * two places. Whether that number is still *correct* for the schedule is a
  * different question, and `../windowInvariant.test.ts` answers it by reading
  * both the route source and `vercel.json`.
  */
-const WINDOW_HOURS = 50
+const WINDOW_HOURS = 4
 
 function dueGuide(slug: string, topicSlug: string | null = null): GuideRef {
 	return { slug, topicSlug }
@@ -357,7 +357,7 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 		// hinges on, unlocked. Fake timers pin the instant so the bound can be
 		// asserted to the millisecond.
 		//
-		// The relation between this number and the cron schedule is a separate
+		// The relation between this number and the schedule is a separate
 		// concern, guarded in `windowInvariant.test.ts`.
 		vi.useFakeTimers()
 		vi.setSystemTime(new Date("2026-08-15T10:00:00Z"))
@@ -432,7 +432,7 @@ describe("GET /api/cron/revalidate-scheduled — lookback window", () => {
 describe("GET /api/cron/revalidate-scheduled — check failure", () => {
 	it("500s rather than reporting a silent success", async () => {
 		// A failed check means scheduled content stops surfacing and nothing
-		// else notices. The run must be visible as failed in Vercel's cron log.
+		// else notices. The run must show as failed in the schedule's run history.
 		vi.spyOn(console, "error").mockImplementation(() => {})
 		vi.mocked(findPostsBecameLive).mockRejectedValue(new Error("DB down"))
 

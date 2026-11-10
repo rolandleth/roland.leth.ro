@@ -28,7 +28,7 @@ import { PAGE_SIZE } from "@/lib/utils/pagination"
 // fill time, and such a render would keep hiding the guide.
 //
 // A render is still what surfaces it, and nothing renders at the moment the date
-// passes: every public guide route is static. The daily cron
+// passes: every public guide route is static. The scheduled-content run
 // (`/api/cron/revalidate-scheduled`) busts the aggregate, the due guide's detail
 // page and its topic hub. The read-time filter does not make those busts
 // optional.

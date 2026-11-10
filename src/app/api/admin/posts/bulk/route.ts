@@ -96,8 +96,8 @@ function prepareBatch(
 			datetime: file.datetime,
 			section,
 			// Future-dated posts are published so the read-time filter holds them
-			// back until their `datetime`, and the daily scheduled-content cron
-			// surfaces them after it. Past-dated posts default to draft so the
+			// back until their `datetime`, and the scheduled-content run surfaces
+			// them after it. Past-dated posts default to draft so the
 			// admin reviews each before promoting it.
 			published: isFutureDatetime(file.datetime, now),
 			readingTime: calculateReadingTime(file.body),

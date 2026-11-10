@@ -55,7 +55,7 @@ src/
     api/
       admin/                    # Session-gated writes: CRUD, upload, revalidate, keepalive, IndexNow
       auth/                     # Login, logout
-      cron/                     # Vercel Cron: keepalive ping, scheduled-content revalidation
+      cron/                     # Vercel Schedules: keepalive ping, scheduled-content revalidation
       feed/[section]/           # Atom feed, served at /blog/:section/feed.xml
       blog/, guides/            # Raw-markdown views, served at the *.md URLs
   proxy.ts                      # Middleware: admin auth gate only (matcher is /admin* + /api/admin*)
@@ -99,7 +99,7 @@ DATABASE_URL=           # PostgreSQL connection string
 SESSION_SECRET=         # JWT signing secret; 32+ chars, `openssl rand -hex 32`
 ADMIN_EMAIL=            # Single admin user email
 ADMIN_HASH_PASSWORD=    # bcrypt hash of admin password (hex-encoded)
-CRON_SECRET=            # Bearer token for /api/cron/*; Vercel Cron sends it automatically once set. Unset means every cron run 401s and scheduled content never surfaces on its own — see "Scheduled content and revalidation" below.
+CRON_SECRET=            # Bearer token for /api/cron/*; Vercel Schedules sends it on every run once set. It sends the value from the last production deploy, so redeploy after changing it. Unset means every run 401s and scheduled content never surfaces on its own — see "Scheduled content and revalidation" below.
 INDEXNOW_KEY=           # Optional. IndexNow verification key, 8-128 chars of [a-zA-Z0-9-]
 KV_REST_API_URL=        # Optional. Upstash Redis REST URL. Pairs with the token below.
 KV_REST_API_TOKEN=      # Optional. Upstash Redis REST token. Either one missing and `getRedisConfig()` returns null: the login limiter falls open and cron skips its keepalive ping.
@@ -297,51 +297,68 @@ data cache, when a page renders.
 
 Every public content route is static, so that render happens when the page is
 generated, and the result then freezes: nothing runs the filter again when the
-date passes. `/api/cron/revalidate-scheduled` runs daily, counts posts and guides
-that came due in a 50h lookback window, and busts the tags only when one did.
+date passes. `/api/cron/revalidate-scheduled` runs hourly, counts posts and guides
+that came due in a 4h lookback window, and busts the tags only when one did.
 
-Daily is the ceiling on Hobby: those accounts reject any cron expression that
-would fire more than once a day, and `0 * * * *` or `0 */3 * * *` fails at deploy
-time. A sub-daily cadence is still reachable — Hobby allows 100 cron entries per
-project, so N entries at fixed hours (`0 0 * * *`, `0 3 * * *`, …) buy back an
-every-N-hours schedule. Doing that means narrowing `WINDOW_HOURS` to match.
+Both routes under `/api/cron` run on Vercel Schedules (the `schedules` key in
+`vercel.json`), which replaced Vercel Cron Jobs; the ping stays daily. Schedules
+is in beta, so its limits can change. On Hobby:
 
-The cost of daily is latency: a post dated 09:00 stays invisible until the
-midnight run, so up to ~25h. To surface one sooner, bust the tags by hand —
-see below.
+- A schedule runs at most every 15 minutes, and each run starts at a random
+  point in the 15 minutes after its time.
+- The team gets 5,000 runs per billing period, manual runs included. Past that,
+  scheduled runs are skipped until the next period: scheduled content stops
+  surfacing and the Upstash keepalive stops. Hourly plus the daily ping is about
+  750 a month.
+- Vercel doesn't retry a failed run, and can deliver one twice; both routes are
+  safe to run twice.
+
+Path schedules send POST unless `requestMethod` says otherwise, and both routes
+export only `GET`, so every entry sets `"requestMethod": "GET"`. Never keep a
+`crons` key beside `schedules`: both fire. `windowInvariant.test.ts` checks both.
+Renaming a schedule deletes it and its run history, and an Instant Rollback to a
+deployment from before a schedule existed deletes that schedule.
+
+The cost of hourly is latency: a post shows up to ~75 minutes after its
+`datetime`. To surface one sooner, bust the tags by hand — see below.
 
 A dynamic route would not need this — a per-request filter re-evaluates on its
 own. The blog list used to work that way, caching a padded superset and
 filtering at read time. That mechanism was removed when the list was prerendered,
 because a static page has no read time for the filter to run in.
 
-The cron replaced a `revalidate = 3600` on all three routes. That regenerated
-each of them every hour whether or not anything had changed — and with crawlers
-and feed readers polling continuously, it always did. Don't reintroduce it; the
-tests on the feed and sitemap assert its absence.
+The scheduled run replaced a `revalidate = 3600` on all three routes. That
+regenerated each of them every hour whether or not anything had changed — and
+with crawlers and feed readers polling continuously, it always did. The hourly
+run is not the same thing: it queries first and busts only when something came
+due. Don't reintroduce `revalidate`; the tests on the feed and sitemap assert its
+absence.
 
-The lookback window is deliberately wider than the cron interval. Overlap costs
-one redundant revalidation; a gap strands content until the next real mutation.
-It is 50h rather than 24h because three effects stack: Hobby cron timing is only
-accurate to ±59 minutes, so consecutive runs can land 24h59m apart with nothing
-wrong; Vercel documents cron delivery as best effort with no retry, so a run can
+The lookback window is deliberately wider than the schedule interval. Overlap
+costs a few redundant revalidations; a gap strands content until the next real
+mutation. It is 4h rather than 1h because three effects stack: a run can start
+15 minutes after its time with nothing wrong; Vercel doesn't retry a failed run
+and skips one still undelivered an interval past its jitter window, so a run can
 simply not happen; and the post half of the window flattens to a local
 wall-clock string, so a spring-forward transition costs it one more hour on a
 self-hosted deploy in a DST zone (inert on Vercel itself, which runs UTC).
-Double the interval for a missed run, add an hour for the jitter, add an hour
-for the DST shift. Change the schedule in `vercel.json` and `WINDOW_HOURS` must
-follow.
+Double the interval for a missed run, add 15 minutes for the jitter, add an hour
+for the DST shift, and round up. Change the schedule in `vercel.json` and
+`WINDOW_HOURS` must follow; `windowInvariant.test.ts` fails until it does.
 
 ## Forcing scheduled content live
 
-The cron publishes nothing. Its only effect is tag busts: `revalidatePostSection()`
+The scheduled run publishes nothing. Its only effect is tag busts: `revalidatePostSection()`
 per section plus `revalidateGuides()`, then each due item's own detail tag, and
 for a due guide its topic hub's tag (`revalidateGuideTopicHubs`). The `datetime <= now`
 filter runs when the page regenerates, so **anything that forces those routes to
-regenerate has the same effect as the cron run**. Three ways, narrowest first:
+regenerate has the same effect as the scheduled run**. Three ways, narrowest first:
 
-1. `GET /api/cron/revalidate-scheduled` with `Authorization: Bearer $CRON_SECRET`
-   — the same code path, same tags, and it logs the same lines.
+1. Run the `revalidate-scheduled` schedule now: Run Schedule on the dashboard's
+   Schedules page, or `vercel schedules invoke revalidate-scheduled`. Or call
+   `GET /api/cron/revalidate-scheduled` with `Authorization: Bearer $CRON_SECRET`.
+   Each is the same code path, with the same tags and log lines. A manual run
+   counts toward the Hobby run cap; the direct `GET` doesn't.
 2. The dashboard's Revalidate panel, with the due post as `section/slug` or the
    due guide's slug. A post gets its detail page, `feed-{section}`,
    `blog-{section}` and `posts` busted; a guide gets its detail page, its topic

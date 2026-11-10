@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest"
  * It lived as prose in two files. A schedule edit (`0 0 * * *` → `0 1 * * *`)
  * landed during the review that flagged this with nothing to check the relation
  * — harmless, because both are daily, but it demonstrates the path is
- * unguarded. Set the schedule to twice daily and the window becomes
- * over-generous; set it to every other day and scheduled posts start falling
+ * unguarded. Set the schedule to every 30 minutes and the window becomes
+ * over-generous; set it to every two hours and scheduled posts start falling
  * out of every window and stranding.
  *
  * Both values are read from their real sources — `vercel.json` parsed, and the
@@ -20,10 +20,31 @@ import { describe, expect, it } from "vitest"
  */
 
 const REPO_ROOT = join(__dirname, "..", "..", "..", "..")
-const CRON_PATH = "/api/cron/revalidate-scheduled"
+const SCHEDULED_CONTENT_PATH = "/api/cron/revalidate-scheduled"
+
+/**
+ * The latest a run can start after its scheduled time. Vercel Schedules always
+ * use a 15-minute window on Hobby, and allow 1 to 15 minutes on Pro and
+ * Enterprise, so 15 covers every plan.
+ */
+const JITTER_HOURS = 0.25
+
+/**
+ * What a spring-forward transition takes off the post window, which is a local
+ * wall-clock string. Inert on Vercel, which runs UTC; it covers a self-hosted
+ * deploy in a DST zone.
+ */
+const DST_SHIFT_HOURS = 1
+
+interface Schedule {
+	path: string
+	schedule: string
+	requestMethod?: string
+}
 
 interface VercelConfig {
-	crons?: { path: string; schedule: string }[]
+	crons?: unknown
+	schedules?: Record<string, Schedule>
 }
 
 function vercelConfig(): VercelConfig {
@@ -32,11 +53,19 @@ function vercelConfig(): VercelConfig {
 	) as VercelConfig
 }
 
-function scheduleFor(path: string): string {
-	const entry = vercelConfig().crons?.find((cron) => cron.path === path)
+function allSchedules(): Schedule[] {
+	return Object.values(vercelConfig().schedules ?? {})
+}
 
-	if (entry === undefined) {
-		throw new Error(`No cron entry for ${path} in vercel.json`)
+function schedulesFor(path: string): Schedule[] {
+	return allSchedules().filter((entry) => entry.path === path)
+}
+
+function scheduleFor(path: string): string {
+	const [entry, ...rest] = schedulesFor(path)
+
+	if (entry === undefined || rest.length > 0) {
+		throw new Error(`Expected exactly one schedule for ${path} in vercel.json`)
 	}
 
 	return entry.schedule
@@ -45,23 +74,26 @@ function scheduleFor(path: string): string {
 /**
  * Hours between consecutive firings of a cron expression.
  *
- * Deliberately narrow: it understands the daily and every-N-hours shapes this
- * project can actually use, and throws on anything else rather than guessing.
- * Hobby rejects any expression firing more than once a day, so a sub-daily
- * cadence is spelled as N separate daily entries at fixed hours — which is why
- * the multi-entry case is handled by counting entries, below.
+ * Deliberately narrow: it understands the hourly, every-N-hours and daily shapes
+ * this project can use, and throws on anything else rather than guessing. A
+ * sub-hourly schedule (`*\/15 * * * *`) throws on purpose: the window would then
+ * need a fractional interval, and the bounds below should be re-read with it.
  */
 function intervalHours(schedule: string): number {
 	const [minute, hour, dayOfMonth, month, dayOfWeek] = schedule.split(" ")
 
 	if (dayOfMonth !== "*" || month !== "*" || dayOfWeek !== "*") {
 		throw new Error(
-			`Unsupported cron schedule "${schedule}" — this test only understands daily and every-N-hours forms. Update it alongside the schedule.`
+			`Unsupported cron schedule "${schedule}" — this test only understands hourly, every-N-hours and daily forms. Update it alongside the schedule.`
 		)
 	}
 
 	if (!/^\d+$/.test(minute)) {
 		throw new Error(`Unsupported cron minute field in "${schedule}"`)
+	}
+
+	if (hour === "*") {
+		return 1
 	}
 
 	if (/^\d+$/.test(hour)) {
@@ -96,45 +128,63 @@ function windowHours(): number {
 	return Number(match[1])
 }
 
-/** Daily entries for one path; N of them buy an every-24/N-hours cadence. */
-function entryCount(path: string): number {
-	return (vercelConfig().crons ?? []).filter((cron) => cron.path === path)
-		.length
-}
-
 describe("scheduled-content window invariant", () => {
-	it("finds the cron entry it is asserting about", () => {
+	it("finds exactly one schedule for the route", () => {
 		// Without this, a renamed path turns every assertion below into a throw
-		// that reads like a broken test rather than a broken schedule.
-		expect(entryCount(CRON_PATH)).toBeGreaterThan(0)
+		// that reads like a broken test rather than a broken schedule. A second
+		// entry for the same path would add runs this test never looks at.
+		expect(schedulesFor(SCHEDULED_CONTENT_PATH)).toHaveLength(1)
 	})
 
 	it("looks back further than two consecutive runs can span", () => {
-		// The asymmetry the whole design rests on: overlap costs one redundant
+		// The asymmetry the whole design rests on: overlap costs a redundant
 		// revalidation, a gap silently strands a post until the next real
-		// mutation. `2 × interval` absorbs one missed run (Vercel documents cron
-		// delivery as best effort, with no retry), +1 covers Hobby's ±59 minutes
-		// of scheduling jitter, +1 covers the hour a DST transition takes off the
-		// post window, which is a local wall-clock string.
-		const effectiveInterval =
-			intervalHours(scheduleFor(CRON_PATH)) / entryCount(CRON_PATH)
+		// mutation. `2 × interval` absorbs one missed or late run (Vercel does not
+		// retry a failed run), plus the jitter on the run's start, plus the hour a
+		// DST transition takes off the post window, which is a local wall-clock
+		// string.
+		const interval = intervalHours(scheduleFor(SCHEDULED_CONTENT_PATH))
 
-		expect(windowHours()).toBeGreaterThanOrEqual(2 * effectiveInterval + 2)
+		expect(windowHours()).toBeGreaterThanOrEqual(
+			2 * interval + JITTER_HOURS + DST_SHIFT_HOURS
+		)
 	})
 
 	it("does not look back so far that the window is unbounded", () => {
 		// The other direction is not a correctness bug but it is a cost one: every
-		// extra hour of window is another slice of already-current content
-		// re-busted on every run. Four intervals is generous and still finite.
-		const effectiveInterval =
-			intervalHours(scheduleFor(CRON_PATH)) / entryCount(CRON_PATH)
+		// run whose window still holds a due post busts the section aggregates
+		// again. Four intervals is generous and still finite.
+		const interval = intervalHours(scheduleFor(SCHEDULED_CONTENT_PATH))
 
-		expect(windowHours()).toBeLessThanOrEqual(4 * effectiveInterval)
+		expect(windowHours()).toBeLessThanOrEqual(4 * interval)
 	})
 
 	it("keeps the schedule in a shape the invariant can be computed from", () => {
 		// If someone writes a schedule this test can't parse, that must fail here
 		// rather than silently skipping the relation it exists to guard.
-		expect(() => intervalHours(scheduleFor(CRON_PATH))).not.toThrow()
+		expect(() =>
+			intervalHours(scheduleFor(SCHEDULED_CONTENT_PATH))
+		).not.toThrow()
+	})
+})
+
+describe("vercel.json schedules", () => {
+	it("has no Cron Jobs left beside the schedules", () => {
+		// A Cron Job and a schedule on the same path both fire, and the invariant
+		// above reads only `schedules`, so a stray `crons` entry would run
+		// unchecked.
+		expect(vercelConfig().crons).toBeUndefined()
+	})
+
+	it("calls every route with GET", () => {
+		// Path schedules send POST unless told otherwise, and the cron routes
+		// export only `GET`: a missing `requestMethod` 405s every run.
+		const schedules = allSchedules()
+
+		expect(schedules.length).toBeGreaterThan(0)
+
+		for (const entry of schedules) {
+			expect(entry.requestMethod, entry.path).toBe("GET")
+		}
 	})
 })

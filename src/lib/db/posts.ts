@@ -587,7 +587,7 @@ export async function listPostsForAdmin({
  *
  * "Read time" means generation time, not request time: every consumer here is
  * prerendered, so the filter runs once when the page is built and freezes with
- * it. A post coming due surfaces when something busts the tag — the daily
+ * it. A post coming due surfaces when something busts the tag — the scheduled
  * `/api/cron/revalidate-scheduled` run, or any post mutation — never on its own.
  */
 const allPublishedPostSlugsCache = unstable_cache(
@@ -628,8 +628,8 @@ export interface PostArchiveItem {
  * Caches the raw published list including scheduled posts; year-grouping and
  * `datetime <= now` filtering happen in `getPostsGroupedByYear` when the entry
  * is generated. The archive page is prerendered, so that filter does not re-run
- * per request — a post coming due reaches the archive when the daily cron busts
- * `blog-{section}`, not by itself.
+ * per request — a post coming due reaches the archive when the
+ * scheduled-content run busts `blog-{section}`, not by itself.
  */
 function makeArchiveCache(section: Section) {
 	return unstable_cache(

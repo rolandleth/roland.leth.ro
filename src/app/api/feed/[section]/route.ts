@@ -80,8 +80,8 @@ function escapeCdata(html: string): string {
  * `FEED_ENTRY_LIMIT + futureCount` rows so that the handler can filter
  * `datetime <= now` and still emit a full feed. Scheduled posts therefore live
  * inside the cache and surface at the first regeneration after their `datetime`
- * passes — which the daily `revalidate-scheduled` cron's `feed-{section}` bust
- * is what triggers. There is no route-level `revalidate` backstop any more; the
+ * passes — which the scheduled `revalidate-scheduled` run's `feed-{section}`
+ * bust is what triggers. There is no route-level `revalidate` backstop any more; the
  * tests pin its absence.
  *
  * simplified: markdown is rendered for the future rows too, trading compute for

@@ -1,12 +1,14 @@
 {
-	"crons": [
-		{
+	"schedules": {
+		"ping": {
+			"schedule": "0 0 * * *",
 			"path": "/api/cron/ping",
-			"schedule": "0 0 * * *"
+			"requestMethod": "GET"
 		},
-		{
+		"revalidate-scheduled": {
+			"schedule": "0 * * * *",
 			"path": "/api/cron/revalidate-scheduled",
-			"schedule": "0 1 * * *"
+			"requestMethod": "GET"
 		}
-	]
+	}
 }

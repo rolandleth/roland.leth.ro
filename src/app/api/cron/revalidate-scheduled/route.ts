@@ -25,37 +25,37 @@ const LOG_TAG = "[api:cron:revalidate-scheduled]"
 
 /**
  * How far back to look for posts that came due, in hours. Deliberately WIDER
- * than the cron interval in `vercel.json` (daily): a skipped or delayed run
- * would otherwise leave a post outside both windows, stranding it until the next
+ * than the schedule interval in `vercel.json` (hourly): a skipped or late run
+ * would otherwise leave a post outside every window, stranding it until the next
  * real mutation. Overlap costs one redundant revalidation; a gap loses a post
  * silently, so the asymmetry favours overlapping.
  *
- * Fifty hours, not twenty-four, because three effects stack. Hobby cron
- * scheduling is only accurate to ±59 minutes — `0 1 * * *` fires anywhere inside
- * the 01:00 hour — so consecutive runs can already land 24h59m apart with
- * nothing wrong. Vercel documents cron delivery as best effort, with no retry on
- * failure: a run can simply not happen. And the post half of the window is an
- * absolute offset flattened to a local wall-clock string (see `GET`), so a
- * spring-forward transition costs it one more hour. Double the interval to
- * absorb one missed run, add an hour for the jitter, add an hour for the DST
- * shift.
+ * Four hours, not one, because three effects stack. Vercel Schedules start a
+ * run at a random point up to 15 minutes after its scheduled time (always 15 on
+ * Hobby, at most 15 on any plan), so consecutive runs can already land 1h15m
+ * apart with nothing wrong. Vercel does not retry a failed run, and skips one
+ * that is still undelivered an interval past its jitter window: a run can simply
+ * not happen. And the post half of the window is an absolute offset flattened to
+ * a local wall-clock string (see `GET`), so a spring-forward transition costs it
+ * one more hour. Double the interval to absorb one missed run, add 15 minutes for
+ * the jitter, add an hour for the DST shift: 3h15m, rounded up to whole hours.
  *
  * That last hour is inert on Vercel, where the runtime is UTC and there is no
  * transition to hit. It is here because nothing in the repo pins `TZ`, so a
- * self-hosted deploy in a DST zone would otherwise get a 48h window — exactly
- * two intervals, jitter hour erased — twice a year.
+ * self-hosted deploy in a DST zone would otherwise lose an hour of the post
+ * window twice a year, eating the margin for a missed run.
  *
- * The overlap is bounded rather than free. Both queries return the rows that
- * came due, not a count, so a wider window returns more of them and each extra
- * row costs one `revalidateTag` on a detail entry that is already current. On
- * the common path (nothing came due) it costs nothing — an empty result either
- * way — and the ceiling is one extra day of scheduled content, re-busted once.
+ * The overlap is bounded rather than free. Each due row sits inside the window
+ * of about four consecutive runs, and every one of them busts the section
+ * aggregates and that row's detail entry again, so a post going live costs a
+ * few rounds of regeneration instead of one. On the common path (nothing came
+ * due) it costs nothing — an empty result either way.
  *
- * Changing the cron interval means changing this too — keep it above the widest
- * gap two consecutive runs can produce, including a missed one.
+ * Changing the schedule interval means changing this too — keep it above the
+ * widest gap two consecutive runs can produce, including a missed one.
  * `windowInvariant.test.ts` parses `vercel.json` and asserts the relation.
  */
-const WINDOW_HOURS = 50
+const WINDOW_HOURS = 4
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000
 
@@ -144,7 +144,7 @@ function logCheckFailure(
  * thorough branch, not a degraded one — it also covers the rows the capped query
  * never returned, which is what makes the cap safe.
  *
- * Note what neither branch heals: a post stranded by a cron gap wider than
+ * Note what neither branch heals: a post stranded by a schedule gap wider than
  * `WINDOW_HOURS` falls outside every window, and the next admin save then busts
  * the section aggregates for all posts while `revalidatePost` busts only the
  * saved post's own detail tag. The stranded post ends up listed everywhere and
@@ -212,7 +212,7 @@ function slugField(slugs: string[], overflowed: boolean): string[] | string {
  * backstop regenerated all three every hour whether or not anything had changed
  * — and with crawlers and feed readers polling continuously, "whether or not"
  * was always "yes". Checking first turns ~72 daily regenerations into two
- * due-content queries per day plus a bust on the rare day that needs one.
+ * due-content queries per run plus a bust on the rare run that needs one.
  *
  * Posts and guides are both checked because the sitemap spans both, and their
  * publication times are stored differently: a post's `datetime` is a
@@ -266,8 +266,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 	if (duePosts.length === 0 && dueGuides.length === 0) {
 		if (failureId !== null) {
 			// Nothing to revalidate AND a broken check. The 500 is what marks the
-			// run failed in Vercel's cron log; without it a database outage looks
-			// exactly like the (very common) quiet day.
+			// run failed in the schedule's run history; without it a database
+			// outage looks exactly like the (very common) quiet day.
 			return failed(failureId)
 		}
 
